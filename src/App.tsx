@@ -21,6 +21,7 @@ import {
   fetchConfig,
   fetchDashboard,
   fetchLibraryIndex,
+  saveAppConfig,
   saveConfig,
 } from "./lib/api";
 import { buildRandomArtistCoverMap } from "./lib/artistCover";
@@ -2878,13 +2879,28 @@ function SettingsView({
   const [libLocked, setLibLocked] = useState(false);
   const [libSaveBusy, setLibSaveBusy] = useState(false);
   const [libErr, setLibErr] = useState<string | null>(null);
+  const [listenOnLan, setListenOnLan] = useState(false);
+  const [serverPort, setServerPort] = useState(3001);
+  const [devClientPort, setDevClientPort] = useState(5173);
+  const [lanAccessUrl, setLanAccessUrl] = useState<string | null>(null);
+  const [netBusy, setNetBusy] = useState(false);
+  const [netErr, setNetErr] = useState<string | null>(null);
+  const initialListenOnLanRef = useRef<boolean | null>(null);
 
   useEffect(() => {
     fetchConfig()
       .then((c) => {
         setLibPath(c.musicRoot);
         setLibLocked(c.lockedByEnv);
+        if (initialListenOnLanRef.current === null) {
+          initialListenOnLanRef.current = c.listenOnLan;
+        }
+        setListenOnLan(c.listenOnLan);
+        setServerPort(c.serverPort);
+        setDevClientPort(c.devClientPort);
+        setLanAccessUrl(c.lanAccessUrl);
         setLibErr(null);
+        setNetErr(null);
       })
       .catch((e: unknown) =>
         setLibErr(e instanceof Error ? e.message : String(e))
@@ -2902,6 +2918,22 @@ function SettingsView({
         setLibErr(e instanceof Error ? e.message : String(e))
       )
       .finally(() => setLibSaveBusy(false));
+  };
+
+  const saveListenOnLan = (next: boolean) => {
+    setNetErr(null);
+    setNetBusy(true);
+    saveAppConfig({ listenOnLan: next })
+      .then((c) => {
+        setListenOnLan(c.listenOnLan);
+        setLanAccessUrl(c.lanAccessUrl);
+        setServerPort(c.serverPort);
+        setDevClientPort(c.devClientPort);
+      })
+      .catch((e: unknown) =>
+        setNetErr(e instanceof Error ? e.message : String(e))
+      )
+      .finally(() => setNetBusy(false));
   };
 
   return (
@@ -2996,11 +3028,46 @@ function SettingsView({
       <section className="surface-card">
         <div className="section-head section-head--page-toolbar">
           <div>
+            <p className="eyebrow">{t("settings.networkEyebrow")}</p>
+            <h2>{t("settings.networkHeading")}</h2>
+          </div>
+        </div>
+        {netErr ? <p className="subtle sm warnline">{netErr}</p> : null}
+        <p className="subtle sm">
+          {t("settings.networkLead", {
+            port: serverPort,
+            devPort: devClientPort,
+          })}
+        </p>
+        <label className="setting-card checkbox">
+          <input
+            type="checkbox"
+            checked={listenOnLan}
+            disabled={netBusy}
+            onChange={(e) => saveListenOnLan(e.target.checked)}
+          />
+          <span>{t("settings.networkListenOnLan")}</span>
+        </label>
+        {listenOnLan && lanAccessUrl ? (
+          <p className="subtle sm">
+            {t("settings.networkUrlHint", { url: lanAccessUrl })}
+          </p>
+        ) : listenOnLan ? (
+          <p className="subtle sm">{t("settings.networkNoUrl")}</p>
+        ) : null}
+        {initialListenOnLanRef.current !== null &&
+        listenOnLan !== initialListenOnLanRef.current ? (
+          <p className="subtle sm warnline">{t("settings.networkRestartHint")}</p>
+        ) : null}
+      </section>
+      <section className="surface-card settings-ui-section">
+        <div className="section-head section-head--page-toolbar">
+          <div>
             <p className="eyebrow">{t("settings.uiEyebrow")}</p>
             <h2>{t("settings.uiHeading")}</h2>
           </div>
         </div>
-        <div className="settings-grid">
+        <div className="settings-grid settings-ui-section__grid">
           <label className="setting-card">
             <span>{t("settings.language")}</span>
             <select

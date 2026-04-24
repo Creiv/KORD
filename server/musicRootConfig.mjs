@@ -1,5 +1,6 @@
 import fs from "fs";
 import fsp from "fs/promises";
+import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -13,6 +14,7 @@ const DEFAULT_PATH = "/";
 const state = {
   path: null,
   fromEnv: false,
+  listenOnLan: false,
 };
 
 function readEnv() {
@@ -23,32 +25,45 @@ function readEnv() {
   return null;
 }
 
-function readFileConfig() {
+function readFileObject() {
   try {
     if (fs.existsSync(CONFIG_FILE)) {
-      const j = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
-      if (j?.musicRoot && typeof j.musicRoot === "string") {
-        return path.resolve(j.musicRoot);
-      }
+      return JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8")) || {};
     }
   } catch {
-    /* keep default */
+    /* ignore */
   }
-  return null;
+  return {};
 }
 
 function init() {
+  const file = readFileObject();
+  state.listenOnLan = Boolean(file.listenOnLan);
   const fromEnv = readEnv();
   if (fromEnv) {
     state.path = fromEnv.path;
     state.fromEnv = true;
     return;
   }
-  state.path = readFileConfig() || path.resolve(DEFAULT_PATH);
+  if (file.musicRoot && typeof file.musicRoot === "string") {
+    state.path = path.resolve(file.musicRoot);
+  } else {
+    state.path = path.resolve(DEFAULT_PATH);
+  }
   state.fromEnv = false;
 }
 
 init();
+
+function guessLanIPv4() {
+  const nets = os.networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name] || []) {
+      if (net.family === "IPv4" && !net.internal) return net.address;
+    }
+  }
+  return null;
+}
 
 export function getMusicRoot() {
   return state.path;
@@ -58,8 +73,43 @@ export function isMusicRootFromEnv() {
   return state.fromEnv;
 }
 
+export function getListenHost() {
+  return state.listenOnLan ? "0.0.0.0" : "127.0.0.1";
+}
+
 export function getConfigSnapshot() {
-  return { musicRoot: state.path, lockedByEnv: state.fromEnv };
+  const serverPort = Number(process.env.PORT) || 3001;
+  const ip = guessLanIPv4();
+  const lanAccessUrl =
+    state.listenOnLan && ip ? `http://${ip}:${serverPort}` : null;
+  return {
+    musicRoot: state.path,
+    lockedByEnv: state.fromEnv,
+    listenOnLan: state.listenOnLan,
+    serverPort,
+    devClientPort: 5173,
+    lanAccessUrl,
+  };
+}
+
+async function writeMergedConfig() {
+  await fsp.writeFile(
+    CONFIG_FILE,
+    JSON.stringify(
+      {
+        musicRoot: state.path,
+        listenOnLan: state.listenOnLan,
+      },
+      null,
+      2
+    ),
+    "utf8"
+  );
+}
+
+export async function setListenOnLan(value) {
+  state.listenOnLan = Boolean(value);
+  await writeMergedConfig();
 }
 
 export async function setPersistedMusicRoot(absolute) {
@@ -81,11 +131,7 @@ export async function setPersistedMusicRoot(absolute) {
     err.code = "NOT_DIR";
     throw err;
   }
-  await fsp.writeFile(
-    CONFIG_FILE,
-    JSON.stringify({ musicRoot: resolved }, null, 2),
-    "utf8"
-  );
   state.path = resolved;
   state.fromEnv = false;
+  await writeMergedConfig();
 }

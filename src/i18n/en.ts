@@ -212,6 +212,17 @@ export const EN: Record<string, string> = {
   "settings.libPathPh": "/absolute/path",
   "settings.saveReload": "Save and reload",
   "settings.saving": "Saving…",
+  "settings.networkEyebrow": "Network",
+  "settings.networkHeading": "Access from other devices",
+  "settings.networkLead":
+    "The API server uses port {{port}}. In development the UI is served by Vite on port {{devPort}}.",
+  "settings.networkListenOnLan":
+    "Listen on the LAN (0.0.0.0), not only localhost",
+  "settings.networkUrlHint": "Estimated address on your network: {{url}}",
+  "settings.networkNoUrl":
+    "No LAN IPv4 detected — find this machine’s address manually.",
+  "settings.networkRestartHint":
+    "Restart KORD so the new setting takes effect.",
   "settings.shortcutsEyebrow": "Shortcuts",
   "settings.shortcutsHeading": "Quick use",
   "settings.shortcutOr": "or",

@@ -319,6 +319,16 @@
   border-top: 1px solid var(--border);
 }
 
+@media (min-width: 901px) {
+  .settings-page.dashboard-grid > .settings-ui-section {
+    grid-column: 1 / -1;
+  }
+
+  .settings-ui-section__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .surface-card,
 .hero-card,
 .listen-stage,

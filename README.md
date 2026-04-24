@@ -47,6 +47,10 @@ PORT=3001
 
 Override with environment variables. The desktop app also uses `KORD_USER_CONFIG_DIR` (with backward compatibility for `WPP_USER_CONFIG_DIR` on older builds).
 
+### LAN access
+
+In **Settings → Network** you can bind the API (and, in development, Vite) to all interfaces (`0.0.0.0`) so other devices on the same LAN can open the app. The flag is stored in `music-root.config.json` together with the music folder path (see server `musicRootConfig.mjs` for where that file lives). **Restart KORD** after changing it so processes pick up the new listen address.
+
 ## Scripts
 
 ```bash

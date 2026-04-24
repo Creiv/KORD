@@ -8,7 +8,9 @@ import { fileURLToPath } from "url"
 import { aggregateArtworkSearch } from "./artworkSearch.mjs"
 import {
   getConfigSnapshot,
+  getListenHost,
   getMusicRoot,
+  setListenOnLan,
   setPersistedMusicRoot,
 } from "./musicRootConfig.mjs"
 import {
@@ -179,9 +181,27 @@ app.get("/api/config", (_req, res) => {
 
 app.put("/api/config", async (req, res) => {
   try {
-    const next = String(req.body?.musicRoot ?? "").trim()
-    if (!next) return sendError(res, 400, "Provide the absolute path to your music folder")
-    await setPersistedMusicRoot(next)
+    const body = req.body || {}
+    let did = false
+    if (body.musicRoot != null) {
+      const next = String(body.musicRoot).trim()
+      if (!next) {
+        return sendError(
+          res,
+          400,
+          "Provide the absolute path to your music folder"
+        )
+      }
+      await setPersistedMusicRoot(next)
+      did = true
+    }
+    if (typeof body.listenOnLan === "boolean") {
+      await setListenOnLan(body.listenOnLan)
+      did = true
+    }
+    if (!did) {
+      return sendError(res, 400, "No valid config fields in request body")
+    }
     return sendOk(res, getConfigSnapshot())
   } catch (error) {
     if (error?.code === "ENV_LOCKED") return sendError(res, 403, error.message)
@@ -628,8 +648,11 @@ app.use((error, _req, res, _next) => {
   return sendError(res, 500, "Internal server error")
 })
 
-const httpServer = app.listen(PORT, "127.0.0.1", () => {
-  console.log(`[music-server] http://127.0.0.1:${PORT} -> ${getMusicRoot()}`)
+const LISTEN_HOST = getListenHost()
+const httpServer = app.listen(PORT, LISTEN_HOST, () => {
+  console.log(
+    `[music-server] http://${LISTEN_HOST}:${PORT} -> ${getMusicRoot()}`
+  )
 })
 httpServer.on("error", (err) => {
   console.error("[music-server] listen", err)

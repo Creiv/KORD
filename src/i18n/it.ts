@@ -217,6 +217,17 @@ export const IT: Record<string, string> = {
   "settings.libPathPh": "/percorso/assoluto",
   "settings.saveReload": "Salva e ricarica",
   "settings.saving": "Salvo…",
+  "settings.networkEyebrow": "Rete",
+  "settings.networkHeading": "Accesso da altri dispositivi",
+  "settings.networkLead":
+    "L’API del server usa la porta {{port}}. In sviluppo l’interfaccia è servita da Vite sulla porta {{devPort}}.",
+  "settings.networkListenOnLan":
+    "Ascolta sulla LAN (0.0.0.0), non solo su localhost",
+  "settings.networkUrlHint": "Indirizzo stimato sulla tua rete: {{url}}",
+  "settings.networkNoUrl":
+    "Nessun IPv4 LAN rilevato: controlla l’indirizzo del computer manualmente.",
+  "settings.networkRestartHint":
+    "Riavvia KORD perché la nuova impostazione sia applicata.",
   "settings.shortcutsEyebrow": "Scorciatoie",
   "settings.shortcutsHeading": "Uso rapido",
   "settings.shortcutOr": "oppure",

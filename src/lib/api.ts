@@ -70,6 +70,10 @@ export async function saveUserState(state: UserStateV1): Promise<UserStateV1> {
 export type AppConfig = {
   musicRoot: string
   lockedByEnv: boolean
+  listenOnLan: boolean
+  serverPort: number
+  devClientPort: number
+  lanAccessUrl: string | null
 }
 
 export async function fetchConfig(): Promise<AppConfig> {
@@ -77,13 +81,19 @@ export async function fetchConfig(): Promise<AppConfig> {
   return unwrap<AppConfig>(response)
 }
 
-export async function saveConfig(musicRoot: string): Promise<AppConfig> {
+export async function saveAppConfig(
+  patch: { musicRoot?: string; listenOnLan?: boolean }
+): Promise<AppConfig> {
   const response = await fetch("/api/config", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ musicRoot }),
+    body: JSON.stringify(patch),
   })
   return unwrap<AppConfig>(response)
+}
+
+export async function saveConfig(musicRoot: string): Promise<AppConfig> {
+  return saveAppConfig({ musicRoot })
 }
 
 export type PresetYtdlp = {
