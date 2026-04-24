@@ -15,6 +15,7 @@ import {
   THEME_MODES,
   type AppLocale,
   type EnrichedTrack,
+  type LibraryIndex,
   type QueueState,
   type ThemeMode,
   type UserPlaylist,
@@ -204,6 +205,7 @@ type UserStateContextValue = {
   addTrackToPlaylist: (id: string, track: EnrichedTrack) => void;
   removeTrackFromPlaylist: (id: string, relPath: string) => void;
   saveQueueAsPlaylist: (name: string, queue: EnrichedTrack[]) => string;
+  rehydrateTrackListsFromLibrary: (index: LibraryIndex) => void;
 };
 
 const UserStateContext = createContext<UserStateContextValue | null>(null);
@@ -298,6 +300,32 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
           track,
           ...prev.recent.filter((item) => item.relPath !== track.relPath),
         ].slice(0, 30),
+      }));
+    },
+    [commit]
+  );
+
+  const rehydrateTrackListsFromLibrary = useCallback(
+    (libraryIndex: LibraryIndex) => {
+      const byPath = new Map(
+        libraryIndex.tracks.map((t) => [t.relPath, t])
+      );
+      commit((prev) => ({
+        ...prev,
+        recent: prev.recent.map((t) => byPath.get(t.relPath) ?? t),
+        playlists: prev.playlists.map((pl) => ({
+          ...pl,
+          tracks: pl.tracks.map((tr) => {
+            const full = byPath.get(tr.relPath);
+            if (!full) return tr;
+            return {
+              relPath: full.relPath,
+              title: full.title,
+              artist: full.artist,
+              album: full.album,
+            };
+          }),
+        })),
       }));
     },
     [commit]
@@ -470,6 +498,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       addTrackToPlaylist,
       removeTrackFromPlaylist,
       saveQueueAsPlaylist,
+      rehydrateTrackListsFromLibrary,
     }),
     [
       addTrackToPlaylist,
@@ -478,6 +507,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       error,
       favorites,
       pushRecent,
+      rehydrateTrackListsFromLibrary,
       ready,
       removeTrackFromPlaylist,
       renamePlaylist,

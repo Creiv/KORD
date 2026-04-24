@@ -1,5 +1,6 @@
 import {
   startTransition,
+  useCallback,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -19,6 +20,11 @@ import {
 import { buildRandomArtistCoverMap } from "./lib/artistCover";
 import { fmtDate, trackInfoBadges } from "./lib/metaFormat";
 import { ExcludeShuffleIcon } from "./components/ExcludeShuffleIcon";
+import {
+  TrackMetaEditGlyph,
+  TrackMetaEditProvider,
+  useOpenTrackMetaEdit,
+} from "./components/TrackMetaEditor";
 import { KordWordmarkSvg } from "./components/KordWordmarkSvg";
 import { ThemePicker } from "./components/ThemePicker";
 import { ToolsView } from "./components/ToolsView";
@@ -271,6 +277,7 @@ function TrackListRow({
   const p = usePlayer();
   const user = useUserState();
   const { t } = useI18n();
+  const openTrackMetaEdit = useOpenTrackMetaEdit();
   const inQ = p.isTrackInQueue(track.relPath);
   const fav = user.isFavorite(track.relPath);
   return (
@@ -332,6 +339,20 @@ function TrackListRow({
         >
           <span className="track-row__ic-glyph" aria-hidden>
             ♥
+          </span>
+        </button>
+        <button
+          type="button"
+          className="track-row__ic track-row__ic--meta"
+          onClick={(ev) => {
+            ev.stopPropagation();
+            openTrackMetaEdit(track);
+          }}
+          title={t("trackRow.editMetaTitle")}
+          aria-label={t("trackRow.editMetaAria")}
+        >
+          <span className="track-row__ic-glyph track-row__ic-glyph--svg">
+            <TrackMetaEditGlyph />
           </span>
         </button>
         {extraActions}
@@ -2269,9 +2290,9 @@ function Shell() {
   const [error, setError] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const refresh = () => {
+  const refresh = useCallback(() => {
     setLoading(true);
-    Promise.all([fetchLibraryIndex(), fetchDashboard()])
+    return Promise.all([fetchLibraryIndex(), fetchDashboard()])
       .then(([libraryData, dashboardData]) => {
         setIndex(libraryData);
         setDashboard(dashboardData);
@@ -2279,14 +2300,20 @@ function Shell() {
       })
       .catch((err: unknown) => setError(String(err)))
       .finally(() => setLoading(false));
-  };
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      refresh();
+      void refresh();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!index) return;
+    p.resyncTracksFromIndex(index);
+    user.rehydrateTrackListsFromLibrary(index);
+  }, [index, p.resyncTracksFromIndex, user.rehydrateTrackListsFromLibrary]);
 
   useEffect(() => {
     const id = window.requestAnimationFrame(() => setSearch(""));
@@ -2336,6 +2363,18 @@ function Shell() {
       .map((relPath) => index.tracks.find((track) => track.relPath === relPath))
       .filter((track): track is LibraryTrackIndex => Boolean(track));
   }, [index, user.state.favorites]);
+
+  const libraryGenreOptions = useMemo(() => {
+    if (!index) return [];
+    const s = new Set<string>();
+    for (const tr of index.tracks) {
+      const g = tr.meta?.genre?.trim();
+      if (g) s.add(g);
+    }
+    return [...s].sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" })
+    );
+  }, [index]);
 
   const currentView = (() => {
     if (loading && !index)
@@ -2425,7 +2464,11 @@ function Shell() {
   })();
 
   return (
-    <div className="app-shell">
+    <TrackMetaEditProvider
+      genreOptions={libraryGenreOptions}
+      onSaved={refresh}
+    >
+      <div className="app-shell">
       <div className="main-shell">
         <header className="topbar2 topbar2--toolbar" role="banner">
           <h1 className="sr-only">
@@ -2524,6 +2567,7 @@ function Shell() {
 
       <PlayerDock onGoToAscolta={() => navigate({ section: "ascolta" })} />
     </div>
+    </TrackMetaEditProvider>
   );
 }
 

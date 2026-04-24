@@ -17,6 +17,7 @@ import {
   prepareTrackTitleForMeta,
   sanitizeTrackTitlesFullLibrary,
   sanitizeTrackTitlesInAlbumDir,
+  saveTrackManualMeta,
 } from "./albumInfo.mjs"
 import {
   buildDashboard,
@@ -160,6 +161,7 @@ app.get("/api/library", async (_req, res) => {
 app.get("/api/library-index", async (_req, res) => {
   try {
     const index = await getLibraryIndex()
+    res.set("Cache-Control", "no-store, must-revalidate")
     return sendOk(res, index)
   } catch (error) {
     console.error(error)
@@ -170,6 +172,7 @@ app.get("/api/library-index", async (_req, res) => {
 app.get("/api/dashboard", async (_req, res) => {
   try {
     const [index, state] = await Promise.all([getLibraryIndex(), readUserState(getMusicRoot())])
+    res.set("Cache-Control", "no-store, must-revalidate")
     return sendOk(res, buildDashboard(index, state))
   } catch (error) {
     console.error(error)
@@ -466,6 +469,46 @@ app.post("/api/track-info/fetch", async (req, res) => {
     json[fileName] = { ...meta, fetchedAt: new Date().toISOString() }
     await fs.writeFile(fp, JSON.stringify(json, null, 2), "utf8")
     return res.json({ ok: true, relPath, meta: json[fileName] })
+  } catch (error) {
+    return sendError(res, 500, String(error?.message || error))
+  }
+})
+
+app.post("/api/track-info/save", async (req, res) => {
+  const relPath = safeRelSeg(String(req.body?.relPath || ""))
+  const patch = req.body?.patch
+  if (!relPath) return sendError(res, 400, "relPath is required")
+  if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+    return sendError(res, 400, "patch object is required")
+  }
+  try {
+    const fullTrackPath = path.join(getMusicRoot(), relPath.replaceAll("/", path.sep))
+    if (!underRoot(fullTrackPath) || !existsSync(fullTrackPath) || !isAudioFile(fullTrackPath)) {
+      return sendError(res, 404, "Track not found")
+    }
+    const parts = relPath.split("/").filter(Boolean)
+    const fileName = parts[parts.length - 1]
+    const albumRel = albumFolderFromRelPath(relPath)
+    if (!albumRel) return sendError(res, 400, "Invalid track path")
+    const albumDir = path.join(getMusicRoot(), albumRel.replaceAll("/", path.sep))
+    if (!underRoot(albumDir) || !existsSync(albumDir)) return sendError(res, 404, "Album folder not found")
+    const allowed = [
+      "title",
+      "releaseDate",
+      "genre",
+      "durationMs",
+      "trackNumber",
+      "discNumber",
+      "source",
+      "url",
+    ]
+    const safe = {}
+    for (const k of allowed) {
+      if (Object.prototype.hasOwnProperty.call(patch, k)) safe[k] = patch[k]
+    }
+    if (!Object.keys(safe).length) return sendError(res, 400, "No valid fields in patch")
+    const meta = await saveTrackManualMeta(albumDir, fileName, safe)
+    return res.json({ ok: true, relPath, meta })
   } catch (error) {
     return sendError(res, 500, String(error?.message || error))
   }

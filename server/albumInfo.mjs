@@ -173,6 +173,66 @@ export async function loadTrackJsonMetaMapFromDir(albumDir) {
 }
 
 /**
+ * Merge manuale in kord-trackinfo.json per un file audio (legge da kord o legacy wpp, scrive sempre kord).
+ * @param {string} albumDir assoluto
+ * @param {string} fileName es. "01 - Song.flac"
+ * @param {Record<string, unknown>} patch solo chiavi ammesse
+ */
+export async function saveTrackManualMeta(albumDir, fileName, patch) {
+  const readPath = pickTrackMetaPath(albumDir)
+  const writePath = path.join(albumDir, FILE_TRACK)
+  let json = {}
+  if (existsSync(readPath)) {
+    try {
+      const raw = await fs.readFile(readPath, "utf8")
+      const j = JSON.parse(raw)
+      if (j && typeof j === "object") json = j
+    } catch {
+      json = {}
+    }
+  }
+  const prev =
+    json[fileName] && typeof json[fileName] === "object"
+      ? { ...json[fileName] }
+      : {}
+  const next = { ...prev }
+  const str = (v, max) => {
+    if (v == null) return null
+    const s = String(v).trim()
+    return s ? s.slice(0, max) : null
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "title")) {
+    next.title = str(patch.title, 500)
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "releaseDate")) {
+    next.releaseDate = str(patch.releaseDate, 64)
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "genre")) {
+    next.genre = str(patch.genre, 200)
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "source")) {
+    next.source = str(patch.source, 200)
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "url")) {
+    next.url = str(patch.url, 2000)
+  }
+  for (const f of ["durationMs", "trackNumber", "discNumber"]) {
+    if (Object.prototype.hasOwnProperty.call(patch, f)) {
+      const v = patch[f]
+      if (v === "" || v == null) next[f] = null
+      else {
+        const n = Number(v)
+        next[f] = Number.isFinite(n) ? n : null
+      }
+    }
+  }
+  next.editedAt = new Date().toISOString()
+  json[fileName] = next
+  await fs.writeFile(writePath, JSON.stringify(json, null, 2), "utf8")
+  return next
+}
+
+/**
  * Rimuove segmenti [testo], prefisso "numero + trattino" o "numero + punto" dal nome file (senza estensione).
  */
 export function sanitizeLocalTrackTitleDisplay(raw) {

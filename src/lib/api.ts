@@ -44,12 +44,12 @@ export async function fetchLibrary(): Promise<LibraryResponse> {
 }
 
 export async function fetchLibraryIndex(): Promise<LibraryIndex> {
-  const response = await fetch("/api/library-index")
+  const response = await fetch("/api/library-index", { cache: "no-store" })
   return unwrap<LibraryIndex>(response)
 }
 
 export async function fetchDashboard(): Promise<DashboardPayload> {
-  const response = await fetch("/api/dashboard")
+  const response = await fetch("/api/dashboard", { cache: "no-store" })
   return unwrap<DashboardPayload>(response)
 }
 
@@ -252,6 +252,38 @@ export async function fetchTrackInfo(
         : "Failed to fetch track metadata",
     )
   return json as { ok: true; relPath: string; meta: FetchedTrackMeta }
+}
+
+export type TrackMetaSavePatch = {
+  title?: string | null;
+  releaseDate?: string | null;
+  genre?: string | null;
+  durationMs?: number | null;
+  trackNumber?: number | null;
+  discNumber?: number | null;
+  source?: string | null;
+  url?: string | null;
+};
+
+export async function saveTrackInfoManual(
+  relPath: string,
+  patch: TrackMetaSavePatch,
+): Promise<{ ok: true; relPath: string; meta: Record<string, unknown> }> {
+  const response = await fetch("/api/track-info/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ relPath, patch }),
+  })
+  const json = (await response.json()) as
+    | { ok: true; relPath: string; meta: Record<string, unknown> }
+    | { error?: string }
+  if (!response.ok)
+    throw new Error(
+      "error" in json
+        ? json.error || "Failed to save track metadata"
+        : "Failed to save track metadata",
+    )
+  return json as { ok: true; relPath: string; meta: Record<string, unknown> }
 }
 
 export type SanitizeTrackTitlesOneAlbum = {

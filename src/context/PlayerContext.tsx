@@ -20,7 +20,7 @@ import {
 import { fisherYatesShuffle } from "../lib/smartShuffle";
 import { getVolume, setVolumePref } from "../lib/persisted";
 import { useUserState } from "./UserStateContext";
-import type { EnrichedTrack, LibAlbum, RepeatMode } from "../types";
+import type { EnrichedTrack, LibAlbum, LibraryIndex, RepeatMode } from "../types";
 
 type Ctx = {
   audioRef: React.RefObject<HTMLAudioElement | null>;
@@ -60,6 +60,7 @@ type Ctx = {
   prev: () => void;
   toggleFavorite: (relPath: string) => void;
   isFavorite: (relPath: string) => boolean;
+  resyncTracksFromIndex: (index: LibraryIndex) => void;
 };
 
 const PlayerContext = createContext<Ctx | null>(null);
@@ -221,7 +222,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       };
       void run();
     }
-  }, [current, pushRecent]);
+  }, [current?.relPath, pushRecent]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -436,6 +437,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setIsPlaying(false);
   }, []);
 
+  const resyncTracksFromIndex = useCallback((libraryIndex: LibraryIndex) => {
+    const byPath = new Map(
+      libraryIndex.tracks.map((t) => [t.relPath, t as EnrichedTrack]),
+    );
+    setQueue((prev) => prev.map((t) => byPath.get(t.relPath) ?? t));
+    setCurrent((c) => (c ? byPath.get(c.relPath) ?? c : c));
+  }, []);
+
   const next = useCallback(() => {
     if (!queue.length) return;
     const nextIndex = pickNextIndex(
@@ -575,12 +584,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       prev,
       toggleFavorite: user.toggleFavorite,
       isFavorite: user.isFavorite,
+      resyncTracksFromIndex,
     }),
     [
       addToQueue,
       clearQueue,
       isTrackInQueue,
       removeFromQueueByRelPath,
+      resyncTracksFromIndex,
       current,
       currentIndex,
       currentTime,
