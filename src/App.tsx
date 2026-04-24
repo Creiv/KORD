@@ -18,6 +18,7 @@ import {
 } from "./lib/api";
 import { buildRandomArtistCoverMap } from "./lib/artistCover";
 import { fmtDate, trackInfoBadges } from "./lib/metaFormat";
+import { KordWordmarkSvg } from "./components/KordWordmarkSvg";
 import { ThemePicker } from "./components/ThemePicker";
 import { ToolsView } from "./components/ToolsView";
 import { Visualizer } from "./components/Visualizer";
@@ -2016,13 +2017,22 @@ function SettingsView({
               value={user.state.settings.vizMode}
               onChange={(event) =>
                 user.updateSettings({
-                  vizMode: event.target.value as "bars" | "mirror" | "osc",
+                  vizMode: event.target.value as
+                    | "bars"
+                    | "mirror"
+                    | "osc"
+                    | "signals"
+                    | "embers"
+                    | "kord",
                 })
               }
             >
               <option value="bars">{t("settings.vizBars")}</option>
               <option value="mirror">{t("settings.vizMirror")}</option>
               <option value="osc">{t("settings.vizOsc")}</option>
+              <option value="signals">{t("settings.vizSignals")}</option>
+              <option value="embers">{t("settings.vizEmbers")}</option>
+              <option value="kord">{t("settings.vizKord")}</option>
             </select>
           </label>
           <label className="setting-card checkbox">
@@ -2393,11 +2403,7 @@ function Shell() {
           <div className="topbar2__row">
             <div className="topbar2__start">
               <div className="topbar2__brand">
-                <span className="topbar2__mark">K</span>
-                <div className="topbar2__brand-text">
-                  <span className="topbar2__name">KORD</span>
-                  <span className="topbar2__tag">{t("brand.tagline")}</span>
-                </div>
+                <KordWordmarkSvg className="kord-wordmark-svg kord-wordmark-svg--topbar" />
               </div>
               <nav className="topbar-nav" aria-label={t("topbar.navAria")}>
                 <div className="topbar-nav__group">

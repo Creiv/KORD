@@ -1,0 +1,155 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  class="kord-logo-midnight"
+  viewBox="0 0 360 148"
+  role="img"
+  aria-label="KORD"
+>
+  <title>KORD</title>
+  <style>
+    .kord-logo-midnight {
+      --text: #f5f7fb;
+      --muted: #a8b8d0;
+      --accent: #ff8f5c;
+      --accent2: #64d4ff;
+      --page-lg-1: #07101b;
+      --border-strong: rgba(139, 170, 208, 0.34);
+    }
+    .kord-logo-midnight .kord-logo-halo {
+      fill: none;
+      stroke: color-mix(in srgb, var(--text) 52%, var(--border-strong) 48%);
+      stroke-width: 13;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+    }
+    .kord-logo-midnight .kord-logo-ring {
+      fill: none;
+      stroke: var(--page-lg-1);
+      stroke-width: 9;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+    }
+    .kord-logo-midnight .kord-logo-face {
+      stroke: var(--page-lg-1);
+      stroke-width: 3.6;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+      paint-order: fill stroke;
+    }
+  </style>
+  <defs>
+    <!-- Riempimento lettere = stessa logica KordWordmarkSvg (Mezzanotte), hex risolti per compatibilità file -->
+    <linearGradient
+      id="kordStackedFill"
+      x1="180"
+      y1="8"
+      x2="180"
+      y2="140"
+      gradientUnits="userSpaceOnUse"
+    >
+      <stop offset="0%" stop-color="#f5f7fb" />
+      <stop offset="66%" stop-color="#f5f7fb" />
+      <stop offset="66%" stop-color="#a4b9c9" />
+      <stop offset="100%" stop-color="#a9b6c2" />
+    </linearGradient>
+  </defs>
+  <g class="kord-logo-halo">
+    <g transform="translate(58, 12)">
+      <path
+        transform="translate(-56, -18)"
+        d="M 56 18 L 76 18 L 76 38 L 94 18 L 114 18 L 82 47 L 114 76 L 94 76 L 76 54 L 76 76 L 56 76 Z"
+      />
+    </g>
+    <g transform="translate(130, 12)">
+      <g transform="translate(-128, -18)">
+        <g transform="translate(128, 18) scale(1.0769231, 1) translate(-128, -18)">
+          <path
+            d="M 128 18 H 172 Q 180 18 180 26 V 68 Q 180 76 172 76 H 128 Q 120 76 120 68 V 26 Q 120 18 128 18 Z M 138 32 H 162 Q 168 32 168 38 V 56 Q 168 62 162 62 H 138 Q 132 62 132 56 V 38 Q 132 32 138 32 Z"
+          />
+        </g>
+      </g>
+    </g>
+    <g transform="translate(58, 80)">
+      <g transform="translate(-186, -18)">
+        <g transform="translate(186, 18) scale(1.0357143, 1) translate(-186, -18)">
+          <path
+            d="M 186 18 H 220 Q 236 18 236 36 Q 236 50 224 52 L 242 76 H 220 L 206 56 H 200 V 76 H 186 Z M 200 32 H 214 Q 220 32 220 38 Q 220 46 214 46 H 200 Z"
+          />
+        </g>
+      </g>
+    </g>
+    <g transform="translate(122, 80)">
+      <path
+        transform="translate(-242, -18)"
+        d="M 242 18 H 276 Q 304 18 304 47 Q 304 76 276 76 H 242 Z M 260 32 V 62 H 274 Q 288 62 288 47 Q 288 32 274 32 Z"
+      />
+    </g>
+  </g>
+  <g class="kord-logo-ring">
+    <g transform="translate(58, 12)">
+      <path
+        transform="translate(-56, -18)"
+        d="M 56 18 L 76 18 L 76 38 L 94 18 L 114 18 L 82 47 L 114 76 L 94 76 L 76 54 L 76 76 L 56 76 Z"
+      />
+    </g>
+    <g transform="translate(130, 12)">
+      <g transform="translate(-128, -18)">
+        <g transform="translate(128, 18) scale(1.0769231, 1) translate(-128, -18)">
+          <path
+            d="M 128 18 H 172 Q 180 18 180 26 V 68 Q 180 76 172 76 H 128 Q 120 76 120 68 V 26 Q 120 18 128 18 Z M 138 32 H 162 Q 168 32 168 38 V 56 Q 168 62 162 62 H 138 Q 132 62 132 56 V 38 Q 132 32 138 32 Z"
+          />
+        </g>
+      </g>
+    </g>
+    <g transform="translate(58, 80)">
+      <g transform="translate(-186, -18)">
+        <g transform="translate(186, 18) scale(1.0357143, 1) translate(-186, -18)">
+          <path
+            d="M 186 18 H 220 Q 236 18 236 36 Q 236 50 224 52 L 242 76 H 220 L 206 56 H 200 V 76 H 186 Z M 200 32 H 214 Q 220 32 220 38 Q 220 46 214 46 H 200 Z"
+          />
+        </g>
+      </g>
+    </g>
+    <g transform="translate(122, 80)">
+      <path
+        transform="translate(-242, -18)"
+        d="M 242 18 H 276 Q 304 18 304 47 Q 304 76 276 76 H 242 Z M 260 32 V 62 H 274 Q 288 62 288 47 Q 288 32 274 32 Z"
+      />
+    </g>
+  </g>
+  <g class="kord-logo-face" fill="url(#kordStackedFill)">
+    <g transform="translate(58, 12)">
+      <path
+        transform="translate(-56, -18)"
+        d="M 56 18 L 76 18 L 76 38 L 94 18 L 114 18 L 82 47 L 114 76 L 94 76 L 76 54 L 76 76 L 56 76 Z"
+      />
+    </g>
+    <g transform="translate(130, 12)">
+      <g transform="translate(-128, -18)">
+        <g transform="translate(128, 18) scale(1.0769231, 1) translate(-128, -18)">
+          <path
+            fill-rule="evenodd"
+            d="M 128 18 H 172 Q 180 18 180 26 V 68 Q 180 76 172 76 H 128 Q 120 76 120 68 V 26 Q 120 18 128 18 Z M 138 32 H 162 Q 168 32 168 38 V 56 Q 168 62 162 62 H 138 Q 132 62 132 56 V 38 Q 132 32 138 32 Z"
+          />
+        </g>
+      </g>
+    </g>
+    <g transform="translate(58, 80)">
+      <g transform="translate(-186, -18)">
+        <g transform="translate(186, 18) scale(1.0357143, 1) translate(-186, -18)">
+          <path
+            fill-rule="evenodd"
+            d="M 186 18 H 220 Q 236 18 236 36 Q 236 50 224 52 L 242 76 H 220 L 206 56 H 200 V 76 H 186 Z M 200 32 H 214 Q 220 32 220 38 Q 220 46 214 46 H 200 Z"
+          />
+        </g>
+      </g>
+    </g>
+    <g transform="translate(122, 80)">
+      <path
+        fill-rule="evenodd"
+        transform="translate(-242, -18)"
+        d="M 242 18 H 276 Q 304 18 304 47 Q 304 76 276 76 H 242 Z M 260 32 V 62 H 274 Q 288 62 288 47 Q 288 32 274 32 Z"
+      />
+    </g>
+  </g>
+</svg>

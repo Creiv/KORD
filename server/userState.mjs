@@ -64,10 +64,18 @@ function sanitizeSettings(settings) {
   const loc = src.locale === "it" ? "it" : "en"
   return {
     theme: THEME_MODES.has(src.theme) ? src.theme : "midnight",
-    vizMode:
-      src.vizMode === "mirror" || src.vizMode === "osc" || src.vizMode === "bars"
-        ? src.vizMode
-        : "bars",
+    vizMode: (() => {
+      let m = src.vizMode === "soft" ? "signals" : src.vizMode;
+      if (m === "horizon") m = "embers";
+      return m === "mirror" ||
+        m === "osc" ||
+        m === "bars" ||
+        m === "signals" ||
+        m === "embers" ||
+        m === "kord"
+        ? m
+        : "bars";
+    })(),
     restoreSession: src.restoreSession !== false,
     defaultTab:
       typeof src.defaultTab === "string" && src.defaultTab.trim() ? src.defaultTab : "dashboard",

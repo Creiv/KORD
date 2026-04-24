@@ -57,12 +57,20 @@ function normalizeSettings(raw: Partial<UserSettings>): UserSettings {
       (THEME_MODES as readonly string[]).includes(raw.theme as string)
         ? (raw.theme as ThemeMode)
         : "midnight",
-    vizMode:
-      raw.vizMode === "mirror" ||
-      raw.vizMode === "osc" ||
-      raw.vizMode === "bars"
-        ? raw.vizMode
-        : "bars",
+    vizMode: (() => {
+      const legacy = raw.vizMode as string | undefined;
+      let m: typeof raw.vizMode = raw.vizMode;
+      if (legacy === "soft") m = "signals";
+      else if (legacy === "horizon") m = "embers";
+      return m === "mirror" ||
+        m === "osc" ||
+        m === "bars" ||
+        m === "signals" ||
+        m === "embers" ||
+        m === "kord"
+        ? m
+        : "bars";
+    })(),
     restoreSession: raw.restoreSession !== false,
     defaultTab:
       typeof raw.defaultTab === "string" && raw.defaultTab.trim()
@@ -128,8 +136,23 @@ function legacyImport(): Partial<UserStateV1> {
     favorites,
     recent,
     settings:
-      vizMode === "bars" || vizMode === "mirror" || vizMode === "osc"
-        ? { ...defaultSettings(), vizMode }
+      vizMode === "bars" ||
+      vizMode === "mirror" ||
+      vizMode === "osc" ||
+      vizMode === "signals" ||
+      vizMode === "embers" ||
+      vizMode === "kord" ||
+      vizMode === "horizon" ||
+      vizMode === "soft"
+        ? {
+            ...defaultSettings(),
+            vizMode:
+              vizMode === "soft"
+                ? "signals"
+                : vizMode === "horizon"
+                  ? "embers"
+                  : vizMode,
+          }
         : undefined,
   };
 }

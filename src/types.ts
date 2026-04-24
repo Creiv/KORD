@@ -70,7 +70,7 @@ export const THEME_MODES = [
   "carmine",
 ] as const;
 export type ThemeMode = (typeof THEME_MODES)[number];
-export type VizMode = "bars" | "mirror" | "osc";
+export type VizMode = "bars" | "mirror" | "osc" | "signals" | "embers" | "kord";
 
 export const APP_LOCALES = ["en", "it"] as const;
 export type AppLocale = (typeof APP_LOCALES)[number];

@@ -21,8 +21,7 @@
 .artist-card__meta,
 .player-bar2__meta span,
 .player-bar2__times,
-.shortcut-list,
-.topbar2__tag {
+.shortcut-list {
   color: var(--muted);
 }
 
@@ -93,41 +92,8 @@
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: 0.5rem;
-}
-
-.topbar2__mark {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, var(--accent), var(--accent2));
-  color: var(--text-on-accent);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.topbar2__brand-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.04rem;
-  line-height: 1.1;
+  gap: 0.55rem;
   min-width: 0;
-}
-
-.topbar2__name {
-  font-family: var(--font-mono);
-  font-size: 0.88rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-}
-
-.topbar2__tag {
-  font-size: 0.68rem;
-  font-weight: 600;
 }
 
 .topbar2__kpi {
@@ -1185,6 +1151,85 @@
   flex: 1;
 }
 
+.viz-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  align-self: stretch;
+}
+
+.viz-kord-wordmark {
+  --kord-beat: 0;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 2%;
+  pointer-events: none;
+}
+
+.kord-wordmark-svg {
+  --kw-halo-w: 13;
+  --kw-ring-w: 9;
+  --kw-face-w: 3.6;
+  overflow: visible;
+}
+
+.kord-wordmark-svg--viz {
+  --kw-halo-w: 15;
+  --kw-ring-w: 10;
+  --kw-face-w: 4;
+  width: min(94%, 400px);
+  height: auto;
+  max-height: 85%;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.24));
+  transform: translateZ(0) scale(calc(1 + min(0.22, var(--kord-beat) * 0.2)));
+  will-change: transform;
+}
+
+.kord-wordmark-svg--topbar {
+  --kw-halo-w: 9;
+  --kw-ring-w: 6.2;
+  --kw-face-w: 2.65;
+  height: 42px;
+  width: auto;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.22));
+}
+
+.kord-wordmark-layer--halo {
+  fill: none;
+  stroke: color-mix(in srgb, var(--text) 52%, var(--border-strong) 48%);
+  stroke-width: var(--kw-halo-w);
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  paint-order: stroke;
+}
+
+.kord-wordmark-layer--ring {
+  fill: none;
+  stroke: var(--page-lg-1);
+  stroke-width: var(--kw-ring-w);
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  paint-order: stroke;
+}
+
+.kord-wordmark-layer--face {
+  stroke: var(--page-lg-1);
+  stroke-width: var(--kw-face-w);
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  paint-order: fill stroke;
+}
+
+.viz-kord-wordmark:not(.is-playing) .kord-wordmark-svg--viz {
+  transform: translateZ(0) scale(1);
+}
+
 .viz-canvas {
   display: block;
   width: 100%;
@@ -2072,15 +2117,8 @@
     min-width: 0;
   }
 
-  .topbar2__brand-text {
-    display: none;
-  }
-
-  .topbar2__mark {
-    width: 30px;
-    height: 30px;
-    font-size: 0.62rem;
-    border-radius: 8px;
+  .kord-wordmark-svg--topbar {
+    height: 36px;
   }
 
   .topbar-nav {

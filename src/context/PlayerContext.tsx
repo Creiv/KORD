@@ -157,8 +157,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     audioCtxRef.current = ctx;
     const src = ctx.createMediaElementSource(audio);
     const analyser = ctx.createAnalyser();
-    analyser.fftSize = 256;
-    analyser.smoothingTimeConstant = 0.8;
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0.62;
+    analyser.minDecibels = -88;
+    analyser.maxDecibels = -28;
     src.connect(analyser);
     analyser.connect(ctx.destination);
     analyserRef.current = analyser;
