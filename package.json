@@ -1,0 +1,112 @@
+{
+  "name": "kord",
+  "description": "KORD — hub locale per libreria musicale personale",
+  "author": "KORD",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "electron/main.mjs",
+  "scripts": {
+    "dev": "concurrently -n srv,vite -c blue,magenta \"node server/index.mjs\" \"vite\"",
+    "dev:server": "node server/index.mjs",
+    "dev:vite": "vite",
+    "dev:app": "concurrently -k -n vite,el -c green,magenta \"vite\" \"wait-on -t 120000 http://127.0.0.1:5173 && electron .\"",
+    "build": "tsc -b && vite build",
+    "start": "node server/index.mjs",
+    "pack": "npm run build && electron-builder",
+    "pack:linux": "npm run build && electron-builder --linux",
+    "pack:win": "npm run build && electron-builder --win",
+    "pack:mac": "npm run build && electron-builder --mac",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "react-window": "^2.2.7"
+  },
+  "devDependencies": {
+    "electron": "^39.0.0",
+    "electron-builder": "^26.0.0",
+    "wait-on": "^8.0.0",
+    "@eslint/js": "^10.0.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.12.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/react-window": "^1.8.8",
+    "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^9.2.1",
+    "eslint": "^10.2.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.5.0",
+    "jsdom": "^29.0.2",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.58.2",
+    "vite": "^8.0.10",
+    "vitest": "^4.1.5"
+  },
+  "build": {
+    "appId": "com.kord.app",
+    "productName": "KORD",
+    "copyright": "Copyright KORD",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "package.json",
+      "dist",
+      "electron",
+      "server",
+      "node_modules"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Audio"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.music"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false
+    },
+    "asar": true,
+    "asarUnpack": [
+      "node_modules",
+      "server",
+      "dist"
+    ],
+    "artifactName": "${name}-${version}-${os}-${arch}.${ext}"
+  }
+}

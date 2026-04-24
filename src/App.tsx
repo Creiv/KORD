@@ -1,0 +1,2429 @@
+import {
+  startTransition,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { PlayerProvider, usePlayer } from "./context/PlayerContext";
+import { UserStateProvider, useUserState } from "./context/UserStateContext";
+import {
+  coverUrlForAlbumRelPath,
+  coverUrlForTrackRelPath,
+  fetchConfig,
+  fetchDashboard,
+  fetchLibraryIndex,
+  saveConfig,
+} from "./lib/api";
+import { buildRandomArtistCoverMap } from "./lib/artistCover";
+import { fmtDate, trackInfoBadges } from "./lib/metaFormat";
+import { ThemePicker } from "./components/ThemePicker";
+import { ToolsView } from "./components/ToolsView";
+import { Visualizer } from "./components/Visualizer";
+import {
+  eligibleTracksForIntelligentRandom,
+  getExcludedAlbums,
+  getExcludedTracks,
+  toggleExcludedAlbum,
+  toggleExcludedTrack,
+} from "./lib/randomExclusions";
+import type {
+  DashboardPayload,
+  EnrichedTrack,
+  LibraryAlbumIndex,
+  LibraryArtistIndex,
+  LibraryIndex,
+  LibraryResponse,
+  LibraryTrackIndex,
+  TrackMeta,
+  UserPlaylist,
+} from "./types";
+import "./App.css";
+
+type Section =
+  | "dashboard"
+  | "ascolta"
+  | "libreria"
+  | "studio"
+  | "queue"
+  | "playlists"
+  | "favorites"
+  | "recent"
+  | "settings";
+
+type RouteState = {
+  section: Section;
+  artist: string | null;
+  album: string | null;
+  playlist: string | null;
+};
+
+const NAV_ITEMS: { id: Section; label: string; group: "core" | "secondary" }[] =
+  [
+    { id: "dashboard", label: "Dashboard", group: "core" },
+    { id: "ascolta", label: "Ascolta", group: "core" },
+    { id: "libreria", label: "Libreria", group: "core" },
+    { id: "studio", label: "Studio", group: "core" },
+    { id: "queue", label: "Coda", group: "secondary" },
+    { id: "playlists", label: "Playlist", group: "secondary" },
+    { id: "favorites", label: "Preferiti", group: "secondary" },
+    { id: "recent", label: "Recenti", group: "secondary" },
+    { id: "settings", label: "Impostazioni", group: "secondary" },
+  ];
+
+function parseRoute(): RouteState {
+  const params = new URLSearchParams(window.location.search);
+  const section = window.location.pathname
+    .replace(/^\/+/, "")
+    .split("/")[0] as Section;
+  return {
+    section: NAV_ITEMS.some((item) => item.id === section)
+      ? section
+      : "dashboard",
+    artist: params.get("artist"),
+    album: params.get("album"),
+    playlist: params.get("playlist"),
+  };
+}
+
+function buildHref(route: RouteState) {
+  const params = new URLSearchParams();
+  if (route.artist) params.set("artist", route.artist);
+  if (route.album) params.set("album", route.album);
+  if (route.playlist) params.set("playlist", route.playlist);
+  const query = params.toString();
+  const path = route.section === "dashboard" ? "/" : `/${route.section}`;
+  return query ? `${path}?${query}` : path;
+}
+
+function useAppRoute() {
+  const [route, setRoute] = useState<RouteState>(() => parseRoute());
+  useEffect(() => {
+    const onPop = () => setRoute(parseRoute());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  const navigate = (next: Partial<RouteState>) => {
+    startTransition(() => {
+      const merged = {
+        ...route,
+        ...next,
+        artist:
+          next.section && next.section !== "libreria"
+            ? null
+            : next.artist !== undefined
+            ? next.artist
+            : route.artist,
+        album:
+          next.section && next.section !== "libreria"
+            ? null
+            : next.album !== undefined
+            ? next.album
+            : route.album,
+        playlist:
+          next.section && next.section !== "playlists"
+            ? null
+            : next.playlist !== undefined
+            ? next.playlist
+            : route.playlist,
+      };
+      window.history.pushState({}, "", buildHref(merged));
+      setRoute(merged);
+    });
+  };
+  return { route, navigate };
+}
+
+function initials(text: string) {
+  return text
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("");
+}
+
+function formatDuration(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds <= 0) return "0:00";
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${String(secs).padStart(2, "0")}`;
+}
+
+function clientLegacyLibrary(
+  index: LibraryIndex | null
+): LibraryResponse | null {
+  if (!index) return null;
+  return {
+    musicRoot: index.musicRoot,
+    artists: index.artists.map((artist) => ({
+      id: artist.id,
+      name: artist.name,
+      trackCount: artist.trackCount,
+      albums: artist.albums
+        .map((albumId) => index.albums.find((album) => album.id === albumId))
+        .filter((album): album is LibraryAlbumIndex => Boolean(album))
+        .map((album) => ({
+          id: album.loose ? "__loose__" : album.name,
+          name: album.name,
+          trackCount: album.trackCount,
+          hasAlbumMeta: album.hasAlbumMeta,
+          tracks: album.tracks
+            .map((relPath) =>
+              index.tracks.find((track) => track.relPath === relPath)
+            )
+            .filter((track): track is LibraryTrackIndex => Boolean(track))
+            .map((track) => ({
+              id: track.id,
+              title: track.title,
+              relPath: track.relPath,
+              meta: track.meta,
+            })),
+          ...(album.releaseDate ||
+          album.label ||
+          album.country ||
+          album.musicbrainzReleaseId
+            ? {
+                meta: {
+                  releaseDate: album.releaseDate,
+                  label: album.label,
+                  country: album.country,
+                  musicbrainzReleaseId: album.musicbrainzReleaseId,
+                },
+              }
+            : {}),
+        })),
+    })),
+  };
+}
+
+function playlistToQueue(playlist: UserPlaylist) {
+  return playlist.tracks.map(
+    (track) =>
+      ({
+        id: track.relPath,
+        relPath: track.relPath,
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+      } as EnrichedTrack)
+  );
+}
+
+function TrackFileMetaChip({ meta }: { meta?: TrackMeta | null }) {
+  const isOn = !meta?.genre && !meta?.releaseDate;
+  return (
+    <span
+      className={`lib-meta-chip${isOn ? " lib-meta-chip--on" : ""}`}
+      title={
+        isOn
+          ? "Brano senza data o genere in kord-trackinfo"
+          : "Data o genere presenti in kord-trackinfo"
+      }
+    >
+      ♪
+    </span>
+  );
+}
+
+function TrackRowArt({ relPath }: { relPath: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div className="track-row__art track-row__art--fallback" aria-hidden>
+        ♪
+      </div>
+    );
+  }
+  return (
+    <img
+      className="track-row__art"
+      src={coverUrlForTrackRelPath(relPath)}
+      alt=""
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+function TrackListRow({
+  track,
+  active,
+  onPlay,
+  metaRight,
+  fileMetaGaps,
+  extraActions,
+}: {
+  track: EnrichedTrack;
+  active?: boolean;
+  onPlay: () => void;
+  metaRight?: string;
+  /** Chip ♪ stile libreria se mancano data o genere in kord-trackinfo (vista album) */
+  fileMetaGaps?: boolean;
+  extraActions?: React.ReactNode;
+}) {
+  const p = usePlayer();
+  const user = useUserState();
+  const inQ = p.isTrackInQueue(track.relPath);
+  const fav = user.isFavorite(track.relPath);
+  return (
+    <div className={`track-row ${active ? "is-active" : ""}`}>
+      <TrackRowArt relPath={track.relPath} />
+      <button type="button" className="track-row__main" onClick={onPlay}>
+        <span className="track-row__title-row">
+          <span className="track-row__title">{track.title}</span>
+          {fileMetaGaps ? <TrackFileMetaChip meta={track.meta} /> : null}
+        </span>
+        <span className="track-row__meta">
+          {track.artist} · {track.album}
+        </span>
+        <span className="track-row__badges">
+          {metaRight || trackInfoBadges(track).join(" · ") || "—"}
+        </span>
+      </button>
+      <div className="track-row__actions">
+        {inQ ? (
+          <button
+            type="button"
+            className="track-row__in-coda"
+            onClick={() => p.removeFromQueueByRelPath(track.relPath)}
+            title="Rimuovi dalla coda"
+            aria-label="Rimuovi dalla coda"
+          >
+            <span className="track-row__in-coda__label track-row__in-coda__label--idle">
+              in coda
+            </span>
+            <span className="track-row__in-coda__label track-row__in-coda__label--act">
+              rimuovi
+            </span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="track-row__ic track-row__ic--queue"
+            onClick={() => p.addToQueue(track)}
+            title="Aggiungi alla coda"
+            aria-label="Aggiungi alla coda"
+          >
+            <span className="track-row__ic-glyph" aria-hidden>
+              ＋
+            </span>
+          </button>
+        )}
+        <button
+          type="button"
+          className={`track-row__ic track-row__ic--fav ${fav ? "is-on" : ""}`}
+          onClick={() => user.toggleFavorite(track.relPath)}
+          title="Preferito"
+          aria-pressed={fav}
+          aria-label="Preferito"
+        >
+          <span className="track-row__ic-glyph" aria-hidden>
+            ♥
+          </span>
+        </button>
+        {extraActions}
+      </div>
+    </div>
+  );
+}
+
+function AlbumCover({
+  album,
+  compact,
+}: {
+  album: LibraryAlbumIndex;
+  compact?: boolean;
+}) {
+  if (album.coverRelPath) {
+    return (
+      <img
+        className={`album-cover ${compact ? "is-compact" : ""}`}
+        src={coverUrlForAlbumRelPath(album.relPath)}
+        alt=""
+      />
+    );
+  }
+  return (
+    <div className={`album-cover is-fallback ${compact ? "is-compact" : ""}`}>
+      {initials(album.artist)}
+    </div>
+  );
+}
+
+function LibraryArtistMetaChips({ artist }: { artist: LibraryArtistIndex }) {
+  const nA = artist.albumsWithoutFileMetaCount;
+  const nS = artist.tracksWithoutFileMetaCount;
+  return (
+    <div className="lib-meta-badges" aria-label="Stato metadati file">
+      <span
+        className={`lib-meta-chip${nA > 0 ? " lib-meta-chip--on" : ""}`}
+        title={
+          nA > 0
+            ? `${nA} album senza file metadati (kord-albuminfo)`
+            : "Tutti gli album hanno kord-albuminfo"
+        }
+      >
+        A{nA > 0 ? nA : ""}
+      </span>
+      <span
+        className={`lib-meta-chip${nS > 0 ? " lib-meta-chip--on" : ""}`}
+        title={
+          nS > 0
+            ? `${nS} brani senza data o genere in kord-trackinfo`
+            : "Nessun brano senza data/genere in kord-trackinfo"
+        }
+      >
+        ♪{nS > 0 ? nS : ""}
+      </span>
+    </div>
+  );
+}
+
+function LibraryAlbumMetaChips({
+  album,
+  variant = "card",
+}: {
+  album: LibraryAlbumIndex;
+  variant?: "card" | "hero";
+}) {
+  const wrap =
+    variant === "hero"
+      ? "lib-meta-badges lib-meta-badges--hero"
+      : "lib-meta-badges lib-meta-badges--tight";
+  if (album.loose) {
+    const n = album.tracksWithoutFileMetaCount;
+    return (
+      <div className={wrap} aria-label="Stato metadati file">
+        <span
+          className={`lib-meta-chip${n > 0 ? " lib-meta-chip--on" : ""}`}
+          title={
+            n > 0
+              ? `${n} brano/i senza data o genere in kord-trackinfo`
+              : "Nessun brano senza data/genere in kord-trackinfo"
+          }
+        >
+          ♪{n > 0 ? n : ""}
+        </span>
+      </div>
+    );
+  }
+  const hasAl = album.hasAlbumMeta;
+  const nT = album.tracksWithoutFileMetaCount;
+  const missTr = nT > 0;
+  return (
+    <div className={wrap} aria-label="Stato metadati file">
+      <span
+        className={`lib-meta-chip${!hasAl ? " lib-meta-chip--on" : ""}`}
+        title={
+          hasAl
+            ? "kord-albuminfo presente in cartella"
+            : "Manca kord-albuminfo.json in cartella"
+        }
+      >
+        A
+      </span>
+      <span
+        className={`lib-meta-chip${missTr ? " lib-meta-chip--on" : ""}`}
+        title={
+          missTr
+            ? `${nT} brano/i senza data o genere in kord-trackinfo`
+            : "Tutti i brani hanno data o genere in kord-trackinfo"
+        }
+      >
+        ♪{missTr ? nT : ""}
+      </span>
+    </div>
+  );
+}
+
+function albumExclusionKey(album: LibraryAlbumIndex) {
+  return `${album.artist}/${album.name}`;
+}
+
+function LibraryArtistExcludeChips({
+  artist,
+  index,
+}: {
+  artist: LibraryArtistIndex;
+  index: LibraryIndex;
+}) {
+  const excludedAlbums = getExcludedAlbums();
+  const excludedTracks = getExcludedTracks();
+  let nAl = 0;
+  for (const aid of artist.albums) {
+    const al = index.albums.find((a) => a.id === aid);
+    if (al && excludedAlbums.has(albumExclusionKey(al))) nAl += 1;
+  }
+  const nTr = index.tracks.filter(
+    (t) => t.artist === artist.name && excludedTracks.has(t.relPath)
+  ).length;
+  return (
+    <div
+      className="lib-meta-badges lib-meta-badges--tight"
+      aria-label="Esclusioni random"
+    >
+      <span
+        className={`lib-meta-chip lib-meta-chip--exclude${
+          nAl > 0 ? " lib-meta-chip--on" : ""
+        }`}
+        title={
+          nAl > 0
+            ? `${nAl} album esclusi dal random intelligente`
+            : "Nessun album escluso dal random"
+        }
+      >
+        R{nAl > 0 ? nAl : ""}
+      </span>
+      <span
+        className={`lib-meta-chip lib-meta-chip--exclude${
+          nTr > 0 ? " lib-meta-chip--on" : ""
+        }`}
+        title={
+          nTr > 0
+            ? `${nTr} brani esclusi dal random intelligente`
+            : "Nessun brano escluso dal random"
+        }
+      >
+        r{nTr > 0 ? nTr : ""}
+      </span>
+    </div>
+  );
+}
+
+function LibraryArtistFavoriteChips({
+  artist,
+  index: libraryIndex,
+}: {
+  artist: LibraryArtistIndex;
+  index: LibraryIndex;
+}) {
+  const { favorites } = useUserState();
+  const n = useMemo(() => {
+    let c = 0;
+    for (const t of libraryIndex.tracks) {
+      if (t.artist === artist.name && favorites.has(t.relPath)) c += 1;
+    }
+    return c;
+  }, [artist.name, libraryIndex.tracks, favorites]);
+  return (
+    <div className="lib-meta-badges lib-meta-badges--tight" aria-label="Preferiti">
+      <span
+        className={`lib-meta-chip lib-meta-chip--fav${
+          n > 0 ? " lib-meta-chip--on" : ""
+        }`}
+        title={
+          n > 0
+            ? `${n} bran${n === 1 ? "o" : "i"} preferit${n === 1 ? "o" : "i"}`
+            : "Nessun brano preferito per questo artista"
+        }
+      >
+        ♥{n > 0 ? n : ""}
+      </span>
+    </div>
+  );
+}
+
+function LibraryAlbumFavoriteChips({
+  album,
+  variant = "card",
+}: {
+  album: LibraryAlbumIndex;
+  variant?: "card" | "hero";
+}) {
+  const { favorites } = useUserState();
+  const n = useMemo(
+    () => album.tracks.filter((rel) => favorites.has(rel)).length,
+    [album.tracks, favorites]
+  );
+  const wrap =
+    variant === "hero"
+      ? "lib-meta-badges lib-meta-badges--hero"
+      : "lib-meta-badges lib-meta-badges--tight";
+  return (
+    <div className={wrap} aria-label="Preferiti">
+      <span
+        className={`lib-meta-chip lib-meta-chip--fav${
+          n > 0 ? " lib-meta-chip--on" : ""
+        }`}
+        title={
+          n > 0
+            ? `${n} bran${n === 1 ? "o" : "i"} preferit${n === 1 ? "o" : "i"} in questo album`
+            : "Nessun brano preferito in questo album"
+        }
+      >
+        ♥{n > 0 ? n : ""}
+      </span>
+    </div>
+  );
+}
+
+function LibraryAlbumExcludeChips({
+  album,
+  variant = "card",
+}: {
+  album: LibraryAlbumIndex;
+  variant?: "card" | "hero";
+}) {
+  const excludedAlbums = getExcludedAlbums();
+  const excludedTracks = getExcludedTracks();
+  const key = albumExclusionKey(album);
+  const fullAl = excludedAlbums.has(key);
+  const nTr = fullAl
+    ? 0
+    : album.tracks.filter((rel) => excludedTracks.has(rel)).length;
+  const wrap =
+    variant === "hero"
+      ? "lib-meta-badges lib-meta-badges--hero"
+      : "lib-meta-badges lib-meta-badges--tight";
+  return (
+    <div className={wrap} aria-label="Esclusioni random">
+      <span
+        className={`lib-meta-chip lib-meta-chip--exclude${
+          fullAl ? " lib-meta-chip--on" : ""
+        }`}
+        title={
+          fullAl
+            ? "Album intero escluso dal random intelligente"
+            : "Album non escluso per intero dal random"
+        }
+      >
+        R
+      </span>
+      <span
+        className={`lib-meta-chip lib-meta-chip--exclude${
+          nTr > 0 ? " lib-meta-chip--on" : ""
+        }`}
+        title={
+          nTr > 0
+            ? `${nTr} bran${nTr === 1 ? "o" : "i"} esclusi dal random intelligente`
+            : "Nessun brano escluso singolarmente dal random"
+        }
+      >
+        r{nTr > 0 ? nTr : ""}
+      </span>
+    </div>
+  );
+}
+
+function ArtistCard({
+  artist,
+  albumCount,
+  coverAlbumRelPath,
+  index: libraryIndex,
+  onOpen,
+}: {
+  artist: LibraryArtistIndex;
+  albumCount: number;
+  coverAlbumRelPath?: string | null;
+  index: LibraryIndex;
+  onOpen: () => void;
+}) {
+  return (
+    <button type="button" className="artist-card" onClick={onOpen}>
+      {coverAlbumRelPath ? (
+        <img
+          className="artist-card__cover"
+          src={coverUrlForAlbumRelPath(coverAlbumRelPath)}
+          alt=""
+        />
+      ) : (
+        <div className="artist-card__badge">{initials(artist.name)}</div>
+      )}
+      <div className="artist-card__text">
+        <div className="artist-card__title">{artist.name}</div>
+        <div className="artist-card__meta">
+          {albumCount} album · {artist.trackCount} brani
+        </div>
+        <div className="lib-badge-cluster lib-badge-cluster--card-foot">
+          <LibraryArtistMetaChips artist={artist} />
+          <LibraryArtistFavoriteChips artist={artist} index={libraryIndex} />
+          <LibraryArtistExcludeChips artist={artist} index={libraryIndex} />
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function DashboardView({
+  dashboard,
+  index,
+  onOpenAlbum,
+  onOpenSection,
+  onPlayTrack,
+}: {
+  dashboard: DashboardPayload | null;
+  index: LibraryIndex | null;
+  onOpenAlbum: (artist: string, album: string) => void;
+  onOpenSection: (section: Section) => void;
+  onPlayTrack: (track: EnrichedTrack) => void;
+}) {
+  if (!dashboard || !index)
+    return (
+      <div className="panel-empty">
+        Sto preparando la dashboard della collezione…
+      </div>
+    );
+  return (
+    <div className="view-stack">
+      <section className="hero-card hero-card--compact">
+        <div className="hero-card__lead">
+          <p className="eyebrow">KORD</p>
+          <h1 className="hero-card__title">Libreria, ascolto e strumenti</h1>
+        </div>
+        <div className="hero-card__actions">
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={() => onOpenSection("ascolta")}
+          >
+            Riprendi ascolto
+          </button>
+          <button
+            type="button"
+            className="ghost-btn"
+            onClick={() => onOpenSection("studio")}
+          >
+            Studio
+          </button>
+        </div>
+      </section>
+
+      <section className="stats-grid">
+        <div className="metric-card">
+          <span>Artisti</span>
+          <strong>{dashboard.stats.artistCount}</strong>
+        </div>
+        <div className="metric-card">
+          <span>Album</span>
+          <strong>{dashboard.stats.albumCount}</strong>
+        </div>
+        <div className="metric-card">
+          <span>Brani</span>
+          <strong>{dashboard.stats.trackCount}</strong>
+        </div>
+        <div className="metric-card">
+          <span>Alert qualità</span>
+          <strong>
+            {dashboard.qualityAlerts.reduce((sum, item) => sum + item.count, 0)}
+          </strong>
+        </div>
+      </section>
+
+      <section className="dashboard-grid">
+        <section className="surface-card">
+          <div className="section-head">
+            <div>
+              <p className="eyebrow">Preferiti</p>
+              <h2>Scelte rapide</h2>
+            </div>
+            <button
+              type="button"
+              className="text-btn"
+              onClick={() => onOpenSection("favorites")}
+            >
+              Tutti i preferiti
+            </button>
+          </div>
+          {dashboard.favoriteTracks.length === 0 ? (
+            <p className="panel-empty">
+              Aggiungi qualche cuore dalla libreria per popolare questa sezione.
+            </p>
+          ) : (
+            <div className="list-stack">
+              {dashboard.favoriteTracks.slice(0, 5).map((track) => (
+                <TrackListRow
+                  key={track.relPath}
+                  track={track}
+                  onPlay={() => onPlayTrack(track)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="surface-card">
+          <div className="section-head">
+            <div>
+              <p className="eyebrow">Album aggiornati</p>
+              <h2>Ultimi movimenti in collezione</h2>
+            </div>
+            <button
+              type="button"
+              className="text-btn"
+              onClick={() => onOpenSection("libreria")}
+            >
+              Apri libreria
+            </button>
+          </div>
+          <div className="album-grid compact">
+            {dashboard.recentlyUpdatedAlbums.slice(0, 6).map((album) => (
+              <button
+                type="button"
+                key={album.id}
+                className="album-card"
+                onClick={() => onOpenAlbum(album.artistId, album.name)}
+              >
+                <AlbumCover album={album} compact />
+                <div className="album-card__text">
+                  <div className="album-card__title">{album.name}</div>
+                  <div className="album-card__meta">
+                    {album.artist}
+                    {album.releaseDate
+                      ? ` · ${fmtDate(album.releaseDate)}`
+                      : ""}
+                  </div>
+                  <div className="lib-badge-cluster lib-badge-cluster--card-foot">
+                    <LibraryAlbumMetaChips album={album} />
+                    <LibraryAlbumFavoriteChips album={album} />
+                    <LibraryAlbumExcludeChips album={album} />
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="surface-card">
+          <div className="section-head">
+            <div>
+              <p className="eyebrow">Sessione</p>
+              <h2>Riprendi ascolto</h2>
+            </div>
+            <button
+              type="button"
+              className="text-btn"
+              onClick={() => onOpenSection("queue")}
+            >
+              Apri coda
+            </button>
+          </div>
+          {dashboard.continueListening.length === 0 ? (
+            <p className="panel-empty">
+              Nessuna sessione in coda: avvia un album o una playlist per
+              ritrovarla qui.
+            </p>
+          ) : (
+            <div className="list-stack">
+              {dashboard.continueListening.slice(0, 5).map((track) => (
+                <TrackListRow
+                  key={track.relPath}
+                  track={track}
+                  onPlay={() => onPlayTrack(track)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="surface-card">
+          <div className="section-head">
+            <div>
+              <p className="eyebrow">Qualità libreria</p>
+              <h2>Alert e manutenzione</h2>
+            </div>
+            <button
+              type="button"
+              className="text-btn"
+              onClick={() => onOpenSection("studio")}
+            >
+              Vai allo studio
+            </button>
+          </div>
+          <div className="alert-list">
+            {dashboard.qualityAlerts.map((alert) => (
+              <div
+                key={alert.id}
+                className={`alert-card severity-${alert.severity}`}
+              >
+                <span>{alert.label}</span>
+                <strong>{alert.count}</strong>
+              </div>
+            ))}
+          </div>
+        </section>
+      </section>
+    </div>
+  );
+}
+
+function ListenView({
+  dashboard,
+  index,
+  onOpenSection,
+}: {
+  dashboard: DashboardPayload | null;
+  index: LibraryIndex;
+  onOpenSection: (section: Section) => void;
+}) {
+  const p = usePlayer();
+  const user = useUserState();
+  const runRandomIntelligent = () => {
+    const eligible = eligibleTracksForIntelligentRandom(
+      index,
+      getExcludedAlbums(),
+      getExcludedTracks()
+    );
+    if (!eligible.length) return;
+    const shuffled = [...eligible].sort(() => Math.random() - 0.5);
+    p.playTrack(shuffled[0], shuffled, 0);
+  };
+  return (
+    <div className="view-stack">
+      <section className="listen-stage">
+        <div className="listen-stage__meta">
+          <div className="listen-stage__head">
+            {p.current?.relPath ? (
+              <img
+                className="listen-stage__art"
+                src={coverUrlForTrackRelPath(p.current.relPath)}
+                alt=""
+              />
+            ) : (
+              <div
+                className="listen-stage__art listen-stage__art--empty"
+                aria-hidden
+              >
+                ♪
+              </div>
+            )}
+            <div className="listen-stage__text">
+              <p className="eyebrow">Ascolto corrente</p>
+              <div className="listen-stage__title-row">
+                <h1 className="listen-stage__title">
+                  {p.current?.title || "Nessun brano in riproduzione"}
+                </h1>
+                {p.current ? (
+                  <button
+                    type="button"
+                    className={`listen-stage__fav ${
+                      user.isFavorite(p.current.relPath) ? "is-on" : ""
+                    }`}
+                    onClick={() => {
+                      const t = p.current;
+                      if (!t) return;
+                      user.toggleFavorite(t.relPath);
+                    }}
+                    title="Preferito"
+                    aria-pressed={
+                      p.current
+                        ? user.isFavorite(p.current.relPath)
+                        : false
+                    }
+                    aria-label="Preferito"
+                  >
+                    <span aria-hidden>♥</span>
+                  </button>
+                ) : null}
+              </div>
+              <p className="listen-stage__sub">
+                {p.current
+                  ? `${p.current.artist} · ${p.current.album}`
+                  : "Apri la libreria o una playlist per iniziare."}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="listen-stage__viz">
+          <Visualizer mode={user.state.settings.vizMode} />
+        </div>
+      </section>
+
+      <section className="dashboard-grid">
+        <section className="surface-card">
+          <div className="section-head">
+            <div>
+              <p className="eyebrow">Coda</p>
+              <h2>Prossimi brani</h2>
+            </div>
+            <button
+              type="button"
+              className="text-btn"
+              onClick={() => onOpenSection("queue")}
+            >
+              Gestisci
+            </button>
+          </div>
+          {p.queue.length === 0 ? (
+            <div className="panel-empty panel-empty--actions">
+              <p>La coda è vuota.</p>
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={runRandomIntelligent}
+              >
+                Random intelligente
+              </button>
+            </div>
+          ) : (
+            <div className="list-stack">
+              {p.queue.slice(0, 6).map((track, index) => (
+                <TrackListRow
+                  key={`${track.relPath}-${index}`}
+                  track={track}
+                  active={index === p.currentIndex}
+                  onPlay={() => p.playTrack(track, p.queue, index)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="surface-card">
+          <div className="section-head">
+            <div>
+              <p className="eyebrow">Recenti</p>
+              <h2>Ultimi ascolti</h2>
+            </div>
+            <button
+              type="button"
+              className="text-btn"
+              onClick={() => onOpenSection("recent")}
+            >
+              Vedi tutto
+            </button>
+          </div>
+          {dashboard?.recentTracks.length ? (
+            <div className="list-stack">
+              {dashboard.recentTracks.slice(0, 5).map((track) => (
+                <TrackListRow
+                  key={track.relPath}
+                  track={track}
+                  onPlay={() => p.playTrack(track, [track], 0)}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="panel-empty">
+              La cronologia si popolerà dopo i primi ascolti.
+            </p>
+          )}
+        </section>
+      </section>
+    </div>
+  );
+}
+
+function LibraryView({
+  index,
+  route,
+  query,
+  onOpenArtist,
+  onOpenAlbum,
+}: {
+  index: LibraryIndex;
+  route: RouteState;
+  query: string;
+  onOpenArtist: (artist: string) => void;
+  onOpenAlbum: (artist: string, album: string) => void;
+}) {
+  const p = usePlayer();
+  const [sort, setSort] = useState<"name" | "date">("date");
+  const [mode, setMode] = useState<"all" | "artists" | "albums" | "tracks">(
+    "all"
+  );
+  const [excludedAlbums, setExcludedAlbums] = useState<Set<string>>(() =>
+    getExcludedAlbums()
+  );
+  const [excludedTracks, setExcludedTracks] = useState<Set<string>>(() =>
+    getExcludedTracks()
+  );
+  const [libBrowse, setLibBrowse] = useState<"artists" | "genres">("artists");
+  const [selectedGenreKey, setSelectedGenreKey] = useState<string | null>(null);
+  const normalizedQuery = query.trim().toLowerCase();
+
+  const artist = route.artist
+    ? index.artists.find((item) => item.id === route.artist) || null
+    : null;
+  const artistAlbums = useMemo(
+    () =>
+      artist
+        ? index.albums
+            .filter((album) => album.artistId === artist.id)
+            .sort((a, b) =>
+              sort === "date"
+                ? String(a.releaseDate || "").localeCompare(
+                    String(b.releaseDate || ""),
+                    undefined,
+                    { numeric: true }
+                  )
+                : a.name.localeCompare(b.name, "it", { numeric: true })
+            )
+        : [],
+    [artist, index.albums, sort]
+  );
+  const album = route.album
+    ? artistAlbums.find(
+        (item) => item.name === route.album || item.id === route.album
+      ) || null
+    : null;
+  const albumTracks = useMemo(
+    () =>
+      album
+        ? album.tracks
+            .map((relPath) =>
+              index.tracks.find((track) => track.relPath === relPath)
+            )
+            .filter((track): track is LibraryTrackIndex => Boolean(track))
+        : [],
+    [album, index.tracks]
+  );
+
+  const artistCoverById = useMemo(
+    () => buildRandomArtistCoverMap(index),
+    [index]
+  );
+
+  const genreIndex = useMemo(() => {
+    const byLower = new Map<string, { label: string; count: number }>();
+    let noGenre = 0;
+    for (const t of index.tracks) {
+      const raw = t.meta?.genre?.trim();
+      if (!raw) {
+        noGenre += 1;
+        continue;
+      }
+      const low = raw.toLowerCase();
+      const prev = byLower.get(low);
+      if (!prev) byLower.set(low, { label: raw, count: 1 });
+      else prev.count += 1;
+    }
+    const list = Array.from(byLower.entries())
+      .map(([key, v]) => ({ key, label: v.label, count: v.count }))
+      .sort((a, b) => a.label.localeCompare(b.label, "it", { numeric: true }));
+    return { list, noGenreCount: noGenre };
+  }, [index.tracks]);
+
+  const tracksInSelectedGenre = useMemo(() => {
+    if (!selectedGenreKey) return [] as LibraryTrackIndex[];
+    if (selectedGenreKey === "__none__") {
+      return index.tracks.filter((t) => !t.meta?.genre?.trim());
+    }
+    return index.tracks.filter(
+      (t) => t.meta?.genre?.trim().toLowerCase() === selectedGenreKey
+    );
+  }, [index.tracks, selectedGenreKey]);
+
+  const selectedGenreLabel = useMemo(() => {
+    if (!selectedGenreKey) return null;
+    if (selectedGenreKey === "__none__") return "Senza genere";
+    return (
+      genreIndex.list.find((g) => g.key === selectedGenreKey)?.label ??
+      selectedGenreKey
+    );
+  }, [selectedGenreKey, genreIndex.list]);
+
+  const sortedGenreTracks = useMemo(() => {
+    return [...tracksInSelectedGenre].sort(
+      (a, b) =>
+        a.artist.localeCompare(b.artist, "it", { numeric: true }) ||
+        a.album.localeCompare(b.album, "it", { numeric: true }) ||
+        a.title.localeCompare(b.title, "it", { numeric: true })
+    );
+  }, [tracksInSelectedGenre]);
+
+  const searchResults = useMemo(() => {
+    if (!normalizedQuery) return null;
+    const genreOk = (relPath: string) => {
+      const t = index.tracks.find((x) => x.relPath === relPath);
+      const g = t?.meta?.genre?.trim().toLowerCase();
+      return Boolean(g && g.includes(normalizedQuery));
+    };
+    return {
+      artists: index.artists.filter((item) => {
+        if (item.name.toLowerCase().includes(normalizedQuery)) return true;
+        return index.tracks.some(
+          (t) =>
+            t.artist === item.name &&
+            t.meta?.genre?.trim().toLowerCase().includes(normalizedQuery)
+        );
+      }),
+      albums: index.albums.filter((item) => {
+        if (
+          item.name.toLowerCase().includes(normalizedQuery) ||
+          item.artist.toLowerCase().includes(normalizedQuery)
+        ) {
+          return true;
+        }
+        return item.tracks.some((rel) => genreOk(rel));
+      }),
+      tracks: index.tracks.filter(
+        (item) =>
+          item.title.toLowerCase().includes(normalizedQuery) ||
+          item.artist.toLowerCase().includes(normalizedQuery) ||
+          item.album.toLowerCase().includes(normalizedQuery) ||
+          Boolean(
+            item.meta?.genre?.trim().toLowerCase().includes(normalizedQuery)
+          )
+      ),
+    };
+  }, [index.albums, index.artists, index.tracks, normalizedQuery]);
+
+  const runRandom = () => {
+    const eligible = eligibleTracksForIntelligentRandom(
+      index,
+      excludedAlbums,
+      excludedTracks
+    );
+    if (!eligible.length) return;
+    const shuffled = [...eligible].sort(() => Math.random() - 0.5);
+    p.playTrack(shuffled[0], shuffled, 0);
+  };
+
+  if (normalizedQuery && searchResults) {
+    return (
+      <div className="view-stack">
+        <section className="surface-card">
+          <div className="section-head">
+            <div>
+              <p className="eyebrow">Ricerca</p>
+              <h2>Risultati per “{query}”</h2>
+            </div>
+            <div
+              className="segmented"
+              role="group"
+              aria-label="Filtro risultati"
+            >
+              {(["all", "artists", "albums", "tracks"] as const).map((item) => (
+                <button
+                  type="button"
+                  key={item}
+                  className={mode === item ? "is-on" : ""}
+                  onClick={() => setMode(item)}
+                >
+                  {item === "all"
+                    ? "Tutto"
+                    : item === "artists"
+                    ? "Artisti"
+                    : item === "albums"
+                    ? "Album"
+                    : "Brani"}
+                </button>
+              ))}
+            </div>
+          </div>
+          {(mode === "all" || mode === "artists") && (
+            <div className="subsection">
+              <h3>Artisti</h3>
+              <div className="artist-grid">
+                {searchResults.artists.slice(0, 12).map((item) => (
+                  <ArtistCard
+                    key={item.id}
+                    artist={item}
+                    albumCount={item.albums.length}
+                    coverAlbumRelPath={artistCoverById.get(item.id) ?? null}
+                    index={index}
+                    onOpen={() => onOpenArtist(item.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+          {(mode === "all" || mode === "albums") && (
+            <div className="subsection">
+              <h3>Album</h3>
+              <div className="album-grid album-grid--artist">
+                {searchResults.albums.slice(0, 12).map((item) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    className="album-card"
+                    onClick={() => onOpenAlbum(item.artistId, item.name)}
+                  >
+                    <AlbumCover album={item} compact />
+                    <div className="album-card__text">
+                      <div className="album-card__title">{item.name}</div>
+                      <div className="album-card__meta">{item.artist}</div>
+                      <div className="lib-badge-cluster lib-badge-cluster--card-foot">
+                        <LibraryAlbumMetaChips album={item} />
+                        <LibraryAlbumFavoriteChips album={item} />
+                        <LibraryAlbumExcludeChips album={item} />
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {(mode === "all" || mode === "tracks") && (
+            <div className="subsection">
+              <h3>Brani</h3>
+              <div className="list-stack">
+                {searchResults.tracks.slice(0, 50).map((track) => (
+                  <TrackListRow
+                    key={track.relPath}
+                    track={track}
+                    onPlay={() => p.playTrack(track, [track], 0)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+    );
+  }
+
+  if (album && artist) {
+    return (
+      <div className="view-stack">
+        <section className="album-hero">
+          <AlbumCover album={album} />
+          <div className="album-hero__body">
+            <div className="album-hero__head">
+              <div className="album-hero__lead">
+                <button
+                  type="button"
+                  className="text-btn back-btn"
+                  onClick={() => onOpenArtist(artist.id)}
+                >
+                  ← {artist.name}
+                </button>
+                <p className="eyebrow">Dettaglio album</p>
+                <div className="album-hero__h1row">
+                  <h1 className="album-hero__h1">{album.name}</h1>
+                  <div className="lib-badge-cluster">
+                    <LibraryAlbumMetaChips album={album} variant="hero" />
+                    <LibraryAlbumFavoriteChips album={album} variant="hero" />
+                    <LibraryAlbumExcludeChips album={album} variant="hero" />
+                  </div>
+                </div>
+                <p>
+                  {artist.name}
+                  {album.releaseDate ? ` · ${fmtDate(album.releaseDate)}` : ""}
+                  {album.label ? ` · ${album.label}` : ""}
+                </p>
+              </div>
+              <div className="album-hero__actions">
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={() => p.playTrack(albumTracks[0], albumTracks, 0)}
+                >
+                  Riproduci album
+                </button>
+                <button
+                  type="button"
+                  className={`ghost-btn ${
+                    excludedAlbums.has(`${artist.name}/${album.name}`)
+                      ? "is-on"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    setExcludedAlbums(
+                      toggleExcludedAlbum(`${artist.name}/${album.name}`)
+                    )
+                  }
+                >
+                  Esclusione random
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="surface-card">
+          <div className="section-head">
+            <div>
+              <p className="eyebrow">Tracklist</p>
+              <h2>{albumTracks.length} brani</h2>
+            </div>
+          </div>
+          <div className="list-stack">
+            {albumTracks.map((track, index) => (
+              <TrackListRow
+                key={track.relPath}
+                track={track}
+                fileMetaGaps
+                onPlay={() => p.playTrack(track, albumTracks, index)}
+                extraActions={
+                  <button
+                    type="button"
+                    className={`track-row__ic track-row__ic--exclude ${
+                      excludedTracks.has(track.relPath) ? "is-on" : ""
+                    }`}
+                    title="Escludi da random"
+                    onClick={() =>
+                      setExcludedTracks(toggleExcludedTrack(track.relPath))
+                    }
+                    aria-pressed={excludedTracks.has(track.relPath)}
+                  >
+                    <span className="track-row__ic-glyph" aria-hidden>
+                      🚫
+                    </span>
+                  </button>
+                }
+              />
+            ))}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (artist) {
+    return (
+      <div className="view-stack">
+        <section className="surface-card">
+          <div className="section-head">
+            <div>
+              <button
+                type="button"
+                className="text-btn back-btn"
+                onClick={() => onOpenArtist("")}
+              >
+                ← Tutti gli artisti
+              </button>
+              <p className="eyebrow">Artista</p>
+              <h2>{artist.name}</h2>
+            </div>
+            <div className="segmented">
+              <button
+                type="button"
+                className={sort === "date" ? "is-on" : ""}
+                onClick={() => setSort("date")}
+              >
+                Data
+              </button>
+              <button
+                type="button"
+                className={sort === "name" ? "is-on" : ""}
+                onClick={() => setSort("name")}
+              >
+                Nome
+              </button>
+            </div>
+          </div>
+          <div className="album-grid album-grid--artist">
+            {artistAlbums.map((item) => (
+              <button
+                type="button"
+                key={item.id}
+                className="album-card"
+                onClick={() => onOpenAlbum(artist.id, item.name)}
+              >
+                <AlbumCover album={item} compact />
+                <div className="album-card__text">
+                  <div className="album-card__title">{item.name}</div>
+                  <div className="album-card__meta">
+                    {item.trackCount} brani
+                    {item.releaseDate ? ` · ${fmtDate(item.releaseDate)}` : ""}
+                  </div>
+                  <div className="lib-badge-cluster lib-badge-cluster--card-foot">
+                    <LibraryAlbumMetaChips album={item} />
+                    <LibraryAlbumFavoriteChips album={item} />
+                    <LibraryAlbumExcludeChips album={item} />
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  return (
+    <div className="view-stack">
+      <section className="surface-card">
+        <div className="section-head section-head--library-root">
+          <div>
+            {selectedGenreKey ? (
+              <>
+                <button
+                  type="button"
+                  className="text-btn back-btn"
+                  onClick={() => setSelectedGenreKey(null)}
+                >
+                  ← Generi
+                </button>
+                <p className="eyebrow">Genere</p>
+                <h2>{selectedGenreLabel ?? "—"}</h2>
+                <p className="subtle sm">
+                  {sortedGenreTracks.length} bran
+                  {sortedGenreTracks.length === 1 ? "o" : "i"}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="eyebrow">Panoramica libreria</p>
+                <h2>{libBrowse === "artists" ? "Artisti" : "Generi"}</h2>
+              </>
+            )}
+          </div>
+          {!selectedGenreKey ? (
+            <div
+              className="segmented"
+              role="group"
+              aria-label="Vista per artista o per genere"
+            >
+              <button
+                type="button"
+                className={libBrowse === "artists" ? "is-on" : ""}
+                onClick={() => {
+                  setLibBrowse("artists");
+                  setSelectedGenreKey(null);
+                }}
+              >
+                Artisti
+              </button>
+              <button
+                type="button"
+                className={libBrowse === "genres" ? "is-on" : ""}
+                onClick={() => {
+                  setLibBrowse("genres");
+                  setSelectedGenreKey(null);
+                }}
+              >
+                Generi
+              </button>
+            </div>
+          ) : null}
+          <div className="hero-card__actions">
+            <button type="button" className="ghost-btn" onClick={runRandom}>
+              Random intelligente
+            </button>
+          </div>
+        </div>
+        {selectedGenreKey ? (
+          <div className="list-stack">
+            {sortedGenreTracks.map((track) => (
+              <TrackListRow
+                key={track.relPath}
+                track={track}
+                onPlay={() => p.playTrack(track, [track], 0)}
+              />
+            ))}
+          </div>
+        ) : libBrowse === "artists" ? (
+          <div className="artist-grid">
+            {index.artists.map((item) => (
+              <ArtistCard
+                key={item.id}
+                artist={item}
+                albumCount={item.albums.length}
+                coverAlbumRelPath={artistCoverById.get(item.id) ?? null}
+                index={index}
+                onOpen={() => onOpenArtist(item.id)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="genre-browse-wrap">
+            <div className="genre-browse-grid">
+              {genreIndex.noGenreCount > 0 ? (
+                <button
+                  type="button"
+                  className="genre-card genre-card--muted"
+                  onClick={() => setSelectedGenreKey("__none__")}
+                >
+                  <span className="genre-card__name">Senza genere</span>
+                  <span className="genre-card__count">
+                    {genreIndex.noGenreCount} brani
+                  </span>
+                </button>
+              ) : null}
+              {genreIndex.list.map((g) => (
+                <button
+                  type="button"
+                  key={g.key}
+                  className="genre-card"
+                  onClick={() => setSelectedGenreKey(g.key)}
+                >
+                  <span className="genre-card__name">{g.label}</span>
+                  <span className="genre-card__count">
+                    {g.count} bran{g.count === 1 ? "o" : "i"}
+                  </span>
+                </button>
+              ))}
+            </div>
+            {genreIndex.list.length === 0 && genreIndex.noGenreCount === 0 ? (
+              <p className="panel-empty">
+                Nessun genere: i brani con genere in kord-trackinfo o nei metadati
+                compaiono come etichette qui.
+              </p>
+            ) : null}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function QueueViewNew() {
+  const p = usePlayer();
+  const user = useUserState();
+  const [queueName, setQueueName] = useState("");
+  return (
+    <div className="view-stack">
+      <section className="surface-card">
+        <div className="section-head">
+          <div>
+            <p className="eyebrow">Coda di riproduzione</p>
+            <h2>{p.queue.length} brani</h2>
+          </div>
+          <div className="hero-card__actions">
+            <input
+              className="ghost-input"
+              value={queueName}
+              onChange={(event) => setQueueName(event.target.value)}
+              placeholder="Nome playlist da salvare"
+            />
+            <button
+              type="button"
+              className="ghost-btn"
+              disabled={!p.queue.length}
+              onClick={() => user.saveQueueAsPlaylist(queueName, p.queue)}
+            >
+              Salva come playlist
+            </button>
+            <button
+              type="button"
+              className="ghost-btn danger"
+              disabled={!p.queue.length}
+              onClick={() => p.clearQueue()}
+            >
+              Svuota
+            </button>
+          </div>
+        </div>
+        {p.queue.length === 0 ? (
+          <p className="panel-empty">Nessun brano in coda.</p>
+        ) : (
+          <div className="list-stack">
+            {p.queue.map((track, index) => (
+              <TrackListRow
+                key={`${track.relPath}-${index}`}
+                track={track}
+                active={index === p.currentIndex}
+                onPlay={() => p.playTrack(track, p.queue, index)}
+                extraActions={
+                  <>
+                    <button
+                      type="button"
+                      className="track-row__ic"
+                      onClick={() =>
+                        p.moveQueueItem(index, Math.max(index - 1, 0))
+                      }
+                      title="Sposta su"
+                      aria-label="Sposta su"
+                    >
+                      <span className="track-row__ic-glyph" aria-hidden>
+                        ↑
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="track-row__ic"
+                      onClick={() =>
+                        p.moveQueueItem(
+                          index,
+                          Math.min(index + 1, p.queue.length - 1)
+                        )
+                      }
+                      title="Sposta giù"
+                      aria-label="Sposta giù"
+                    >
+                      <span className="track-row__ic-glyph" aria-hidden>
+                        ↓
+                      </span>
+                    </button>
+                  </>
+                }
+              />
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function PlaylistsViewNew({
+  route,
+  onPickPlaylist,
+}: {
+  route: RouteState;
+  onPickPlaylist: (playlist: string | null) => void;
+}) {
+  const p = usePlayer();
+  const user = useUserState();
+  const [name, setName] = useState("");
+  const playlists = user.state.playlists;
+  const activePlaylist =
+    playlists.find(
+      (item) => item.id === (route.playlist || user.selectedPlaylist || "")
+    ) || null;
+
+  return (
+    <div className="dashboard-grid">
+      <section className="surface-card">
+        <div className="section-head">
+          <div>
+            <p className="eyebrow">Playlist</p>
+            <h2>Collezioni personali</h2>
+          </div>
+        </div>
+        <div className="playlist-create">
+          <input
+            className="ghost-input"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Nuova playlist"
+          />
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={() => user.createPlaylist(name)}
+          >
+            Crea
+          </button>
+        </div>
+        <div className="list-stack">
+          {playlists.map((playlist) => (
+            <div
+              key={playlist.id}
+              className={`playlist-row ${
+                activePlaylist?.id === playlist.id ? "is-active" : ""
+              }`}
+            >
+              <button
+                type="button"
+                className="playlist-row__main"
+                onClick={() => onPickPlaylist(playlist.id)}
+              >
+                <strong>{playlist.name}</strong>
+                <span>{playlist.tracks.length} brani</span>
+              </button>
+              <div className="track-row__actions">
+                <button
+                  type="button"
+                  className="chip-btn"
+                  disabled={!playlist.tracks.length}
+                  onClick={() => {
+                    const queue = playlistToQueue(playlist);
+                    if (queue[0]) p.playTrack(queue[0], queue, 0);
+                  }}
+                >
+                  Play
+                </button>
+                <button
+                  type="button"
+                  className="chip-btn"
+                  onClick={() =>
+                    p.current && user.addTrackToPlaylist(playlist.id, p.current)
+                  }
+                >
+                  + Brano corrente
+                </button>
+                <button
+                  type="button"
+                  className="chip-btn danger"
+                  onClick={() => user.deletePlaylist(playlist.id)}
+                >
+                  Elimina
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="surface-card">
+        {activePlaylist ? (
+          <>
+            <div className="section-head">
+              <div>
+                <p className="eyebrow">Dettaglio playlist</p>
+                <h2>{activePlaylist.name}</h2>
+              </div>
+              <input
+                className="ghost-input compact"
+                defaultValue={activePlaylist.name}
+                onBlur={(event) =>
+                  user.renamePlaylist(activePlaylist.id, event.target.value)
+                }
+              />
+            </div>
+            {activePlaylist.tracks.length === 0 ? (
+              <p className="panel-empty">
+                Aggiungi il brano in riproduzione o salva una coda.
+              </p>
+            ) : (
+              <div className="list-stack">
+                {activePlaylist.tracks.map((track, index) => {
+                  const enriched = playlistToQueue({
+                    ...activePlaylist,
+                    tracks: [track],
+                  })[0];
+                  return (
+                    <TrackListRow
+                      key={`${track.relPath}-${index}`}
+                      track={enriched}
+                      onPlay={() => {
+                        const queue = playlistToQueue(activePlaylist);
+                        p.playTrack(queue[index], queue, index);
+                      }}
+                      extraActions={
+                        <button
+                          type="button"
+                          className="track-row__ic track-row__ic--danger"
+                          title="Rimuovi dalla playlist"
+                          aria-label="Rimuovi dalla playlist"
+                          onClick={() =>
+                            user.removeTrackFromPlaylist(
+                              activePlaylist.id,
+                              track.relPath
+                            )
+                          }
+                        >
+                          <span className="track-row__ic-glyph" aria-hidden>
+                            ×
+                          </span>
+                        </button>
+                      }
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="panel-empty">
+            Seleziona una playlist per vederne contenuto e azioni.
+          </p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function TrackCollectionView({
+  title,
+  eyebrow,
+  tracks,
+}: {
+  title: string;
+  eyebrow: string;
+  tracks: EnrichedTrack[];
+}) {
+  const p = usePlayer();
+  return (
+    <section className="surface-card">
+      <div className="section-head">
+        <div>
+          <p className="eyebrow">{eyebrow}</p>
+          <h2>{title}</h2>
+        </div>
+      </div>
+      {tracks.length === 0 ? (
+        <p className="panel-empty">Nessun elemento disponibile.</p>
+      ) : (
+        <div className="list-stack">
+          {tracks.map((track, index) => (
+            <TrackListRow
+              key={`${track.relPath}-${index}`}
+              track={track}
+              onPlay={() => p.playTrack(track, [track], 0)}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SettingsView({
+  onOpenSection,
+}: {
+  onOpenSection: (section: Section) => void;
+}) {
+  const user = useUserState();
+  const [libPath, setLibPath] = useState("");
+  const [libLocked, setLibLocked] = useState(false);
+  const [libSaveBusy, setLibSaveBusy] = useState(false);
+  const [libErr, setLibErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchConfig()
+      .then((c) => {
+        setLibPath(c.musicRoot);
+        setLibLocked(c.lockedByEnv);
+        setLibErr(null);
+      })
+      .catch((e: unknown) =>
+        setLibErr(e instanceof Error ? e.message : String(e))
+      );
+  }, []);
+
+  const saveLibraryRoot = () => {
+    setLibErr(null);
+    setLibSaveBusy(true);
+    saveConfig(libPath.trim())
+      .then(() => {
+        window.location.replace(new URL("/", window.location.href).href);
+      })
+      .catch((e: unknown) =>
+        setLibErr(e instanceof Error ? e.message : String(e))
+      )
+      .finally(() => setLibSaveBusy(false));
+  };
+
+  return (
+    <div className="dashboard-grid">
+      <section className="surface-card">
+        <div className="section-head">
+          <div>
+            <p className="eyebrow">Libreria</p>
+            <h2>Cartella musica</h2>
+          </div>
+        </div>
+        {libErr ? <p className="subtle sm warnline">{libErr}</p> : null}
+        {libLocked ? (
+          <p className="subtle sm">
+            Attiva: <code>{libPath}</code> (bloccata da variabile
+            d&apos;ambiente)
+          </p>
+        ) : (
+          <div className="row gap flex-wrap" style={{ alignItems: "flex-end" }}>
+            <label className="flex1" style={{ minWidth: "12rem" }}>
+              <span className="sr-only">Percorso cartella musica</span>
+              <input
+                type="text"
+                className="ghost-input w-full"
+                value={libPath}
+                onChange={(e) => setLibPath(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="/percorso/assoluto"
+              />
+            </label>
+            <button
+              type="button"
+              className="btn"
+              disabled={libSaveBusy || !libPath.trim()}
+              onClick={saveLibraryRoot}
+            >
+              {libSaveBusy ? "Salvo…" : "Salva e ricarica"}
+            </button>
+          </div>
+        )}
+        <div className="settings-merge-block">
+          <div className="section-head">
+            <div>
+              <p className="eyebrow">Scorciatoie</p>
+              <h2>Uso rapido</h2>
+            </div>
+          </div>
+          <div className="shortcut-list">
+            <div>
+              <kbd>/</kbd> oppure <kbd>Ctrl</kbd>+<kbd>K</kbd> Focus ricerca
+              libreria
+            </div>
+            <div>
+              <kbd>Space</kbd> Play / pausa
+            </div>
+            <div>
+              <kbd>I</kbd> Vai alla scheda Ascolta
+            </div>
+          </div>
+          <button
+            type="button"
+            className="text-btn"
+            onClick={() => onOpenSection("dashboard")}
+          >
+            Torna alla dashboard
+          </button>
+        </div>
+      </section>
+      <section className="surface-card">
+        <div className="section-head">
+          <div>
+            <p className="eyebrow">Preferenze interfaccia</p>
+            <h2>Tema e visualizer</h2>
+          </div>
+        </div>
+        <div className="settings-grid">
+          <div className="setting-card">
+            <span>Tema</span>
+            <ThemePicker
+              value={user.state.settings.theme}
+              onChange={(theme) => user.updateSettings({ theme })}
+            />
+          </div>
+          <label className="setting-card">
+            <span>Visualizer</span>
+            <select
+              value={user.state.settings.vizMode}
+              onChange={(event) =>
+                user.updateSettings({
+                  vizMode: event.target.value as "bars" | "mirror" | "osc",
+                })
+              }
+            >
+              <option value="bars">Barre</option>
+              <option value="mirror">Specchio</option>
+              <option value="osc">Onda</option>
+            </select>
+          </label>
+          <label className="setting-card checkbox">
+            <input
+              type="checkbox"
+              checked={user.state.settings.restoreSession}
+              onChange={(event) =>
+                user.updateSettings({ restoreSession: event.target.checked })
+              }
+            />
+            <span>Ripristina la sessione di ascolto all’apertura</span>
+          </label>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function PlayerDock({ onGoToAscolta }: { onGoToAscolta: () => void }) {
+  const p = usePlayer();
+  const user = useUserState();
+  const percent = p.duration > 0 ? (p.currentTime / p.duration) * 100 : 0;
+  return (
+    <div className="player-dock2">
+      <footer className="player-bar2">
+        <div className="player-bar2__row player-bar2__row--top">
+          <div className="player-bar2__track-block">
+            <button
+              type="button"
+              className="player-bar2__track"
+              onClick={onGoToAscolta}
+              title="Apri la scheda Ascolta"
+            >
+              {p.current ? (
+                <img
+                  className="player-bar2__art"
+                  src={coverUrlForTrackRelPath(p.current.relPath)}
+                  alt=""
+                />
+              ) : (
+                <div className="player-bar2__art fallback">♪</div>
+              )}
+              <div className="player-bar2__meta">
+                <div className="player-bar2__title-line">
+                  <strong>
+                    {p.current?.title || "Seleziona un brano dalla libreria"}
+                  </strong>
+                </div>
+                <span>
+                  {p.current
+                    ? `${p.current.artist} · ${p.current.album}`
+                    : "Il player è pronto."}
+                </span>
+              </div>
+            </button>
+            {p.current ? (
+              <button
+                type="button"
+                className={`player-bar2__fav ${
+                  user.isFavorite(p.current.relPath) ? "is-on" : ""
+                }`}
+                onClick={() => {
+                  const t = p.current;
+                  if (!t) return;
+                  user.toggleFavorite(t.relPath);
+                }}
+                title="Preferito"
+                aria-pressed={user.isFavorite(p.current.relPath)}
+                aria-label="Preferito"
+              >
+                <span aria-hidden>♥</span>
+              </button>
+            ) : null}
+          </div>
+          <div
+            className="player-bar2__controls"
+            role="group"
+            aria-label="Trasporto"
+          >
+            <button
+              type="button"
+              className={`player-bar2__ic ${p.shuffle ? "is-on" : ""}`}
+              onClick={() => p.setShuffle(!p.shuffle)}
+              title="Shuffle: mescola la coda"
+              aria-pressed={p.shuffle}
+            >
+              <span className="player-bar2__ic-glyph" aria-hidden>
+                ⇄
+              </span>
+            </button>
+            <button
+              type="button"
+              className="player-bar2__ic"
+              onClick={() => p.prev()}
+              title="Precedente"
+            >
+              <span className="player-bar2__ic-glyph" aria-hidden>
+                ⏮
+              </span>
+            </button>
+            <button
+              type="button"
+              className="player-bar2__ic player-bar2__ic--play"
+              onClick={() => p.toggle()}
+              title={p.isPlaying ? "Pausa" : "Riproduci"}
+            >
+              <span className="player-bar2__ic-glyph" aria-hidden>
+                {p.isPlaying ? "⏸" : "▶"}
+              </span>
+            </button>
+            <button
+              type="button"
+              className="player-bar2__ic"
+              onClick={() => p.next()}
+              title="Successivo"
+            >
+              <span className="player-bar2__ic-glyph" aria-hidden>
+                ⏭
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`player-bar2__ic player-bar2__ic--repeat ${
+                p.repeat === "off" ? "is-dim" : "is-on"
+              } ${p.repeat === "one" ? "player-bar2__ic--repeat-one" : ""}`}
+              onClick={() =>
+                p.setRepeat(
+                  p.repeat === "off"
+                    ? "all"
+                    : p.repeat === "all"
+                    ? "one"
+                    : "off"
+                )
+              }
+              title={
+                p.repeat === "off"
+                  ? "Ripetizione: off"
+                  : p.repeat === "all"
+                  ? "Ripetizione: tutta la coda"
+                  : "Ripetizione: brano"
+              }
+            >
+              <span className="player-bar2__ic-glyph" aria-hidden>
+                ↻
+              </span>
+            </button>
+          </div>
+          <label className="volume2">
+            <span className="sr-only">Volume</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={p.volume}
+              onChange={(event) => p.setVolume(Number(event.target.value))}
+            />
+          </label>
+        </div>
+        <div className="player-bar2__row player-bar2__row--seek">
+          <div className="player-bar2__timeline">
+            <div
+              className="progress2"
+              onClick={(event) => {
+                const el = event.currentTarget as HTMLDivElement;
+                const rect = el.getBoundingClientRect();
+                p.seekRatio((event.clientX - rect.left) / rect.width);
+              }}
+            >
+              <div
+                className="progress2__fill"
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+            <div className="player-bar2__times">
+              <span>{formatDuration(p.currentTime)}</span>
+              <span>{formatDuration(p.duration)}</span>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+function Shell() {
+  const { route, navigate } = useAppRoute();
+  const p = usePlayer();
+  const user = useUserState();
+  const [index, setIndex] = useState<LibraryIndex | null>(null);
+  const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
+  const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const refresh = () => {
+    setLoading(true);
+    Promise.all([fetchLibraryIndex(), fetchDashboard()])
+      .then(([libraryData, dashboardData]) => {
+        setIndex(libraryData);
+        setDashboard(dashboardData);
+        setError(null);
+      })
+      .catch((err: unknown) => setError(String(err)))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      refresh();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    setSearch("");
+  }, [route.section]);
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      const inField =
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable;
+
+      if (event.ctrlKey && event.key.toLowerCase() === "k" && !event.altKey) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
+      if (inField) return;
+
+      if (event.key === "/" && !event.altKey) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
+      if (event.code === "Space") {
+        event.preventDefault();
+        p.toggle();
+      } else if (event.code === "KeyI") {
+        event.preventDefault();
+        navigate({ section: "ascolta" });
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [p, navigate]);
+
+  const legacyLibrary = useMemo(() => clientLegacyLibrary(index), [index]);
+  const favoriteTracks = useMemo(() => {
+    if (!index) return [];
+    return user.state.favorites
+      .map((relPath) => index.tracks.find((track) => track.relPath === relPath))
+      .filter((track): track is LibraryTrackIndex => Boolean(track));
+  }, [index, user.state.favorites]);
+
+  const currentView = (() => {
+    if (loading && !index)
+      return <div className="panel-empty">Caricamento di KORD…</div>;
+    if (error && !index)
+      return <div className="panel-empty danger">{error}</div>;
+    if (!index)
+      return <div className="panel-empty">Nessun dato disponibile.</div>;
+    switch (route.section) {
+      case "dashboard":
+        return (
+          <DashboardView
+            dashboard={dashboard}
+            index={index}
+            onOpenAlbum={(artist, album) =>
+              navigate({ section: "libreria", artist, album })
+            }
+            onOpenSection={(section) => navigate({ section })}
+            onPlayTrack={(track) => p.playTrack(track, [track], 0)}
+          />
+        );
+      case "ascolta":
+        return (
+          <ListenView
+            dashboard={dashboard}
+            index={index}
+            onOpenSection={(section) => navigate({ section })}
+          />
+        );
+      case "libreria":
+        return (
+          <LibraryView
+            index={index}
+            route={route}
+            query={deferredSearch}
+            onOpenArtist={(artist) =>
+              navigate({
+                section: "libreria",
+                artist: artist || null,
+                album: null,
+              })
+            }
+            onOpenAlbum={(artist, album) =>
+              navigate({ section: "libreria", artist, album })
+            }
+          />
+        );
+      case "studio":
+        return (
+          <div className="view-stack">
+            <ToolsView library={legacyLibrary} onRefreshLibrary={refresh} />
+          </div>
+        );
+      case "queue":
+        return <QueueViewNew />;
+      case "playlists":
+        return (
+          <PlaylistsViewNew
+            route={route}
+            onPickPlaylist={(playlist) =>
+              navigate({ section: "playlists", playlist })
+            }
+          />
+        );
+      case "favorites":
+        return (
+          <TrackCollectionView
+            title="Preferiti"
+            eyebrow="Raccolta personale"
+            tracks={favoriteTracks}
+          />
+        );
+      case "recent":
+        return (
+          <TrackCollectionView
+            title="Ascolti recenti"
+            eyebrow="Cronologia"
+            tracks={user.state.recent}
+          />
+        );
+      case "settings":
+        return (
+          <SettingsView
+            onOpenSection={(section) => navigate({ section })}
+          />
+        );
+      default:
+        return null;
+    }
+  })();
+
+  return (
+    <div className="app-shell">
+      <div className="main-shell">
+        <header className="topbar2 topbar2--toolbar" role="banner">
+          <h1 className="sr-only">
+            {NAV_ITEMS.find((item) => item.id === route.section)?.label ||
+              "Dashboard"}
+          </h1>
+          <div className="topbar2__row">
+            <div className="topbar2__start">
+              <div className="topbar2__brand">
+                <span className="topbar2__mark">K</span>
+                <div className="topbar2__brand-text">
+                  <span className="topbar2__name">KORD</span>
+                  <span className="topbar2__tag">Musica locale</span>
+                </div>
+              </div>
+              <nav className="topbar-nav" aria-label="Sezioni app">
+                <div className="topbar-nav__group">
+                  {NAV_ITEMS.filter((item) => item.group === "core").map(
+                    (item) => (
+                      <button
+                        type="button"
+                        key={item.id}
+                        className={`topbar-nav__btn ${
+                          route.section === item.id ? "is-active" : ""
+                        }`}
+                        onClick={() => navigate({ section: item.id })}
+                      >
+                        {item.label}
+                      </button>
+                    )
+                  )}
+                </div>
+                <span className="topbar-nav__sep" aria-hidden />
+                <div className="topbar-nav__group">
+                  {NAV_ITEMS.filter((item) => item.group === "secondary").map(
+                    (item) => (
+                      <button
+                        type="button"
+                        key={item.id}
+                        className={`topbar-nav__btn ${
+                          route.section === item.id ? "is-active" : ""
+                        }`}
+                        onClick={() => navigate({ section: item.id })}
+                      >
+                        {item.label}
+                      </button>
+                    )
+                  )}
+                </div>
+              </nav>
+            </div>
+            <div className="topbar2__end">
+              {index ? (
+                <p className="topbar2__kpi">
+                  {index.stats.artistCount} art. · {index.stats.albumCount} alb.
+                  · {user.saving ? "…" : "salvato"}
+                </p>
+              ) : null}
+              <label className="topbar2__search">
+                <span className="sr-only">Cerca in tutta la libreria</span>
+                <input
+                  ref={searchInputRef}
+                  className="ghost-input ghost-input--search ghost-input--topbar"
+                  type="search"
+                  name="library-search"
+                  placeholder="Cerca… / Ctrl+K"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  autoComplete="off"
+                  role="searchbox"
+                  aria-label="Cerca in tutta la libreria"
+                />
+              </label>
+              <button
+                type="button"
+                className="ghost-btn ghost-btn--toolbar"
+                onClick={refresh}
+                title="Ricarica libreria e dashboard"
+              >
+                Aggiorna
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {error && index ? <div className="inline-banner">{error}</div> : null}
+        {user.error ? (
+          <div className="inline-banner">Persistenza utente: {user.error}</div>
+        ) : null}
+
+        <main className="content-shell">{currentView}</main>
+      </div>
+
+      <PlayerDock onGoToAscolta={() => navigate({ section: "ascolta" })} />
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <UserStateProvider>
+      <PlayerProvider>
+        <Shell />
+      </PlayerProvider>
+    </UserStateProvider>
+  );
+}

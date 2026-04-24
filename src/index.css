@@ -1,0 +1,1148 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:ital,wght@0,400..800;1,400..800&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+
+:root {
+  --bg: #08111d;
+  --surface: rgba(14, 24, 38, 0.86);
+  --surface2: rgba(18, 31, 49, 0.94);
+  --surface3: rgba(27, 43, 66, 0.96);
+  --border: rgba(139, 170, 208, 0.18);
+  --border-strong: rgba(139, 170, 208, 0.34);
+  --text: #f5f7fb;
+  --muted: #a8b8d0;
+  --muted-strong: #c8d8ee;
+  --accent: #ff8f5c;
+  --accent2: #64d4ff;
+  --warning: #f0be67;
+  --danger: #ff7b7b;
+  /* Altezza indicativa barra player (due righe); usata per evitare che il contenuto finisca sotto il dock */
+  --bar-h: 120px;
+  /* Margine sotto a tutte le viste a scroll: safe area + margine esterno barra + altezza barra + respiro */
+  --content-pad-bottom: calc(
+    env(safe-area-inset-bottom, 0px) + 1.2rem + var(--bar-h) + 0.85rem
+  );
+  --side-w: 280px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+  --shadow-elev-1: 0 4px 28px rgba(1, 8, 17, 0.32);
+  --shadow-elev-2: 0 22px 56px rgba(1, 8, 17, 0.45);
+  --focus-ring: color-mix(in srgb, var(--accent2) 72%, white 18%);
+  --font-ui: "Manrope", system-ui, sans-serif;
+  --font-mono: "Space Grotesk", ui-monospace, monospace;
+  --page-glow-1: rgba(255, 143, 92, 0.16);
+  --page-glow-2: rgba(100, 212, 255, 0.14);
+  --page-lg-1: #07101b;
+  --page-lg-2: #08111d;
+  --page-lg-3: #0a1421;
+  --shell-glow-1: rgba(255, 143, 92, 0.06);
+  --shell-lg-1: rgba(6, 14, 24, 0.97);
+  --shell-lg-2: rgba(8, 17, 29, 1);
+  --topbar-bg: rgba(6, 13, 22, 0.82);
+  --surface-elev-a: rgba(16, 28, 43, 0.92);
+  --surface-elev-b: rgba(10, 18, 30, 0.97);
+  --hero-rg-1: rgba(255, 143, 92, 0.14);
+  --hero-rg-2: rgba(100, 212, 255, 0.12);
+  --hero-lg-1: rgba(16, 28, 43, 0.92);
+  --hero-lg-2: rgba(11, 21, 34, 0.96);
+  --art-empty-1: rgba(255, 143, 92, 0.2);
+  --art-empty-2: rgba(100, 212, 255, 0.12);
+  --badge-1: rgba(255, 143, 92, 0.26);
+  --badge-2: rgba(100, 212, 255, 0.18);
+  --album-fb-1: rgba(255, 143, 92, 0.28);
+  --album-fb-2: rgba(100, 212, 255, 0.18);
+  --listen-viz-bg: rgba(4, 9, 16, 0.92);
+  --glass-1: rgba(18, 30, 46, 0.9);
+  --glass-2: rgba(12, 21, 33, 0.94);
+  --nav-active-cool: rgba(100, 212, 255, 0.08);
+  --segmented-1: rgba(255, 143, 92, 0.12);
+  --segmented-2: rgba(100, 212, 255, 0.08);
+  --chip-on: rgba(255, 143, 92, 0.1);
+  --ghost-input-bg: rgba(255, 255, 255, 0.04);
+  --meta-strip-bg: rgba(255, 255, 255, 0.03);
+  --codebox-bg: rgba(4, 8, 14, 0.92);
+  --textarea-bg: rgba(6, 12, 20, 0.92);
+  --text-on-accent: #07101b;
+  --dirlist-hover-bg: rgba(255, 255, 255, 0.04);
+  --player-art-fb: rgba(255, 255, 255, 0.07);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  color: var(--text);
+  background: var(--bg);
+  font: 16px/1.5 var(--font-ui);
+  color-scheme: dark;
+}
+
+:root[data-theme="sunset"] {
+  --bg: #141018;
+  --surface: rgba(40, 24, 36, 0.88);
+  --surface2: rgba(52, 30, 44, 0.94);
+  --surface3: rgba(64, 38, 52, 0.96);
+  --border: rgba(210, 150, 170, 0.2);
+  --border-strong: rgba(230, 170, 190, 0.34);
+  --muted: #c8b4c4;
+  --muted-strong: #e6d4df;
+  --accent: #ff9b5d;
+  --accent2: #ffd16f;
+  --shadow-elev-1: 0 4px 28px rgba(20, 6, 14, 0.38);
+  --shadow-elev-2: 0 22px 56px rgba(12, 4, 10, 0.52);
+  --page-glow-1: rgba(255, 130, 88, 0.22);
+  --page-glow-2: rgba(200, 110, 180, 0.14);
+  --page-lg-1: #120a10;
+  --page-lg-2: #141018;
+  --page-lg-3: #18101a;
+  --shell-glow-1: rgba(255, 150, 100, 0.1);
+  --shell-lg-1: rgba(34, 20, 30, 0.98);
+  --shell-lg-2: rgba(24, 12, 20, 1);
+  --topbar-bg: rgba(28, 16, 24, 0.9);
+  --surface-elev-a: rgba(48, 28, 40, 0.95);
+  --surface-elev-b: rgba(32, 18, 28, 0.98);
+  --hero-rg-1: rgba(255, 150, 100, 0.18);
+  --hero-rg-2: rgba(220, 120, 160, 0.14);
+  --hero-lg-1: rgba(44, 26, 38, 0.94);
+  --hero-lg-2: rgba(30, 16, 26, 0.97);
+  --art-empty-1: rgba(255, 150, 100, 0.22);
+  --art-empty-2: rgba(200, 130, 190, 0.16);
+  --badge-1: rgba(255, 150, 100, 0.28);
+  --badge-2: rgba(200, 120, 200, 0.2);
+  --album-fb-1: rgba(255, 150, 100, 0.3);
+  --album-fb-2: rgba(200, 120, 200, 0.22);
+  --listen-viz-bg: rgba(16, 8, 14, 0.94);
+  --glass-1: rgba(44, 28, 40, 0.92);
+  --glass-2: rgba(28, 16, 26, 0.95);
+  --nav-active-cool: rgba(255, 200, 120, 0.1);
+  --segmented-1: rgba(255, 150, 100, 0.14);
+  --segmented-2: rgba(255, 200, 120, 0.1);
+  --chip-on: rgba(255, 150, 100, 0.14);
+  --codebox-bg: rgba(14, 8, 12, 0.94);
+  --textarea-bg: rgba(20, 10, 16, 0.94);
+  --text-on-accent: #1a0c10;
+  --player-art-fb: rgba(255, 200, 180, 0.1);
+}
+
+:root[data-theme="aurora"] {
+  --bg: #071116;
+  --surface: rgba(12, 32, 40, 0.88);
+  --surface2: rgba(16, 40, 48, 0.94);
+  --surface3: rgba(20, 52, 62, 0.96);
+  --border: rgba(120, 200, 210, 0.2);
+  --border-strong: rgba(150, 220, 230, 0.36);
+  --muted: #9ec8d0;
+  --muted-strong: #c8e8f0;
+  --accent: #4fd4c4;
+  --accent2: #78b4ff;
+  --shadow-elev-1: 0 4px 28px rgba(2, 12, 18, 0.36);
+  --shadow-elev-2: 0 22px 56px rgba(0, 8, 16, 0.48);
+  --page-glow-1: rgba(80, 220, 200, 0.14);
+  --page-glow-2: rgba(100, 170, 255, 0.16);
+  --page-lg-1: #050c12;
+  --page-lg-2: #071116;
+  --page-lg-3: #0a1820;
+  --shell-glow-1: rgba(80, 200, 190, 0.08);
+  --shell-lg-1: rgba(8, 22, 32, 0.98);
+  --shell-lg-2: rgba(6, 18, 28, 1);
+  --topbar-bg: rgba(6, 20, 28, 0.9);
+  --surface-elev-a: rgba(16, 44, 54, 0.94);
+  --surface-elev-b: rgba(10, 30, 40, 0.97);
+  --hero-rg-1: rgba(80, 220, 200, 0.14);
+  --hero-rg-2: rgba(100, 180, 255, 0.12);
+  --hero-lg-1: rgba(14, 40, 50, 0.94);
+  --hero-lg-2: rgba(8, 28, 36, 0.97);
+  --art-empty-1: rgba(80, 220, 200, 0.18);
+  --art-empty-2: rgba(100, 180, 255, 0.12);
+  --badge-1: rgba(80, 220, 200, 0.24);
+  --badge-2: rgba(100, 180, 255, 0.2);
+  --album-fb-1: rgba(80, 220, 200, 0.28);
+  --album-fb-2: rgba(100, 180, 255, 0.22);
+  --listen-viz-bg: rgba(4, 14, 20, 0.94);
+  --glass-1: rgba(16, 44, 56, 0.9);
+  --glass-2: rgba(10, 32, 42, 0.94);
+  --nav-active-cool: rgba(100, 200, 255, 0.1);
+  --segmented-1: rgba(80, 220, 200, 0.12);
+  --segmented-2: rgba(100, 200, 255, 0.1);
+  --chip-on: rgba(80, 220, 200, 0.12);
+  --codebox-bg: rgba(4, 12, 18, 0.94);
+  --textarea-bg: rgba(4, 16, 22, 0.94);
+  --text-on-accent: #031018;
+  --player-art-fb: rgba(180, 240, 255, 0.1);
+}
+
+:root[data-theme="ember"] {
+  --bg: #120b08;
+  --surface: rgba(46, 22, 16, 0.88);
+  --surface2: rgba(58, 26, 18, 0.94);
+  --surface3: rgba(70, 32, 22, 0.96);
+  --border: rgba(230, 140, 100, 0.2);
+  --border-strong: rgba(255, 170, 120, 0.34);
+  --muted: #d4b0a0;
+  --muted-strong: #f0d4c4;
+  --accent: #ff7a4a;
+  --accent2: #ffbe5c;
+  --shadow-elev-1: 0 4px 28px rgba(20, 4, 0, 0.4);
+  --shadow-elev-2: 0 22px 56px rgba(12, 2, 0, 0.55);
+  --page-glow-1: rgba(255, 100, 50, 0.18);
+  --page-glow-2: rgba(255, 160, 60, 0.12);
+  --page-lg-1: #0c0604;
+  --page-lg-2: #120b08;
+  --page-lg-3: #180f0a;
+  --shell-glow-1: rgba(255, 120, 60, 0.1);
+  --shell-lg-1: rgba(32, 16, 10, 0.98);
+  --shell-lg-2: rgba(24, 12, 8, 1);
+  --topbar-bg: rgba(28, 14, 10, 0.92);
+  --surface-elev-a: rgba(50, 24, 16, 0.95);
+  --surface-elev-b: rgba(36, 16, 10, 0.98);
+  --hero-rg-1: rgba(255, 120, 60, 0.2);
+  --hero-rg-2: rgba(255, 80, 40, 0.12);
+  --hero-lg-1: rgba(50, 24, 16, 0.94);
+  --hero-lg-2: rgba(36, 16, 10, 0.97);
+  --art-empty-1: rgba(255, 120, 60, 0.24);
+  --art-empty-2: rgba(255, 80, 40, 0.14);
+  --badge-1: rgba(255, 120, 60, 0.3);
+  --badge-2: rgba(255, 90, 50, 0.22);
+  --album-fb-1: rgba(255, 120, 60, 0.32);
+  --album-fb-2: rgba(255, 80, 40, 0.24);
+  --listen-viz-bg: rgba(12, 6, 4, 0.94);
+  --glass-1: rgba(48, 24, 16, 0.92);
+  --glass-2: rgba(32, 16, 10, 0.95);
+  --nav-active-cool: rgba(255, 200, 120, 0.1);
+  --segmented-1: rgba(255, 120, 60, 0.14);
+  --segmented-2: rgba(255, 180, 80, 0.1);
+  --chip-on: rgba(255, 120, 60, 0.14);
+  --codebox-bg: rgba(10, 4, 2, 0.95);
+  --textarea-bg: rgba(14, 6, 4, 0.95);
+  --text-on-accent: #1a0c04;
+  --player-art-fb: rgba(255, 200, 150, 0.12);
+}
+
+:root[data-theme="forest"] {
+  --bg: #080f0a;
+  --surface: rgba(16, 36, 28, 0.88);
+  --surface2: rgba(20, 48, 36, 0.94);
+  --surface3: rgba(24, 58, 44, 0.96);
+  --border: rgba(120, 200, 150, 0.2);
+  --border-strong: rgba(150, 220, 170, 0.34);
+  --muted: #9cc4ac;
+  --muted-strong: #c8e8d4;
+  --accent: #5ed494;
+  --accent2: #9ee8b8;
+  --shadow-elev-1: 0 4px 28px rgba(0, 10, 6, 0.38);
+  --shadow-elev-2: 0 22px 56px rgba(0, 6, 4, 0.52);
+  --page-glow-1: rgba(80, 200, 120, 0.12);
+  --page-glow-2: rgba(100, 220, 160, 0.1);
+  --page-lg-1: #050a06;
+  --page-lg-2: #080f0a;
+  --page-lg-3: #0a140c;
+  --shell-glow-1: rgba(90, 210, 130, 0.08);
+  --shell-lg-1: rgba(10, 28, 18, 0.98);
+  --shell-lg-2: rgba(6, 20, 12, 1);
+  --topbar-bg: rgba(8, 24, 16, 0.9);
+  --surface-elev-a: rgba(18, 50, 36, 0.94);
+  --surface-elev-b: rgba(10, 34, 24, 0.97);
+  --hero-rg-1: rgba(90, 220, 140, 0.12);
+  --hero-rg-2: rgba(100, 200, 160, 0.1);
+  --hero-lg-1: rgba(16, 48, 34, 0.94);
+  --hero-lg-2: rgba(8, 32, 22, 0.97);
+  --art-empty-1: rgba(90, 220, 150, 0.16);
+  --art-empty-2: rgba(100, 200, 160, 0.12);
+  --badge-1: rgba(90, 220, 140, 0.22);
+  --badge-2: rgba(100, 200, 160, 0.18);
+  --album-fb-1: rgba(90, 220, 150, 0.26);
+  --album-fb-2: rgba(100, 200, 160, 0.2);
+  --listen-viz-bg: rgba(4, 12, 8, 0.94);
+  --glass-1: rgba(18, 48, 36, 0.9);
+  --glass-2: rgba(10, 36, 26, 0.94);
+  --nav-active-cool: rgba(150, 240, 190, 0.1);
+  --segmented-1: rgba(90, 220, 150, 0.12);
+  --segmented-2: rgba(150, 240, 200, 0.08);
+  --chip-on: rgba(90, 220, 150, 0.12);
+  --codebox-bg: rgba(4, 10, 6, 0.95);
+  --textarea-bg: rgba(6, 14, 10, 0.95);
+  --text-on-accent: #041208;
+  --player-art-fb: rgba(200, 255, 220, 0.1);
+}
+
+:root[data-theme="neon"] {
+  --bg: #0a0618;
+  --text: #f2ecff;
+  --surface: rgba(36, 20, 58, 0.88);
+  --surface2: rgba(48, 24, 78, 0.94);
+  --surface3: rgba(60, 28, 98, 0.96);
+  --border: rgba(160, 120, 255, 0.24);
+  --border-strong: rgba(180, 150, 255, 0.4);
+  --muted: #b8a8d8;
+  --muted-strong: #dcd0f4;
+  --accent: #c45cff;
+  --accent2: #3dc8ff;
+  --warning: #f0d060;
+  --shadow-elev-1: 0 4px 32px rgba(30, 0, 60, 0.45);
+  --shadow-elev-2: 0 22px 60px rgba(20, 0, 50, 0.55);
+  --focus-ring: color-mix(in srgb, var(--accent2) 65%, var(--accent) 35%);
+  --page-glow-1: rgba(196, 92, 255, 0.2);
+  --page-glow-2: rgba(61, 200, 255, 0.16);
+  --page-lg-1: #06030f;
+  --page-lg-2: #0a0618;
+  --page-lg-3: #0c0822;
+  --shell-glow-1: rgba(180, 100, 255, 0.1);
+  --shell-lg-1: rgba(18, 8, 36, 0.98);
+  --shell-lg-2: rgba(10, 4, 24, 1);
+  --topbar-bg: rgba(14, 8, 32, 0.92);
+  --surface-elev-a: rgba(48, 22, 88, 0.95);
+  --surface-elev-b: rgba(28, 12, 56, 0.98);
+  --hero-rg-1: rgba(200, 100, 255, 0.16);
+  --hero-rg-2: rgba(80, 200, 255, 0.12);
+  --hero-lg-1: rgba(44, 20, 80, 0.94);
+  --hero-lg-2: rgba(24, 10, 52, 0.97);
+  --art-empty-1: rgba(200, 100, 255, 0.2);
+  --art-empty-2: rgba(80, 200, 255, 0.14);
+  --badge-1: rgba(200, 100, 255, 0.28);
+  --badge-2: rgba(100, 180, 255, 0.2);
+  --album-fb-1: rgba(200, 100, 255, 0.3);
+  --album-fb-2: rgba(100, 180, 255, 0.22);
+  --listen-viz-bg: rgba(6, 4, 18, 0.95);
+  --glass-1: rgba(46, 22, 88, 0.88);
+  --glass-2: rgba(22, 10, 48, 0.94);
+  --nav-active-cool: rgba(100, 200, 255, 0.12);
+  --segmented-1: rgba(200, 100, 255, 0.14);
+  --segmented-2: rgba(100, 200, 255, 0.1);
+  --chip-on: rgba(200, 100, 255, 0.14);
+  --codebox-bg: rgba(6, 3, 16, 0.96);
+  --textarea-bg: rgba(8, 4, 20, 0.96);
+  --text-on-accent: #0a0318;
+  --player-art-fb: rgba(200, 180, 255, 0.12);
+  --dirlist-hover-bg: rgba(180, 120, 255, 0.1);
+  --meta-strip-bg: rgba(150, 100, 255, 0.08);
+  --ghost-input-bg: rgba(180, 120, 255, 0.08);
+}
+
+:root[data-theme="ocean"] {
+  --bg: #051a1e;
+  --text: #e8fbfc;
+  --surface: rgba(10, 42, 52, 0.9);
+  --surface2: rgba(12, 58, 68, 0.94);
+  --surface3: rgba(14, 72, 84, 0.96);
+  --border: rgba(80, 200, 210, 0.22);
+  --border-strong: rgba(120, 220, 230, 0.4);
+  --muted: #8ec4c8;
+  --muted-strong: #c2eef0;
+  --accent: #2dd4bf;
+  --accent2: #38bdf8;
+  --warning: #fbbf24;
+  --shadow-elev-1: 0 4px 28px rgba(0, 30, 40, 0.42);
+  --shadow-elev-2: 0 22px 56px rgba(0, 20, 30, 0.52);
+  --focus-ring: color-mix(in srgb, var(--accent2) 55%, var(--accent) 45%);
+  --page-glow-1: rgba(45, 212, 191, 0.14);
+  --page-glow-2: rgba(56, 189, 248, 0.12);
+  --page-lg-1: #030f12;
+  --page-lg-2: #051a1e;
+  --page-lg-3: #07242a;
+  --shell-glow-1: rgba(45, 180, 200, 0.08);
+  --shell-lg-1: rgba(8, 40, 48, 0.98);
+  --shell-lg-2: rgba(4, 28, 34, 1);
+  --topbar-bg: rgba(6, 36, 44, 0.9);
+  --surface-elev-a: rgba(12, 68, 80, 0.95);
+  --surface-elev-b: rgba(6, 44, 54, 0.98);
+  --hero-rg-1: rgba(45, 212, 191, 0.14);
+  --hero-rg-2: rgba(56, 189, 248, 0.12);
+  --hero-lg-1: rgba(10, 58, 68, 0.94);
+  --hero-lg-2: rgba(4, 38, 46, 0.97);
+  --art-empty-1: rgba(45, 212, 191, 0.18);
+  --art-empty-2: rgba(56, 189, 248, 0.12);
+  --badge-1: rgba(45, 200, 190, 0.26);
+  --badge-2: rgba(80, 180, 240, 0.2);
+  --album-fb-1: rgba(45, 200, 190, 0.28);
+  --album-fb-2: rgba(80, 180, 240, 0.22);
+  --listen-viz-bg: rgba(2, 18, 22, 0.95);
+  --glass-1: rgba(10, 58, 70, 0.9);
+  --glass-2: rgba(4, 38, 48, 0.94);
+  --nav-active-cool: rgba(100, 200, 255, 0.1);
+  --segmented-1: rgba(45, 212, 191, 0.12);
+  --segmented-2: rgba(100, 200, 255, 0.1);
+  --chip-on: rgba(45, 212, 191, 0.12);
+  --codebox-bg: rgba(2, 12, 16, 0.96);
+  --textarea-bg: rgba(2, 16, 20, 0.96);
+  --text-on-accent: #021a1c;
+  --player-art-fb: rgba(180, 240, 255, 0.1);
+  --dirlist-hover-bg: rgba(80, 200, 220, 0.1);
+  --meta-strip-bg: rgba(60, 180, 200, 0.08);
+  --ghost-input-bg: rgba(100, 200, 220, 0.08);
+}
+
+:root[data-theme="rose"] {
+  --bg: #170f14;
+  --text: #fff1f5;
+  --surface: rgba(48, 28, 40, 0.88);
+  --surface2: rgba(60, 32, 48, 0.94);
+  --surface3: rgba(72, 38, 58, 0.96);
+  --border: rgba(244, 160, 190, 0.22);
+  --border-strong: rgba(255, 180, 200, 0.38);
+  --muted: #d4a8b8;
+  --muted-strong: #f0c8d4;
+  --accent: #f472b6;
+  --accent2: #fda4af;
+  --warning: #fcd34d;
+  --shadow-elev-1: 0 4px 28px rgba(40, 10, 30, 0.38);
+  --shadow-elev-2: 0 22px 56px rgba(30, 8, 22, 0.5);
+  --focus-ring: color-mix(in srgb, var(--accent) 50%, var(--accent2) 50%);
+  --page-glow-1: rgba(244, 114, 182, 0.14);
+  --page-glow-2: rgba(253, 164, 175, 0.1);
+  --page-lg-1: #100a0e;
+  --page-lg-2: #170f14;
+  --page-lg-3: #1a1218;
+  --shell-glow-1: rgba(240, 120, 160, 0.08);
+  --shell-lg-1: rgba(40, 22, 32, 0.98);
+  --shell-lg-2: rgba(28, 14, 22, 1);
+  --topbar-bg: rgba(36, 20, 30, 0.9);
+  --surface-elev-a: rgba(58, 32, 48, 0.95);
+  --surface-elev-b: rgba(40, 22, 36, 0.98);
+  --hero-rg-1: rgba(244, 120, 180, 0.14);
+  --hero-rg-2: rgba(253, 150, 170, 0.1);
+  --hero-lg-1: rgba(52, 28, 44, 0.94);
+  --hero-lg-2: rgba(36, 18, 30, 0.97);
+  --art-empty-1: rgba(244, 120, 180, 0.18);
+  --art-empty-2: rgba(253, 160, 180, 0.12);
+  --badge-1: rgba(244, 120, 180, 0.26);
+  --badge-2: rgba(253, 150, 190, 0.18);
+  --album-fb-1: rgba(244, 120, 180, 0.28);
+  --album-fb-2: rgba(253, 150, 190, 0.2);
+  --listen-viz-bg: rgba(20, 8, 14, 0.94);
+  --glass-1: rgba(52, 30, 44, 0.9);
+  --glass-2: rgba(34, 18, 30, 0.94);
+  --nav-active-cool: rgba(255, 180, 200, 0.1);
+  --segmented-1: rgba(244, 120, 180, 0.12);
+  --segmented-2: rgba(255, 180, 200, 0.08);
+  --chip-on: rgba(244, 120, 180, 0.12);
+  --codebox-bg: rgba(18, 6, 12, 0.95);
+  --textarea-bg: rgba(22, 8, 14, 0.95);
+  --text-on-accent: #1a0810;
+  --player-art-fb: rgba(255, 200, 220, 0.1);
+  --dirlist-hover-bg: rgba(240, 160, 190, 0.1);
+  --meta-strip-bg: rgba(240, 140, 180, 0.08);
+  --ghost-input-bg: rgba(250, 180, 200, 0.06);
+}
+
+:root[data-theme="slate"] {
+  --bg: #0b0f14;
+  --text: #e8eaef;
+  --surface: rgba(22, 30, 42, 0.9);
+  --surface2: rgba(30, 40, 56, 0.94);
+  --surface3: rgba(40, 52, 72, 0.96);
+  --border: rgba(120, 140, 170, 0.22);
+  --border-strong: rgba(150, 165, 195, 0.38);
+  --muted: #8b9aaf;
+  --muted-strong: #b8c4d4;
+  --accent: #3b82f6;
+  --accent2: #94a3b8;
+  --warning: #f59e0b;
+  --shadow-elev-1: 0 4px 28px rgba(0, 8, 20, 0.45);
+  --shadow-elev-2: 0 22px 56px rgba(0, 4, 12, 0.55);
+  --focus-ring: color-mix(in srgb, var(--accent) 60%, var(--accent2) 40%);
+  --page-glow-1: rgba(80, 140, 220, 0.1);
+  --page-glow-2: rgba(120, 150, 180, 0.08);
+  --page-lg-1: #06080c;
+  --page-lg-2: #0b0f14;
+  --page-lg-3: #0e131a;
+  --shell-glow-1: rgba(80, 120, 180, 0.06);
+  --shell-lg-1: rgba(14, 20, 30, 0.98);
+  --shell-lg-2: rgba(8, 12, 20, 1);
+  --topbar-bg: rgba(12, 18, 28, 0.92);
+  --surface-elev-a: rgba(32, 44, 62, 0.95);
+  --surface-elev-b: rgba(20, 28, 40, 0.98);
+  --hero-rg-1: rgba(80, 140, 220, 0.1);
+  --hero-rg-2: rgba(120, 150, 180, 0.08);
+  --hero-lg-1: rgba(28, 38, 54, 0.94);
+  --hero-lg-2: rgba(16, 22, 34, 0.97);
+  --art-empty-1: rgba(80, 130, 220, 0.16);
+  --art-empty-2: rgba(120, 150, 190, 0.1);
+  --badge-1: rgba(80, 130, 220, 0.22);
+  --badge-2: rgba(120, 150, 180, 0.16);
+  --album-fb-1: rgba(80, 130, 220, 0.24);
+  --album-fb-2: rgba(120, 150, 180, 0.18);
+  --listen-viz-bg: rgba(4, 8, 14, 0.95);
+  --glass-1: rgba(28, 38, 54, 0.9);
+  --glass-2: rgba(16, 24, 36, 0.94);
+  --nav-active-cool: rgba(120, 160, 220, 0.1);
+  --segmented-1: rgba(80, 130, 220, 0.1);
+  --segmented-2: rgba(120, 150, 180, 0.08);
+  --chip-on: rgba(80, 130, 220, 0.1);
+  --codebox-bg: rgba(4, 8, 16, 0.96);
+  --textarea-bg: rgba(6, 10, 18, 0.96);
+  --text-on-accent: #0a0e14;
+  --player-art-fb: rgba(200, 210, 230, 0.1);
+  --dirlist-hover-bg: rgba(120, 140, 170, 0.1);
+  --meta-strip-bg: rgba(100, 120, 150, 0.08);
+  --ghost-input-bg: rgba(120, 140, 170, 0.08);
+}
+
+:root[data-theme="aubergine"] {
+  --bg: #0e0e11;
+  --text: #ececf0;
+  --surface: rgba(30, 30, 38, 0.9);
+  --surface2: rgba(38, 38, 48, 0.94);
+  --surface3: rgba(50, 50, 62, 0.96);
+  --border: rgba(130, 100, 190, 0.22);
+  --border-strong: rgba(160, 130, 210, 0.4);
+  --muted: #a8a0b8;
+  --muted-strong: #d4d0e4;
+  --accent: #8b5cf6;
+  --accent2: #c4b5fd;
+  --warning: #f59e0b;
+  --shadow-elev-1: 0 4px 28px rgba(0, 0, 0, 0.45);
+  --shadow-elev-2: 0 22px 56px rgba(0, 0, 0, 0.55);
+  --focus-ring: color-mix(in srgb, var(--accent) 55%, var(--accent2) 45%);
+  --page-glow-1: rgba(139, 92, 246, 0.12);
+  --page-glow-2: rgba(180, 140, 255, 0.1);
+  --page-lg-1: #08080a;
+  --page-lg-2: #0e0e11;
+  --page-lg-3: #121216;
+  --shell-glow-1: rgba(120, 80, 200, 0.06);
+  --shell-lg-1: rgba(18, 18, 24, 0.98);
+  --shell-lg-2: rgba(10, 10, 14, 1);
+  --topbar-bg: rgba(16, 16, 22, 0.92);
+  --surface-elev-a: rgba(40, 38, 52, 0.95);
+  --surface-elev-b: rgba(24, 24, 32, 0.98);
+  --hero-rg-1: rgba(139, 92, 246, 0.12);
+  --hero-rg-2: rgba(196, 181, 253, 0.1);
+  --hero-lg-1: rgba(40, 38, 52, 0.94);
+  --hero-lg-2: rgba(24, 24, 32, 0.97);
+  --art-empty-1: rgba(139, 92, 246, 0.18);
+  --art-empty-2: rgba(196, 181, 253, 0.12);
+  --badge-1: rgba(139, 100, 230, 0.24);
+  --badge-2: rgba(180, 150, 250, 0.16);
+  --album-fb-1: rgba(139, 100, 230, 0.26);
+  --album-fb-2: rgba(180, 150, 250, 0.18);
+  --listen-viz-bg: rgba(5, 5, 10, 0.95);
+  --glass-1: rgba(36, 36, 46, 0.9);
+  --glass-2: rgba(20, 20, 28, 0.94);
+  --nav-active-cool: rgba(180, 150, 255, 0.1);
+  --segmented-1: rgba(139, 92, 246, 0.1);
+  --segmented-2: rgba(196, 181, 253, 0.08);
+  --chip-on: rgba(139, 92, 246, 0.12);
+  --codebox-bg: rgba(5, 4, 10, 0.96);
+  --textarea-bg: rgba(6, 5, 12, 0.96);
+  --text-on-accent: #0c0618;
+  --player-art-fb: rgba(180, 150, 255, 0.1);
+  --dirlist-hover-bg: rgba(140, 100, 220, 0.1);
+  --meta-strip-bg: rgba(120, 90, 200, 0.08);
+  --ghost-input-bg: rgba(140, 110, 200, 0.08);
+}
+
+:root[data-theme="tangerine"] {
+  --bg: #0e0e11;
+  --text: #ececf0;
+  --surface: rgba(30, 30, 38, 0.9);
+  --surface2: rgba(38, 38, 48, 0.94);
+  --surface3: rgba(50, 50, 62, 0.96);
+  --border: rgba(200, 110, 50, 0.22);
+  --border-strong: rgba(230, 140, 80, 0.4);
+  --muted: #b8a898;
+  --muted-strong: #e0d8cc;
+  --accent: #f97316;
+  --accent2: #fbbf24;
+  --warning: #facc15;
+  --shadow-elev-1: 0 4px 28px rgba(0, 0, 0, 0.45);
+  --shadow-elev-2: 0 22px 56px rgba(0, 0, 0, 0.55);
+  --focus-ring: color-mix(in srgb, var(--accent) 55%, var(--accent2) 45%);
+  --page-glow-1: rgba(249, 115, 22, 0.12);
+  --page-glow-2: rgba(251, 191, 36, 0.1);
+  --page-lg-1: #08080a;
+  --page-lg-2: #0e0e11;
+  --page-lg-3: #121216;
+  --shell-glow-1: rgba(220, 100, 40, 0.06);
+  --shell-lg-1: rgba(18, 18, 24, 0.98);
+  --shell-lg-2: rgba(10, 10, 14, 1);
+  --topbar-bg: rgba(16, 16, 22, 0.92);
+  --surface-elev-a: rgba(44, 38, 32, 0.95);
+  --surface-elev-b: rgba(26, 24, 24, 0.98);
+  --hero-rg-1: rgba(249, 115, 22, 0.12);
+  --hero-rg-2: rgba(251, 191, 36, 0.1);
+  --hero-lg-1: rgba(44, 38, 32, 0.94);
+  --hero-lg-2: rgba(26, 24, 24, 0.97);
+  --art-empty-1: rgba(249, 115, 22, 0.18);
+  --art-empty-2: rgba(251, 191, 36, 0.12);
+  --badge-1: rgba(240, 120, 50, 0.24);
+  --badge-2: rgba(250, 200, 100, 0.16);
+  --album-fb-1: rgba(240, 120, 50, 0.26);
+  --album-fb-2: rgba(250, 200, 100, 0.18);
+  --listen-viz-bg: rgba(5, 5, 10, 0.95);
+  --glass-1: rgba(40, 34, 28, 0.9);
+  --glass-2: rgba(22, 20, 18, 0.94);
+  --nav-active-cool: rgba(255, 180, 100, 0.1);
+  --segmented-1: rgba(249, 115, 22, 0.1);
+  --segmented-2: rgba(251, 191, 36, 0.08);
+  --chip-on: rgba(249, 115, 22, 0.12);
+  --codebox-bg: rgba(8, 5, 4, 0.96);
+  --textarea-bg: rgba(10, 6, 4, 0.96);
+  --text-on-accent: #160804;
+  --player-art-fb: rgba(255, 200, 140, 0.1);
+  --dirlist-hover-bg: rgba(240, 130, 60, 0.1);
+  --meta-strip-bg: rgba(220, 100, 40, 0.08);
+  --ghost-input-bg: rgba(240, 140, 70, 0.08);
+}
+
+:root[data-theme="carmine"] {
+  --bg: #0e0e11;
+  --text: #ececf0;
+  --surface: rgba(30, 30, 38, 0.9);
+  --surface2: rgba(38, 38, 48, 0.94);
+  --surface3: rgba(50, 50, 62, 0.96);
+  --border: rgba(200, 70, 100, 0.22);
+  --border-strong: rgba(230, 100, 120, 0.4);
+  --muted: #b8a0a8;
+  --muted-strong: #e4d0d4;
+  --accent: #e11d48;
+  --accent2: #fb7185;
+  --warning: #f59e0b;
+  --shadow-elev-1: 0 4px 28px rgba(0, 0, 0, 0.45);
+  --shadow-elev-2: 0 22px 56px rgba(0, 0, 0, 0.55);
+  --focus-ring: color-mix(in srgb, var(--accent) 55%, var(--accent2) 45%);
+  --page-glow-1: rgba(225, 29, 72, 0.12);
+  --page-glow-2: rgba(251, 113, 133, 0.1);
+  --page-lg-1: #08080a;
+  --page-lg-2: #0e0e11;
+  --page-lg-3: #121216;
+  --shell-glow-1: rgba(200, 50, 80, 0.06);
+  --shell-lg-1: rgba(18, 18, 24, 0.98);
+  --shell-lg-2: rgba(10, 10, 14, 1);
+  --topbar-bg: rgba(16, 16, 22, 0.92);
+  --surface-elev-a: rgba(48, 32, 38, 0.95);
+  --surface-elev-b: rgba(28, 22, 26, 0.98);
+  --hero-rg-1: rgba(225, 29, 72, 0.12);
+  --hero-rg-2: rgba(251, 113, 133, 0.1);
+  --hero-lg-1: rgba(48, 32, 38, 0.94);
+  --hero-lg-2: rgba(28, 22, 26, 0.97);
+  --art-empty-1: rgba(225, 29, 72, 0.18);
+  --art-empty-2: rgba(251, 113, 133, 0.12);
+  --badge-1: rgba(230, 60, 100, 0.24);
+  --badge-2: rgba(250, 150, 160, 0.16);
+  --album-fb-1: rgba(230, 60, 100, 0.26);
+  --album-fb-2: rgba(250, 150, 160, 0.18);
+  --listen-viz-bg: rgba(5, 4, 8, 0.95);
+  --glass-1: rgba(42, 30, 34, 0.9);
+  --glass-2: rgba(24, 18, 22, 0.94);
+  --nav-active-cool: rgba(255, 150, 170, 0.1);
+  --segmented-1: rgba(225, 29, 72, 0.1);
+  --segmented-2: rgba(251, 113, 133, 0.08);
+  --chip-on: rgba(225, 29, 72, 0.12);
+  --codebox-bg: rgba(8, 3, 6, 0.96);
+  --textarea-bg: rgba(10, 4, 6, 0.96);
+  --text-on-accent: #140204;
+  --player-art-fb: rgba(255, 160, 170, 0.1);
+  --dirlist-hover-bg: rgba(220, 80, 100, 0.1);
+  --meta-strip-bg: rgba(200, 60, 80, 0.08);
+  --ghost-input-bg: rgba(220, 100, 120, 0.08);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+#root {
+  max-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+body {
+  overflow: hidden;
+  box-sizing: border-box;
+  background:
+    radial-gradient(1200px 720px at 5% -10%, var(--page-glow-1), transparent 58%),
+    radial-gradient(1000px 760px at 100% -18%, var(--page-glow-2), transparent 62%),
+    linear-gradient(180deg, var(--page-lg-1) 0%, var(--page-lg-2) 42%, var(--page-lg-3) 100%);
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+input[type="search"],
+input[type="text"],
+input[type="url"] {
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.8rem;
+  color: var(--text);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+input[type="search"]::placeholder,
+input[type="text"]::placeholder,
+input[type="url"]::placeholder {
+  color: color-mix(in srgb, var(--muted) 82%, transparent);
+}
+
+select {
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.45rem 0.6rem;
+  color: var(--text);
+  box-sizing: border-box;
+}
+
+select:focus,
+input[type="url"]:focus,
+input[type="search"]:focus,
+input[type="text"]:focus,
+textarea:focus {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.flex1 {
+  flex: 1;
+  min-width: 0;
+}
+
+.w-full {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.sm {
+  font-size: 0.86rem;
+}
+
+code {
+  font-size: 0.84em;
+  background: var(--surface3);
+  padding: 0.1em 0.35em;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+textarea {
+  background: var(--textarea-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font: inherit;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.65rem;
+}
+
+input[type="range"] {
+  width: 120px;
+  accent-color: var(--accent);
+}
+
+ol,
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.h2,
+.h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  font-family: var(--font-ui);
+}
+
+.h2 {
+  font-size: 1.35rem;
+  margin: 0 0 1rem;
+}
+
+.subtle {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.tools {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 1.1rem;
+  padding-bottom: 1rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-inline: 0;
+}
+
+.tools > .tool-block {
+  grid-column: span 6;
+}
+
+.tools > .tool-block:nth-child(1) {
+  grid-column: span 7;
+}
+
+.tools > .tool-block:nth-child(2) {
+  grid-column: span 5;
+}
+
+.tools > .tool-block:nth-child(3) {
+  grid-column: span 12;
+}
+
+@media (max-width: 1300px) {
+  .tools > .tool-block {
+    grid-column: span 12;
+  }
+}
+
+.tool-block {
+  border-radius: var(--radius-lg);
+  padding: 1.15rem 1.25rem 1.3rem;
+  border: 1px solid var(--border);
+}
+
+.glass {
+  background: linear-gradient(165deg, var(--glass-1) 0%, var(--glass-2) 100%);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-elev-1);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.row.gap {
+  gap: 0.7rem;
+}
+
+.row.j-between {
+  justify-content: space-between;
+  width: 100%;
+}
+
+.codebox {
+  font-size: 0.7rem;
+  line-height: 1.45;
+  max-height: 6rem;
+  overflow: auto;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--codebox-bg);
+  border: 1px solid var(--border-strong);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0.4rem 0 0.75rem;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--border) 30%, transparent);
+}
+
+.log {
+  width: 100%;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  font-family: var(--font-mono);
+  margin-top: 0.4rem;
+}
+
+.dirlist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.dirlist li button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface3);
+  color: var(--text);
+  font-size: 0.88rem;
+  transition: border 0.16s ease, background 0.16s ease;
+}
+
+.dirlist li button:hover {
+  border-color: color-mix(in srgb, var(--accent2) 45%, var(--border) 55%);
+  background: var(--dirlist-hover-bg);
+}
+
+.breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.1rem 0.25rem;
+  font-size: 0.86rem;
+  margin: 0.4rem 0 0.5rem;
+}
+
+.crumb {
+  color: var(--accent2);
+  background: none;
+  border: none;
+  padding: 0.15rem 0.2rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.crumb:hover {
+  text-decoration: underline;
+  color: color-mix(in srgb, var(--accent2) 85%, white 15%);
+}
+
+.sep {
+  color: var(--muted);
+  user-select: none;
+}
+
+.artgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.artcard {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface3);
+  cursor: pointer;
+  text-align: left;
+  transition: box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.artcard:hover {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+  border-color: var(--border-strong);
+}
+
+.artcard img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+  background: #111;
+}
+
+.artcap {
+  font-size: 0.65rem;
+  padding: 0.4rem 0.45rem 0.5rem;
+  color: var(--muted);
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.linkbtn {
+  color: var(--accent2);
+  text-decoration: underline;
+  font-size: 0.86rem;
+  padding: 0.15rem 0.25rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.select {
+  width: 100%;
+  max-width: 100%;
+  margin: 0.4rem 0 0.6rem;
+  font-size: 0.9rem;
+}
+
+.btn.sm {
+  font-size: 0.8rem;
+  padding: 0.35rem 0.7rem;
+}
+
+.panel-msg {
+  color: var(--muted);
+  padding: 1rem 0;
+}
+
+.panel-msg.err {
+  color: var(--danger);
+}
+
+.btn {
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent2) 70%, white 10%));
+  color: var(--text-on-accent);
+  border: none;
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  font-weight: 800;
+  font-size: 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter 0.16s ease;
+  font-family: var(--font-ui);
+}
+
+.btn:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn.secondary {
+  background: color-mix(in srgb, var(--surface2) 72%, var(--bg));
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+
+.btn.danger,
+.mini.danger,
+button.danger {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: transparent;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+input[type="search"],
+input[type="text"],
+input[type="url"],
+select,
+textarea {
+  background: var(--surface3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.eyebrow {
+  color: var(--accent2);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.subtext,
+.subtle {
+  color: var(--muted);
+}
+
+.panel-msg,
+.panel-empty {
+  padding: 1.1rem 1.15rem;
+  border-radius: var(--radius-xl);
+  border: 1px dashed color-mix(in srgb, var(--border-strong) 70%, transparent);
+  color: var(--muted);
+  background: var(--meta-strip-bg);
+}
+
+.panel-empty--actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  text-align: center;
+}
+
+.panel-empty--actions p {
+  margin: 0;
+}
+
+code,
+kbd,
+.codebox,
+.log {
+  font-family: var(--font-mono);
+}
+
+kbd {
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface2) 55%, var(--bg));
+  border: 1px solid var(--border);
+}
+
+.tool-block {
+  padding: 1.1rem 1.15rem;
+}
+
+.dirlist,
+.artgrid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+
+.dirlist li button,
+.artcard {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface3);
+}
+
+.artcard {
+  overflow: hidden;
+}
+
+.artcap {
+  color: var(--muted);
+}
+
+@media (max-width: 560px) {
+  :root {
+    --bar-h: 158px;
+  }
+
+  .dirlist,
+  .artgrid {
+    grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+    gap: 0.6rem;
+  }
+}
+
+@media (min-width: 561px) and (max-width: 900px) {
+  :root {
+    --bar-h: 132px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
