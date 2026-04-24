@@ -75,12 +75,19 @@ export type VizMode = "bars" | "mirror" | "osc" | "signals" | "embers" | "kord";
 export const APP_LOCALES = ["en", "it"] as const;
 export type AppLocale = (typeof APP_LOCALES)[number];
 
+export type LibraryBrowseMode = "artists" | "genres";
+export type LibraryOverviewSortMode = "name" | "plays";
+export type ArtistAlbumSortMode = "date" | "name" | "plays";
+
 export type UserSettings = {
   theme: ThemeMode;
   vizMode: VizMode;
   restoreSession: boolean;
   defaultTab: string;
   locale: AppLocale;
+  libBrowse: LibraryBrowseMode;
+  libOverviewSort: LibraryOverviewSortMode;
+  artistAlbumSort: ArtistAlbumSortMode;
 };
 
 export type QueueState = {
@@ -92,6 +99,7 @@ export type UserStateV1 = {
   version: 1;
   favorites: string[];
   recent: EnrichedTrack[];
+  trackPlayCounts: Record<string, number>;
   playlists: UserPlaylist[];
   queue: QueueState;
   settings: UserSettings;

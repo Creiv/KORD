@@ -26,6 +26,18 @@ function sanitizeTrack(track) {
   }
 }
 
+function sanitizeTrackPlayCounts(raw) {
+  if (!isObj(raw)) return {}
+  const out = {}
+  for (const [relPath, count] of Object.entries(raw)) {
+    if (typeof relPath !== "string" || !relPath.trim()) continue
+    const n = Number(count)
+    if (!Number.isFinite(n) || n <= 0) continue
+    out[relPath] = Math.min(Math.floor(n), 1_000_000_000)
+  }
+  return out
+}
+
 function sanitizePlaylist(item) {
   if (!isObj(item)) return null
   const id = typeof item.id === "string" && item.id.trim() ? item.id : crypto.randomUUID()
@@ -62,6 +74,11 @@ const THEME_MODES = new Set([
 function sanitizeSettings(settings) {
   const src = isObj(settings) ? settings : {}
   const loc = src.locale === "it" ? "it" : "en"
+  const libBrowse = src.libBrowse === "genres" ? "genres" : "artists"
+  const libOverviewSort = src.libOverviewSort === "plays" ? "plays" : "name"
+  const sas = src.artistAlbumSort
+  const artistAlbumSort =
+    sas === "name" || sas === "plays" || sas === "date" ? sas : "date"
   return {
     theme: THEME_MODES.has(src.theme) ? src.theme : "midnight",
     vizMode: (() => {
@@ -80,6 +97,9 @@ function sanitizeSettings(settings) {
     defaultTab:
       typeof src.defaultTab === "string" && src.defaultTab.trim() ? src.defaultTab : "dashboard",
     locale: loc,
+    libBrowse,
+    libOverviewSort,
+    artistAlbumSort,
   }
 }
 
@@ -88,6 +108,7 @@ export function defaultUserState() {
     version: 1,
     favorites: [],
     recent: [],
+    trackPlayCounts: {},
     playlists: [],
     queue: {
       tracks: [],
@@ -110,6 +131,7 @@ export function sanitizeUserState(input) {
     recent: Array.isArray(src.recent)
       ? src.recent.map((track) => sanitizeTrack(track)).filter(Boolean).slice(0, 30)
       : [],
+    trackPlayCounts: sanitizeTrackPlayCounts(src.trackPlayCounts),
     playlists: Array.isArray(src.playlists)
       ? src.playlists.map((item) => sanitizePlaylist(item)).filter(Boolean)
       : [],

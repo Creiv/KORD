@@ -43,6 +43,9 @@ function defaultSettings(): UserSettings {
     restoreSession: true,
     defaultTab: "dashboard",
     locale: "en",
+    libBrowse: "artists",
+    libOverviewSort: "name",
+    artistAlbumSort: "date",
   };
 }
 
@@ -52,6 +55,15 @@ function normalizeSettings(raw: Partial<UserSettings>): UserSettings {
   )
     ? (raw.locale as AppLocale)
     : "en";
+  const libBrowse: UserSettings["libBrowse"] =
+    raw.libBrowse === "genres" ? "genres" : "artists";
+  const libOverviewSort: UserSettings["libOverviewSort"] =
+    raw.libOverviewSort === "plays" ? "plays" : "name";
+  const rawAlbumSort = raw.artistAlbumSort;
+  const artistAlbumSort: UserSettings["artistAlbumSort"] =
+    rawAlbumSort === "name" || rawAlbumSort === "plays" || rawAlbumSort === "date"
+      ? rawAlbumSort
+      : "date";
   return {
     theme:
       raw.theme != null &&
@@ -78,11 +90,21 @@ function normalizeSettings(raw: Partial<UserSettings>): UserSettings {
         ? raw.defaultTab
         : "dashboard",
     locale,
+    libBrowse,
+    libOverviewSort,
+    artistAlbumSort,
   };
 }
 
 function normalizeUserState(s: UserStateV1): UserStateV1 {
-  return { ...s, settings: normalizeSettings(s.settings) };
+  const rawCounts = s.trackPlayCounts || {};
+  const trackPlayCounts = Object.fromEntries(
+    Object.entries(rawCounts).filter(
+      ([relPath, count]) =>
+        Boolean(relPath) && Number.isFinite(count) && Number(count) > 0
+    )
+  ) as Record<string, number>;
+  return { ...s, trackPlayCounts, settings: normalizeSettings(s.settings) };
 }
 
 function defaultUserState(): UserStateV1 {
@@ -90,6 +112,7 @@ function defaultUserState(): UserStateV1 {
     version: 1,
     favorites: [],
     recent: [],
+    trackPlayCounts: {},
     playlists: [],
     queue: { tracks: [], currentIndex: 0 },
     settings: defaultSettings(),
@@ -197,6 +220,8 @@ type UserStateContextValue = {
   toggleFavorite: (relPath: string) => void;
   isFavorite: (relPath: string) => boolean;
   pushRecent: (track: EnrichedTrack) => void;
+  getTrackPlayCount: (relPath: string) => number;
+  incrementTrackPlayCount: (relPath: string) => void;
   setQueueSnapshot: (queue: QueueState) => void;
   updateSettings: (patch: Partial<UserSettings>) => void;
   createPlaylist: (name: string) => string;
@@ -251,7 +276,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       setSaving(true);
       saveUserState(state)
         .then((next) => {
-          setState(next);
+          setState(normalizeUserState(next));
           setError(null);
           dirtyRef.current = false;
         })
@@ -341,6 +366,25 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
             Math.max(queue.currentIndex, 0),
             Math.max(queue.tracks.length - 1, 0)
           ),
+        },
+      }));
+    },
+    [commit]
+  );
+
+  const getTrackPlayCount = useCallback(
+    (relPath: string) => state.trackPlayCounts?.[relPath] ?? 0,
+    [state.trackPlayCounts]
+  );
+
+  const incrementTrackPlayCount = useCallback(
+    (relPath: string) => {
+      if (!relPath) return;
+      commit((prev) => ({
+        ...prev,
+        trackPlayCounts: {
+          ...(prev.trackPlayCounts || {}),
+          [relPath]: ((prev.trackPlayCounts || {})[relPath] ?? 0) + 1,
         },
       }));
     },
@@ -490,6 +534,8 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       toggleFavorite,
       isFavorite: (relPath: string) => favorites.has(relPath),
       pushRecent,
+      getTrackPlayCount,
+      incrementTrackPlayCount,
       setQueueSnapshot,
       updateSettings,
       createPlaylist,
@@ -506,6 +552,8 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       deletePlaylist,
       error,
       favorites,
+      getTrackPlayCount,
+      incrementTrackPlayCount,
       pushRecent,
       rehydrateTrackListsFromLibrary,
       ready,

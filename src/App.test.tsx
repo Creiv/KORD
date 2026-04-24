@@ -105,6 +105,7 @@ const userState: UserStateV1 = {
   version: 1,
   favorites: [sampleTrack.relPath],
   recent: [sampleTrack],
+  trackPlayCounts: {},
   playlists: [],
   queue: { tracks: [sampleTrack], currentIndex: 0 },
   settings: {
@@ -113,6 +114,9 @@ const userState: UserStateV1 = {
     restoreSession: true,
     defaultTab: "dashboard",
     locale: "en",
+    libBrowse: "artists",
+    libOverviewSort: "name",
+    artistAlbumSort: "date",
   },
   migratedLegacy: true,
 };

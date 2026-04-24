@@ -10,6 +10,7 @@ describe("userState", () => {
     const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kord-user-state-"))
     const state = await writeUserState(musicRoot, {
       favorites: ["a.mp3", "a.mp3"],
+      trackPlayCounts: { "artist/album/song.mp3": 3, bad: -1, "": 2 },
       recent: [
         {
           relPath: "artist/album/song.mp3",
@@ -31,5 +32,7 @@ describe("userState", () => {
     expect(reloaded.settings.theme).toBe("sunset")
     expect(reloaded.settings.locale).toBe("en")
     expect(reloaded.playlists).toHaveLength(1)
+    expect(state.trackPlayCounts).toEqual({ "artist/album/song.mp3": 3 })
+    expect(reloaded.trackPlayCounts).toEqual({ "artist/album/song.mp3": 3 })
   })
 })

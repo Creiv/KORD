@@ -110,6 +110,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const restoreSession = user.state.settings.restoreSession;
   const persistedQueue = user.state.queue;
   const pushRecent = user.pushRecent;
+  const incrementTrackPlayCount = user.incrementTrackPlayCount;
   const setQueueSnapshot = user.setQueueSnapshot;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -153,6 +154,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   });
   const lastMediaPosAtRef = useRef(0);
   const lastMediaRelPathRef = useRef<string | null>(null);
+  const halfListenCountedRef = useRef(false);
+  const halfListenTrackRef = useRef<string | null>(null);
 
   useEffect(() => {
     queueRef.current = queue;
@@ -240,12 +243,33 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }, [current?.relPath, pushRecent]);
 
   useEffect(() => {
+    halfListenTrackRef.current = current?.relPath ?? null;
+    halfListenCountedRef.current = false;
+  }, [current?.relPath]);
+
+  useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
     const onTime = () => {
       setCurrentTime(audio.currentTime);
       if (audio.duration && !Number.isNaN(audio.duration))
         setDuration(audio.duration);
+      const relPath = current?.relPath;
+      if (!relPath) return;
+      if (halfListenTrackRef.current !== relPath) {
+        halfListenTrackRef.current = relPath;
+        halfListenCountedRef.current = false;
+      }
+      const safeDuration =
+        audio.duration && !Number.isNaN(audio.duration) ? audio.duration : 0;
+      if (!safeDuration) return;
+      if (halfListenCountedRef.current && audio.currentTime < safeDuration * 0.1) {
+        halfListenCountedRef.current = false;
+      }
+      if (!halfListenCountedRef.current && audio.currentTime >= safeDuration * 0.5) {
+        halfListenCountedRef.current = true;
+        incrementTrackPlayCount(relPath);
+      }
     };
     const onMeta = () => {
       if (audio.duration && !Number.isNaN(audio.duration))
@@ -278,7 +302,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       audio.removeEventListener("loadedmetadata", onMeta);
       audio.removeEventListener("ended", onEnd);
     };
-  }, [current, repeat]);
+  }, [current, incrementTrackPlayCount, repeat]);
 
   const play = useCallback(async () => {
     const audio = audioRef.current;

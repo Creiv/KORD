@@ -284,24 +284,35 @@ function TrackListRow({
   const openTrackMetaEdit = useOpenTrackMetaEdit();
   const inQ = p.isTrackInQueue(track.relPath);
   const fav = user.isFavorite(track.relPath);
+  const playCount = user.getTrackPlayCount(track.relPath);
+  const infoLine =
+    metaRight ||
+    trackInfoBadges(track, {
+      track: t("badges.track"),
+      album: t("badges.album"),
+    }).join(" · ") ||
+    t("common.emDash");
   return (
     <div className={`track-row ${active ? "is-active" : ""}`}>
       <TrackRowArt relPath={track.relPath} />
       <button type="button" className="track-row__main" onClick={onPlay}>
         <span className="track-row__title-row">
-          <span className="track-row__title">{track.title}</span>
-          {fileMetaGaps ? <TrackFileMetaChip meta={track.meta} /> : null}
+          <span className="track-row__title-lead">
+            <span className="track-row__title">{track.title}</span>
+            <span
+              className="track-row__plays"
+              aria-label={t("trackRow.playCount", { n: playCount })}
+            >
+              ({playCount})
+            </span>
+            {fileMetaGaps ? <TrackFileMetaChip meta={track.meta} /> : null}
+          </span>
         </span>
         <span className="track-row__meta">
           {track.artist} · {track.album}
         </span>
         <span className="track-row__badges">
-          {metaRight ||
-            trackInfoBadges(track, {
-              track: t("badges.track"),
-              album: t("badges.album"),
-            }).join(" · ") ||
-            t("common.emDash")}
+          {infoLine}
         </span>
       </button>
       <div className="track-row__actions">
@@ -717,6 +728,17 @@ function DashboardView({
   onPlayTrack: (track: EnrichedTrack) => void;
 }) {
   const { t } = useI18n();
+  const user = useUserState();
+  const favoriteTracksSorted = useMemo(
+    () =>
+      [...(dashboard?.favoriteTracks || [])].sort(
+        (a, b) =>
+          (user.state.trackPlayCounts?.[b.relPath] ?? 0) -
+            (user.state.trackPlayCounts?.[a.relPath] ?? 0) ||
+          a.title.localeCompare(b.title, undefined, { numeric: true })
+      ),
+    [dashboard?.favoriteTracks, user.state.trackPlayCounts]
+  );
   if (!dashboard || !index)
     return <div className="panel-empty">{t("loading.dashboard")}</div>;
   return (
@@ -780,11 +802,11 @@ function DashboardView({
               {t("dashboard.allFavorites")}
             </button>
           </div>
-          {dashboard.favoriteTracks.length === 0 ? (
+          {favoriteTracksSorted.length === 0 ? (
             <p className="panel-empty">{t("dashboard.favoritesEmpty")}</p>
           ) : (
             <div className="list-stack">
-              {dashboard.favoriteTracks.slice(0, 5).map((track) => (
+              {favoriteTracksSorted.slice(0, 5).map((track) => (
                 <TrackListRow
                   key={track.relPath}
                   track={track}
@@ -1082,7 +1104,7 @@ function LibraryView({
   const p = usePlayer();
   const user = useUserState();
   const { t, sortLocale } = useI18n();
-  const [sort, setSort] = useState<"name" | "date">("date");
+  const { libBrowse, libOverviewSort, artistAlbumSort } = user.state.settings;
   const [mode, setMode] = useState<"all" | "artists" | "albums" | "tracks">(
     "all"
   );
@@ -1092,30 +1114,51 @@ function LibraryView({
   const [excludedTracks, setExcludedTracks] = useState<Set<string>>(() =>
     getExcludedTracks()
   );
-  const [libBrowse, setLibBrowse] = useState<"artists" | "genres">("artists");
   const [selectedGenreKey, setSelectedGenreKey] = useState<string | null>(null);
   const normalizedQuery = query.trim().toLowerCase();
 
   const artist = route.artist
     ? index.artists.find((item) => item.id === route.artist) || null
     : null;
-  const artistAlbums = useMemo(
-    () =>
-      artist
-        ? index.albums
-            .filter((album) => album.artistId === artist.id)
-            .sort((a, b) =>
-              sort === "date"
-                ? String(a.releaseDate || "").localeCompare(
-                    String(b.releaseDate || ""),
-                    undefined,
-                    { numeric: true }
-                  )
-                : a.name.localeCompare(b.name, sortLocale, { numeric: true })
-            )
-        : [],
-    [artist, index.albums, sort, sortLocale]
-  );
+  const artistAlbums = useMemo(() => {
+    if (!artist) return [];
+    const counts = user.state.trackPlayCounts || {};
+    const list = index.albums.filter((album) => album.artistId === artist.id);
+    const next = [...list];
+    if (artistAlbumSort === "date") {
+      next.sort((a, b) =>
+        String(a.releaseDate || "").localeCompare(
+          String(b.releaseDate || ""),
+          undefined,
+          { numeric: true }
+        )
+      );
+    } else if (artistAlbumSort === "name") {
+      next.sort((a, b) =>
+        a.name.localeCompare(b.name, sortLocale, { numeric: true })
+      );
+    } else {
+      const albumPlays = (al: LibraryAlbumIndex) => {
+        let s = 0;
+        for (const rel of al.tracks) {
+          s += counts[rel] ?? 0;
+        }
+        return s;
+      };
+      next.sort(
+        (a, b) =>
+          albumPlays(b) - albumPlays(a) ||
+          a.name.localeCompare(b.name, sortLocale, { numeric: true })
+      );
+    }
+    return next;
+  }, [
+    artist,
+    index.albums,
+    artistAlbumSort,
+    sortLocale,
+    user.state.trackPlayCounts,
+  ]);
   const album = route.album
     ? artistAlbums.find(
         (item) => item.name === route.album || item.id === route.album
@@ -1191,13 +1234,92 @@ function LibraryView({
   }, [selectedGenreKey, genreIndex.list, t]);
 
   const sortedGenreTracks = useMemo(() => {
-    return [...tracksInSelectedGenre].sort(
-      (a, b) =>
-        a.artist.localeCompare(b.artist, sortLocale, { numeric: true }) ||
-        a.album.localeCompare(b.album, sortLocale, { numeric: true }) ||
-        a.title.localeCompare(b.title, sortLocale, { numeric: true })
-    );
-  }, [tracksInSelectedGenre, sortLocale]);
+    const base = [...tracksInSelectedGenre];
+    const counts = user.state.trackPlayCounts || {};
+    if (libOverviewSort === "plays") {
+      base.sort(
+        (a, b) =>
+          (counts[b.relPath] ?? 0) - (counts[a.relPath] ?? 0) ||
+          a.artist.localeCompare(b.artist, sortLocale, { numeric: true }) ||
+          a.album.localeCompare(b.album, sortLocale, { numeric: true }) ||
+          a.title.localeCompare(b.title, sortLocale, { numeric: true })
+      );
+    } else {
+      base.sort(
+        (a, b) =>
+          a.artist.localeCompare(b.artist, sortLocale, { numeric: true }) ||
+          a.album.localeCompare(b.album, sortLocale, { numeric: true }) ||
+          a.title.localeCompare(b.title, sortLocale, { numeric: true })
+      );
+    }
+    return base;
+  }, [
+    tracksInSelectedGenre,
+    sortLocale,
+    libOverviewSort,
+    user.state.trackPlayCounts,
+  ]);
+
+  const sortedOverviewArtists = useMemo(() => {
+    const counts = user.state.trackPlayCounts || {};
+    const list = [...index.artists];
+    if (libOverviewSort === "name") {
+      list.sort((a, b) =>
+        a.name.localeCompare(b.name, sortLocale, { numeric: true })
+      );
+    } else {
+      const sumPlays = (ar: LibraryArtistIndex) => {
+        let s = 0;
+        for (const t of index.tracks) {
+          if (t.artist === ar.name) s += counts[t.relPath] ?? 0;
+        }
+        return s;
+      };
+      list.sort(
+        (a, b) =>
+          sumPlays(b) - sumPlays(a) ||
+          a.name.localeCompare(b.name, sortLocale, { numeric: true })
+      );
+    }
+    return list;
+  }, [
+    index.artists,
+    index.tracks,
+    libOverviewSort,
+    sortLocale,
+    user.state.trackPlayCounts,
+  ]);
+
+  const sortedGenreBrowseList = useMemo(() => {
+    const counts = user.state.trackPlayCounts || {};
+    const list = [...genreIndex.list];
+    if (libOverviewSort === "name") {
+      list.sort((a, b) =>
+        a.label.localeCompare(b.label, sortLocale, { numeric: true })
+      );
+    } else {
+      const playsForGenreKey = (key: string) => {
+        let s = 0;
+        for (const t of index.tracks) {
+          const g = t.meta?.genre?.trim().toLowerCase();
+          if (g === key) s += counts[t.relPath] ?? 0;
+        }
+        return s;
+      };
+      list.sort(
+        (a, b) =>
+          playsForGenreKey(b.key) - playsForGenreKey(a.key) ||
+          a.label.localeCompare(b.label, sortLocale, { numeric: true })
+      );
+    }
+    return list;
+  }, [
+    genreIndex.list,
+    index.tracks,
+    libOverviewSort,
+    sortLocale,
+    user.state.trackPlayCounts,
+  ]);
 
   const searchResults = useMemo(() => {
     if (!normalizedQuery) return null;
@@ -1517,20 +1639,31 @@ function LibraryView({
                   {t("library.playArtistShuffle")}
                 </button>
               </div>
-              <div className="segmented">
+              <div
+                className="segmented"
+                role="group"
+                aria-label={t("library.artistAlbumsSortAria")}
+              >
                 <button
                   type="button"
-                  className={sort === "date" ? "is-on" : ""}
-                  onClick={() => setSort("date")}
+                  className={artistAlbumSort === "date" ? "is-on" : ""}
+                  onClick={() => user.updateSettings({ artistAlbumSort: "date" })}
                 >
                   {t("library.sortDate")}
                 </button>
                 <button
                   type="button"
-                  className={sort === "name" ? "is-on" : ""}
-                  onClick={() => setSort("name")}
+                  className={artistAlbumSort === "name" ? "is-on" : ""}
+                  onClick={() => user.updateSettings({ artistAlbumSort: "name" })}
                 >
                   {t("library.sortName")}
+                </button>
+                <button
+                  type="button"
+                  className={artistAlbumSort === "plays" ? "is-on" : ""}
+                  onClick={() => user.updateSettings({ artistAlbumSort: "plays" })}
+                >
+                  {t("library.sortByPlays")}
                 </button>
               </div>
             </div>
@@ -1607,38 +1740,60 @@ function LibraryView({
                 {t("listen.smartShuffle")}
               </button>
             </div>
-            {!selectedGenreKey ? (
-              <div
-                className="segmented"
-                role="group"
-                aria-label={t("library.browseByArtistGenreAria")}
+            <div
+              className="segmented"
+              role="group"
+              aria-label={t("library.sortOverviewAria")}
+            >
+              <button
+                type="button"
+                className={libOverviewSort === "name" ? "is-on" : ""}
+                onClick={() => user.updateSettings({ libOverviewSort: "name" })}
               >
-                <button
-                  type="button"
-                  className={libBrowse === "artists" ? "is-on" : ""}
-                  onClick={() => {
-                    setLibBrowse("artists");
-                    setSelectedGenreKey(null);
-                  }}
-                >
-                  {t("library.tabArtists")}
-                </button>
-                <button
-                  type="button"
-                  className={libBrowse === "genres" ? "is-on" : ""}
-                  onClick={() => {
-                    setLibBrowse("genres");
-                    setSelectedGenreKey(null);
-                  }}
-                >
-                  {t("library.tabGenres")}
-                </button>
-              </div>
-            ) : null}
+                {t("library.sortByName")}
+              </button>
+              <button
+                type="button"
+                className={libOverviewSort === "plays" ? "is-on" : ""}
+                onClick={() => user.updateSettings({ libOverviewSort: "plays" })}
+              >
+                {t("library.sortByPlays")}
+              </button>
+            </div>
           </div>
         </div>
       </section>
       <section className="surface-card">
+        {!selectedGenreKey ? (
+          <div className="library-content-head">
+            <div
+              className="segmented segmented--joined"
+              role="group"
+              aria-label={t("library.browseByArtistGenreAria")}
+            >
+              <button
+                type="button"
+                className={libBrowse === "artists" ? "is-on" : ""}
+                onClick={() => {
+                  user.updateSettings({ libBrowse: "artists" });
+                  setSelectedGenreKey(null);
+                }}
+              >
+                {t("library.tabArtists")}
+              </button>
+              <button
+                type="button"
+                className={libBrowse === "genres" ? "is-on" : ""}
+                onClick={() => {
+                  user.updateSettings({ libBrowse: "genres" });
+                  setSelectedGenreKey(null);
+                }}
+              >
+                {t("library.tabGenres")}
+              </button>
+            </div>
+          </div>
+        ) : null}
         {selectedGenreKey ? (
           <div className="list-stack">
             {sortedGenreTracks.map((track) => (
@@ -1651,7 +1806,7 @@ function LibraryView({
           </div>
         ) : libBrowse === "artists" ? (
           <div className="artist-grid">
-            {index.artists.map((item) => (
+            {sortedOverviewArtists.map((item) => (
               <ArtistCard
                 key={item.id}
                 artist={item}
@@ -1681,7 +1836,7 @@ function LibraryView({
                   </span>
                 </button>
               ) : null}
-              {genreIndex.list.map((g) => (
+              {sortedGenreBrowseList.map((g) => (
                 <button
                   type="button"
                   key={g.key}
@@ -2462,8 +2617,14 @@ function Shell() {
     if (!index) return [];
     return user.state.favorites
       .map((relPath) => index.tracks.find((track) => track.relPath === relPath))
-      .filter((track): track is LibraryTrackIndex => Boolean(track));
-  }, [index, user.state.favorites]);
+      .filter((track): track is LibraryTrackIndex => Boolean(track))
+      .sort(
+        (a, b) =>
+          (user.state.trackPlayCounts?.[b.relPath] ?? 0) -
+            (user.state.trackPlayCounts?.[a.relPath] ?? 0) ||
+          a.title.localeCompare(b.title, undefined, { numeric: true })
+      );
+  }, [index, user.state.favorites, user.state.trackPlayCounts]);
 
   const libraryGenreOptions = useMemo(() => {
     if (!index) return [];
