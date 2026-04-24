@@ -18,6 +18,7 @@ import {
 } from "./lib/api";
 import { buildRandomArtistCoverMap } from "./lib/artistCover";
 import { fmtDate, trackInfoBadges } from "./lib/metaFormat";
+import { ExcludeShuffleIcon } from "./components/ExcludeShuffleIcon";
 import { KordWordmarkSvg } from "./components/KordWordmarkSvg";
 import { ThemePicker } from "./components/ThemePicker";
 import { ToolsView } from "./components/ToolsView";
@@ -225,9 +226,7 @@ function TrackFileMetaChip({ meta }: { meta?: TrackMeta | null }) {
   return (
     <span
       className={`lib-meta-chip${isOn ? " lib-meta-chip--on" : ""}`}
-      title={
-        isOn ? t("trackMeta.gapOnTitle") : t("trackMeta.gapOffTitle")
-      }
+      title={isOn ? t("trackMeta.gapOnTitle") : t("trackMeta.gapOffTitle")}
     >
       ♪
     </span>
@@ -369,7 +368,10 @@ function LibraryArtistMetaChips({ artist }: { artist: LibraryArtistIndex }) {
   const nA = artist.albumsWithoutFileMetaCount;
   const nS = artist.tracksWithoutFileMetaCount;
   return (
-    <div className="lib-meta-badges" aria-label={t("library.metaFileStatusAria")}>
+    <div
+      className="lib-meta-badges"
+      aria-label={t("library.metaFileStatusAria")}
+    >
       <span
         className={`lib-meta-chip${nA > 0 ? " lib-meta-chip--on" : ""}`}
         title={
@@ -499,7 +501,8 @@ function LibraryArtistExcludeChips({
             : t("library.noTracksExcluded")
         }
       >
-        r{nTr > 0 ? nTr : ""}
+        <ExcludeShuffleIcon className="lib-meta-chip__exclude-icon" />
+        {nTr > 0 ? nTr : null}
       </span>
     </div>
   );
@@ -522,7 +525,10 @@ function LibraryArtistFavoriteChips({
     return c;
   }, [artist.name, libraryIndex.tracks, favorites]);
   return (
-    <div className="lib-meta-badges lib-meta-badges--tight" aria-label={t("library.favoritesAria")}>
+    <div
+      className="lib-meta-badges lib-meta-badges--tight"
+      aria-label={t("library.favoritesAria")}
+    >
       <span
         className={`lib-meta-chip lib-meta-chip--fav${
           n > 0 ? " lib-meta-chip--on" : ""
@@ -590,9 +596,7 @@ function LibraryAlbumExcludeChips({
   const excludedTracks = getExcludedTracks();
   const key = albumExclusionKey(album);
   const fullAl = excludedAlbums.has(key);
-  const nTr = fullAl
-    ? 0
-    : album.tracks.filter((rel) => excludedTracks.has(rel)).length;
+  const nTr = album.tracks.filter((rel) => excludedTracks.has(rel)).length;
   const wrap =
     variant === "hero"
       ? "lib-meta-badges lib-meta-badges--hero"
@@ -621,7 +625,8 @@ function LibraryAlbumExcludeChips({
             : t("library.noTracksExcludedAlbum")
         }
       >
-        r{nTr > 0 ? nTr : ""}
+        <ExcludeShuffleIcon className="lib-meta-chip__exclude-icon" />
+        {nTr > 0 ? nTr : null}
       </span>
     </div>
   );
@@ -642,9 +647,7 @@ function ArtistCard({
 }) {
   const { t } = useI18n();
   const aU =
-    albumCount === 1
-      ? t("library.unitAlbum")
-      : t("library.unitAlbumPlural");
+    albumCount === 1 ? t("library.unitAlbum") : t("library.unitAlbumPlural");
   const trU =
     artist.trackCount === 1
       ? t("library.unitTrack")
@@ -690,11 +693,7 @@ function DashboardView({
 }) {
   const { t } = useI18n();
   if (!dashboard || !index)
-    return (
-      <div className="panel-empty">
-        {t("loading.dashboard")}
-      </div>
-    );
+    return <div className="panel-empty">{t("loading.dashboard")}</div>;
   return (
     <div className="view-stack">
       <section className="hero-card hero-card--compact">
@@ -757,9 +756,7 @@ function DashboardView({
             </button>
           </div>
           {dashboard.favoriteTracks.length === 0 ? (
-            <p className="panel-empty">
-              {t("dashboard.favoritesEmpty")}
-            </p>
+            <p className="panel-empty">{t("dashboard.favoritesEmpty")}</p>
           ) : (
             <div className="list-stack">
               {dashboard.favoriteTracks.slice(0, 5).map((track) => (
@@ -830,9 +827,7 @@ function DashboardView({
             </button>
           </div>
           {dashboard.continueListening.length === 0 ? (
-            <p className="panel-empty">
-              {t("dashboard.sessionEmpty")}
-            </p>
+            <p className="panel-empty">{t("dashboard.sessionEmpty")}</p>
           ) : (
             <div className="list-stack">
               {dashboard.continueListening.slice(0, 5).map((track) => (
@@ -906,6 +901,8 @@ function ListenView({
     });
     p.playTrack(shuffled[0], shuffled, 0, { preserveQueueOrder: true });
   };
+  const listenQueueStart = Math.max(0, p.currentIndex - 1);
+  const listenQueuePreview = p.queue.slice(listenQueueStart, listenQueueStart + 6);
   return (
     <div className="view-stack">
       <section className="listen-stage">
@@ -944,9 +941,7 @@ function ListenView({
                     }}
                     title={t("trackRow.favTitle")}
                     aria-pressed={
-                      p.current
-                        ? user.isFavorite(p.current.relPath)
-                        : false
+                      p.current ? user.isFavorite(p.current.relPath) : false
                     }
                     aria-label={t("trackRow.favAria")}
                   >
@@ -995,14 +990,17 @@ function ListenView({
             </div>
           ) : (
             <div className="list-stack">
-              {p.queue.slice(0, 6).map((track, index) => (
-                <TrackListRow
-                  key={`${track.relPath}-${index}`}
-                  track={track}
-                  active={index === p.currentIndex}
-                  onPlay={() => p.playTrack(track, p.queue, index)}
-                />
-              ))}
+              {listenQueuePreview.map((track, i) => {
+                const index = listenQueueStart + i;
+                return (
+                  <TrackListRow
+                    key={`${track.relPath}-${index}`}
+                    track={track}
+                    active={index === p.currentIndex}
+                    onPlay={() => p.playTrack(track, p.queue, index)}
+                  />
+                );
+              })}
             </div>
           )}
         </section>
@@ -1032,9 +1030,7 @@ function ListenView({
               ))}
             </div>
           ) : (
-            <p className="panel-empty">
-              {t("listen.recentEmpty")}
-            </p>
+            <p className="panel-empty">{t("listen.recentEmpty")}</p>
           )}
         </section>
       </section>
@@ -1399,8 +1395,11 @@ function LibraryView({
                     }
                     aria-pressed={excludedTracks.has(track.relPath)}
                   >
-                    <span className="track-row__ic-glyph" aria-hidden>
-                      🚫
+                    <span
+                      className="track-row__ic-glyph track-row__ic-glyph--svg"
+                      aria-hidden
+                    >
+                      <ExcludeShuffleIcon />
                     </span>
                   </button>
                 }
@@ -1602,9 +1601,7 @@ function LibraryView({
               ))}
             </div>
             {genreIndex.list.length === 0 && genreIndex.noGenreCount === 0 ? (
-              <p className="panel-empty">
-                {t("library.noGenresEmpty")}
-              </p>
+              <p className="panel-empty">{t("library.noGenresEmpty")}</p>
             ) : null}
           </div>
         )}
@@ -1813,9 +1810,7 @@ function PlaylistsViewNew({
               />
             </div>
             {activePlaylist.tracks.length === 0 ? (
-              <p className="panel-empty">
-                {t("playlists.detailEmpty")}
-              </p>
+              <p className="panel-empty">{t("playlists.detailEmpty")}</p>
             ) : (
               <div className="list-stack">
                 {activePlaylist.tracks.map((track, index) => {
@@ -1856,9 +1851,7 @@ function PlaylistsViewNew({
             )}
           </>
         ) : (
-          <p className="panel-empty">
-            {t("playlists.pickOne")}
-          </p>
+          <p className="panel-empty">{t("playlists.pickOne")}</p>
         )}
       </section>
     </div>
@@ -1987,7 +1980,9 @@ function SettingsView({
             <div className="shortcut-row">
               <span className="shortcut-keys">
                 <kbd className="shortcut-kbd">/</kbd>
-                <span className="shortcut-keys__sep">{t("settings.shortcutOr")}</span>
+                <span className="shortcut-keys__sep">
+                  {t("settings.shortcutOr")}
+                </span>
                 <kbd className="shortcut-kbd">{t("settings.kbdCtrlK")}</kbd>
               </span>
               <span className="shortcut-row__dash" aria-hidden>
@@ -2037,9 +2032,7 @@ function SettingsView({
             <span>{t("settings.language")}</span>
             <select
               value={locale}
-              onChange={(event) =>
-                setLocale(event.target.value as AppLocale)
-              }
+              onChange={(event) => setLocale(event.target.value as AppLocale)}
             >
               {APP_LOCALES.map((loc) => (
                 <option key={loc} value={loc}>
@@ -2122,9 +2115,7 @@ function PlayerDock({ onGoToAscolta }: { onGoToAscolta: () => void }) {
               )}
               <div className="player-bar2__meta">
                 <div className="player-bar2__title-line">
-                  <strong>
-                    {p.current?.title || t("player.pickTrack")}
-                  </strong>
+                  <strong>{p.current?.title || t("player.pickTrack")}</strong>
                 </div>
                 <span>
                   {p.current
@@ -2182,7 +2173,9 @@ function PlayerDock({ onGoToAscolta }: { onGoToAscolta: () => void }) {
               type="button"
               className="player-bar2__ic player-bar2__ic--play"
               onClick={() => p.toggle()}
-              title={p.isPlaying ? t("player.pauseTitle") : t("player.playTitle")}
+              title={
+                p.isPlaying ? t("player.pauseTitle") : t("player.playTitle")
+              }
             >
               <span className="player-bar2__ic-glyph" aria-hidden>
                 {p.isPlaying ? "⏸" : "▶"}
@@ -2349,8 +2342,7 @@ function Shell() {
       return <div className="panel-empty">{t("loading.app")}</div>;
     if (error && !index)
       return <div className="panel-empty danger">{error}</div>;
-    if (!index)
-      return <div className="panel-empty">{t("empty.noData")}</div>;
+    if (!index) return <div className="panel-empty">{t("empty.noData")}</div>;
     switch (route.section) {
       case "dashboard":
         return (
@@ -2425,9 +2417,7 @@ function Shell() {
         );
       case "settings":
         return (
-          <SettingsView
-            onOpenSection={(section) => navigate({ section })}
-          />
+          <SettingsView onOpenSection={(section) => navigate({ section })} />
         );
       default:
         return null;
@@ -2491,9 +2481,7 @@ function Shell() {
                   {t("topbar.kpi", {
                     art: index.stats.artistCount,
                     alb: index.stats.albumCount,
-                    state: user.saving
-                      ? t("topbar.saving")
-                      : t("topbar.saved"),
+                    state: user.saving ? t("topbar.saving") : t("topbar.saved"),
                   })}
                 </p>
               ) : null}
