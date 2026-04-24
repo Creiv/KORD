@@ -8,7 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { ReactNode } from "react";
+import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { PlayerProvider, usePlayer } from "./context/PlayerContext";
 import {
   ToolsActivityProvider,
@@ -1095,7 +1095,7 @@ function DashboardView({
               {t("dashboard.openLibrary")}
             </button>
           </div>
-          <div className="album-grid compact">
+          <div className="album-grid compact dashboard-updated-albums">
             {dashboard.recentlyUpdatedAlbums.slice(0, 6).map((album) => (
               <button
                 type="button"
@@ -1722,7 +1722,7 @@ function LibraryView({
 
   if (normalizedQuery && searchResults) {
     return (
-      <div className="view-stack">
+      <div className="view-stack library-view">
         <section className="surface-card surface-card--toolbar-only">
           <div className="section-head section-head--page-toolbar">
             <div>
@@ -1822,7 +1822,7 @@ function LibraryView({
 
   if (album && artist) {
     return (
-      <div className="view-stack">
+      <div className="view-stack library-view">
         <section className="album-hero">
           <AlbumCover album={album} />
           <div className="album-hero__body">
@@ -1921,7 +1921,7 @@ function LibraryView({
 
   if (artist) {
     return (
-      <div className="view-stack">
+      <div className="view-stack library-view">
         <section className="surface-card surface-card--toolbar-only">
           <div className="section-head section-head--page-toolbar">
             <div className="page-toolbar__lead page-toolbar__lead--backrow">
@@ -2021,7 +2021,7 @@ function LibraryView({
   }
 
   return (
-    <div className="view-stack">
+    <div className="view-stack library-view">
       <section className="surface-card surface-card--toolbar-only">
         <div className="section-head section-head--page-toolbar">
           {selectedGenreKey ? (
@@ -3088,18 +3088,28 @@ function PlayerDock({
     cur && getExcludedTracks().has(cur.relPath)
   );
   const shuffleExcluded = albumShuffleExcluded || trackShuffleExcluded;
+  const openListenFromTopBar = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const el = event.target as HTMLElement;
+    if (
+      el.closest(
+        "button, input, .volume2, .player-bar2__byline, label.volume2"
+      )
+    ) {
+      return;
+    }
+    onGoToAscolta();
+  };
   return (
     <div className="player-dock2">
       <footer className="player-bar2">
-        <div className="player-bar2__row player-bar2__row--top">
+        <div
+          className="player-bar2__row player-bar2__row--top player-bar2__row--open-listen"
+          onClick={openListenFromTopBar}
+          title={t("player.openListenTitle")}
+        >
           <div className="player-bar2__track-block">
             <div className="player-bar2__track">
-              <button
-                type="button"
-                className="player-bar2__art-hit"
-                onClick={onGoToAscolta}
-                title={t("player.openListenTitle")}
-              >
+              <div className="player-bar2__art-hit">
                 {cur ? (
                   <img
                     className="player-bar2__art"
@@ -3109,16 +3119,11 @@ function PlayerDock({
                 ) : (
                   <div className="player-bar2__art fallback">♪</div>
                 )}
-              </button>
+              </div>
               <div className="player-bar2__meta">
-                <button
-                  type="button"
-                  className="player-bar2__meta-hit player-bar2__title-line"
-                  onClick={onGoToAscolta}
-                  title={t("player.openListenTitle")}
-                >
+                <div className="player-bar2__title-line">
                   <strong>{cur?.title || t("player.pickTrack")}</strong>
-                </button>
+                </div>
                 {cur ? (
                   <div className="player-bar2__byline">
                     <button
@@ -3137,7 +3142,9 @@ function PlayerDock({
                       type="button"
                       className="player-bar2__crumb"
                       title={t("player.openAlbumLibTitle")}
-                      onClick={() => onOpenLibraryAlbum(cur.artist, cur.album)}
+                      onClick={() =>
+                        onOpenLibraryAlbum(cur.artist, cur.album)
+                      }
                     >
                       {cur.album}
                     </button>
