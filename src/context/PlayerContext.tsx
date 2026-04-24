@@ -95,6 +95,15 @@ function reorder<T>(items: T[], from: number, to: number) {
   return next;
 }
 
+function shuffleTailFromCurrent<T>(items: T[], currentIdx: number): T[] {
+  if (items.length <= 1) return items;
+  const i = Math.min(Math.max(0, currentIdx), items.length - 1);
+  const prefix = items.slice(0, i + 1);
+  const tail = items.slice(i + 1);
+  if (tail.length < 2) return [...prefix, ...tail];
+  return [...prefix, ...fisherYatesShuffle(tail)];
+}
+
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const user = useUserState();
   const userReady = user.ready;
@@ -118,6 +127,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [shuffle, setShuffleState] = useState(false);
   const queueRef = useRef(queue);
   const indexRef = useRef(currentIndex);
+  const shuffleRef = useRef(false);
+  const preShuffleRelPathsRef = useRef<string[] | null>(null);
   const mediaBridgeRef = useRef<MediaSessionBridge>({
     play: () => {
       return;
@@ -147,6 +158,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     queueRef.current = queue;
     indexRef.current = currentIndex;
   }, [queue, currentIndex]);
+
+  useEffect(() => {
+    shuffleRef.current = shuffle;
+  }, [shuffle]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -322,7 +337,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       const nextIndex =
         at ?? nextQueue.findIndex((item) => item.relPath === track.relPath);
       const safeIndex = nextIndex >= 0 ? nextIndex : 0;
-      const currentTrack = nextQueue[safeIndex] || track;
       const newSig = nextQueue.map((t) => t.relPath).join("\0");
       const oldSig = queueRef.current.map((t) => t.relPath).join("\0");
       const queueReplaced = newSig !== oldSig;
@@ -332,18 +346,22 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         queueReplaced &&
         !opts?.preserveQueueOrder;
       if (shouldShuffle) {
-        const shuffled = fisherYatesShuffle(nextQueue);
-        const r = shuffled.findIndex(
-          (item) => item.relPath === currentTrack.relPath,
-        );
-        const idx = r >= 0 ? r : 0;
+        preShuffleRelPathsRef.current = nextQueue.map((t) => t.relPath);
+        const shuffled = shuffleTailFromCurrent(nextQueue, safeIndex);
         setQueue(shuffled);
-        setCurrentIndex(idx);
-        setCurrent(shuffled[idx] || null);
+        setCurrentIndex(safeIndex);
+        setCurrent(shuffled[safeIndex] || null);
       } else {
         setQueue(nextQueue);
         setCurrentIndex(safeIndex);
         setCurrent(nextQueue[safeIndex] || null);
+        if (queueReplaced) {
+          if (shuffle) {
+            preShuffleRelPathsRef.current = nextQueue.map((t) => t.relPath);
+          } else {
+            preShuffleRelPathsRef.current = null;
+          }
+        }
       }
       keepPlayingRef.current = true;
     },
@@ -364,7 +382,15 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const addToQueue = useCallback(
     (track: EnrichedTrack | EnrichedTrack[]) => {
       const items = Array.isArray(track) ? track : [track];
-      setQueue((prev) => [...prev, ...items]);
+      setQueue((prev) => {
+        if (shuffleRef.current) {
+          preShuffleRelPathsRef.current = [
+            ...(preShuffleRelPathsRef.current ?? prev.map((t) => t.relPath)),
+            ...items.map((t) => t.relPath),
+          ];
+        }
+        return [...prev, ...items];
+      });
       if (!current && items[0]) setCurrent(items[0]);
     },
     [current]
@@ -373,8 +399,18 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const removeFromQueue = useCallback((index: number) => {
     const snapshot = queueRef.current;
     const currentAt = indexRef.current;
+    const removedPath = snapshot[index]?.relPath;
     const nextQueue = snapshot.filter((_, itemIndex) => itemIndex !== index);
     setQueue(nextQueue);
+    if (
+      shuffleRef.current &&
+      preShuffleRelPathsRef.current &&
+      removedPath
+    ) {
+      preShuffleRelPathsRef.current = preShuffleRelPathsRef.current.filter(
+        (p) => p !== removedPath
+      );
+    }
     if (index < currentAt) {
       setCurrentIndex(currentAt - 1);
       return;
@@ -427,6 +463,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const clearQueue = useCallback(() => {
+    preShuffleRelPathsRef.current = null;
     setQueue([]);
     setCurrentIndex(0);
     setCurrent(null);
@@ -462,18 +499,46 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }, [currentIndex, queue, repeat]);
 
   const setShuffle = useCallback((enable: boolean) => {
-    setShuffleState(enable);
-    if (!enable) return;
+    if (!enable) {
+      const paths = preShuffleRelPathsRef.current;
+      preShuffleRelPathsRef.current = null;
+      setShuffleState(false);
+      if (!paths?.length) return;
+      const q = queueRef.current;
+      const idx = indexRef.current;
+      const cur = q[idx];
+      const byPath = new Map(q.map((t) => [t.relPath, t]));
+      const seen = new Set<string>();
+      const restored: EnrichedTrack[] = [];
+      for (const p of paths) {
+        const t = byPath.get(p);
+        if (t && !seen.has(p)) {
+          restored.push(t);
+          seen.add(p);
+        }
+      }
+      for (const t of q) {
+        if (!seen.has(t.relPath)) restored.push(t);
+      }
+      if (!restored.length) return;
+      const newIdx = cur
+        ? restored.findIndex((t) => t.relPath === cur.relPath)
+        : 0;
+      const i = newIdx >= 0 ? newIdx : 0;
+      setQueue(restored);
+      setCurrentIndex(i);
+      setCurrent(restored[i] || null);
+      return;
+    }
+    setShuffleState(true);
     const q = queueRef.current;
     const idx = indexRef.current;
     if (q.length < 2) return;
-    const cur = q[idx];
-    const shuffled = fisherYatesShuffle([...q]);
-    const newIdx = cur
-      ? shuffled.findIndex((t) => t.relPath === cur.relPath)
-      : 0;
+    preShuffleRelPathsRef.current = q.map((t) => t.relPath);
+    const shuffled = shuffleTailFromCurrent(q, idx);
     setQueue(shuffled);
-    setCurrentIndex(newIdx >= 0 ? newIdx : 0);
+    setCurrentIndex(idx);
+    setCurrent(shuffled[idx] || null);
   }, []);
 
   const prev = useCallback(() => {
