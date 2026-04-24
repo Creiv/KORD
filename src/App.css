@@ -21,8 +21,47 @@
 .artist-card__meta,
 .player-bar2__meta span,
 .player-bar2__times,
-.shortcut-list {
+.shortcut-list .shortcut-row__desc,
+.shortcut-list .shortcut-row__dash,
+.shortcut-list .shortcut-keys__sep {
   color: var(--muted);
+}
+
+.shortcut-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.shortcut-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.6rem;
+}
+
+.shortcut-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.shortcut-keys__sep {
+  font-size: 0.88em;
+}
+
+.shortcut-kbd {
+  display: inline-block;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.82em;
+  font-weight: 650;
+  line-height: 1.2;
+  padding: 0.28em 0.58em;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 13%, var(--surface3) 87%);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border-strong) 66%);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--bg) 52%, transparent);
 }
 
 .main-shell {

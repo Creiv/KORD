@@ -30,6 +30,7 @@ import {
   toggleExcludedAlbum,
   toggleExcludedTrack,
 } from "./lib/randomExclusions";
+import { buildSmartRandomQueue } from "./lib/smartShuffle";
 import {
   APP_LOCALES,
   type AppLocale,
@@ -895,8 +896,15 @@ function ListenView({
       getExcludedTracks()
     );
     if (!eligible.length) return;
-    const shuffled = [...eligible].sort(() => Math.random() - 0.5);
-    p.playTrack(shuffled[0], shuffled, 0);
+    const recentRelPaths = new Set(
+      user.state.recent.slice(0, 48).map((t) => t.relPath)
+    );
+    const shuffled = buildSmartRandomQueue(eligible, {
+      currentRelPath: p.current?.relPath,
+      currentArtist: p.current?.artist,
+      recentRelPaths,
+    });
+    p.playTrack(shuffled[0], shuffled, 0, { preserveQueueOrder: true });
   };
   return (
     <div className="view-stack">
@@ -1048,6 +1056,7 @@ function LibraryView({
   onOpenAlbum: (artist: string, album: string) => void;
 }) {
   const p = usePlayer();
+  const user = useUserState();
   const { t, sortLocale } = useI18n();
   const [sort, setSort] = useState<"name" | "date">("date");
   const [mode, setMode] = useState<"all" | "artists" | "albums" | "tracks">(
@@ -1199,8 +1208,15 @@ function LibraryView({
       excludedTracks
     );
     if (!eligible.length) return;
-    const shuffled = [...eligible].sort(() => Math.random() - 0.5);
-    p.playTrack(shuffled[0], shuffled, 0);
+    const recentRelPaths = new Set(
+      user.state.recent.slice(0, 48).map((t) => t.relPath)
+    );
+    const shuffled = buildSmartRandomQueue(eligible, {
+      currentRelPath: p.current?.relPath,
+      currentArtist: p.current?.artist,
+      recentRelPaths,
+    });
+    p.playTrack(shuffled[0], shuffled, 0, { preserveQueueOrder: true });
   };
 
   if (normalizedQuery && searchResults) {
@@ -1968,9 +1984,37 @@ function SettingsView({
             </div>
           </div>
           <div className="shortcut-list">
-            <div>{t("settings.shortcutSearch")}</div>
-            <div>{t("settings.shortcutPlay")}</div>
-            <div>{t("settings.shortcutListen")}</div>
+            <div className="shortcut-row">
+              <span className="shortcut-keys">
+                <kbd className="shortcut-kbd">/</kbd>
+                <span className="shortcut-keys__sep">{t("settings.shortcutOr")}</span>
+                <kbd className="shortcut-kbd">{t("settings.kbdCtrlK")}</kbd>
+              </span>
+              <span className="shortcut-row__dash" aria-hidden>
+                —
+              </span>
+              <span className="shortcut-row__desc">
+                {t("settings.shortcutSearchDesc")}
+              </span>
+            </div>
+            <div className="shortcut-row">
+              <kbd className="shortcut-kbd">{t("settings.kbdSpace")}</kbd>
+              <span className="shortcut-row__dash" aria-hidden>
+                —
+              </span>
+              <span className="shortcut-row__desc">
+                {t("settings.shortcutPlayDesc")}
+              </span>
+            </div>
+            <div className="shortcut-row">
+              <kbd className="shortcut-kbd">{t("settings.kbdI")}</kbd>
+              <span className="shortcut-row__dash" aria-hidden>
+                —
+              </span>
+              <span className="shortcut-row__desc">
+                {t("settings.shortcutListenDesc")}
+              </span>
+            </div>
           </div>
           <button
             type="button"

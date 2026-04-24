@@ -17,6 +17,7 @@ import {
   setMediaSessionPlaybackState,
   setMediaSessionPosition,
 } from "../lib/mediaSession";
+import { fisherYatesShuffle } from "../lib/smartShuffle";
 import { getVolume, setVolumePref } from "../lib/persisted";
 import { useUserState } from "./UserStateContext";
 import type { EnrichedTrack, LibAlbum, RepeatMode } from "../types";
@@ -42,7 +43,12 @@ type Ctx = {
   setShuffle: (v: boolean) => void;
   seek: (t: number) => void;
   seekRatio: (r: number) => void;
-  playTrack: (t: EnrichedTrack, list?: EnrichedTrack[], at?: number) => void;
+  playTrack: (
+    t: EnrichedTrack,
+    list?: EnrichedTrack[],
+    at?: number,
+    opts?: { preserveQueueOrder?: boolean }
+  ) => void;
   playAlbum: (artist: string, al: LibAlbum) => void;
   addToQueue: (t: EnrichedTrack | EnrichedTrack[]) => void;
   removeFromQueue: (index: number) => void;
@@ -57,15 +63,6 @@ type Ctx = {
 };
 
 const PlayerContext = createContext<Ctx | null>(null);
-
-function fisherYatesShuffle<T>(items: T[]): T[] {
-  const a = [...items];
-  for (let i = a.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j] as T, a[i] as T];
-  }
-  return a;
-}
 
 function pickNextIndex(
   len: number,
@@ -314,7 +311,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   );
 
   const playTrack = useCallback(
-    (track: EnrichedTrack, list?: EnrichedTrack[], at?: number) => {
+    (
+      track: EnrichedTrack,
+      list?: EnrichedTrack[],
+      at?: number,
+      opts?: { preserveQueueOrder?: boolean }
+    ) => {
       const nextQueue = list?.length ? [...list] : [track];
       const nextIndex =
         at ?? nextQueue.findIndex((item) => item.relPath === track.relPath);
@@ -323,7 +325,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       const newSig = nextQueue.map((t) => t.relPath).join("\0");
       const oldSig = queueRef.current.map((t) => t.relPath).join("\0");
       const queueReplaced = newSig !== oldSig;
-      if (nextQueue.length > 1 && shuffle && queueReplaced) {
+      const shouldShuffle =
+        nextQueue.length > 1 &&
+        shuffle &&
+        queueReplaced &&
+        !opts?.preserveQueueOrder;
+      if (shouldShuffle) {
         const shuffled = fisherYatesShuffle(nextQueue);
         const r = shuffled.findIndex(
           (item) => item.relPath === currentTrack.relPath,
