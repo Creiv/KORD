@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { usePlayer } from "../context/PlayerContext"
+import { useToolsActivity } from "../context/ToolsActivityContext"
 import { useI18n } from "../i18n/useI18n"
 import {
   applyArtwork,
@@ -64,11 +65,38 @@ const W_COVER_ALB = "wpp-cover-album"
 export function ToolsView({ library, onRefreshLibrary }: P) {
   const p = usePlayer()
   const { t, sortLocale } = useI18n()
+  const {
+    log,
+    setLog,
+    metaLog,
+    setMetaLog,
+    dlBusy,
+    setDlBusy,
+    dlProg,
+    setDlProg,
+    mkBusy,
+    setMkBusy,
+    artBusy,
+    setArtBusy,
+    metaBusy,
+    setMetaBusy,
+    metaAllBusy,
+    setMetaAllBusy,
+    metaScanProg,
+    setMetaScanProg,
+    trackMetaBusy,
+    setTrackMetaBusy,
+    trackAllBusy,
+    setTrackAllBusy,
+    trackScanProg,
+    setTrackScanProg,
+    titleSanBusy,
+    setTitleSanBusy,
+    stopMetaAll,
+    stopTrackAll,
+  } = useToolsActivity()
   const [preset, setPreset] = useState<string | null>(null)
   const [url, setUrl] = useState("")
-  const [log, setLog] = useState("")
-  const [dlBusy, setDlBusy] = useState(false)
-  const [dlProg, setDlProg] = useState<{ current: number; total: number } | null>(null)
   const [dlList, setDlList] = useState<
     | {
         path: string
@@ -105,27 +133,9 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
   const [artAlb, setArtAlb] = useState("")
   const [artRes, setArtRes] = useState<ArtworkHit[]>([])
   const [newDirName, setNewDirName] = useState("")
-  const [mkBusy, setMkBusy] = useState(false)
-  const [artBusy, setArtBusy] = useState(false)
   const [metaAlbumPath, setMetaAlbumPath] = useState("")
   const [metaArt, setMetaArt] = useState("")
   const [metaAlb, setMetaAlb] = useState("")
-  const [metaBusy, setMetaBusy] = useState(false)
-  const [metaLog, setMetaLog] = useState("")
-  const [metaAllBusy, setMetaAllBusy] = useState(false)
-  const stopMetaAll = useRef(false)
-  const [metaScanProg, setMetaScanProg] = useState<{
-    current: number
-    total: number
-  } | null>(null)
-  const [trackMetaBusy, setTrackMetaBusy] = useState(false)
-  const [trackAllBusy, setTrackAllBusy] = useState(false)
-  const stopTrackAll = useRef(false)
-  const [trackScanProg, setTrackScanProg] = useState<{
-    current: number
-    total: number
-  } | null>(null)
-  const [titleSanBusy, setTitleSanBusy] = useState(false)
   const [albumForCover, setAlbumForCover] = useState(() => {
     try {
       return (
@@ -547,7 +557,9 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
         path: dlPath || t("tools.dlRootLabel"),
       }),
     )
-    runYtdlpDownload(url.trim(), dlPath)
+    runYtdlpDownload(url.trim(), dlPath, (p) =>
+      setDlProg({ current: p.current, total: p.total }),
+    )
       .then((r) => {
         if (r.progress && r.progress.total > 0) {
           setDlProg({ current: r.progress.current, total: r.progress.total })

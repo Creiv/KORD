@@ -111,9 +111,25 @@ export type DownloadRes = {
   error?: string
 }
 
+function downloadResFromDoneMsg(msg: Record<string, unknown>): DownloadRes {
+  return {
+    ok: Boolean(msg.ok),
+    stdout: String(msg.stdout ?? ""),
+    stderr: String(msg.stderr ?? ""),
+    code: Number(msg.code ?? -1),
+    progress: (msg.progress as DownloadRes["progress"]) ?? null,
+    musicRoot: String(msg.musicRoot ?? ""),
+    command: String(msg.command ?? ""),
+    ...(msg.error != null && msg.error !== ""
+      ? { error: String(msg.error) }
+      : {}),
+  }
+}
+
 export async function runYtdlpDownload(
   url: string,
   outputDir?: string,
+  onProgress?: (p: { current: number; total: number }) => void,
 ): Promise<DownloadRes> {
   const response = await fetch("/api/download", {
     method: "POST",
@@ -123,9 +139,61 @@ export async function runYtdlpDownload(
       ...(outputDir != null && outputDir !== "" ? { outputDir } : {}),
     }),
   })
-  const json = (await response.json()) as DownloadRes
-  if (!response.ok) throw new Error(json.error || "Download error")
-  return json
+  const ct = response.headers.get("content-type") || ""
+  if (!response.ok) {
+    let msg = `Download error (${response.status})`
+    try {
+      const errBody = (await response.json()) as { error?: string }
+      if (errBody.error) msg = errBody.error
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg)
+  }
+  if (ct.includes("application/json")) {
+    return (await response.json()) as DownloadRes
+  }
+  const reader = response.body?.getReader()
+  if (!reader) throw new Error("Download: unreadable body")
+  const decoder = new TextDecoder()
+  let buffer = ""
+  let final: DownloadRes | null = null
+  const handleLine = (line: string) => {
+    const t = line.trim()
+    if (!t) return
+    let msg: Record<string, unknown>
+    try {
+      msg = JSON.parse(t) as Record<string, unknown>
+    } catch {
+      return
+    }
+    if (msg.type === "progress" && onProgress) {
+      const pr = msg.progress as { current?: number; total?: number } | undefined
+      if (
+        pr &&
+        typeof pr.current === "number" &&
+        typeof pr.total === "number"
+      ) {
+        onProgress({ current: pr.current, total: pr.total })
+      }
+    }
+    if (msg.type === "done") final = downloadResFromDoneMsg(msg)
+  }
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (value) buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split("\n")
+    buffer = lines.pop() ?? ""
+    for (const line of lines) handleLine(line)
+    if (done) {
+      buffer += decoder.decode()
+      const rest = buffer.split("\n")
+      for (const line of rest) handleLine(line)
+      break
+    }
+  }
+  if (!final) throw new Error("Download: incomplete response")
+  return final
 }
 
 export type FsList = {

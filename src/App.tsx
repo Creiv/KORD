@@ -8,6 +8,10 @@ import {
   useState,
 } from "react";
 import { PlayerProvider, usePlayer } from "./context/PlayerContext";
+import {
+  ToolsActivityProvider,
+  useToolsActivity,
+} from "./context/ToolsActivityContext";
 import { UserStateProvider, useUserState } from "./context/UserStateContext";
 import {
   coverUrlForAlbumRelPath,
@@ -2282,6 +2286,7 @@ function Shell() {
   const p = usePlayer();
   const user = useUserState();
   const { t } = useI18n();
+  const toolsActivity = useToolsActivity();
   const [index, setIndex] = useState<LibraryIndex | null>(null);
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
   const [search, setSearch] = useState("");
@@ -2543,14 +2548,23 @@ function Shell() {
                   aria-label={t("topbar.searchAria")}
                 />
               </label>
-              <button
-                type="button"
-                className="ghost-btn ghost-btn--toolbar"
-                onClick={refresh}
-                title={t("topbar.refreshTitle")}
-              >
-                {t("topbar.refresh")}
-              </button>
+              <div className="topbar2__refresh-wrap">
+                {toolsActivity.toolsAnyBusy ? (
+                  <span
+                    className="topbar2__tools-spinner"
+                    role="status"
+                    aria-label={t("topbar.toolsBusyTitle")}
+                  />
+                ) : null}
+                <button
+                  type="button"
+                  className="ghost-btn ghost-btn--toolbar"
+                  onClick={refresh}
+                  title={t("topbar.refreshTitle")}
+                >
+                  {t("topbar.refresh")}
+                </button>
+              </div>
             </div>
           </div>
         </header>
@@ -2575,7 +2589,9 @@ export default function App() {
   return (
     <UserStateProvider>
       <PlayerProvider>
-        <Shell />
+        <ToolsActivityProvider>
+          <Shell />
+        </ToolsActivityProvider>
       </PlayerProvider>
     </UserStateProvider>
   );

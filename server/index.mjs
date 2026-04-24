@@ -30,18 +30,52 @@ import { defaultUserState, readUserState, writeUserState } from "./userState.mjs
 
 const PORT = Number(process.env.PORT) || 3001
 const YTDLP_BIN = process.env.YTDLP_PATH || "yt-dlp"
-const YTDLP_OUT_TMPL =
-  "%(album_artist)s/%(album)s/%(playlist_index)s - %(title)s.%(ext)s"
 const YTDLP_ARGS_BASE = [
   "-x",
   "--audio-format",
   "flac",
   "--embed-thumbnail",
   "--add-metadata",
-  "-o",
-  YTDLP_OUT_TMPL,
 ]
-const YTDLP_CMD_DISPLAY = `yt-dlp ${YTDLP_ARGS_BASE.map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(" ")}`
+
+function isProbablyPlaylistUrl(url) {
+  try {
+    const u = new URL(url)
+    const list = u.searchParams.get("list")
+    if (list && list !== "" && list.toUpperCase() !== "WL") return true
+    if (/\/playlist(\/|$|\?)/i.test(u.pathname)) return true
+    return false
+  } catch {
+    return false
+  }
+}
+
+function ytdlpOutputTemplate(url) {
+  try {
+    const u = new URL(url)
+    const host = u.hostname.replace(/^www\./, "")
+    if (host.endsWith("bandcamp.com")) {
+      return "%(album)s/%(autonumber)02d - %(title)s.%(ext)s"
+    }
+    const pl = isProbablyPlaylistUrl(url)
+    if (host.includes("music.youtube.com")) {
+      if (pl) {
+        return "%(playlist_title)s/%(autonumber)02d - %(title)s.%(ext)s"
+      }
+      return "%(album)s/%(autonumber)02d - %(title)s.%(ext)s"
+    }
+    if (pl) {
+      return "%(playlist_title)s/%(autonumber)02d - %(title)s.%(ext)s"
+    }
+  } catch {
+    /* ignore */
+  }
+  return "%(title)s/%(autonumber)02d - %(title)s.%(ext)s"
+}
+
+const YTDLP_CMD_DISPLAY = `yt-dlp ${[...YTDLP_ARGS_BASE, "-o", "%(folder)s/%(autonumber)02d - %(title)s.%(ext)s"]
+  .map((a) => (/\s/.test(a) ? `"${a}"` : a))
+  .join(" ")} + URL — folder = playlist title | album (Bandcamp / YT Music track) | video title`
 
 const app = express()
 app.use(cors())
@@ -83,6 +117,13 @@ function safeRelSeg(value) {
 
 function stripAnsi(value) {
   return String(value || "").replace(/\x1b\[[0-9;]*m/g, "")
+}
+
+function extractLastItemProgress(text) {
+  const clean = stripAnsi(String(text))
+  const rows = [...clean.matchAll(/Downloading item\s+(\d+)\s+of\s+(\d+)/gi)]
+  const last = rows.length ? rows[rows.length - 1] : null
+  return last ? { current: Number(last[1]), total: Number(last[2]) } : null
 }
 
 async function getLibraryIndex() {
@@ -235,7 +276,11 @@ app.get("/api/download-preset", async (_req, res) => {
       file: null,
       text: YTDLP_CMD_DISPLAY,
       program: YTDLP_BIN,
-      args: [...YTDLP_ARGS_BASE],
+      args: [
+        ...YTDLP_ARGS_BASE,
+        "-o",
+        "%(playlist_title)s/%(autonumber)02d - %(title)s.%(ext)s",
+      ],
       exampleUrl: null,
     })
   } catch (error) {
@@ -250,7 +295,8 @@ app.post("/api/download", async (req, res) => {
   try {
     const root = getMusicRoot()
     const program = YTDLP_BIN
-    const args = [...YTDLP_ARGS_BASE]
+    const outTmpl = ytdlpOutputTemplate(url)
+    const args = [...YTDLP_ARGS_BASE, "-o", outTmpl]
     const outputDir = safeRelSeg(String(req.body?.outputDir || ""))
     if (outputDir != null && outputDir.length > 0) {
       const oi = args.findIndex((arg) => arg === "-o" || arg === "--output")
@@ -261,56 +307,83 @@ app.post("/api/download", async (req, res) => {
     }
     args.push(url)
     const result = { stdout: "", stderr: "", code: -1 }
-    const child = spawn(program, args, {
-      cwd: root,
-      env: { ...process.env, FORCE_COLOR: "0" },
-    })
+    const command = `${program} ${args.map((arg) => (/\s/.test(arg) ? `"${arg}"` : arg)).join(" ")}`
+    res.status(200)
+    res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8")
+    res.setHeader("Cache-Control", "no-store")
     let responded = false
+    let lastProgressEmitted = null
     const finish = (fn) => {
       if (responded) return
       responded = true
       fn()
     }
+    const emitProgressIfNew = () => {
+      if (responded) return
+      const p = extractLastItemProgress(result.stderr + "\n" + result.stdout)
+      if (
+        p &&
+        (lastProgressEmitted?.current !== p.current ||
+          lastProgressEmitted?.total !== p.total)
+      ) {
+        lastProgressEmitted = p
+        res.write(`${JSON.stringify({ type: "progress", progress: p })}\n`)
+      }
+    }
+    const child = spawn(program, args, {
+      cwd: root,
+      env: { ...process.env, FORCE_COLOR: "0" },
+    })
     child.stdout.setEncoding("utf8")
     child.stderr.setEncoding("utf8")
     child.stdout.on("data", (chunk) => {
       result.stdout += chunk
+      emitProgressIfNew()
     })
     child.stderr.on("data", (chunk) => {
       result.stderr += chunk
+      emitProgressIfNew()
     })
     child.on("close", (code) => {
       result.code = code ?? -1
-      const combined = stripAnsi(`${result.stdout}\n${result.stderr}`)
-      const progressRows = [...combined.matchAll(/Downloading item\s+(\d+)\s+of\s+(\d+)/gi)]
-      const last = progressRows.length ? progressRows[progressRows.length - 1] : null
-      const progress = last ? { current: Number(last[1]), total: Number(last[2]) } : null
-      finish(() =>
-        res.json({
-          ok: result.code === 0,
-          stdout: result.stdout,
-          stderr: result.stderr,
-          code: result.code,
-          progress,
-          musicRoot: root,
-          command: `${program} ${args.map((arg) => (/\s/.test(arg) ? `"${arg}"` : arg)).join(" ")}`,
-        }),
-      )
+      const combined = `${result.stdout}\n${result.stderr}`
+      const progress =
+        extractLastItemProgress(combined) ?? lastProgressEmitted
+      finish(() => {
+        res.write(
+          `${JSON.stringify({
+            type: "done",
+            ok: result.code === 0,
+            stdout: result.stdout,
+            stderr: result.stderr,
+            code: result.code,
+            progress,
+            musicRoot: root,
+            command,
+          })}\n`,
+        )
+        res.end()
+      })
     })
     child.on("error", (error) => {
       result.code = -1
       result.stderr += `\n${error.message}`
-      finish(() =>
-        res.status(500).json({
-          ok: false,
-          stdout: result.stdout,
-          stderr: result.stderr,
-          code: result.code,
-          error: error.message,
-          musicRoot: root,
-          command: `${program} ${args.map((arg) => (/\s/.test(arg) ? `"${arg}"` : arg)).join(" ")}`,
-        }),
-      )
+      finish(() => {
+        res.write(
+          `${JSON.stringify({
+            type: "done",
+            ok: false,
+            stdout: result.stdout,
+            stderr: result.stderr,
+            code: result.code,
+            progress: lastProgressEmitted,
+            error: error.message,
+            musicRoot: root,
+            command,
+          })}\n`,
+        )
+        res.end()
+      })
     })
   } catch (error) {
     return sendError(res, 500, String(error?.message || error))

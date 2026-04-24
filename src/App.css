@@ -157,6 +157,29 @@
   margin-left: auto;
 }
 
+.topbar2__refresh-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.topbar2__tools-spinner {
+  width: 1rem;
+  height: 1rem;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  border: 2px solid color-mix(in srgb, #e8b923 42%, transparent);
+  border-top-color: #e8b923;
+  border-radius: 50%;
+  animation: topbar-tools-spin 0.72s linear infinite;
+}
+
+@keyframes topbar-tools-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .topbar-nav {
   display: flex;
   flex: 1 1 12rem;
@@ -1926,6 +1949,7 @@
 .studio-log .log {
   min-height: 4rem;
   margin-top: 0;
+  resize: vertical;
 }
 
 .studio-log .linkbtn {

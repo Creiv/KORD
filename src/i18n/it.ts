@@ -13,6 +13,7 @@ export const IT: Record<string, string> = {
   "topbar.searchAria": "Cerca in tutta la libreria",
   "topbar.refresh": "Aggiorna",
   "topbar.refreshTitle": "Ricarica libreria e dashboard",
+  "topbar.toolsBusyTitle": "Strumenti: download o metadati in esecuzione in background",
   "topbar.kpi": "{{art}} art. · {{alb}} alb. · {{state}}",
   "topbar.saved": "salvato",
   "topbar.saving": "…",
