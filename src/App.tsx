@@ -767,7 +767,7 @@ function DashboardView({
 
       <section className="dashboard-grid">
         <section className="surface-card">
-          <div className="section-head">
+          <div className="section-head section-head--page-toolbar">
             <div>
               <p className="eyebrow">{t("dashboard.favoritesEyebrow")}</p>
               <h2>{t("dashboard.favoritesHeading")}</h2>
@@ -796,7 +796,7 @@ function DashboardView({
         </section>
 
         <section className="surface-card">
-          <div className="section-head">
+          <div className="section-head section-head--page-toolbar">
             <div>
               <p className="eyebrow">{t("dashboard.updatedEyebrow")}</p>
               <h2>{t("dashboard.updatedHeading")}</h2>
@@ -838,7 +838,7 @@ function DashboardView({
         </section>
 
         <section className="surface-card">
-          <div className="section-head">
+          <div className="section-head section-head--page-toolbar">
             <div>
               <p className="eyebrow">{t("dashboard.sessionEyebrow")}</p>
               <h2>{t("dashboard.sessionHeading")}</h2>
@@ -867,7 +867,7 @@ function DashboardView({
         </section>
 
         <section className="surface-card">
-          <div className="section-head">
+          <div className="section-head section-head--page-toolbar">
             <div>
               <p className="eyebrow">{t("dashboard.qualityEyebrow")}</p>
               <h2>{t("dashboard.qualityHeading")}</h2>
@@ -927,7 +927,10 @@ function ListenView({
     p.playTrack(shuffled[0], shuffled, 0, { preserveQueueOrder: true });
   };
   const listenQueueStart = Math.max(0, p.currentIndex - 1);
-  const listenQueuePreview = p.queue.slice(listenQueueStart, listenQueueStart + 6);
+  const listenQueuePreview = p.queue.slice(
+    listenQueueStart,
+    listenQueueStart + 6
+  );
   return (
     <div className="view-stack">
       <section className="listen-stage">
@@ -989,7 +992,7 @@ function ListenView({
 
       <section className="dashboard-grid">
         <section className="surface-card">
-          <div className="section-head">
+          <div className="section-head section-head--page-toolbar">
             <div>
               <p className="eyebrow">{t("listen.queueEyebrow")}</p>
               <h2>{t("listen.queueHeading")}</h2>
@@ -1031,7 +1034,7 @@ function ListenView({
         </section>
 
         <section className="surface-card">
-          <div className="section-head">
+          <div className="section-head section-head--page-toolbar">
             <div>
               <p className="eyebrow">{t("listen.recentEyebrow")}</p>
               <h2>{t("listen.recentHeading")}</h2>
@@ -1129,6 +1132,17 @@ function LibraryView({
         : [],
     [album, index.tracks]
   );
+
+  const artistShuffleEligible = useMemo(() => {
+    if (!artist) return [] as LibraryTrackIndex[];
+    const rels = new Set(artistAlbums.flatMap((al) => al.tracks));
+    return index.tracks.filter(
+      (t) =>
+        rels.has(t.relPath) &&
+        !excludedTracks.has(t.relPath) &&
+        !excludedAlbums.has(`${t.artist}/${t.album}`)
+    );
+  }, [artist, artistAlbums, index.tracks, excludedTracks, excludedAlbums]);
 
   const artistCoverById = useMemo(
     () => buildRandomArtistCoverMap(index),
@@ -1240,38 +1254,57 @@ function LibraryView({
     p.playTrack(shuffled[0], shuffled, 0, { preserveQueueOrder: true });
   };
 
+  const playArtistShuffle = () => {
+    if (!artistShuffleEligible.length) return;
+    const recentRelPaths = new Set(
+      user.state.recent.slice(0, 48).map((t) => t.relPath)
+    );
+    const shuffled = buildSmartRandomQueue(artistShuffleEligible, {
+      currentRelPath: p.current?.relPath,
+      currentArtist: p.current?.artist,
+      recentRelPaths,
+    });
+    p.playTrack(shuffled[0], shuffled, 0, { preserveQueueOrder: true });
+  };
+
   if (normalizedQuery && searchResults) {
     return (
       <div className="view-stack">
-        <section className="surface-card">
-          <div className="section-head">
+        <section className="surface-card surface-card--toolbar-only">
+          <div className="section-head section-head--page-toolbar">
             <div>
               <p className="eyebrow">{t("library.searchEyebrow")}</p>
               <h2>{t("library.searchHeading", { q: query })}</h2>
             </div>
-            <div
-              className="segmented"
-              role="group"
-              aria-label={t("library.filterResultsAria")}
-            >
-              {(["all", "artists", "albums", "tracks"] as const).map((item) => (
-                <button
-                  type="button"
-                  key={item}
-                  className={mode === item ? "is-on" : ""}
-                  onClick={() => setMode(item)}
-                >
-                  {item === "all"
-                    ? t("library.filterAll")
-                    : item === "artists"
-                    ? t("library.filterArtists")
-                    : item === "albums"
-                    ? t("library.filterAlbums")
-                    : t("library.filterTracks")}
-                </button>
-              ))}
+            <div className="section-head__tools">
+              <div
+                className="segmented"
+                role="group"
+                aria-label={t("library.filterResultsAria")}
+              >
+                {(["all", "artists", "albums", "tracks"] as const).map(
+                  (item) => (
+                    <button
+                      type="button"
+                      key={item}
+                      className={mode === item ? "is-on" : ""}
+                      onClick={() => setMode(item)}
+                    >
+                      {item === "all"
+                        ? t("library.filterAll")
+                        : item === "artists"
+                        ? t("library.filterArtists")
+                        : item === "albums"
+                        ? t("library.filterAlbums")
+                        : t("library.filterTracks")}
+                    </button>
+                  )
+                )}
+              </div>
             </div>
           </div>
+        </section>
+        <section className="surface-card">
           {(mode === "all" || mode === "artists") && (
             <div className="subsection">
               <h3>{t("library.subArtists")}</h3>
@@ -1341,59 +1374,75 @@ function LibraryView({
           <AlbumCover album={album} />
           <div className="album-hero__body">
             <div className="album-hero__head">
-              <div className="album-hero__lead">
-                <button
-                  type="button"
-                  className="text-btn back-btn"
-                  onClick={() => onOpenArtist(artist.id)}
-                >
-                  ← {artist.name}
-                </button>
-                <p className="eyebrow">{t("library.albumDetailEyebrow")}</p>
-                <div className="album-hero__h1row">
-                  <h1 className="album-hero__h1">{album.name}</h1>
-                  <div className="lib-badge-cluster">
-                    <LibraryAlbumMetaChips album={album} variant="hero" />
-                    <LibraryAlbumFavoriteChips album={album} variant="hero" />
-                    <LibraryAlbumExcludeChips album={album} variant="hero" />
+              <div className="section-head section-head--page-toolbar album-hero__toprow">
+                <div className="page-toolbar__lead page-toolbar__lead--backrow">
+                  <button
+                    type="button"
+                    className="page-toolbar-back-ic"
+                    onClick={() => onOpenArtist(artist.id)}
+                    aria-label={t("library.backToArtistAria", {
+                      name: artist.name,
+                    })}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="page-toolbar-back-ic__glyph"
+                    >
+                      {"<"}
+                    </span>
+                  </button>
+                  <div className="page-toolbar__textcol album-hero__toolbar-text">
+                    <p className="eyebrow">{t("library.albumDetailEyebrow")}</p>
+                    <p className="subtle sm album-hero__toolbar-meta">
+                      {artist.name}
+                      {album.releaseDate
+                        ? ` · ${fmtDate(album.releaseDate)}`
+                        : ""}
+                      {album.label ? ` · ${album.label}` : ""}
+                    </p>
                   </div>
                 </div>
-                <p>
-                  {artist.name}
-                  {album.releaseDate ? ` · ${fmtDate(album.releaseDate)}` : ""}
-                  {album.label ? ` · ${album.label}` : ""}
-                </p>
+                <div className="section-head__tools">
+                  <div className="hero-card__actions">
+                    <button
+                      type="button"
+                      className="primary-btn"
+                      onClick={() => p.playTrack(albumTracks[0], albumTracks, 0)}
+                    >
+                      {t("library.playAlbum")}
+                    </button>
+                    <button
+                      type="button"
+                      className={`ghost-btn ${
+                        excludedAlbums.has(`${artist.name}/${album.name}`)
+                          ? "is-on"
+                          : ""
+                      }`}
+                      onClick={() =>
+                        setExcludedAlbums(
+                          toggleExcludedAlbum(`${artist.name}/${album.name}`)
+                        )
+                      }
+                    >
+                      {t("library.randomExcludeBtn")}
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="album-hero__actions">
-                <button
-                  type="button"
-                  className="primary-btn"
-                  onClick={() => p.playTrack(albumTracks[0], albumTracks, 0)}
-                >
-                  {t("library.playAlbum")}
-                </button>
-                <button
-                  type="button"
-                  className={`ghost-btn ${
-                    excludedAlbums.has(`${artist.name}/${album.name}`)
-                      ? "is-on"
-                      : ""
-                  }`}
-                  onClick={() =>
-                    setExcludedAlbums(
-                      toggleExcludedAlbum(`${artist.name}/${album.name}`)
-                    )
-                  }
-                >
-                  {t("library.randomExcludeBtn")}
-                </button>
+              <div className="album-hero__titleblock">
+                <h1 className="album-hero__h1">{album.name}</h1>
+                <div className="lib-badge-cluster lib-badge-cluster--title-left">
+                  <LibraryAlbumMetaChips album={album} variant="hero" />
+                  <LibraryAlbumFavoriteChips album={album} variant="hero" />
+                  <LibraryAlbumExcludeChips album={album} variant="hero" />
+                </div>
               </div>
             </div>
           </div>
         </section>
 
         <section className="surface-card">
-          <div className="section-head">
+          <div className="section-head section-head--page-toolbar">
             <div>
               <p className="eyebrow">{t("library.tracklistEyebrow")}</p>
               <h2>
@@ -1439,36 +1488,55 @@ function LibraryView({
   if (artist) {
     return (
       <div className="view-stack">
-        <section className="surface-card">
-          <div className="section-head">
-            <div>
+        <section className="surface-card surface-card--toolbar-only">
+          <div className="section-head section-head--page-toolbar">
+            <div className="page-toolbar__lead page-toolbar__lead--backrow">
               <button
                 type="button"
-                className="text-btn back-btn"
+                className="page-toolbar-back-ic"
                 onClick={() => onOpenArtist("")}
+                aria-label={t("library.backAllArtistsAria")}
               >
-                {t("library.backAllArtists")}
+                <span aria-hidden="true" className="page-toolbar-back-ic__glyph">
+                  {"<"}
+                </span>
               </button>
-              <p className="eyebrow">{t("library.artistEyebrow")}</p>
-              <h2>{artist.name}</h2>
+              <div className="page-toolbar__textcol">
+                <p className="eyebrow">{t("library.artistEyebrow")}</p>
+                <h2>{artist.name}</h2>
+              </div>
             </div>
-            <div className="segmented">
-              <button
-                type="button"
-                className={sort === "date" ? "is-on" : ""}
-                onClick={() => setSort("date")}
-              >
-                {t("library.sortDate")}
-              </button>
-              <button
-                type="button"
-                className={sort === "name" ? "is-on" : ""}
-                onClick={() => setSort("name")}
-              >
-                {t("library.sortName")}
-              </button>
+            <div className="section-head__tools">
+              <div className="hero-card__actions">
+                <button
+                  type="button"
+                  className="primary-btn"
+                  disabled={artistShuffleEligible.length === 0}
+                  onClick={playArtistShuffle}
+                >
+                  {t("library.playArtistShuffle")}
+                </button>
+              </div>
+              <div className="segmented">
+                <button
+                  type="button"
+                  className={sort === "date" ? "is-on" : ""}
+                  onClick={() => setSort("date")}
+                >
+                  {t("library.sortDate")}
+                </button>
+                <button
+                  type="button"
+                  className={sort === "name" ? "is-on" : ""}
+                  onClick={() => setSort("name")}
+                >
+                  {t("library.sortName")}
+                </button>
+              </div>
             </div>
           </div>
+        </section>
+        <section className="surface-card">
           <div className="album-grid album-grid--artist">
             {artistAlbums.map((item) => (
               <button
@@ -1500,8 +1568,8 @@ function LibraryView({
 
   return (
     <div className="view-stack">
-      <section className="surface-card">
-        <div className="section-head section-head--library-root">
+      <section className="surface-card surface-card--toolbar-only">
+        <div className="section-head section-head--page-toolbar">
           <div>
             {selectedGenreKey ? (
               <>
@@ -1533,40 +1601,44 @@ function LibraryView({
               </>
             )}
           </div>
-          {!selectedGenreKey ? (
-            <div
-              className="segmented"
-              role="group"
-              aria-label={t("library.browseByArtistGenreAria")}
-            >
-              <button
-                type="button"
-                className={libBrowse === "artists" ? "is-on" : ""}
-                onClick={() => {
-                  setLibBrowse("artists");
-                  setSelectedGenreKey(null);
-                }}
-              >
-                {t("library.tabArtists")}
-              </button>
-              <button
-                type="button"
-                className={libBrowse === "genres" ? "is-on" : ""}
-                onClick={() => {
-                  setLibBrowse("genres");
-                  setSelectedGenreKey(null);
-                }}
-              >
-                {t("library.tabGenres")}
+          <div className="section-head__tools">
+            <div className="hero-card__actions">
+              <button type="button" className="primary-btn" onClick={runRandom}>
+                {t("listen.smartShuffle")}
               </button>
             </div>
-          ) : null}
-          <div className="hero-card__actions">
-            <button type="button" className="ghost-btn" onClick={runRandom}>
-              {t("listen.smartShuffle")}
-            </button>
+            {!selectedGenreKey ? (
+              <div
+                className="segmented"
+                role="group"
+                aria-label={t("library.browseByArtistGenreAria")}
+              >
+                <button
+                  type="button"
+                  className={libBrowse === "artists" ? "is-on" : ""}
+                  onClick={() => {
+                    setLibBrowse("artists");
+                    setSelectedGenreKey(null);
+                  }}
+                >
+                  {t("library.tabArtists")}
+                </button>
+                <button
+                  type="button"
+                  className={libBrowse === "genres" ? "is-on" : ""}
+                  onClick={() => {
+                    setLibBrowse("genres");
+                    setSelectedGenreKey(null);
+                  }}
+                >
+                  {t("library.tabGenres")}
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
+      </section>
+      <section className="surface-card">
         {selectedGenreKey ? (
           <div className="list-stack">
             {sortedGenreTracks.map((track) => (
@@ -1642,37 +1714,41 @@ function QueueViewNew() {
   const [queueName, setQueueName] = useState("");
   return (
     <div className="view-stack">
-      <section className="surface-card">
-        <div className="section-head">
+      <section className="surface-card surface-card--toolbar-only">
+        <div className="section-head section-head--page-toolbar">
           <div>
             <p className="eyebrow">{t("queue.eyebrow")}</p>
             <h2>{t("queue.heading", { n: p.queue.length })}</h2>
           </div>
-          <div className="hero-card__actions">
-            <input
-              className="ghost-input"
-              value={queueName}
-              onChange={(event) => setQueueName(event.target.value)}
-              placeholder={t("queue.playlistNamePh")}
-            />
-            <button
-              type="button"
-              className="ghost-btn"
-              disabled={!p.queue.length}
-              onClick={() => user.saveQueueAsPlaylist(queueName, p.queue)}
-            >
-              {t("queue.savePlaylist")}
-            </button>
-            <button
-              type="button"
-              className="ghost-btn danger"
-              disabled={!p.queue.length}
-              onClick={() => p.clearQueue()}
-            >
-              {t("queue.clear")}
-            </button>
+          <div className="section-head__tools">
+            <div className="hero-card__actions queue-hero-actions">
+              <input
+                className="ghost-input queue-name-input"
+                value={queueName}
+                onChange={(event) => setQueueName(event.target.value)}
+                placeholder={t("queue.playlistNamePh")}
+              />
+              <button
+                type="button"
+                className="primary-btn"
+                disabled={!p.queue.length}
+                onClick={() => user.saveQueueAsPlaylist(queueName, p.queue)}
+              >
+                {t("queue.savePlaylist")}
+              </button>
+              <button
+                type="button"
+                className="ghost-btn danger"
+                disabled={!p.queue.length}
+                onClick={() => p.clearQueue()}
+              >
+                {t("queue.clear")}
+              </button>
+            </div>
           </div>
         </div>
+      </section>
+      <section className="surface-card">
         {p.queue.length === 0 ? (
           <p className="panel-empty">{t("queue.empty")}</p>
         ) : (
@@ -1743,142 +1819,158 @@ function PlaylistsViewNew({
     ) || null;
 
   return (
-    <div className="dashboard-grid">
-      <section className="surface-card">
-        <div className="section-head">
-          <div>
-            <p className="eyebrow">{t("playlists.eyebrow")}</p>
-            <h2>{t("playlists.heading")}</h2>
-          </div>
-        </div>
-        <div className="playlist-create">
-          <input
-            className="ghost-input"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder={t("playlists.newPh")}
-          />
-          <button
-            type="button"
-            className="primary-btn"
-            onClick={() => user.createPlaylist(name)}
-          >
-            {t("playlists.create")}
-          </button>
-        </div>
-        <div className="list-stack">
-          {playlists.map((playlist) => (
-            <div
-              key={playlist.id}
-              className={`playlist-row ${
-                activePlaylist?.id === playlist.id ? "is-active" : ""
-              }`}
-            >
-              <button
-                type="button"
-                className="playlist-row__main"
-                onClick={() => onPickPlaylist(playlist.id)}
-              >
-                <strong>{playlist.name}</strong>
-                <span>
-                  {t("playlists.trackCount", { n: playlist.tracks.length })}
-                </span>
-              </button>
-              <div className="track-row__actions">
+    <div className="dashboard-grid playlists-page">
+      <div className="view-stack">
+        <section className="surface-card surface-card--toolbar-only">
+          <div className="section-head section-head--page-toolbar">
+            <div>
+              <p className="eyebrow">{t("playlists.eyebrow")}</p>
+              <h2>{t("playlists.heading")}</h2>
+            </div>
+            <div className="section-head__tools">
+              <div className="playlist-toolbar-create">
+                <input
+                  className="ghost-input"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder={t("playlists.newPh")}
+                  aria-label={t("playlists.newPh")}
+                />
                 <button
                   type="button"
-                  className="chip-btn"
-                  disabled={!playlist.tracks.length}
-                  onClick={() => {
-                    const queue = playlistToQueue(playlist);
-                    if (queue[0]) p.playTrack(queue[0], queue, 0);
-                  }}
+                  className="primary-btn"
+                  onClick={() => user.createPlaylist(name)}
                 >
-                  {t("playlists.play")}
-                </button>
-                <button
-                  type="button"
-                  className="chip-btn"
-                  onClick={() =>
-                    p.current && user.addTrackToPlaylist(playlist.id, p.current)
-                  }
-                >
-                  {t("playlists.addCurrent")}
-                </button>
-                <button
-                  type="button"
-                  className="chip-btn danger"
-                  onClick={() => user.deletePlaylist(playlist.id)}
-                >
-                  {t("playlists.delete")}
+                  {t("playlists.create")}
                 </button>
               </div>
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+        </section>
+        <section className="surface-card">
+          <div className="list-stack">
+            {playlists.map((playlist) => (
+              <div
+                key={playlist.id}
+                className={`playlist-row ${
+                  activePlaylist?.id === playlist.id ? "is-active" : ""
+                }`}
+              >
+                <button
+                  type="button"
+                  className="playlist-row__main"
+                  onClick={() => onPickPlaylist(playlist.id)}
+                >
+                  <strong>{playlist.name}</strong>
+                  <span>
+                    {t("playlists.trackCount", { n: playlist.tracks.length })}
+                  </span>
+                </button>
+                <div className="track-row__actions">
+                  <button
+                    type="button"
+                    className="chip-btn"
+                    disabled={!playlist.tracks.length}
+                    onClick={() => {
+                      const queue = playlistToQueue(playlist);
+                      if (queue[0]) p.playTrack(queue[0], queue, 0);
+                    }}
+                  >
+                    {t("playlists.play")}
+                  </button>
+                  <button
+                    type="button"
+                    className="chip-btn"
+                    onClick={() =>
+                      p.current && user.addTrackToPlaylist(playlist.id, p.current)
+                    }
+                  >
+                    {t("playlists.addCurrent")}
+                  </button>
+                  <button
+                    type="button"
+                    className="chip-btn danger"
+                    onClick={() => user.deletePlaylist(playlist.id)}
+                  >
+                    {t("playlists.delete")}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
 
-      <section className="surface-card">
+      <div className="view-stack">
         {activePlaylist ? (
           <>
-            <div className="section-head">
-              <div>
-                <p className="eyebrow">{t("playlists.detailEyebrow")}</p>
-                <h2>{activePlaylist.name}</h2>
+            <section className="surface-card surface-card--toolbar-only">
+              <div className="section-head section-head--page-toolbar">
+                <div>
+                  <p className="eyebrow">{t("playlists.detailEyebrow")}</p>
+                  <h2>{activePlaylist.name}</h2>
+                </div>
+                <div className="section-head__tools">
+                  <input
+                    className="ghost-input compact playlist-rename-input"
+                    defaultValue={activePlaylist.name}
+                    onBlur={(event) =>
+                      user.renamePlaylist(activePlaylist.id, event.target.value)
+                    }
+                    aria-label={t("playlists.renameAria")}
+                  />
+                </div>
               </div>
-              <input
-                className="ghost-input compact"
-                defaultValue={activePlaylist.name}
-                onBlur={(event) =>
-                  user.renamePlaylist(activePlaylist.id, event.target.value)
-                }
-              />
-            </div>
-            {activePlaylist.tracks.length === 0 ? (
-              <p className="panel-empty">{t("playlists.detailEmpty")}</p>
-            ) : (
-              <div className="list-stack">
-                {activePlaylist.tracks.map((track, index) => {
-                  const enriched = playlistToQueue({
-                    ...activePlaylist,
-                    tracks: [track],
-                  })[0];
-                  return (
-                    <TrackListRow
-                      key={`${track.relPath}-${index}`}
-                      track={enriched}
-                      onPlay={() => {
-                        const queue = playlistToQueue(activePlaylist);
-                        p.playTrack(queue[index], queue, index);
-                      }}
-                      extraActions={
-                        <button
-                          type="button"
-                          className="track-row__ic track-row__ic--danger"
-                          title={t("playlists.removeFromPlTitle")}
-                          aria-label={t("playlists.removeFromPlAria")}
-                          onClick={() =>
-                            user.removeTrackFromPlaylist(
-                              activePlaylist.id,
-                              track.relPath
-                            )
-                          }
-                        >
-                          <span className="track-row__ic-glyph" aria-hidden>
-                            ×
-                          </span>
-                        </button>
-                      }
-                    />
-                  );
-                })}
-              </div>
-            )}
+            </section>
+            <section className="surface-card">
+              {activePlaylist.tracks.length === 0 ? (
+                <p className="panel-empty">{t("playlists.detailEmpty")}</p>
+              ) : (
+                <div className="list-stack">
+                  {activePlaylist.tracks.map((track, index) => {
+                    const enriched = playlistToQueue({
+                      ...activePlaylist,
+                      tracks: [track],
+                    })[0];
+                    return (
+                      <TrackListRow
+                        key={`${track.relPath}-${index}`}
+                        track={enriched}
+                        onPlay={() => {
+                          const queue = playlistToQueue(activePlaylist);
+                          p.playTrack(queue[index], queue, index);
+                        }}
+                        extraActions={
+                          <button
+                            type="button"
+                            className="track-row__ic track-row__ic--danger"
+                            title={t("playlists.removeFromPlTitle")}
+                            aria-label={t("playlists.removeFromPlAria")}
+                            onClick={() =>
+                              user.removeTrackFromPlaylist(
+                                activePlaylist.id,
+                                track.relPath
+                              )
+                            }
+                          >
+                            <span className="track-row__ic-glyph" aria-hidden>
+                              ×
+                            </span>
+                          </button>
+                        }
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </section>
           </>
         ) : (
-          <p className="panel-empty">{t("playlists.pickOne")}</p>
+          <section className="surface-card">
+            <p className="panel-empty">{t("playlists.pickOne")}</p>
+          </section>
         )}
-      </section>
+      </div>
     </div>
   );
 }
@@ -1895,27 +1987,31 @@ function TrackCollectionView({
   const p = usePlayer();
   const { t } = useI18n();
   return (
-    <section className="surface-card">
-      <div className="section-head">
-        <div>
-          <p className="eyebrow">{eyebrow}</p>
-          <h2>{title}</h2>
+    <div className="view-stack">
+      <section className="surface-card surface-card--toolbar-only">
+        <div className="section-head section-head--page-toolbar">
+          <div>
+            <p className="eyebrow">{eyebrow}</p>
+            <h2>{title}</h2>
+          </div>
         </div>
-      </div>
-      {tracks.length === 0 ? (
-        <p className="panel-empty">{t("collection.empty")}</p>
-      ) : (
-        <div className="list-stack">
-          {tracks.map((track, index) => (
-            <TrackListRow
-              key={`${track.relPath}-${index}`}
-              track={track}
-              onPlay={() => p.playTrack(track, [track], 0)}
-            />
-          ))}
-        </div>
-      )}
-    </section>
+      </section>
+      <section className="surface-card">
+        {tracks.length === 0 ? (
+          <p className="panel-empty">{t("collection.empty")}</p>
+        ) : (
+          <div className="list-stack">
+            {tracks.map((track, index) => (
+              <TrackListRow
+                key={`${track.relPath}-${index}`}
+                track={track}
+                onPlay={() => p.playTrack(track, [track], 0)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
   );
 }
 
@@ -1957,9 +2053,9 @@ function SettingsView({
   };
 
   return (
-    <div className="dashboard-grid">
+    <div className="dashboard-grid settings-page">
       <section className="surface-card">
-        <div className="section-head">
+        <div className="section-head section-head--page-toolbar">
           <div>
             <p className="eyebrow">{t("settings.libraryEyebrow")}</p>
             <h2>{t("settings.libraryHeading")}</h2>
@@ -1995,7 +2091,7 @@ function SettingsView({
           </div>
         )}
         <div className="settings-merge-block">
-          <div className="section-head">
+          <div className="section-head section-head--page-toolbar">
             <div>
               <p className="eyebrow">{t("settings.shortcutsEyebrow")}</p>
               <h2>{t("settings.shortcutsHeading")}</h2>
@@ -2046,7 +2142,7 @@ function SettingsView({
         </div>
       </section>
       <section className="surface-card">
-        <div className="section-head">
+        <div className="section-head section-head--page-toolbar">
           <div>
             <p className="eyebrow">{t("settings.uiEyebrow")}</p>
             <h2>{t("settings.uiHeading")}</h2>
@@ -2469,118 +2565,117 @@ function Shell() {
   })();
 
   return (
-    <TrackMetaEditProvider
-      genreOptions={libraryGenreOptions}
-      onSaved={refresh}
-    >
+    <TrackMetaEditProvider genreOptions={libraryGenreOptions} onSaved={refresh}>
       <div className="app-shell">
-      <div className="main-shell">
-        <header className="topbar2 topbar2--toolbar" role="banner">
-          <h1 className="sr-only">
-            {t(
-              NAV_DEF.find((item) => item.id === route.section)?.labelKey ||
-                "nav.dashboard"
-            )}
-          </h1>
-          <div className="topbar2__row">
-            <div className="topbar2__start">
-              <div className="topbar2__brand">
-                <KordWordmarkSvg className="kord-wordmark-svg kord-wordmark-svg--topbar" />
+        <div className="main-shell">
+          <header className="topbar2 topbar2--toolbar" role="banner">
+            <h1 className="sr-only">
+              {t(
+                NAV_DEF.find((item) => item.id === route.section)?.labelKey ||
+                  "nav.dashboard"
+              )}
+            </h1>
+            <div className="topbar2__row">
+              <div className="topbar2__start">
+                <div className="topbar2__brand">
+                  <KordWordmarkSvg className="kord-wordmark-svg kord-wordmark-svg--topbar" />
+                </div>
+                <nav className="topbar-nav" aria-label={t("topbar.navAria")}>
+                  <div className="topbar-nav__group">
+                    {NAV_DEF.filter((item) => item.group === "core").map(
+                      (item) => (
+                        <button
+                          type="button"
+                          key={item.id}
+                          className={`topbar-nav__btn ${
+                            route.section === item.id ? "is-active" : ""
+                          }`}
+                          onClick={() => navigate({ section: item.id })}
+                        >
+                          {t(item.labelKey)}
+                        </button>
+                      )
+                    )}
+                  </div>
+                  <span className="topbar-nav__sep" aria-hidden />
+                  <div className="topbar-nav__group">
+                    {NAV_DEF.filter((item) => item.group === "secondary").map(
+                      (item) => (
+                        <button
+                          type="button"
+                          key={item.id}
+                          className={`topbar-nav__btn ${
+                            route.section === item.id ? "is-active" : ""
+                          }`}
+                          onClick={() => navigate({ section: item.id })}
+                        >
+                          {t(item.labelKey)}
+                        </button>
+                      )
+                    )}
+                  </div>
+                </nav>
               </div>
-              <nav className="topbar-nav" aria-label={t("topbar.navAria")}>
-                <div className="topbar-nav__group">
-                  {NAV_DEF.filter((item) => item.group === "core").map(
-                    (item) => (
-                      <button
-                        type="button"
-                        key={item.id}
-                        className={`topbar-nav__btn ${
-                          route.section === item.id ? "is-active" : ""
-                        }`}
-                        onClick={() => navigate({ section: item.id })}
-                      >
-                        {t(item.labelKey)}
-                      </button>
-                    )
-                  )}
-                </div>
-                <span className="topbar-nav__sep" aria-hidden />
-                <div className="topbar-nav__group">
-                  {NAV_DEF.filter((item) => item.group === "secondary").map(
-                    (item) => (
-                      <button
-                        type="button"
-                        key={item.id}
-                        className={`topbar-nav__btn ${
-                          route.section === item.id ? "is-active" : ""
-                        }`}
-                        onClick={() => navigate({ section: item.id })}
-                      >
-                        {t(item.labelKey)}
-                      </button>
-                    )
-                  )}
-                </div>
-              </nav>
-            </div>
-            <div className="topbar2__end">
-              {index ? (
-                <p className="topbar2__kpi">
-                  {t("topbar.kpi", {
-                    art: index.stats.artistCount,
-                    alb: index.stats.albumCount,
-                    state: user.saving ? t("topbar.saving") : t("topbar.saved"),
-                  })}
-                </p>
-              ) : null}
-              <label className="topbar2__search">
-                <span className="sr-only">{t("topbar.searchAria")}</span>
-                <input
-                  ref={searchInputRef}
-                  className="ghost-input ghost-input--search ghost-input--topbar"
-                  type="search"
-                  name="library-search"
-                  placeholder={t("topbar.searchPlaceholder")}
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  autoComplete="off"
-                  role="searchbox"
-                  aria-label={t("topbar.searchAria")}
-                />
-              </label>
-              <div className="topbar2__refresh-wrap">
-                {toolsActivity.toolsAnyBusy ? (
-                  <span
-                    className="topbar2__tools-spinner"
-                    role="status"
-                    aria-label={t("topbar.toolsBusyTitle")}
-                  />
+              <div className="topbar2__end">
+                {index ? (
+                  <p className="topbar2__kpi">
+                    {t("topbar.kpi", {
+                      art: index.stats.artistCount,
+                      alb: index.stats.albumCount,
+                      state: user.saving
+                        ? t("topbar.saving")
+                        : t("topbar.saved"),
+                    })}
+                  </p>
                 ) : null}
-                <button
-                  type="button"
-                  className="ghost-btn ghost-btn--toolbar"
-                  onClick={refresh}
-                  title={t("topbar.refreshTitle")}
-                >
-                  {t("topbar.refresh")}
-                </button>
+                <label className="topbar2__search">
+                  <span className="sr-only">{t("topbar.searchAria")}</span>
+                  <input
+                    ref={searchInputRef}
+                    className="ghost-input ghost-input--search ghost-input--topbar"
+                    type="search"
+                    name="library-search"
+                    placeholder={t("topbar.searchPlaceholder")}
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    autoComplete="off"
+                    role="searchbox"
+                    aria-label={t("topbar.searchAria")}
+                  />
+                </label>
+                <div className="topbar2__refresh-wrap">
+                  {toolsActivity.toolsAnyBusy ? (
+                    <span
+                      className="topbar2__tools-spinner"
+                      role="status"
+                      aria-label={t("topbar.toolsBusyTitle")}
+                    />
+                  ) : null}
+                  <button
+                    type="button"
+                    className="ghost-btn ghost-btn--toolbar"
+                    onClick={refresh}
+                    title={t("topbar.refreshTitle")}
+                  >
+                    {t("topbar.refresh")}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        </header>
+          </header>
 
-        {error && index ? <div className="inline-banner">{error}</div> : null}
-        {user.error ? (
-          <div className="inline-banner">
-            {t("persist.banner")} {user.error}
-          </div>
-        ) : null}
+          {error && index ? <div className="inline-banner">{error}</div> : null}
+          {user.error ? (
+            <div className="inline-banner">
+              {t("persist.banner")} {user.error}
+            </div>
+          ) : null}
 
-        <main className="content-shell">{currentView}</main>
+          <main className="content-shell">{currentView}</main>
+        </div>
+
+        <PlayerDock onGoToAscolta={() => navigate({ section: "ascolta" })} />
       </div>
-
-      <PlayerDock onGoToAscolta={() => navigate({ section: "ascolta" })} />
-    </div>
     </TrackMetaEditProvider>
   );
 }

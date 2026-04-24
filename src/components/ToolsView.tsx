@@ -627,6 +627,12 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
 
   return (
     <div className="tools tool-studio-layout">
+      <section className="studio-hero surface-card" aria-labelledby="studio-hero-title">
+        <p className="eyebrow">{t("tools.studioHeroEyebrow")}</p>
+        <h2 id="studio-hero-title" className="studio-hero__title">
+          {t("tools.studioHeroTitle")}
+        </h2>
+      </section>
       <section className="tool-block glass tools-download">
         <header className="studio-head">
           <h3>{t("tools.downloadTitle")}</h3>

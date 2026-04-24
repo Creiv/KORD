@@ -789,19 +789,23 @@ ul {
   margin-inline: 0;
 }
 
+.tools > .studio-hero {
+  grid-column: 1 / -1;
+}
+
 .tools > .tool-block {
   grid-column: span 6;
 }
 
-.tools > .tool-block:nth-child(1) {
+.tools > .tool-block.tools-download {
   grid-column: span 7;
 }
 
-.tools > .tool-block:nth-child(2) {
+.tools > .tool-block.tools-meta {
   grid-column: span 5;
 }
 
-.tools > .tool-block:nth-child(3) {
+.tools > .tool-block.tools-art {
   grid-column: span 12;
 }
 

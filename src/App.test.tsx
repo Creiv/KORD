@@ -152,7 +152,7 @@ describe("App", () => {
 
     expect(await screen.findByText("Artist One")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Smart shuffle" })
+      screen.getByRole("button", { name: "Random all" })
     ).toBeInTheDocument();
   });
 
