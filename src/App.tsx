@@ -8,6 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import type { ReactNode } from "react";
 import { PlayerProvider, usePlayer } from "./context/PlayerContext";
 import {
   ToolsActivityProvider,
@@ -71,7 +72,8 @@ type Section =
   | "playlists"
   | "favorites"
   | "recent"
-  | "settings";
+  | "settings"
+  | "statistics";
 
 type RouteState = {
   section: Section;
@@ -93,6 +95,7 @@ const NAV_DEF: {
   { id: "playlists", labelKey: "nav.playlists", group: "secondary" },
   { id: "favorites", labelKey: "nav.favorites", group: "secondary" },
   { id: "recent", labelKey: "nav.recent", group: "secondary" },
+  { id: "statistics", labelKey: "nav.statistics", group: "secondary" },
   { id: "settings", labelKey: "nav.settings", group: "secondary" },
 ];
 
@@ -278,7 +281,7 @@ function TrackListRow({
   active?: boolean;
   onPlay: () => void;
   metaRight?: string;
-  extraActions?: React.ReactNode;
+  extraActions?: ReactNode;
 }) {
   const p = usePlayer();
   const user = useUserState();
@@ -2540,6 +2543,330 @@ function TrackCollectionView({
   );
 }
 
+const STATISTICS_TOP_N = 3;
+
+function computeStatisticsRankings(
+  index: LibraryIndex,
+  counts: Record<string, number>,
+  sortLocale: string
+) {
+  const trackRows = index.tracks
+    .map((tr) => ({ tr, n: counts[tr.relPath] ?? 0 }))
+    .filter((x) => x.n > 0)
+    .sort(
+      (a, b) =>
+        b.n - a.n ||
+        a.tr.title.localeCompare(b.tr.title, sortLocale, { numeric: true }) ||
+        a.tr.relPath.localeCompare(b.tr.relPath)
+    );
+  const artistRows = index.artists
+    .map((ar) => {
+      let n = 0;
+      for (const tr of index.tracks) {
+        if (tr.artist === ar.name) n += counts[tr.relPath] ?? 0;
+      }
+      return { ar, n };
+    })
+    .filter((x) => x.n > 0)
+    .sort(
+      (a, b) =>
+        b.n - a.n ||
+        a.ar.name.localeCompare(b.ar.name, sortLocale, { numeric: true }) ||
+        a.ar.id.localeCompare(b.ar.id)
+    );
+  const albumRows = index.albums
+    .map((al) => {
+      let n = 0;
+      for (const rel of al.tracks) n += counts[rel] ?? 0;
+      return { al, n };
+    })
+    .filter((x) => x.n > 0)
+    .sort(
+      (a, b) =>
+        b.n - a.n ||
+        a.al.name.localeCompare(b.al.name, sortLocale, { numeric: true }) ||
+        a.al.id.localeCompare(b.al.id)
+    );
+
+  const genreMap = new Map<string, { label: string; n: number }>();
+  for (const tr of index.tracks) {
+    const n = counts[tr.relPath] ?? 0;
+    if (n <= 0) continue;
+    const raw = tr.meta?.genre?.trim();
+    if (!raw) continue;
+    const key = raw.toLowerCase();
+    const prev = genreMap.get(key);
+    if (prev) prev.n += n;
+    else genreMap.set(key, { label: raw, n });
+  }
+  const topGenres = [...genreMap.entries()]
+    .map(([key, v]) => ({ key, label: v.label, n: v.n }))
+    .sort(
+      (a, b) =>
+        b.n - a.n ||
+        a.label.localeCompare(b.label, sortLocale, { numeric: true })
+    )
+    .slice(0, STATISTICS_TOP_N);
+
+  let totalPlays = 0;
+  for (const tr of index.tracks) {
+    totalPlays += counts[tr.relPath] ?? 0;
+  }
+  const touchedTracks = index.tracks.filter((tr) => (counts[tr.relPath] ?? 0) > 0);
+  const artistsTouched = new Set(touchedTracks.map((tr) => tr.artist)).size;
+  const albumsTouched = new Set(touchedTracks.map((tr) => tr.albumId)).size;
+
+  return {
+    topTracks: trackRows.slice(0, STATISTICS_TOP_N),
+    topArtists: artistRows.slice(0, STATISTICS_TOP_N),
+    topAlbums: albumRows.slice(0, STATISTICS_TOP_N),
+    topGenres,
+    overview: {
+      totalPlays,
+      tracksWithPlays: touchedTracks.length,
+      artistsTouched,
+      albumsTouched,
+    },
+  };
+}
+
+function StatisticsView({
+  index,
+  onOpenArtist,
+  onOpenAlbum,
+}: {
+  index: LibraryIndex;
+  onOpenArtist: (artistId: string) => void;
+  onOpenAlbum: (artistId: string, albumName: string) => void;
+}) {
+  const user = useUserState();
+  const { t, sortLocale } = useI18n();
+  const counts = user.state.trackPlayCounts || {};
+  const data = useMemo(
+    () => computeStatisticsRankings(index, counts, sortLocale),
+    [index, counts, sortLocale]
+  );
+  const artistCoverById = useMemo(
+    () => buildRandomArtistCoverMap(index),
+    [index]
+  );
+
+  const openTrackInLibrary = (tr: LibraryTrackIndex) => {
+    const arId =
+      index.artists.find((a) => a.name === tr.artist)?.id ?? tr.artist;
+    onOpenAlbum(arId, tr.album);
+  };
+
+  return (
+    <div className="view-stack statistics-page">
+      <section className="surface-card surface-card--toolbar-only">
+        <div className="section-head section-head--page-toolbar">
+          <div>
+            <p className="eyebrow">{t("statistics.pageEyebrow")}</p>
+            <h2>{t("statistics.pageTitle")}</h2>
+          </div>
+        </div>
+      </section>
+
+      <div className="statistics-page__sections">
+      <section className="surface-card statistics-section">
+        <div className="statistics-section__head">
+          <h3>{t("statistics.sectionTracks")}</h3>
+        </div>
+        {data.topTracks.length === 0 ? (
+          <p className="panel-empty statistics-section__empty">
+            {t("statistics.rankEmpty")}
+          </p>
+        ) : (
+          <ol className="statistics-rank-list">
+            {data.topTracks.map((row, i) => (
+              <li key={row.tr.relPath}>
+                <button
+                  type="button"
+                  className="statistics-rank-row"
+                  aria-label={t("statistics.openInLibraryAria", {
+                    label: row.tr.title,
+                  })}
+                  onClick={() => openTrackInLibrary(row.tr)}
+                >
+                  <span className="statistics-rank-row__pos">{i + 1}</span>
+                  <img
+                    className="statistics-rank-row__art"
+                    src={coverUrlForTrackRelPath(row.tr.relPath)}
+                    alt=""
+                  />
+                  <div className="statistics-rank-row__text">
+                    <div className="statistics-rank-row__title">
+                      {row.tr.title}
+                    </div>
+                    <div className="statistics-rank-row__meta">
+                      {row.tr.artist} — {row.tr.album}
+                    </div>
+                  </div>
+                  <div className="statistics-rank-row__plays">
+                    {t("trackRow.playCount", { n: row.n })}
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+
+      <section className="surface-card statistics-section">
+        <div className="statistics-section__head">
+          <h3>{t("statistics.sectionArtists")}</h3>
+        </div>
+        {data.topArtists.length === 0 ? (
+          <p className="panel-empty statistics-section__empty">
+            {t("statistics.rankEmpty")}
+          </p>
+        ) : (
+          <ol className="statistics-rank-list">
+            {data.topArtists.map((row, i) => {
+              const coverRel = artistCoverById.get(row.ar.id) ?? null;
+              return (
+                <li key={row.ar.id}>
+                  <button
+                    type="button"
+                    className="statistics-rank-row"
+                    aria-label={t("statistics.openInLibraryAria", {
+                      label: row.ar.name,
+                    })}
+                    onClick={() => onOpenArtist(row.ar.id)}
+                  >
+                    <span className="statistics-rank-row__pos">{i + 1}</span>
+                    {coverRel ? (
+                      <img
+                        className="statistics-rank-row__art"
+                        src={coverUrlForAlbumRelPath(coverRel)}
+                        alt=""
+                      />
+                    ) : (
+                      <div
+                        className="statistics-rank-row__art statistics-rank-row__art--fallback"
+                        aria-hidden
+                      >
+                        {initials(row.ar.name)}
+                      </div>
+                    )}
+                    <div className="statistics-rank-row__text">
+                      <div className="statistics-rank-row__title">
+                        {row.ar.name}
+                      </div>
+                    </div>
+                    <div className="statistics-rank-row__plays">
+                      {t("trackRow.playCount", { n: row.n })}
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </section>
+
+      <section className="surface-card statistics-section">
+        <div className="statistics-section__head">
+          <h3>{t("statistics.sectionAlbums")}</h3>
+        </div>
+        {data.topAlbums.length === 0 ? (
+          <p className="panel-empty statistics-section__empty">
+            {t("statistics.rankEmpty")}
+          </p>
+        ) : (
+          <ol className="statistics-rank-list">
+            {data.topAlbums.map((row, i) => (
+              <li key={row.al.id}>
+                <button
+                  type="button"
+                  className="statistics-rank-row"
+                  aria-label={t("statistics.openInLibraryAria", {
+                    label: row.al.name,
+                  })}
+                  onClick={() => onOpenAlbum(row.al.artistId, row.al.name)}
+                >
+                  <span className="statistics-rank-row__pos">{i + 1}</span>
+                  <div className="statistics-rank-row__art statistics-rank-row__art--album">
+                    <AlbumCover album={row.al} compact />
+                  </div>
+                  <div className="statistics-rank-row__text">
+                    <div className="statistics-rank-row__title">
+                      {row.al.name}
+                    </div>
+                    <div className="statistics-rank-row__meta">{row.al.artist}</div>
+                  </div>
+                  <div className="statistics-rank-row__plays">
+                    {t("trackRow.playCount", { n: row.n })}
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+
+      <section className="surface-card statistics-section statistics-section--genres">
+        <div className="statistics-section__head">
+          <h3>{t("statistics.sectionGenres")}</h3>
+        </div>
+        {data.topGenres.length === 0 ? (
+          <p className="panel-empty statistics-section__empty">
+            {t("statistics.genresEmpty")}
+          </p>
+        ) : (
+          <ol className="statistics-rank-list">
+            {data.topGenres.map((row, i) => (
+              <li key={row.key}>
+                <div className="statistics-rank-row statistics-rank-row--static">
+                  <span className="statistics-rank-row__pos">{i + 1}</span>
+                  <div
+                    className="statistics-rank-row__art statistics-rank-row__art--fallback statistics-rank-row__art--genre"
+                    aria-hidden
+                  >
+                    G
+                  </div>
+                  <div className="statistics-rank-row__text">
+                    <div className="statistics-rank-row__title">{row.label}</div>
+                  </div>
+                  <div className="statistics-rank-row__plays">
+                    {t("trackRow.playCount", { n: row.n })}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+
+      <section className="surface-card statistics-section statistics-section--overview">
+        <div className="statistics-section__head">
+          <h3>{t("statistics.sectionOverview")}</h3>
+        </div>
+        <div className="stats-grid statistics-overview-grid">
+          <div className="metric-card statistics-metric">
+            <span>{t("statistics.overviewTotalPlays")}</span>
+            <strong>{data.overview.totalPlays}</strong>
+          </div>
+          <div className="metric-card statistics-metric">
+            <span>{t("statistics.overviewTracksWithPlays")}</span>
+            <strong>{data.overview.tracksWithPlays}</strong>
+          </div>
+          <div className="metric-card statistics-metric">
+            <span>{t("statistics.overviewArtistsTouched")}</span>
+            <strong>{data.overview.artistsTouched}</strong>
+          </div>
+          <div className="metric-card statistics-metric">
+            <span>{t("statistics.overviewAlbumsTouched")}</span>
+            <strong>{data.overview.albumsTouched}</strong>
+          </div>
+        </div>
+      </section>
+      </div>
+    </div>
+  );
+}
+
 function SettingsView({
   onOpenSection,
 }: {
@@ -3172,6 +3499,22 @@ function Shell() {
       case "settings":
         return (
           <SettingsView onOpenSection={(section) => navigate({ section })} />
+        );
+      case "statistics":
+        return (
+          <StatisticsView
+            index={index}
+            onOpenArtist={(artistId) =>
+              navigate({
+                section: "libreria",
+                artist: artistId,
+                album: null,
+              })
+            }
+            onOpenAlbum={(artistId, album) =>
+              navigate({ section: "libreria", artist: artistId, album })
+            }
+          />
         );
       default:
         return null;
