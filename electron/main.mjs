@@ -42,7 +42,7 @@ function findFreePort() {
     s.listen(0, "127.0.0.1", () => {
       const addr = s.address()
       const p = addr && typeof addr === "object" && "port" in addr ? addr.port : null
-      s.close((err) => (err != null ? reject(err) : p != null ? resolve(p) : reject(new Error("porta non disponibile"))))
+      s.close((err) => (err != null ? reject(err) : p != null ? resolve(p) : reject(new Error("No free port available"))))
     })
   })
 }
@@ -69,7 +69,7 @@ function waitForHealth(p, maxMs) {
   return new Promise((resolve, reject) => {
     const tryOnce = () => {
       if (Date.now() - start > maxMs) {
-        reject(new Error("Timeout: server non risponde"))
+        reject(new Error("Timeout: server did not respond"))
         return
       }
       const req = http.request(
@@ -103,85 +103,85 @@ const APP_NAME = "KORD"
 function installAppMenu() {
   const isMac = process.platform === "darwin"
   const viewItems = [
-    { role: "reload", label: "Ricarica" },
-    { role: "forceReload", label: "Ricarica (senza cache)" },
+    { role: "reload", label: "Reload" },
+    { role: "forceReload", label: "Reload (clear cache)" },
   ]
   if (isDev()) {
     viewItems.push(
-      { role: "toggleDevTools", label: "Strumenti per sviluppatori" },
+      { role: "toggleDevTools", label: "Developer Tools" },
       { type: "separator" },
     )
   }
   viewItems.push(
-    { role: "resetZoom", label: "Zoom normale" },
-    { role: "zoomIn", label: "Aumenta" },
-    { role: "zoomOut", label: "Riduci" },
+    { role: "resetZoom", label: "Actual size" },
+    { role: "zoomIn", label: "Zoom in" },
+    { role: "zoomOut", label: "Zoom out" },
     { type: "separator" },
-    { role: "togglefullscreen", label: "Schermo intero" },
+    { role: "togglefullscreen", label: "Full screen" },
   )
   const template = []
   if (isMac) {
     template.push({
       label: APP_NAME,
       submenu: [
-        { role: "about", label: "Informazioni" },
+        { role: "about", label: "About" },
         { type: "separator" },
         { role: "services" },
         { type: "separator" },
-        { role: "hide", label: "Nascondi" },
-        { role: "hideOthers", label: "Nascondi le altre" },
-        { role: "unhide", label: "Mostra tutto" },
+        { role: "hide", label: "Hide" },
+        { role: "hideOthers", label: "Hide Others" },
+        { role: "unhide", label: "Show All" },
         { type: "separator" },
-        { role: "quit", label: "Esci" },
+        { role: "quit", label: "Quit" },
       ],
     })
     template.push({
       label: "File",
-      submenu: [{ role: "close", label: "Chiudi finestra" }],
+      submenu: [{ role: "close", label: "Close Window" }],
     })
   } else {
     template.push({
       label: "File",
       submenu: [
-        { role: "quit", label: "Esci", accelerator: "Ctrl+Q" },
+        { role: "quit", label: "Quit", accelerator: "Ctrl+Q" },
       ],
     })
   }
   template.push(
     {
-      label: "Modifica",
+      label: "Edit",
       submenu: [
-        { role: "undo", label: "Annulla" },
-        { role: "redo", label: "Ripeti" },
+        { role: "undo", label: "Undo" },
+        { role: "redo", label: "Redo" },
         { type: "separator" },
-        { role: "cut", label: "Taglia" },
-        { role: "copy", label: "Copia" },
-        { role: "paste", label: "Incolla" },
+        { role: "cut", label: "Cut" },
+        { role: "copy", label: "Copy" },
+        { role: "paste", label: "Paste" },
         { type: "separator" },
-        { role: "selectAll", label: "Seleziona tutto" },
+        { role: "selectAll", label: "Select All" },
       ],
     },
-    { label: "Vista", submenu: viewItems },
+    { label: "View", submenu: viewItems },
     {
-      label: "Finestra",
+      label: "Window",
       submenu: [
-        { role: "minimize", label: "Riduci a icona" },
-        { role: "zoom", label: "Ingrandisci" },
+        { role: "minimize", label: "Minimize" },
+        { role: "zoom", label: "Zoom" },
         { type: "separator" },
-        { role: "close", label: "Chiudi" },
+        { role: "close", label: "Close" },
       ],
     },
     {
-      label: "Aiuto",
+      label: "Help",
       submenu: [
         {
-          label: "Informazioni",
+          label: "About",
           click: () => {
             void dialog.showMessageBox({
               type: "info",
               title: APP_NAME,
               message: APP_NAME,
-              detail: `Versione ${app.getVersion()}\nSistema: ${process.platform} ${process.arch}.`,
+              detail: `Version ${app.getVersion()}\nPlatform: ${process.platform} ${process.arch}.`,
             })
           },
         },
@@ -215,7 +215,7 @@ async function startServer() {
   const cwd = getProjectRoot()
   const script = getServerPath()
   if (!fs.existsSync(script)) {
-    throw new Error(`Server non trovato: ${script}`)
+    throw new Error(`Server not found: ${script}`)
   }
   appendLaunchLog(`spawn server on ${appPort} cwd=${cwd}`)
   serverChild = spawn(process.execPath, [script], {
@@ -232,7 +232,7 @@ async function startServer() {
   const r = await Promise.race([waitForHealth(String(appPort), 45000).then(() => "ok"), exitP])
   if (r !== "ok") {
     throw new Error(
-      `Il processo server è uscito subito (codice ${String(r)}). Se un'altra istanza è aperta o la posta resta bloccata, chiudi l'altra finestra o riavvia la sessione.`,
+      `The server process exited immediately (code ${String(r)}). If another instance is running or the port is busy, close the other window or restart the session.`,
     )
   }
   serverChild.on("exit", (code) => {
@@ -301,7 +301,7 @@ if (!app.requestSingleInstanceLock()) {
         type: "info",
         title: APP_NAME,
         message:
-          "L'applicazione risulta già in esecuzione (un'altra istanza è aperta). Controlla le finestre, la barra attività o uscita dal vassoio, oppure termina il processo «KORD» dal gestore attività.",
+          "KORD is already running (another instance is open). Check other windows, the taskbar or system tray, or end the KORD process from Task Manager / System Monitor.",
       })
     } finally {
       app.quit()
@@ -328,7 +328,7 @@ if (!app.requestSingleInstanceLock()) {
       appendLaunchLog(`error: ${msg}`)
       console.error(e)
       try {
-        dialog.showErrorBox("KORD — avvio non riuscito", `${msg}\n\nDettagli: ${app.getPath("userData")}/kord-launch.log`)
+        dialog.showErrorBox("KORD — startup failed", `${msg}\n\nDetails: ${app.getPath("userData")}/kord-launch.log`)
       } catch {
         /* ok */
       }

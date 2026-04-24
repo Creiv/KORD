@@ -7,7 +7,7 @@ import { buildDashboard, buildLibraryIndex } from "./musicLibrary.mjs"
 import { defaultUserState } from "./userState.mjs"
 
 describe("musicLibrary", () => {
-  it("indicizza album, tracce sfuse e alert qualità", async () => {
+  it("indexes albums, loose tracks, and quality alerts", async () => {
     const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kord-library-"))
     await fs.mkdir(path.join(musicRoot, "Artist One", "Album One"), { recursive: true })
     await fs.writeFile(path.join(musicRoot, "Artist One", "Album One", "01 Song.mp3"), "")

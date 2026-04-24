@@ -5,7 +5,7 @@ const K_ALBUMS = "kord-random-exclude-albums"
 const WPP_TRACKS = "wpp-random-exclude-tracks"
 const WPP_ALBUMS = "wpp-random-exclude-albums"
 
-/** Brani non esclusi dal random (stessa logica della libreria). */
+/** Tracks not excluded from smart shuffle (same logic as library). */
 export function eligibleTracksForIntelligentRandom(
   index: LibraryIndex,
   excludedAlbums: Set<string>,

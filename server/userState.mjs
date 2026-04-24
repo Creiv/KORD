@@ -29,7 +29,7 @@ function sanitizeTrack(track) {
 function sanitizePlaylist(item) {
   if (!isObj(item)) return null
   const id = typeof item.id === "string" && item.id.trim() ? item.id : crypto.randomUUID()
-  const name = typeof item.name === "string" && item.name.trim() ? item.name.trim() : "Nuova playlist"
+  const name = typeof item.name === "string" && item.name.trim() ? item.name.trim() : "New playlist"
   const tracks = Array.isArray(item.tracks)
     ? item.tracks
         .map((track) => sanitizeTrack(track))
@@ -61,6 +61,7 @@ const THEME_MODES = new Set([
 
 function sanitizeSettings(settings) {
   const src = isObj(settings) ? settings : {}
+  const loc = src.locale === "it" ? "it" : "en"
   return {
     theme: THEME_MODES.has(src.theme) ? src.theme : "midnight",
     vizMode:
@@ -70,6 +71,7 @@ function sanitizeSettings(settings) {
     restoreSession: src.restoreSession !== false,
     defaultTab:
       typeof src.defaultTab === "string" && src.defaultTab.trim() ? src.defaultTab : "dashboard",
+    locale: loc,
   }
 }
 

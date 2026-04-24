@@ -13,11 +13,11 @@ async function unwrap<T>(response: Response): Promise<T> {
     if (json && typeof json === "object" && "error" in json && typeof json.error === "string") {
       throw new Error(json.error)
     }
-    throw new Error("Richiesta non riuscita")
+    throw new Error("Request failed")
   }
   if (json && typeof json === "object" && "ok" in json && "data" in json) {
     const wrapped = json as Wrapped<T>
-    if (!wrapped.ok) throw new Error(wrapped.error || "Richiesta non riuscita")
+    if (!wrapped.ok) throw new Error(wrapped.error || "Request failed")
     return wrapped.data
   }
   return json as T
@@ -124,7 +124,7 @@ export async function runYtdlpDownload(
     }),
   })
   const json = (await response.json()) as DownloadRes
-  if (!response.ok) throw new Error(json.error || "Download")
+  if (!response.ok) throw new Error(json.error || "Download error")
   return json
 }
 
@@ -187,7 +187,7 @@ export async function createMusicSubdir(
     body: JSON.stringify({ parent, name }),
   })
   const json = (await response.json()) as { error?: string; relPath?: string }
-  if (!response.ok) throw new Error(json.error || "Cartella")
+  if (!response.ok) throw new Error(json.error || "Failed to create folder")
   return { relPath: json.relPath || "" }
 }
 
@@ -227,7 +227,10 @@ export async function fetchAlbumInfo(
   const json = (await response.json()) as
     | { ok: true; albumPath: string; meta: FetchedAlbumMeta }
     | { error?: string }
-  if (!response.ok) throw new Error("error" in json ? json.error || "Metadati" : "Metadati")
+  if (!response.ok)
+    throw new Error(
+      "error" in json ? json.error || "Failed to fetch album metadata" : "Failed to fetch album metadata",
+    )
   return json as { ok: true; albumPath: string; meta: FetchedAlbumMeta }
 }
 
@@ -242,7 +245,12 @@ export async function fetchTrackInfo(
   const json = (await response.json()) as
     | { ok: true; relPath: string; meta: FetchedTrackMeta }
     | { error?: string }
-  if (!response.ok) throw new Error("error" in json ? json.error || "Metadati brano" : "Metadati brano")
+  if (!response.ok)
+    throw new Error(
+      "error" in json
+        ? json.error || "Failed to fetch track metadata"
+        : "Failed to fetch track metadata",
+    )
   return json as { ok: true; relPath: string; meta: FetchedTrackMeta }
 }
 

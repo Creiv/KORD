@@ -352,13 +352,13 @@ export function buildDashboard(index, userState) {
   const qualityAlerts = [
     {
       id: "albums-without-cover",
-      label: "Album senza copertina",
+      label: "Albums without cover art",
       count: index.stats.albumsWithoutCover,
       severity: index.stats.albumsWithoutCover > 0 ? "warning" : "ok",
     },
     {
       id: "albums-without-meta",
-      label: "Album senza metadati",
+      label: "Albums without metadata",
       count: index.stats.albumsWithoutMeta,
       severity: index.stats.albumsWithoutMeta > 0 ? "warning" : "ok",
     },
@@ -370,7 +370,7 @@ export function buildDashboard(index, userState) {
     },
     {
       id: "loose-albums",
-      label: "Cartelle con tracce sfuse",
+      label: "Folders with loose tracks",
       count: index.stats.looseAlbumCount,
       severity: index.stats.looseAlbumCount > 0 ? "info" : "ok",
     },

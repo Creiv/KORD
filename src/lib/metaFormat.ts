@@ -4,7 +4,7 @@ function pad2(n: number) {
   return String(n).padStart(2, "0")
 }
 
-/** Formato visivo: gg-mm-aaaa (giorno-mese-anno, trattini). */
+/** Visual format: dd-mm-yyyy (day-month-year, hyphens). */
 export function fmtDate(d: string | null | undefined): string
 export function fmtDate(d: Date): string
 export function fmtDate(d: string | null | undefined | Date): string {
@@ -36,10 +36,13 @@ export function fmtSize(bytes: number | null | undefined): string {
   return `${n.toFixed(fixed)} ${u[i]}`
 }
 
-export function trackInfoBadges(t: EnrichedTrack): string[] {
+export function trackInfoBadges(
+  t: EnrichedTrack,
+  labels: { track: string; album: string } = { track: "Track", album: "Album" }
+): string[] {
   const out: string[] = []
-  if (t.meta?.releaseDate) out.push(`Brano ${fmtDate(t.meta.releaseDate)}`)
-  if (t.albumMeta?.releaseDate) out.push(`Album ${fmtDate(t.albumMeta.releaseDate)}`)
+  if (t.meta?.releaseDate) out.push(`${labels.track} ${fmtDate(t.meta.releaseDate)}`)
+  if (t.albumMeta?.releaseDate) out.push(`${labels.album} ${fmtDate(t.albumMeta.releaseDate)}`)
   if (t.meta?.genre) out.push(t.meta.genre)
   if (t.albumMeta?.label) out.push(t.albumMeta.label)
   if (t.albumMeta?.country) out.push(t.albumMeta.country)

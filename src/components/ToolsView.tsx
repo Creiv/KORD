@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { usePlayer } from "../context/PlayerContext"
+import { useI18n } from "../i18n/useI18n"
 import {
   applyArtwork,
   createMusicSubdir,
@@ -30,15 +31,15 @@ function sourceLabel(s: string | undefined): string {
   return s || "—"
 }
 
-function extLinkLabel(url: string): string {
+function extLinkLabel(url: string, openWord: string): string {
   try {
     const h = new URL(url).hostname
     if (h.includes("apple.com")) return "iTunes / Apple"
     if (h.includes("deezer.com")) return "Deezer"
     if (h.includes("musicbrainz.org")) return "MusicBrainz"
-    return h.replace("www.", "") || "Apri"
+    return h.replace("www.", "") || openWord
   } catch {
-    return "Apri"
+    return openWord
   }
 }
 
@@ -62,6 +63,7 @@ const W_COVER_ALB = "wpp-cover-album"
 
 export function ToolsView({ library, onRefreshLibrary }: P) {
   const p = usePlayer()
+  const { t, sortLocale } = useI18n()
   const [preset, setPreset] = useState<string | null>(null)
   const [url, setUrl] = useState("")
   const [log, setLog] = useState("")
@@ -142,8 +144,8 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
         setPreset(d.found && d.text ? d.text : null)
         if (d.exampleUrl) setUrl(d.exampleUrl)
       })
-      .catch((e) => setLog((x) => x + `Comando: ${e}\n`))
-  }, [])
+      .catch((e) => setLog((x) => x + t("tools.logCmdErr", { e })))
+  }, [t])
 
   useEffect(() => {
     loadPreset()
@@ -152,8 +154,8 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
   const loadDlFs = useCallback((path: string) => {
     listMusicDirs(path)
       .then(setDlList)
-      .catch((e) => setLog((x) => x + `Cartelle: ${e}\n`))
-  }, [])
+      .catch((e) => setLog((x) => x + t("tools.logFolderErr", { e })))
+  }, [t])
 
   useEffect(() => {
     loadDlFs("")
@@ -202,10 +204,10 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
       if (dx && dy && dx !== dy) return dx.localeCompare(dy, undefined, { numeric: true })
       if (dx && !dy) return -1
       if (!dx && dy) return 1
-      return x.label.localeCompare(y.label, "it", { numeric: true })
+      return x.label.localeCompare(y.label, sortLocale, { numeric: true })
     })
     return o
-  }, [library])
+  }, [library, sortLocale])
 
   const metaOpts = useMemo(() => {
     if (!library) {
@@ -242,10 +244,10 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
       if (dx && dy && dx !== dy) return dx.localeCompare(dy, undefined, { numeric: true })
       if (dx && !dy) return -1
       if (!dx && dy) return 1
-      return x.label.localeCompare(y.label, "it", { numeric: true })
+      return x.label.localeCompare(y.label, sortLocale, { numeric: true })
     })
     return o
-  }, [library])
+  }, [library, sortLocale])
 
   const useCurrentForArt = () => {
     if (p.current) {
@@ -260,16 +262,16 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
 
   const setCoverDestFromCurrentTrack = () => {
     if (!p.current?.relPath) {
-      setLog((x) => x + "Nessun brano o percorso file.\n")
+      setLog((x) => x + t("tools.logNoTrackPath"))
       return
     }
     const folder = albumFolderFromTrackRelPath(p.current.relPath)
     if (!folder) {
-      setLog((x) => x + "Impossibile dedurre la cartella album da questo file.\n")
+      setLog((x) => x + t("tools.logNoAlbumFolder"))
       return
     }
     setAlbumForCover(folder)
-    setLog((x) => x + `Destinazione copertina: ${folder}\n`)
+    setLog((x) => x + t("tools.logCoverDest", { path: folder }))
   }
 
   const doCreateFolder = () => {
@@ -278,18 +280,18 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
     setMkBusy(true)
     createMusicSubdir(dlList.path || "", n)
       .then(({ relPath }) => {
-        setLog((x) => x + `Nuova cartella: ${relPath}\n`)
+        setLog((x) => x + t("tools.logNewFolder", { path: relPath }))
         setNewDirName("")
         const parent = relPath.split("/").slice(0, -1).join("/")
         loadDlFs(parent)
       })
-      .catch((e) => setLog((x) => x + `Cartella: ${e}\n`))
+      .catch((e) => setLog((x) => x + t("tools.logFolderErr", { e })))
       .finally(() => setMkBusy(false))
   }
 
   const setMetaFromCurrent = () => {
     if (!p.current?.relPath) {
-      setMetaLog("Nessun brano in riproduzione.\n")
+      setMetaLog(t("tools.metaNoTrack"))
       return
     }
     setMetaArt(p.current.artist)
@@ -297,25 +299,27 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
     const folder = albumFolderFromTrackRelPath(p.current.relPath)
     if (folder) {
       setMetaAlbumPath(folder)
-      setMetaLog("Campi e cartella impostati dal brano in corso.\n")
+      setMetaLog(t("tools.metaFromTrackOk"))
     } else {
-      setMetaLog("Cartella album non deducibile.\n")
+      setMetaLog(t("tools.metaNoFolder"))
     }
   }
 
   const fetchOneAlbumMeta = () => {
     if (!metaAlbumPath.trim()) {
-      setMetaLog("Scegli un album (percorso cartella sotto Musica).\n")
+      setMetaLog(t("tools.metaPickAlbum"))
       return
     }
     setMetaBusy(true)
     fetchAlbumInfo(metaAlbumPath.trim(), metaArt.trim(), metaAlb.trim())
       .then((r) => {
         const d = r.meta?.date
-        setMetaLog((s) => s + `OK ${r.albumPath}: data ${fmtDate(d)}\n`)
+        setMetaLog((s) =>
+          s + t("tools.metaOkLine", { path: r.albumPath, date: fmtDate(d) }),
+        )
         onRefreshLibrary()
       })
-      .catch((e) => setMetaLog((s) => s + `Errore: ${e}\n`))
+      .catch((e) => setMetaLog((s) => s + t("tools.metaErr", { e })))
       .finally(() => setMetaBusy(false))
   }
 
@@ -340,18 +344,20 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
     setMetaLog(
       (s) =>
         s +
-        `Scansione album: ${toFetch.length} da scaricare${
-          skipped > 0 ? `, ${skipped} saltati (metadati già in cartella)` : ""
-        }.\n`,
+        t("tools.metaScanStart", {
+          fetch: toFetch.length,
+          skip:
+            skipped > 0 ? t("tools.metaScanSkip", { n: skipped }) : "",
+        }),
     )
     if (toFetch.length === 0) {
       setMetaAllBusy(false)
-      setMetaLog((s) => s + "Nessun album da aggiornare.\n")
+      setMetaLog((s) => s + t("tools.metaNoAlbums"))
       return
     }
     for (let i = 0; i < toFetch.length; i += 1) {
       if (stopMetaAll.current) {
-        setMetaLog((s) => s + "Interrotto dall’utente.\n")
+        setMetaLog((s) => s + t("tools.metaUserStop"))
         setMetaScanProg(null)
         setMetaAllBusy(false)
         onRefreshLibrary()
@@ -372,13 +378,13 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
     }
     setMetaScanProg(null)
     setMetaAllBusy(false)
-    setMetaLog((s) => s + "Fine scansione.\n")
+    setMetaLog((s) => s + t("tools.metaScanDone"))
     onRefreshLibrary()
   }
 
   const fetchCurrentTrackMeta = () => {
     if (!p.current?.relPath) {
-      setMetaLog((s) => s + "Nessun brano in riproduzione.\n")
+      setMetaLog((s) => s + t("tools.metaNoTrack"))
       return
     }
     setTrackMetaBusy(true)
@@ -387,11 +393,15 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
         setMetaLog(
           (s) =>
             s +
-            `Brano OK: ${p.current?.title} · ${fmtDate(r.meta.releaseDate)} · ${r.meta.genre || "—"}\n`,
+            t("tools.metaTrackOk", {
+              title: p.current?.title ?? "",
+              date: fmtDate(r.meta.releaseDate),
+              genre: r.meta.genre || t("common.emDash"),
+            }),
         )
         onRefreshLibrary()
       })
-      .catch((e) => setMetaLog((s) => s + `Brano: ${e}\n`))
+      .catch((e) => setMetaLog((s) => s + t("tools.metaTrackErr", { e })))
       .finally(() => setTrackMetaBusy(false))
   }
 
@@ -416,20 +426,20 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
     setMetaLog(
       (s) =>
         s +
-        `Scansione brani: ${toFetch.length} da scaricare${
-          skippedT > 0
-            ? `, ${skippedT} saltati (genere o data già presenti)`
-            : ""
-        }.\n`,
+        t("tools.trackScanStart", {
+          fetch: toFetch.length,
+          skip:
+            skippedT > 0 ? t("tools.trackScanSkip", { n: skippedT }) : "",
+        }),
     )
     if (toFetch.length === 0) {
       setTrackAllBusy(false)
-      setMetaLog((s) => s + "Nessun brano da aggiornare.\n")
+      setMetaLog((s) => s + t("tools.trackNoUpdate"))
       return
     }
     for (let i = 0; i < toFetch.length; i += 1) {
       if (stopTrackAll.current) {
-        setMetaLog((s) => s + "Scansione brani interrotta.\n")
+        setMetaLog((s) => s + t("tools.trackScanStop"))
         setTrackScanProg(null)
         setTrackAllBusy(false)
         onRefreshLibrary()
@@ -437,7 +447,9 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
       }
       const rel = toFetch[i]!
       setTrackScanProg({ current: i + 1, total: toFetch.length })
-      setMetaLog((s) => s + `[brano ${i + 1}/${toFetch.length}] ${rel}\n`)
+      setMetaLog((s) =>
+        s + t("tools.trackScanLine", { i: i + 1, total: toFetch.length, path: rel }),
+      )
       try {
         await fetchTrackInfo(rel)
       } catch (e) {
@@ -449,15 +461,14 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
     }
     setTrackScanProg(null)
     setTrackAllBusy(false)
-    setMetaLog((s) => s + "Fine scansione metadati brani.\n")
+    setMetaLog((s) => s + t("tools.trackScanDone"))
     onRefreshLibrary()
   }
 
   const runSanitizeTitles = async (scope: "album" | "all", dryRun: boolean) => {
     if (scope === "album" && !metaAlbumPath.trim()) {
       setMetaLog(
-        (s) =>
-          s + "Scegli un album (menu «Album e campi di ricerca») per l’anteprima o l’applicazione sull’album.\n",
+        (s) => s + t("tools.sanitizePickAlbum"),
       )
       return
     }
@@ -466,12 +477,17 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
       if (scope === "all") {
         const rAll = await sanitizeTrackTitles({ scope: "all", dryRun })
         setMetaLog((s) => {
-          const head =
-            (dryRun ? "Anteprima" : "Applicazione") +
-            " titoli visibili — tutta la libreria\n" +
-            `Album scansionati: ${rAll.albumsScanned} · file da aggiustare: ${rAll.changes.length}\n`
+          const head = dryRun
+            ? t("tools.sanitizeHeadPreviewLib", {
+                a: rAll.albumsScanned,
+                c: rAll.changes.length,
+              })
+            : t("tools.sanitizeHeadApplyLib", {
+                a: rAll.albumsScanned,
+                c: rAll.changes.length,
+              })
           if (rAll.changes.length === 0) {
-            return s + head + "Nessun nome file con prefisso numerico o con […] da correggere.\n"
+            return s + head + t("tools.sanitizeNoFixLib")
           }
           const lines: string[] = [s + head]
           const show = rAll.changes.slice(0, 100)
@@ -481,7 +497,9 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
             )
           }
           if (rAll.changes.length > 100) {
-            lines.push(`  … e altre ${rAll.changes.length - 100} voci.`)
+            lines.push(
+              "  " + t("tools.sanitizeMore", { n: rAll.changes.length - 100 }),
+            )
           }
           lines.push("")
           return lines.join("\n")
@@ -493,27 +511,23 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
           dryRun,
         })
         setMetaLog((s) => {
-          const head =
-            (dryRun ? "Anteprima" : "Scrittura kord-trackinfo") +
-            ` — ${r1.albumPath}\n`
+          const head = dryRun
+            ? t("tools.sanitizeHeadPreviewAlb", { path: r1.albumPath })
+            : t("tools.sanitizeHeadApplyAlb", { path: r1.albumPath })
           if (r1.changes.length === 0) {
-            return (
-              s +
-              head +
-              "Nessun file da aggiustare in questo album.\n"
-            )
+            return s + head + t("tools.sanitizeNoFixAlb")
           }
-          let t = s + head
+          let acc = s + head
           for (const c of r1.changes) {
-            t += `  ${c.fileName}: “${c.from}” → “${c.to}”\n`
+            acc += `  ${c.fileName}: “${c.from}” → “${c.to}”\n`
           }
-          if (!dryRun) t += "OK, aggiorna la libreria se non si aggiorna da sola.\n"
-          return t
+          if (!dryRun) acc += t("tools.sanitizeRefreshHint")
+          return acc
         })
       }
       if (!dryRun) onRefreshLibrary()
     } catch (e) {
-      setMetaLog((s) => s + `Titoli: ${e}\n`)
+      setMetaLog((s) => s + t("tools.sanitizeErr", { e: String(e) }))
     } finally {
       setTitleSanBusy(false)
     }
@@ -522,17 +536,16 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
   const runDl = () => {
     if (!url.trim()) return
     if (!dlDestPicked) {
-      setLog(
-        (x) =>
-          x +
-          "Scegli la cartella: «Usa questa cartella» o «Usa root Musica» (sopra).\n",
-      )
+      setLog((x) => x + t("tools.dlPickFolder"))
       return
     }
     setDlBusy(true)
     setDlProg(null)
-    setLog(
-      (x) => x + `→ Avvio in «${dlPath || "(root Musica)"}»…\n`,
+    setLog((x) =>
+      x +
+      t("tools.dlStart", {
+        path: dlPath || t("tools.dlRootLabel"),
+      }),
     )
     runYtdlpDownload(url.trim(), dlPath)
       .then((r) => {
@@ -556,15 +569,21 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
         setLog(
           (x) =>
             x +
-            `${r.ok ? "OK" : "Errore"} (code ${r.code})\n` +
+            t("tools.dlResult", {
+              ok: r.ok ? t("tools.dlOk") : t("tools.dlErr"),
+              code: r.code,
+            }) +
             (r.progress?.total
-              ? `Progresso: ${r.progress.current}/${r.progress.total}\n`
+              ? t("tools.dlProgress", {
+                  cur: r.progress.current,
+                  total: r.progress.total,
+                })
               : "") +
-            (errText ? `Dettagli errore:\n${errText}\n` : ""),
+            (errText ? t("tools.dlErrDetail", { detail: errText }) : ""),
         )
         onRefreshLibrary()
       })
-      .catch((e) => setLog((x) => x + `Errore: ${e}\n`))
+      .catch((e) => setLog((x) => x + t("tools.dlFail", { e })))
       .finally(() => setDlBusy(false))
   }
 
@@ -581,16 +600,16 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
 
   const applyCover = (imageUrl: string) => {
     if (!albumForCover) {
-      setLog((x) => x + "Scegli un album di destinazione o «da brano in corso».\n")
+      setLog((x) => x + t("tools.coverPickDest"))
       return
     }
     setArtBusy(true)
     applyArtwork(albumForCover, imageUrl)
       .then(() => {
-        setLog((x) => x + `Copertina salvata in ${albumForCover}\n`)
+        setLog((x) => x + t("tools.coverSaved", { path: albumForCover }))
         onRefreshLibrary()
       })
-      .catch((e) => setLog((x) => x + `Copertina: ${e}\n`))
+      .catch((e) => setLog((x) => x + t("tools.coverErr", { e })))
       .finally(() => setArtBusy(false))
   }
 
@@ -598,21 +617,21 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
     <div className="tools tool-studio-layout">
       <section className="tool-block glass tools-download">
         <header className="studio-head">
-          <h3>Download</h3>
+          <h3>{t("tools.downloadTitle")}</h3>
         </header>
 
         <details className="studio-details" open={false}>
-          <summary>Comando usato</summary>
+          <summary>{t("tools.cmdUsed")}</summary>
           <pre className="codebox" tabIndex={0}>
-            {preset || "yt-dlp -x --audio-format flac --embed-thumbnail --add-metadata -o \"…\" + URL"}
+            {preset || t("tools.cmdFallback")}
           </pre>
         </details>
 
         <div className="studio-panel">
-          <h4 className="studio-panel-title">Destinazione</h4>
+          <h4 className="studio-panel-title">{t("tools.destination")}</h4>
           <div className="breadcrumbs">
             <button type="button" className="crumb" onClick={() => loadDlFs("")}>
-              {dlList?.musicRoot?.split("/").pop() || "Musica"}
+              {dlList?.musicRoot?.split("/").pop() || t("tools.musicRoot")}
             </button>
             {(dlList?.path || "")
               .split("/")
@@ -635,7 +654,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
               className="btn secondary sm"
               onClick={() => loadDlFs(dlList.parent || "")}
             >
-              ← Su
+              {t("tools.up")}
             </button>
           ) : null}
           <ul className="dirlist">
@@ -653,10 +672,10 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
               className="flex1"
               minLength={1}
               maxLength={200}
-              placeholder="Nuova sottocartella"
+              placeholder={t("tools.newFolderPh")}
               value={newDirName}
               onChange={(e) => setNewDirName(e.target.value)}
-              aria-label="Nome nuova cartella"
+              aria-label={t("tools.newFolderAria")}
             />
             <button
               type="button"
@@ -664,7 +683,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
               disabled={mkBusy || !newDirName.trim() || !dlList}
               onClick={doCreateFolder}
             >
-              {mkBusy ? "Creo…" : "Crea qui"}
+              {mkBusy ? t("tools.creating") : t("tools.createHere")}
             </button>
           </div>
           <div className="studio-inline-actions studio-inline-actions--spaced">
@@ -675,34 +694,34 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
                 if (dlList) commitDlDest(dlList.path || "")
               }}
               disabled={!dlList}
-              title="Percorso relativo a Musica"
+              title={t("tools.useThisFolderTitle")}
             >
-              Usa questa cartella
+              {t("tools.useThisFolder")}
             </button>
             <button
               type="button"
               className="btn secondary"
               onClick={() => commitDlDest("")}
-              title="File direttamente sotto Musica"
+              title={t("tools.musicRootTitle")}
             >
-              Root Musica
+              {t("tools.musicRootBtn")}
             </button>
           </div>
           {dlDestPicked ? (
             <p className="art-target sm">
-              Destinazione: <code>{dlPath || "— (root) —"}</code>
+              {t("tools.destLine", { path: dlPath || t("tools.destRoot") })}
             </p>
           ) : (
-            <p className="subtle sm warnline">Conferma una cartella prima del download.</p>
+            <p className="subtle sm warnline">{t("tools.confirmFolderWarn")}</p>
           )}
         </div>
 
         <div className="studio-panel">
-          <h4 className="studio-panel-title">URL</h4>
+          <h4 className="studio-panel-title">{t("tools.url")}</h4>
           <input
             type="url"
             className="w-full"
-            placeholder="URL playlist o video"
+            placeholder={t("tools.urlPh")}
             value={url}
             onChange={(e) => setUrl(e.target.value)}
           />
@@ -713,24 +732,24 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
               onClick={runDl}
               disabled={dlBusy || !url.trim() || !dlDestPicked}
             >
-              {dlBusy ? "Esecuzione…" : "Scarica e importa"}
+              {dlBusy ? t("tools.downloadBusy") : t("tools.downloadRun")}
             </button>
             <button type="button" className="btn secondary sm" onClick={loadPreset}>
-              Ricarica testo comando
+              {t("tools.reloadCmd")}
             </button>
           </div>
           {(dlBusy || dlProg) && (
             <div className="dl-progress-wrap" aria-live="polite">
               <div className="dl-progress-top">
-                <strong>Avanzamento</strong>
+                <strong>{t("tools.progress")}</strong>
                 <span>
                   {dlBusy
                     ? dlProg
                       ? `${dlProg.current}/${dlProg.total}`
-                      : "in corso…"
+                      : t("tools.inProgress")
                     : dlProg
                       ? `${dlProg.current}/${dlProg.total}`
-                      : "—"}
+                      : t("common.emDash")}
                 </span>
               </div>
               <div className="dl-progress-rail">
@@ -751,7 +770,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
         </div>
 
         <div className="studio-log">
-          <label className="subtle sm">Log</label>
+          <label className="subtle sm">{t("tools.logLabel")}</label>
           <textarea
             className="log"
             value={log}
@@ -759,18 +778,18 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
             rows={4}
           />
           <button type="button" className="linkbtn" onClick={() => setLog("")}>
-            Pulisci
+            {t("tools.clear")}
           </button>
         </div>
       </section>
 
       <section className="tool-block glass tools-meta">
         <header className="studio-head">
-          <h3>Metadati</h3>
+          <h3>{t("tools.metaTitle")}</h3>
         </header>
 
         <div className="studio-panel">
-          <h4 className="studio-panel-title">Album e campi di ricerca</h4>
+          <h4 className="studio-panel-title">{t("tools.metaAlbumPanel")}</h4>
           <select
             className="select"
             value={metaAlbumPath}
@@ -783,9 +802,9 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
                 setMetaAlb(o.album)
               }
             }}
-            aria-label="Album per metadati"
+            aria-label={t("tools.metaAlbumAria")}
           >
-            <option value="">Scegli album…</option>
+            <option value="">{t("tools.pickAlbum")}</option>
             {metaOpts.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
@@ -794,7 +813,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
           </select>
           {metaAlbumPath ? (
             <p className="art-target sm">
-              Cartella: <code>{metaAlbumPath}</code>
+              {t("tools.folderLine", { path: metaAlbumPath })}
             </p>
           ) : null}
           <div className="art-fields">
@@ -803,23 +822,23 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
               className="flex1"
               value={metaArt}
               onChange={(e) => setMetaArt(e.target.value)}
-              placeholder="Artista"
+              placeholder={t("tools.artistPh")}
             />
             <input
               type="text"
               className="flex1"
               value={metaAlb}
               onChange={(e) => setMetaAlb(e.target.value)}
-              placeholder="Album"
+              placeholder={t("tools.albumPh")}
             />
           </div>
         </div>
 
         <div className="studio-panel">
-          <h4 className="studio-panel-title">Azioni</h4>
+          <h4 className="studio-panel-title">{t("tools.actions")}</h4>
           <div className="studio-action-groups">
             <div className="studio-action-group">
-              <span className="studio-action-group-label">Album selezionato</span>
+              <span className="studio-action-group-label">{t("tools.selectedAlbum")}</span>
               <div className="studio-action-row">
                 <button
                   type="button"
@@ -827,7 +846,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
                   onClick={setMetaFromCurrent}
                   disabled={!p.current}
                 >
-                  Da brano in riproduzione
+                  {t("tools.fromNowPlaying")}
                 </button>
                 <button
                   type="button"
@@ -835,26 +854,26 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
                   onClick={fetchOneAlbumMeta}
                   disabled={metaBusy || !metaAlbumPath}
                 >
-                  {metaBusy ? "Scarico…" : "Aggiorna metadati album"}
+                  {metaBusy ? t("tools.fetchingMeta") : t("tools.updateAlbumMeta")}
                 </button>
               </div>
             </div>
             <div>
-              <span className="studio-action-group-label">Tutti gli album</span>
+              <span className="studio-action-group-label">{t("tools.allAlbums")}</span>
               <div className="studio-action-row">
                 <button
                   type="button"
                   className="btn secondary"
                   onClick={runMetaScanAll}
                   disabled={metaAllBusy || !library}
-                  title="Salta album con kord-albuminfo.json; ritardo tra le richieste (rate limit MusicBrainz)"
+                  title={t("tools.scanAlbumsTitle")}
                 >
-                  {metaAllBusy ? "Scansione…" : "Scansione automatica album"}
+                  {metaAllBusy ? t("tools.scanning") : t("tools.scanAlbumsAuto")}
                 </button>
               </div>
             </div>
             <div className="studio-action-group">
-              <span className="studio-action-group-label">Brani</span>
+              <span className="studio-action-group-label">{t("tools.tracks")}</span>
               <div className="studio-action-row">
                 <button
                   type="button"
@@ -862,7 +881,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
                   onClick={fetchCurrentTrackMeta}
                   disabled={!p.current || trackMetaBusy}
                 >
-                  {trackMetaBusy ? "…" : "Metadati brano attuale"}
+                  {trackMetaBusy ? "…" : t("tools.currentTrackMeta")}
                 </button>
                 <button
                   type="button"
@@ -870,17 +889,14 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
                   onClick={runTrackScanAll}
                   disabled={!library || trackAllBusy}
                 >
-                  {trackAllBusy ? "Scansione…" : "Scansione tutti i brani"}
+                  {trackAllBusy ? t("tools.scanning") : t("tools.scanAllTracks")}
                 </button>
               </div>
             </div>
             <div className="studio-action-group">
-              <span className="studio-action-group-label">Titoli mostrati (da nome file)</span>
+              <span className="studio-action-group-label">{t("tools.displayedTitles")}</span>
               <p className="subtle sm studio-hint-line">
-                Senza rinominare i file: salva in{" "}
-                <code>kord-trackinfo.json</code> un titolo senza prefisso tipo{" "}
-                <code>01 -</code>/<code>12 —</code> e senza segmenti tra parentesi quadre{" "}
-                <code>[…]</code>, calcolato dal nome file.
+                {t("tools.titleHint")}
               </p>
               <div className="studio-action-row">
                 <button
@@ -889,7 +905,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
                   disabled={!metaAlbumPath || titleSanBusy}
                   onClick={() => runSanitizeTitles("album", true)}
                 >
-                  {titleSanBusy ? "…" : "Anteprima album"}
+                  {titleSanBusy ? "…" : t("tools.previewAlbum")}
                 </button>
                 <button
                   type="button"
@@ -897,7 +913,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
                   disabled={!metaAlbumPath || titleSanBusy}
                   onClick={() => runSanitizeTitles("album", false)}
                 >
-                  {titleSanBusy ? "…" : "Applica su album"}
+                  {titleSanBusy ? "…" : t("tools.applyAlbum")}
                 </button>
               </div>
               <div className="studio-action-row">
@@ -907,7 +923,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
                   disabled={!library || titleSanBusy}
                   onClick={() => runSanitizeTitles("all", true)}
                 >
-                  {titleSanBusy ? "…" : "Anteprima tutta la libreria"}
+                  {titleSanBusy ? "…" : t("tools.previewLibrary")}
                 </button>
                 <button
                   type="button"
@@ -915,7 +931,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
                   disabled={!library || titleSanBusy}
                   onClick={() => runSanitizeTitles("all", false)}
                 >
-                  {titleSanBusy ? "…" : "Applica a tutta la libreria"}
+                  {titleSanBusy ? "…" : t("tools.applyLibrary")}
                 </button>
               </div>
             </div>
@@ -923,7 +939,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
           {metaAllBusy && metaScanProg && metaScanProg.total > 0 ? (
             <div className="dl-progress-wrap">
               <div className="dl-progress-top">
-                <span>Metadati album (MB / TheAudioDB / iTunes)</span>
+                <span>{t("tools.progressAlbumMeta")}</span>
                 <span>
                   {metaScanProg.current}/{metaScanProg.total}
                 </span>
@@ -947,7 +963,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
           {trackAllBusy && trackScanProg && trackScanProg.total > 0 ? (
             <div className="dl-progress-wrap">
               <div className="dl-progress-top">
-                <span>Metadati brani</span>
+                <span>{t("tools.progressTrackMeta")}</span>
                 <span>
                   {trackScanProg.current}/{trackScanProg.total}
                 </span>
@@ -978,7 +994,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
                     stopMetaAll.current = true
                   }}
                 >
-                  Interrompi album
+                  {t("tools.stopAlbums")}
                 </button>
               ) : null}
               {trackAllBusy ? (
@@ -989,7 +1005,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
                     stopTrackAll.current = true
                   }}
                 >
-                  Interrompi brani
+                  {t("tools.stopTracks")}
                 </button>
               ) : null}
             </div>
@@ -997,7 +1013,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
         </div>
 
         <div className="studio-log">
-          <label className="subtle sm">Log</label>
+          <label className="subtle sm">{t("tools.logLabel")}</label>
           <textarea
             className="log"
             value={metaLog}
@@ -1005,25 +1021,25 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
             rows={3}
           />
           <button type="button" className="linkbtn" onClick={() => setMetaLog("")}>
-            Pulisci
+            {t("tools.clear")}
           </button>
         </div>
       </section>
 
       <section className="tool-block glass tools-art">
         <header className="studio-head">
-          <h3>Copertine</h3>
+          <h3>{t("tools.coversTitle")}</h3>
         </header>
 
         <div className="studio-panel">
-          <h4 className="studio-panel-title">Salvataggio</h4>
+          <h4 className="studio-panel-title">{t("tools.coversSave")}</h4>
           <select
             className="select"
             value={albumForCover}
             onChange={(e) => setAlbumForCover(e.target.value)}
-            aria-label="Album in cui salvare la copertina"
+            aria-label={t("tools.coversPickAria")}
           >
-            <option value="">Scegli album…</option>
+            <option value="">{t("tools.pickAlbum")}</option>
             {albumOpts.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
@@ -1041,34 +1057,34 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
             onClick={setCoverDestFromCurrentTrack}
             disabled={!p.current}
           >
-            Usa album del brano in riproduzione
+            {t("tools.useAlbumFromTrack")}
           </button>
         </div>
 
         <div className="studio-panel">
-          <h4 className="studio-panel-title">Ricerca</h4>
+          <h4 className="studio-panel-title">{t("tools.coversSearch")}</h4>
           <div className="art-fields">
             <input
               type="text"
               className="flex1"
               value={artArt}
               onChange={(e) => setArtArt(e.target.value)}
-              placeholder="Artista"
+              placeholder={t("tools.artistPh")}
             />
             <input
               type="text"
               className="flex1"
               value={artAlb}
               onChange={(e) => setArtAlb(e.target.value)}
-              placeholder="Album"
+              placeholder={t("tools.albumPh")}
             />
           </div>
           <div className="studio-inline-actions studio-inline-actions--spaced">
             <button type="button" className="btn secondary sm" onClick={useCurrentForArt}>
-              Compila da riproduzione
+              {t("tools.fillFromPlayback")}
             </button>
             <button type="button" className="btn" onClick={doArtSearch} disabled={artBusy}>
-              {artBusy ? "Ricerca…" : "Cerca copertine"}
+              {artBusy ? t("tools.searching") : t("tools.searchCovers")}
             </button>
           </div>
         </div>
@@ -1087,7 +1103,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
               </div>
               <div className="art-actions">
                 <a className="extlink" href={a.url} target="_blank" rel="noreferrer">
-                  {extLinkLabel(a.url)}
+                  {extLinkLabel(a.url, t("common.open"))}
                 </a>
                 <button
                   type="button"
@@ -1095,14 +1111,14 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
                   disabled={artBusy || !albumForCover}
                   onClick={() => applyCover(a.artwork)}
                 >
-                  Salva
+                  {t("tools.saveCover")}
                 </button>
               </div>
             </div>
           ))}
         </div>
         {artRes.length === 0 && !artBusy && (artArt.length > 0 || artAlb.length > 0) ? (
-          <p className="subtle sm studio-panel-gap">Nessun risultato. Prova altre parole.</p>
+          <p className="subtle sm studio-panel-gap">{t("tools.noCoverResults")}</p>
         ) : null}
       </section>
     </div>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useI18n } from "../i18n/useI18n";
 import { THEME_CATALOG } from "../lib/themeCatalog";
 import type { ThemeMode } from "../types";
 
@@ -7,18 +8,20 @@ function ThemeStrip({
   section,
   accent,
   accent2,
+  t,
 }: {
   bg: string;
   section: string;
   accent: string;
   accent2: string;
+  t: (k: string) => string;
 }) {
   return (
     <span className="theme-picker__strip" aria-hidden>
-      <span className="theme-picker__strip-seg" style={{ background: bg }} title="Sfondo" />
-      <span className="theme-picker__strip-seg" style={{ background: section }} title="Sezioni" />
-      <span className="theme-picker__strip-seg" style={{ background: accent }} title="Accent 1" />
-      <span className="theme-picker__strip-seg" style={{ background: accent2 }} title="Accent 2" />
+      <span className="theme-picker__strip-seg" style={{ background: bg }} title={t("themePicker.stripBg")} />
+      <span className="theme-picker__strip-seg" style={{ background: section }} title={t("themePicker.stripSection")} />
+      <span className="theme-picker__strip-seg" style={{ background: accent }} title={t("themePicker.stripAccent1")} />
+      <span className="theme-picker__strip-seg" style={{ background: accent2 }} title={t("themePicker.stripAccent2")} />
     </span>
   );
 }
@@ -30,9 +33,10 @@ export function ThemePicker({
   value: ThemeMode;
   onChange: (theme: ThemeMode) => void;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const cur = THEME_CATALOG.find((t) => t.id === value) ?? THEME_CATALOG[0];
+  const cur = THEME_CATALOG.find((th) => th.id === value) ?? THEME_CATALOG[0];
 
   useEffect(() => {
     if (!open) return;
@@ -67,35 +71,37 @@ export function ThemePicker({
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        <span className="theme-picker__label">{cur.label}</span>
+        <span className="theme-picker__label">{t(`theme.${cur.id}`)}</span>
         <ThemeStrip
           bg={cur.bg}
           section={cur.section}
           accent={cur.accent}
           accent2={cur.accent2}
+          t={t}
         />
       </button>
       {open ? (
         <ul className="theme-picker__menu" role="listbox">
-          {THEME_CATALOG.map((t) => (
-            <li key={t.id} role="none">
+          {THEME_CATALOG.map((entry) => (
+            <li key={entry.id} role="none">
               <button
                 type="button"
                 role="option"
-                aria-selected={t.id === value}
+                aria-selected={entry.id === value}
                 className={
-                  t.id === value
+                  entry.id === value
                     ? "theme-picker__opt is-active"
                     : "theme-picker__opt"
                 }
-                onClick={() => pick(t.id)}
+                onClick={() => pick(entry.id)}
               >
-                <span className="theme-picker__name">{t.label}</span>
+                <span className="theme-picker__name">{t(`theme.${entry.id}`)}</span>
                 <ThemeStrip
-                  bg={t.bg}
-                  section={t.section}
-                  accent={t.accent}
-                  accent2={t.accent2}
+                  bg={entry.bg}
+                  section={entry.section}
+                  accent={entry.accent}
+                  accent2={entry.accent2}
+                  t={t}
                 />
               </button>
             </li>

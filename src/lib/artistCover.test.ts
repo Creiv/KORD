@@ -45,14 +45,14 @@ const baseIndex = (): LibraryIndex => ({
 });
 
 describe("buildRandomArtistCoverMap", () => {
-  it("sceglie un album con copertina quando disponibile", () => {
+  it("picks an album with cover art when available", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const m = buildRandomArtistCoverMap(baseIndex());
     expect(m.get("A")).toBe("A/X");
     vi.mocked(Math.random).mockRestore();
   });
 
-  it("restituisce null se nessun album ha copertina", () => {
+  it("returns null when no album has cover art", () => {
     const ix = baseIndex();
     ix.albums[0]!.coverRelPath = null;
     ix.albums[0]!.hasCover = false;

@@ -133,10 +133,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     prev: () => {
       return;
     },
-    seek: (_t: number) => {
+    seek: (time: number) => {
+      void time;
       return;
     },
-    seekBy: (_d: number) => {
+    seekBy: (delta: number) => {
+      void delta;
       return;
     },
   });
@@ -311,7 +313,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   const playTrack = useCallback(
     (track: EnrichedTrack, list?: EnrichedTrack[], at?: number) => {
-      let nextQueue = list?.length ? [...list] : [track];
+      const nextQueue = list?.length ? [...list] : [track];
       const nextIndex =
         at ?? nextQueue.findIndex((item) => item.relPath === track.relPath);
       const safeIndex = nextIndex >= 0 ? nextIndex : 0;

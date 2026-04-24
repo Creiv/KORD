@@ -11,9 +11,12 @@ import {
 import { fetchUserState, saveUserState } from "../lib/api";
 import { fmtDate } from "../lib/metaFormat";
 import {
+  APP_LOCALES,
   THEME_MODES,
+  type AppLocale,
   type EnrichedTrack,
   type QueueState,
+  type ThemeMode,
   type UserPlaylist,
   type UserSettings,
   type UserStateV1,
@@ -38,14 +41,22 @@ function defaultSettings(): UserSettings {
     vizMode: "bars",
     restoreSession: true,
     defaultTab: "dashboard",
+    locale: "en",
   };
 }
 
-function normalizeSettings(raw: UserSettings): UserSettings {
+function normalizeSettings(raw: Partial<UserSettings>): UserSettings {
+  const locale: AppLocale = (APP_LOCALES as readonly string[]).includes(
+    raw.locale as string
+  )
+    ? (raw.locale as AppLocale)
+    : "en";
   return {
-    theme: (THEME_MODES as readonly string[]).includes(raw.theme)
-      ? raw.theme
-      : "midnight",
+    theme:
+      raw.theme != null &&
+      (THEME_MODES as readonly string[]).includes(raw.theme as string)
+        ? (raw.theme as ThemeMode)
+        : "midnight",
     vizMode:
       raw.vizMode === "mirror" ||
       raw.vizMode === "osc" ||
@@ -57,6 +68,7 @@ function normalizeSettings(raw: UserSettings): UserSettings {
       typeof raw.defaultTab === "string" && raw.defaultTab.trim()
         ? raw.defaultTab
         : "dashboard",
+    locale,
   };
 }
 
@@ -230,6 +242,11 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.dataset.theme = state.settings.theme;
   }, [state.settings.theme]);
 
+  useEffect(() => {
+    document.documentElement.lang =
+      state.settings.locale === "it" ? "it" : "en";
+  }, [state.settings.locale]);
+
   const commit = useCallback((updater: (prev: UserStateV1) => UserStateV1) => {
     dirtyRef.current = true;
     setState((prev) => updater(prev));
@@ -298,7 +315,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
           ...prev.playlists,
           {
             id,
-            name: name.trim() || "Nuova playlist",
+            name: name.trim() || "New playlist",
             tracks: [],
           },
         ],

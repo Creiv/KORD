@@ -35,7 +35,7 @@ function itunesStorefronts() {
   return fromEnv.length ? fromEnv : ["it", "us", "gb"]
 }
 
-/** Rimuove "Artista - " o "Artista: " se coincide con la cartella artista */
+/** Strips "Artist - " or "Artist: " prefix when it matches the artist folder name */
 function stripRedundantArtistPrefix(artist, title) {
   const ar = String(artist || "")
     .trim()
@@ -268,7 +268,7 @@ export async function sanitizeTrackTitlesFullLibrary(musicRoot, dryRun) {
 export async function fetchReleaseMetadataMusicBrainz(artist, album) {
   const a = String(artist || "").trim()
   const b = String(album || "").trim()
-  if (a.length < 1 && b.length < 1) return { error: "Artista o album mancante" }
+  if (a.length < 1 && b.length < 1) return { error: "Artist or album missing" }
   const q =
     a && b
       ? `release:"${b}" AND artist:"${a}"`
@@ -289,7 +289,7 @@ export async function fetchReleaseMetadataMusicBrainz(artist, album) {
   const j0 = await r0.json()
   const rel = (j0.releases || [])[0]
   if (!rel || !rel.id) {
-    return { error: "Nessun release trovato" }
+    return { error: "No release found" }
   }
   await sleep(1000)
   const infoUrl = `https://musicbrainz.org/ws/2/release/${rel.id}?inc=labels&fmt=json`
@@ -348,7 +348,7 @@ function theAudioDbAlbumToPayload(pick, al) {
 export async function fetchReleaseMetadataTheAudioDB(artist, album) {
   const ar = String(artist || "").trim()
   const al = String(album || "").trim()
-  if (al.length < 1) return { error: "Album mancante" }
+  if (al.length < 1) return { error: "Album missing" }
   const key = THEAUDIODB_KEY()
   const tryUrl = async (url) => {
     let r = await fetch(url, { headers: { "User-Agent": UA } })
@@ -374,7 +374,7 @@ export async function fetchReleaseMetadataTheAudioDB(artist, album) {
     if (j2.error) return j2
     raw = j2.album
     rows = raw == null ? [] : Array.isArray(raw) ? raw : [raw]
-    if (rows.length < 1) return { error: "Nessun risultato" }
+    if (rows.length < 1) return { error: "No results" }
     const nAl = al.toLowerCase()
     const scored = rows
       .map((x) => {
@@ -386,19 +386,19 @@ export async function fetchReleaseMetadataTheAudioDB(artist, album) {
       })
       .sort((a, b) => b.sc - a.sc)
     const best = scored[0]
-    if (!best || best.sc < 1) return { error: "Nessun risultato" }
+    if (!best || best.sc < 1) return { error: "No results" }
     return theAudioDbAlbumToPayload(best.x, al)
   }
-  if (rows.length < 1) return { error: "Nessun risultato" }
+  if (rows.length < 1) return { error: "No results" }
   return theAudioDbAlbumToPayload(rows[0], al)
 }
 
 export async function fetchReleaseMetadataItunesAlbum(artist, album) {
   const ar = String(artist || "").trim()
   const al = cleanAlbumNameForSearch(String(album || ""))
-  if (al.length < 1) return { error: "Album mancante" }
+  if (al.length < 1) return { error: "Album missing" }
   const terms = [al, ar].filter(Boolean).join(" ")
-  let lastErr = "Nessun risultato"
+  let lastErr = "No results"
   for (const country of itunesStorefronts()) {
     const url = `https://itunes.apple.com/search?term=${encodeURIComponent(
       terms,
@@ -419,7 +419,7 @@ export async function fetchReleaseMetadataItunesAlbum(artist, album) {
     const j = await r.json()
     const rows = Array.isArray(j.results) ? j.results : []
     if (rows.length < 1) {
-      lastErr = `Nessun risultato (${country})`
+      lastErr = `No results (${country})`
       continue
     }
     const nAl = al.toLowerCase()
@@ -464,7 +464,7 @@ export async function fetchReleaseMetadata(artist, album) {
   const it = await fetchReleaseMetadataItunesAlbum(artist, album)
   if (it.ok) return it
   const err = [mb.error, adb.error, it.error].filter(Boolean).join(" · ")
-  return { error: err || "Nessun metadato album trovato" }
+  return { error: err || "No album metadata found" }
 }
 
 export async function fetchTrackMetadataItunes(artist, title, album) {
@@ -472,7 +472,7 @@ export async function fetchTrackMetadataItunes(artist, title, album) {
   const tt0 = String(title || "").trim()
   const clean = cleanTrackTitleForSearch(tt0) || tt0
   const al = cleanAlbumNameForSearch(String(album || ""))
-  if (clean.length < 1) return { error: "Titolo mancante" }
+  if (clean.length < 1) return { error: "Title missing" }
   const baseTerms = [
     [clean, ar, al].filter(Boolean).join(" "),
     [clean, ar].filter(Boolean).join(" "),
@@ -480,7 +480,7 @@ export async function fetchTrackMetadataItunes(artist, title, album) {
   const nTitle = clean.toLowerCase()
   const nArtist = ar.toLowerCase()
   const nAlbum = al.toLowerCase()
-  let lastErr = "Nessun risultato"
+  let lastErr = "No results"
   storefront: for (const country of itunesStorefronts()) {
     for (const terms of baseTerms) {
       const url = `https://itunes.apple.com/search?term=${encodeURIComponent(
@@ -502,7 +502,7 @@ export async function fetchTrackMetadataItunes(artist, title, album) {
       const j = await r.json()
       const rows = Array.isArray(j.results) ? j.results : []
       if (rows.length < 1) {
-        lastErr = `Nessun risultato (${country})`
+        lastErr = `No results (${country})`
         continue
       }
       let pick = rows[0]
@@ -562,7 +562,7 @@ export async function fetchTrackMetadataDeezer(artist, title, album, titleFromFi
   const clean = cleanTrackTitleForSearch(tMain) || tMain
   const fromFile = cleanTrackTitleForSearch(tFile) || tFile
   const al = cleanAlbumNameForSearch(String(album || ""))
-  if (clean.length < 1) return { error: "Titolo mancante" }
+  if (clean.length < 1) return { error: "Title missing" }
   const qSet = new Set()
   if (ar && clean) {
     qSet.add(`artist:"${ar}" track:"${clean}"`)
@@ -625,7 +625,7 @@ export async function fetchTrackMetadataDeezer(artist, title, album, titleFromFi
       url: full.link || null,
     }
   }
-  return { error: "Nessun risultato" }
+  return { error: "No results" }
 }
 
 function mbCreditNamesLower(rec) {
@@ -640,8 +640,8 @@ function mbCreditNamesLower(rec) {
 export async function fetchTrackMetadataMusicBrainz(artist, title) {
   const ar = String(artist || "").trim()
   const tt0 = String(title || "").trim()
-  if (tt0.length < 1) return { error: "Titolo mancante" }
-  if (ar.length < 1) return { error: "Artista mancante" }
+  if (tt0.length < 1) return { error: "Title missing" }
+  if (ar.length < 1) return { error: "Artist missing" }
   const tt = tt0
     .replace(/"/g, " ")
     .replace(/\s+/g, " ")
@@ -701,7 +701,7 @@ export async function fetchTrackMetadataMusicBrainz(artist, title) {
       url: `https://musicbrainz.org/recording/${rec.id}`,
     }
   }
-  return { error: "Nessun risultato" }
+  return { error: "No results" }
 }
 
 export async function fetchTrackMetadataTheAudioDB(artist, title, album, titleFromFile) {
@@ -716,7 +716,7 @@ export async function fetchTrackMetadataTheAudioDB(artist, title, album, titleFr
     ].filter((s) => s.length > 0),
   )
   const al = cleanAlbumNameForSearch(String(album || ""))
-  if (ar.length < 1) return { error: "Artista mancante" }
+  if (ar.length < 1) return { error: "Artist missing" }
   const key = THEAUDIODB_KEY()
   const nAl = al.toLowerCase()
   for (const clean of candidates) {
@@ -757,7 +757,7 @@ export async function fetchTrackMetadataTheAudioDB(artist, title, album, titleFr
       url: null,
     }
   }
-  return { error: "Nessun risultato" }
+  return { error: "No results" }
 }
 
 /**
@@ -781,11 +781,11 @@ export async function fetchTrackMetadata(artist, title, album, titleFromFile) {
   await sleep(200)
   const it = await fetchTrackMetadataItunes(artist, t, album)
   if (it.ok) return it
-  if (it.error === "Titolo mancante") return it
+  if (it.error === "Title missing") return it
   const parts = [dz.error, adb.error, mb.error, it.error].filter(Boolean)
   return {
     error: parts.length
       ? [...new Set(parts)].join(" · ")
-      : "Nessun risultato",
+      : "No results",
   }
 }

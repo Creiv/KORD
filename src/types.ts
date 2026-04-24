@@ -1,6 +1,6 @@
 export type TrackMeta = {
   fileName: string;
-  /** Da kord-trackinfo (o legacy wpp-): titolo mostrato al posto del nome file */
+  /** From kord-trackinfo (or legacy wpp-*): title shown instead of file name */
   title?: string | null;
   size: number | null;
   mtime: number | null;
@@ -32,7 +32,7 @@ export type LibAlbum = {
   trackCount: number;
   tracks: LibTrack[];
   meta?: AlbumMeta;
-  /** da index: kord-albuminfo.json (o legacy) presente in cartella */
+  /** From index: kord-albuminfo.json (or legacy) present in folder */
   hasAlbumMeta?: boolean;
 };
 export type LibArtist = {
@@ -72,11 +72,15 @@ export const THEME_MODES = [
 export type ThemeMode = (typeof THEME_MODES)[number];
 export type VizMode = "bars" | "mirror" | "osc";
 
+export const APP_LOCALES = ["en", "it"] as const;
+export type AppLocale = (typeof APP_LOCALES)[number];
+
 export type UserSettings = {
   theme: ThemeMode;
   vizMode: VizMode;
   restoreSession: boolean;
   defaultTab: string;
+  locale: AppLocale;
 };
 
 export type QueueState = {
@@ -102,9 +106,9 @@ export type LibraryArtistIndex = {
   releaseDate: string | null;
   coverRelPath: string | null;
   albums: string[];
-  /** Album (cartelle) senza kord-albuminfo (o legacy), escluse “Tracce” */
+  /** Album folders without kord-albuminfo (or legacy), excluding loose “Tracks” */
   albumsWithoutFileMetaCount: number;
-  /** Brani senza data o genere in kord-trackinfo (o assenti) */
+  /** Tracks missing date or genre in kord-trackinfo (or absent) */
   tracksWithoutFileMetaCount: number;
 };
 
@@ -123,7 +127,7 @@ export type LibraryAlbumIndex = {
   hasCover: boolean;
   hasAlbumMeta: boolean;
   hasTrackMeta: boolean;
-  /** Brani senza data o genere in metadato file */
+  /** Tracks missing date or genre in file metadata */
   tracksWithoutFileMetaCount: number;
   loose: boolean;
   addedAt: number | null;

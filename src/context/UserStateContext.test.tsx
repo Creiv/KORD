@@ -15,7 +15,7 @@ function Probe() {
 }
 
 describe("UserStateProvider", () => {
-  it("importa i dati legacy dal localStorage e li promuove a user-state", async () => {
+  it("imports legacy data from localStorage and promotes to user-state", async () => {
     window.localStorage.setItem("wpp-favorites", JSON.stringify(["Artist One/Album One/01 Song.mp3"]))
     window.localStorage.setItem(
       "wpp-recent",
@@ -47,6 +47,7 @@ describe("UserStateProvider", () => {
                 vizMode: "bars",
                 restoreSession: true,
                 defaultTab: "dashboard",
+                locale: "en",
               },
               migratedLegacy: false,
             },
@@ -77,6 +78,7 @@ describe("UserStateProvider", () => {
                 vizMode: "bars",
                 restoreSession: true,
                 defaultTab: "dashboard",
+                locale: "en",
               },
               migratedLegacy: true,
             },

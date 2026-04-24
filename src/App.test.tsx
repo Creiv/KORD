@@ -94,7 +94,7 @@ const dashboard: DashboardPayload = {
   qualityAlerts: [
     {
       id: "albums-without-cover",
-      label: "Album senza copertina",
+      label: "Albums without cover art",
       count: 1,
       severity: "warning",
     },
@@ -112,6 +112,7 @@ const userState: UserStateV1 = {
     vizMode: "bars",
     restoreSession: true,
     defaultTab: "dashboard",
+    locale: "en",
   },
   migratedLegacy: true,
 };
@@ -139,23 +140,23 @@ function mockApi() {
 }
 
 describe("App", () => {
-  it("renderizza la dashboard e naviga verso la libreria", async () => {
+  it("renders dashboard and navigates to library", async () => {
     mockApi();
     render(<App />);
 
     expect(
-      await screen.findByText(/Libreria, ascolto e strumenti/i)
+      await screen.findByText(/Library, listening, and tools/i)
     ).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Libreria" }));
+    await userEvent.click(screen.getByRole("button", { name: "Library" }));
 
     expect(await screen.findByText("Artist One")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Random intelligente" })
+      screen.getByRole("button", { name: "Smart shuffle" })
     ).toBeInTheDocument();
   });
 
-  it("supporta deep link verso un album", async () => {
+  it("supports deep link to an album", async () => {
     window.history.pushState(
       {},
       "",
@@ -167,7 +168,7 @@ describe("App", () => {
 
     expect(await screen.findByText("Album One")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Riproduci album" })
+      screen.getByRole("button", { name: "Play album" })
     ).toBeInTheDocument();
   });
 });

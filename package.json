@@ -1,6 +1,6 @@
 {
   "name": "kord",
-  "description": "KORD — hub locale per libreria musicale personale",
+  "description": "KORD — local hub for listening to, organizing, and maintaining a personal music library",
   "author": "KORD",
   "private": true,
   "version": "0.0.0",

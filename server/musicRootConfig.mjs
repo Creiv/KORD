@@ -65,19 +65,19 @@ export function getConfigSnapshot() {
 export async function setPersistedMusicRoot(absolute) {
   if (state.fromEnv) {
     const err = new Error(
-      "MUSIC_ROOT è impostata nell’ambiente: rimuovi la variabile per usare l’opzione in app."
+      "MUSIC_ROOT is set in the environment: unset the variable to use the in-app option."
     );
     err.code = "ENV_LOCKED";
     throw err;
   }
   const resolved = path.resolve(String(absolute || "").trim() || "/");
   if (!fs.existsSync(resolved)) {
-    const err = new Error("La cartella non esiste");
+    const err = new Error("Folder does not exist");
     err.code = "NOT_FOUND";
     throw err;
   }
   if (!fs.statSync(resolved).isDirectory()) {
-    const err = new Error("Il percorso non è una cartella");
+    const err = new Error("Path is not a directory");
     err.code = "NOT_DIR";
     throw err;
   }
