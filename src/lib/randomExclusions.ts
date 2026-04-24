@@ -41,6 +41,29 @@ function saveSet(key: string, s: Set<string>) {
   }
 }
 
+let trackExclusionEpoch = 0
+const TRACK_EXCLUSION_EVT = "kord-track-exclusion-epoch"
+
+function bumpTrackExclusionEpoch() {
+  trackExclusionEpoch += 1
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(TRACK_EXCLUSION_EVT))
+  }
+}
+
+export function getTrackExclusionEpoch(): number {
+  return trackExclusionEpoch
+}
+
+export function subscribeTrackExclusionEpoch(
+  onStoreChange: () => void,
+): () => void {
+  if (typeof window === "undefined") return () => {}
+  const fn = () => onStoreChange()
+  window.addEventListener(TRACK_EXCLUSION_EVT, fn)
+  return () => window.removeEventListener(TRACK_EXCLUSION_EVT, fn)
+}
+
 export function getExcludedTracks(): Set<string> {
   return mergedExclusionSet(K_TRACKS, WPP_TRACKS)
 }
@@ -54,6 +77,22 @@ export function toggleExcludedTrack(relPath: string): Set<string> {
   if (s.has(relPath)) s.delete(relPath)
   else s.add(relPath)
   saveSet(K_TRACKS, s)
+  bumpTrackExclusionEpoch()
+  return s
+}
+
+/** Add or remove many track paths from shuffle exclusion (persisted). */
+export function setTracksShuffleExcluded(
+  relPaths: readonly string[],
+  exclude: boolean
+): Set<string> {
+  const s = mergedExclusionSet(K_TRACKS, WPP_TRACKS)
+  for (const rel of relPaths) {
+    if (exclude) s.add(rel)
+    else s.delete(rel)
+  }
+  saveSet(K_TRACKS, s)
+  bumpTrackExclusionEpoch()
   return s
 }
 
@@ -62,5 +101,6 @@ export function toggleExcludedAlbum(albumKey: string): Set<string> {
   if (s.has(albumKey)) s.delete(albumKey)
   else s.add(albumKey)
   saveSet(K_ALBUMS, s)
+  bumpTrackExclusionEpoch()
   return s
 }

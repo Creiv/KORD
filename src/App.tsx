@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { PlayerProvider, usePlayer } from "./context/PlayerContext";
 import {
@@ -39,6 +40,9 @@ import {
   eligibleTracksForIntelligentRandom,
   getExcludedAlbums,
   getExcludedTracks,
+  getTrackExclusionEpoch,
+  setTracksShuffleExcluded,
+  subscribeTrackExclusionEpoch,
   toggleExcludedAlbum,
   toggleExcludedTrack,
 } from "./lib/randomExclusions";
@@ -268,21 +272,27 @@ function TrackListRow({
   active,
   onPlay,
   metaRight,
-  fileMetaGaps,
   extraActions,
 }: {
   track: EnrichedTrack;
   active?: boolean;
   onPlay: () => void;
   metaRight?: string;
-  /** ♪ chip when date or genre missing in kord-trackinfo (album view) */
-  fileMetaGaps?: boolean;
   extraActions?: React.ReactNode;
 }) {
   const p = usePlayer();
   const user = useUserState();
   const { t } = useI18n();
   const openTrackMetaEdit = useOpenTrackMetaEdit();
+  useSyncExternalStore(
+    subscribeTrackExclusionEpoch,
+    getTrackExclusionEpoch,
+    getTrackExclusionEpoch
+  );
+  const albumShuffleKey = `${track.artist}/${track.album}`;
+  const albumShuffleExcluded = getExcludedAlbums().has(albumShuffleKey);
+  const trackShuffleExcluded = getExcludedTracks().has(track.relPath);
+  const shuffleExcluded = albumShuffleExcluded || trackShuffleExcluded;
   const inQ = p.isTrackInQueue(track.relPath);
   const fav = user.isFavorite(track.relPath);
   const playCount = user.getTrackPlayCount(track.relPath);
@@ -306,7 +316,7 @@ function TrackListRow({
             >
               ({playCount})
             </span>
-            {fileMetaGaps ? <TrackFileMetaChip meta={track.meta} /> : null}
+            <TrackFileMetaChip meta={track.meta} />
           </span>
         </span>
         <span className="track-row__meta">
@@ -367,6 +377,35 @@ function TrackListRow({
         >
           <span className="track-row__ic-glyph track-row__ic-glyph--svg">
             <TrackMetaEditGlyph />
+          </span>
+        </button>
+        <button
+          type="button"
+          className={`track-row__ic track-row__ic--exclude ${
+            shuffleExcluded ? "is-on" : ""
+          }`}
+          disabled={albumShuffleExcluded}
+          title={
+            albumShuffleExcluded
+              ? t("trackRow.excludeLockedByAlbumTitle")
+              : t("trackRow.excludeTitle")
+          }
+          onClick={() => {
+            if (albumShuffleExcluded) return;
+            toggleExcludedTrack(track.relPath);
+          }}
+          aria-pressed={shuffleExcluded}
+          aria-label={
+            albumShuffleExcluded
+              ? t("trackRow.excludeLockedByAlbumAria")
+              : t("trackRow.excludeTitle")
+          }
+        >
+          <span
+            className="track-row__ic-glyph track-row__ic-glyph--svg"
+            aria-hidden
+          >
+            <ExcludeShuffleIcon />
           </span>
         </button>
         {extraActions}
@@ -1333,8 +1372,10 @@ function LibraryView({
   const [excludedAlbums, setExcludedAlbums] = useState<Set<string>>(() =>
     getExcludedAlbums()
   );
-  const [excludedTracks, setExcludedTracks] = useState<Set<string>>(() =>
-    getExcludedTracks()
+  const trackExclusionEpoch = useSyncExternalStore(
+    subscribeTrackExclusionEpoch,
+    getTrackExclusionEpoch,
+    getTrackExclusionEpoch
   );
   const [selectedGenreKey, setSelectedGenreKey] = useState<string | null>(null);
   const normalizedQuery = query.trim().toLowerCase();
@@ -1400,14 +1441,15 @@ function LibraryView({
 
   const artistShuffleEligible = useMemo(() => {
     if (!artist) return [] as LibraryTrackIndex[];
+    const ex = getExcludedTracks();
     const rels = new Set(artistAlbums.flatMap((al) => al.tracks));
     return index.tracks.filter(
       (t) =>
         rels.has(t.relPath) &&
-        !excludedTracks.has(t.relPath) &&
+        !ex.has(t.relPath) &&
         !excludedAlbums.has(`${t.artist}/${t.album}`)
     );
-  }, [artist, artistAlbums, index.tracks, excludedTracks, excludedAlbums]);
+  }, [artist, artistAlbums, index.tracks, excludedAlbums, trackExclusionEpoch]);
 
   const artistCoverById = useMemo(
     () => buildRandomArtistCoverMap(index),
@@ -1507,16 +1549,30 @@ function LibraryView({
 
   const genreShuffleEligible = useMemo(() => {
     if (!selectedGenreKey) return [] as LibraryTrackIndex[];
+    const ex = getExcludedTracks();
     return tracksInSelectedGenre.filter(
       (tr) =>
-        !excludedTracks.has(tr.relPath) &&
-        !excludedAlbums.has(`${tr.artist}/${tr.album}`)
+        !ex.has(tr.relPath) && !excludedAlbums.has(`${tr.artist}/${tr.album}`)
     );
-  }, [selectedGenreKey, tracksInSelectedGenre, excludedTracks, excludedAlbums]);
+  }, [
+    selectedGenreKey,
+    tracksInSelectedGenre,
+    excludedAlbums,
+    trackExclusionEpoch,
+  ]);
+
+  const genreToolbarBulkAllExcluded = useMemo(() => {
+    if (!tracksInSelectedGenre.length) return false;
+    const exT = getExcludedTracks();
+    const exA = getExcludedAlbums();
+    return tracksInSelectedGenre.every(
+      (tr) => exT.has(tr.relPath) || exA.has(`${tr.artist}/${tr.album}`)
+    );
+  }, [tracksInSelectedGenre, trackExclusionEpoch, excludedAlbums]);
 
   const selectedGenreAlbumCount =
     selectedGenreKey != null
-      ? (genreAlbumTrackCounts.get(selectedGenreKey)?.albums.size ?? 0)
+      ? genreAlbumTrackCounts.get(selectedGenreKey)?.albums.size ?? 0
       : 0;
 
   const sortedOverviewArtists = useMemo(() => {
@@ -1621,7 +1677,7 @@ function LibraryView({
     const eligible = eligibleTracksForIntelligentRandom(
       index,
       excludedAlbums,
-      excludedTracks
+      getExcludedTracks()
     );
     if (!eligible.length) return;
     const recentRelPaths = new Set(
@@ -1851,28 +1907,7 @@ function LibraryView({
               <TrackListRow
                 key={track.relPath}
                 track={track}
-                fileMetaGaps
                 onPlay={() => p.playTrack(track, albumTracks, trIndex)}
-                extraActions={
-                  <button
-                    type="button"
-                    className={`track-row__ic track-row__ic--exclude ${
-                      excludedTracks.has(track.relPath) ? "is-on" : ""
-                    }`}
-                    title={t("trackRow.excludeTitle")}
-                    onClick={() =>
-                      setExcludedTracks(toggleExcludedTrack(track.relPath))
-                    }
-                    aria-pressed={excludedTracks.has(track.relPath)}
-                  >
-                    <span
-                      className="track-row__ic-glyph track-row__ic-glyph--svg"
-                      aria-hidden
-                    >
-                      <ExcludeShuffleIcon />
-                    </span>
-                  </button>
-                }
               />
             ))}
           </div>
@@ -2018,18 +2053,44 @@ function LibraryView({
           )}
           <div className="section-head__tools">
             <div className="hero-card__actions">
-              <button
-                type="button"
-                className="primary-btn"
-                disabled={
-                  selectedGenreKey ? genreShuffleEligible.length === 0 : false
-                }
-                onClick={selectedGenreKey ? playGenreShuffle : runRandom}
-              >
-                {selectedGenreKey
-                  ? t("library.playGenreShuffle")
-                  : t("listen.smartShuffle")}
-              </button>
+              {selectedGenreKey ? (
+                <>
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    disabled={genreShuffleEligible.length === 0}
+                    onClick={playGenreShuffle}
+                  >
+                    {t("library.playGenreShuffle")}
+                  </button>
+                  <button
+                    type="button"
+                    className={`ghost-btn library-toolbar-exclude-btn ${
+                      genreToolbarBulkAllExcluded ? "is-on" : ""
+                    }`}
+                    disabled={tracksInSelectedGenre.length === 0}
+                    title={t("library.genreRandomExcludeTitle")}
+                    aria-label={t("library.genreRandomExcludeAria")}
+                    onClick={() => {
+                      if (!tracksInSelectedGenre.length) return;
+                      setTracksShuffleExcluded(
+                        tracksInSelectedGenre.map((tr) => tr.relPath),
+                        !genreToolbarBulkAllExcluded
+                      );
+                    }}
+                  >
+                    <ExcludeShuffleIcon className="library-toolbar-exclude-btn__ic" />
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={runRandom}
+                >
+                  {t("listen.smartShuffle")}
+                </button>
+              )}
             </div>
             <div
               className="segmented"
@@ -2110,9 +2171,7 @@ function LibraryView({
                 <TrackListRow
                   key={track.relPath}
                   track={track}
-                  onPlay={() =>
-                    p.playTrack(track, sortedGenreTracks, trIndex)
-                  }
+                  onPlay={() => p.playTrack(track, sortedGenreTracks, trIndex)}
                 />
               ))}
             </div>
@@ -2675,135 +2734,218 @@ function SettingsView({
   );
 }
 
-function PlayerDock({ onGoToAscolta }: { onGoToAscolta: () => void }) {
+function PlayerDock({
+  onGoToAscolta,
+  onOpenLibraryArtist,
+  onOpenLibraryAlbum,
+}: {
+  onGoToAscolta: () => void;
+  onOpenLibraryArtist: (artist: string) => void;
+  onOpenLibraryAlbum: (artist: string, album: string) => void;
+}) {
   const p = usePlayer();
   const user = useUserState();
   const { t } = useI18n();
+  useSyncExternalStore(
+    subscribeTrackExclusionEpoch,
+    getTrackExclusionEpoch,
+    getTrackExclusionEpoch
+  );
   const percent = p.duration > 0 ? (p.currentTime / p.duration) * 100 : 0;
+  const cur = p.current;
+  const albumShuffleKey = cur ? `${cur.artist}/${cur.album}` : "";
+  const albumShuffleExcluded = Boolean(
+    cur && getExcludedAlbums().has(albumShuffleKey)
+  );
+  const trackShuffleExcluded = Boolean(
+    cur && getExcludedTracks().has(cur.relPath)
+  );
+  const shuffleExcluded = albumShuffleExcluded || trackShuffleExcluded;
   return (
     <div className="player-dock2">
       <footer className="player-bar2">
         <div className="player-bar2__row player-bar2__row--top">
           <div className="player-bar2__track-block">
-            <button
-              type="button"
-              className="player-bar2__track"
-              onClick={onGoToAscolta}
-              title={t("player.openListenTitle")}
-            >
-              {p.current ? (
-                <img
-                  className="player-bar2__art"
-                  src={coverUrlForTrackRelPath(p.current.relPath)}
-                  alt=""
-                />
-              ) : (
-                <div className="player-bar2__art fallback">♪</div>
-              )}
-              <div className="player-bar2__meta">
-                <div className="player-bar2__title-line">
-                  <strong>{p.current?.title || t("player.pickTrack")}</strong>
-                </div>
-                <span>
-                  {p.current
-                    ? `${p.current.artist} · ${p.current.album}`
-                    : t("player.playerReady")}
-                </span>
-              </div>
-            </button>
-            {p.current ? (
+            <div className="player-bar2__track">
               <button
                 type="button"
-                className={`player-bar2__fav ${
-                  user.isFavorite(p.current.relPath) ? "is-on" : ""
+                className="player-bar2__art-hit"
+                onClick={onGoToAscolta}
+                title={t("player.openListenTitle")}
+              >
+                {cur ? (
+                  <img
+                    className="player-bar2__art"
+                    src={coverUrlForTrackRelPath(cur.relPath)}
+                    alt=""
+                  />
+                ) : (
+                  <div className="player-bar2__art fallback">♪</div>
+                )}
+              </button>
+              <div className="player-bar2__meta">
+                <button
+                  type="button"
+                  className="player-bar2__meta-hit player-bar2__title-line"
+                  onClick={onGoToAscolta}
+                  title={t("player.openListenTitle")}
+                >
+                  <strong>{cur?.title || t("player.pickTrack")}</strong>
+                </button>
+                {cur ? (
+                  <div className="player-bar2__byline">
+                    <button
+                      type="button"
+                      className="player-bar2__crumb"
+                      title={t("player.openArtistLibTitle")}
+                      onClick={() => onOpenLibraryArtist(cur.artist)}
+                    >
+                      {cur.artist}
+                    </button>
+                    <span className="player-bar2__byline-sep" aria-hidden>
+                      {" "}
+                      ·{" "}
+                    </span>
+                    <button
+                      type="button"
+                      className="player-bar2__crumb"
+                      title={t("player.openAlbumLibTitle")}
+                      onClick={() => onOpenLibraryAlbum(cur.artist, cur.album)}
+                    >
+                      {cur.album}
+                    </button>
+                  </div>
+                ) : (
+                  <span className="player-bar2__byline player-bar2__byline--idle">
+                    {t("player.playerReady")}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div
+            className="player-bar2__transport"
+            role="group"
+            aria-label={t("player.transportAria")}
+          >
+            {cur ? (
+              <button
+                type="button"
+                className={`player-bar2__fav player-bar2__rail-fav ${
+                  user.isFavorite(cur.relPath) ? "is-on" : ""
                 }`}
                 onClick={() => {
-                  const tr = p.current;
-                  if (!tr) return;
-                  user.toggleFavorite(tr.relPath);
+                  user.toggleFavorite(cur.relPath);
                 }}
                 title={t("trackRow.favTitle")}
-                aria-pressed={user.isFavorite(p.current.relPath)}
+                aria-pressed={user.isFavorite(cur.relPath)}
                 aria-label={t("trackRow.favAria")}
               >
                 <span aria-hidden>♥</span>
               </button>
             ) : null}
-          </div>
-          <div
-            className="player-bar2__controls"
-            role="group"
-            aria-label={t("player.transportAria")}
-          >
-            <button
-              type="button"
-              className={`player-bar2__ic ${p.shuffle ? "is-on" : ""}`}
-              onClick={() => p.setShuffle(!p.shuffle)}
-              title={t("player.shuffleTitle")}
-              aria-pressed={p.shuffle}
-            >
-              <span className="player-bar2__ic-glyph" aria-hidden>
-                ⇄
-              </span>
-            </button>
-            <button
-              type="button"
-              className="player-bar2__ic"
-              onClick={() => p.prev()}
-              title={t("player.prevTitle")}
-            >
-              <span className="player-bar2__ic-glyph" aria-hidden>
-                ⏮
-              </span>
-            </button>
-            <button
-              type="button"
-              className="player-bar2__ic player-bar2__ic--play"
-              onClick={() => p.toggle()}
-              title={
-                p.isPlaying ? t("player.pauseTitle") : t("player.playTitle")
-              }
-            >
-              <span className="player-bar2__ic-glyph" aria-hidden>
-                {p.isPlaying ? "⏸" : "▶"}
-              </span>
-            </button>
-            <button
-              type="button"
-              className="player-bar2__ic"
-              onClick={() => p.next()}
-              title={t("player.nextTitle")}
-            >
-              <span className="player-bar2__ic-glyph" aria-hidden>
-                ⏭
-              </span>
-            </button>
-            <button
-              type="button"
-              className={`player-bar2__ic player-bar2__ic--repeat ${
-                p.repeat === "off" ? "is-dim" : "is-on"
-              } ${p.repeat === "one" ? "player-bar2__ic--repeat-one" : ""}`}
-              onClick={() =>
-                p.setRepeat(
+            <div className="player-bar2__controls">
+              <button
+                type="button"
+                className={`player-bar2__ic ${p.shuffle ? "is-on" : ""}`}
+                onClick={() => p.setShuffle(!p.shuffle)}
+                title={t("player.shuffleTitle")}
+                aria-pressed={p.shuffle}
+              >
+                <span className="player-bar2__ic-glyph" aria-hidden>
+                  ⇄
+                </span>
+              </button>
+              <button
+                type="button"
+                className="player-bar2__ic"
+                onClick={() => p.prev()}
+                title={t("player.prevTitle")}
+              >
+                <span className="player-bar2__ic-glyph" aria-hidden>
+                  ⏮
+                </span>
+              </button>
+              <button
+                type="button"
+                className="player-bar2__ic player-bar2__ic--play"
+                onClick={() => p.toggle()}
+                title={
+                  p.isPlaying ? t("player.pauseTitle") : t("player.playTitle")
+                }
+              >
+                <span className="player-bar2__ic-glyph" aria-hidden>
+                  {p.isPlaying ? "⏸" : "▶"}
+                </span>
+              </button>
+              <button
+                type="button"
+                className="player-bar2__ic"
+                onClick={() => p.next()}
+                title={t("player.nextTitle")}
+              >
+                <span className="player-bar2__ic-glyph" aria-hidden>
+                  ⏭
+                </span>
+              </button>
+              <button
+                type="button"
+                className={`player-bar2__ic player-bar2__ic--repeat ${
+                  p.repeat === "off" ? "is-dim" : "is-on"
+                } ${p.repeat === "one" ? "player-bar2__ic--repeat-one" : ""}`}
+                onClick={() =>
+                  p.setRepeat(
+                    p.repeat === "off"
+                      ? "all"
+                      : p.repeat === "all"
+                      ? "one"
+                      : "off"
+                  )
+                }
+                title={
                   p.repeat === "off"
-                    ? "all"
+                    ? t("player.repeatOff")
                     : p.repeat === "all"
-                    ? "one"
-                    : "off"
-                )
-              }
-              title={
-                p.repeat === "off"
-                  ? t("player.repeatOff")
-                  : p.repeat === "all"
-                  ? t("player.repeatAll")
-                  : t("player.repeatOne")
-              }
-            >
-              <span className="player-bar2__ic-glyph" aria-hidden>
-                ↻
-              </span>
-            </button>
+                    ? t("player.repeatAll")
+                    : t("player.repeatOne")
+                }
+              >
+                <span className="player-bar2__ic-glyph" aria-hidden>
+                  ↻
+                </span>
+              </button>
+            </div>
+            {cur ? (
+              <button
+                type="button"
+                className={`player-bar2__ic player-bar2__ic--exclude ${
+                  shuffleExcluded ? "is-on" : ""
+                }`}
+                disabled={albumShuffleExcluded}
+                title={
+                  albumShuffleExcluded
+                    ? t("trackRow.excludeLockedByAlbumTitle")
+                    : t("trackRow.excludeTitle")
+                }
+                aria-pressed={shuffleExcluded}
+                aria-label={
+                  albumShuffleExcluded
+                    ? t("trackRow.excludeLockedByAlbumAria")
+                    : t("trackRow.excludeTitle")
+                }
+                onClick={() => {
+                  if (!cur || albumShuffleExcluded) return;
+                  toggleExcludedTrack(cur.relPath);
+                }}
+              >
+                <span
+                  className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
+                  aria-hidden
+                >
+                  <ExcludeShuffleIcon />
+                </span>
+              </button>
+            ) : null}
           </div>
           <label className="volume2">
             <span className="sr-only">{t("player.volumeAria")}</span>
@@ -3146,7 +3288,15 @@ function Shell() {
           <main className="content-shell">{currentView}</main>
         </div>
 
-        <PlayerDock onGoToAscolta={() => navigate({ section: "ascolta" })} />
+        <PlayerDock
+          onGoToAscolta={() => navigate({ section: "ascolta" })}
+          onOpenLibraryArtist={(artist) =>
+            navigate({ section: "libreria", artist, album: null })
+          }
+          onOpenLibraryAlbum={(artist, album) =>
+            navigate({ section: "libreria", artist, album })
+          }
+        />
       </div>
     </TrackMetaEditProvider>
   );

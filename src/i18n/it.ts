@@ -54,6 +54,9 @@ export const IT: Record<string, string> = {
   "trackRow.favAria": "Preferito",
   "trackRow.playCount": "Ascolti: {{n}}",
   "trackRow.excludeTitle": "Escludi da random",
+  "trackRow.excludeLockedByAlbumTitle":
+    "Album escluso dalla random: togli il blocco dall’album per modificare i singoli brani",
+  "trackRow.excludeLockedByAlbumAria": "Esclusione random bloccata dall’album",
   "badges.track": "Brano",
   "badges.album": "Album",
   "library.metaFileStatusAria": "Stato metadati file",
@@ -149,6 +152,9 @@ export const IT: Record<string, string> = {
   "library.playAlbum": "Riproduci album",
   "library.playArtistShuffle": "Random artista",
   "library.playGenreShuffle": "Random genere",
+  "library.genreRandomExcludeTitle":
+    "Escludi o ripristina tutti i brani di questo genere dalla random intelligente",
+  "library.genreRandomExcludeAria": "Esclusione random su tutti i brani del genere",
   "library.randomExcludeBtn": "Esclusione random",
   "library.tracklistEyebrow": "Tracklist",
   "library.tracklistHeading": "{{n}} brani",
@@ -235,6 +241,8 @@ export const IT: Record<string, string> = {
   "settings.langEn": "English",
   "settings.langIt": "Italiano",
   "player.openListenTitle": "Apri la scheda Ascolta",
+  "player.openArtistLibTitle": "Apri l’artista in Libreria",
+  "player.openAlbumLibTitle": "Apri l’album in Libreria",
   "player.pickTrack": "Seleziona un brano dalla libreria",
   "player.playerReady": "Il player è pronto.",
   "player.transportAria": "Trasporto",

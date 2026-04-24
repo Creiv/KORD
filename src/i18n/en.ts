@@ -53,6 +53,9 @@ export const EN: Record<string, string> = {
   "trackRow.favAria": "Favorite",
   "trackRow.playCount": "Plays: {{n}}",
   "trackRow.excludeTitle": "Exclude from smart shuffle",
+  "trackRow.excludeLockedByAlbumTitle":
+    "Album excluded from shuffle: turn off album exclusion to change individual tracks",
+  "trackRow.excludeLockedByAlbumAria": "Shuffle exclusion locked by album",
   "badges.track": "Track",
   "badges.album": "Album",
   "library.metaFileStatusAria": "File metadata status",
@@ -145,6 +148,9 @@ export const EN: Record<string, string> = {
   "library.playAlbum": "Play album",
   "library.playArtistShuffle": "Random artist",
   "library.playGenreShuffle": "Random genre",
+  "library.genreRandomExcludeTitle":
+    "Exclude or restore all tracks in this genre from smart shuffle",
+  "library.genreRandomExcludeAria": "Shuffle exclusion for all tracks in this genre",
   "library.randomExcludeBtn": "Shuffle exclusion",
   "library.tracklistEyebrow": "Tracklist",
   "library.tracklistHeading": "{{n}} tracks",
@@ -230,6 +236,8 @@ export const EN: Record<string, string> = {
   "settings.langEn": "English",
   "settings.langIt": "Italiano",
   "player.openListenTitle": "Open Listen",
+  "player.openArtistLibTitle": "Open artist in Library",
+  "player.openAlbumLibTitle": "Open album in Library",
   "player.pickTrack": "Pick a track from the library",
   "player.playerReady": "Player is ready.",
   "player.transportAria": "Transport",

@@ -154,7 +154,10 @@ describe("App", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Library" }));
 
-    expect(await screen.findByText("Artist One")).toBeInTheDocument();
+    const artistInGrid = (await screen.findAllByText("Artist One")).find((el) =>
+      el.closest(".artist-card")
+    );
+    expect(artistInGrid).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "Random all" })
     ).toBeInTheDocument();
