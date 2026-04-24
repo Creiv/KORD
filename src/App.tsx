@@ -3399,6 +3399,7 @@ function Shell() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const prevSectionForSearchRef = useRef<Section | null>(null);
 
   const refresh = useCallback(() => {
     setLoading(true);
@@ -3426,9 +3427,20 @@ function Shell() {
   }, [index, p.resyncTracksFromIndex, user.rehydrateTrackListsFromLibrary]);
 
   useEffect(() => {
-    const id = window.requestAnimationFrame(() => setSearch(""));
-    return () => window.cancelAnimationFrame(id);
+    const prev = prevSectionForSearchRef.current;
+    if (prev === "libreria" && route.section !== "libreria") {
+      const id = window.requestAnimationFrame(() => setSearch(""));
+      prevSectionForSearchRef.current = route.section;
+      return () => window.cancelAnimationFrame(id);
+    }
+    prevSectionForSearchRef.current = route.section;
   }, [route.section]);
+
+  const ensureLibrarySectionForSearch = useCallback(() => {
+    if (route.section !== "libreria") {
+      navigate({ section: "libreria", artist: null, album: null });
+    }
+  }, [navigate, route.section]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -3440,6 +3452,7 @@ function Shell() {
 
       if (event.ctrlKey && event.key.toLowerCase() === "k" && !event.altKey) {
         event.preventDefault();
+        ensureLibrarySectionForSearch();
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
         return;
@@ -3449,6 +3462,7 @@ function Shell() {
 
       if (event.key === "/" && !event.altKey) {
         event.preventDefault();
+        ensureLibrarySectionForSearch();
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
         return;
@@ -3464,7 +3478,7 @@ function Shell() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [p, navigate]);
+  }, [p, navigate, ensureLibrarySectionForSearch]);
 
   const legacyLibrary = useMemo(() => clientLegacyLibrary(index), [index]);
   const favoriteTracks = useMemo(() => {
@@ -3669,6 +3683,7 @@ function Shell() {
                     placeholder={t("topbar.searchPlaceholder")}
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
+                    onFocus={ensureLibrarySectionForSearch}
                     autoComplete="off"
                     role="searchbox"
                     aria-label={t("topbar.searchAria")}
