@@ -22,6 +22,7 @@ import {
   saveConfig,
 } from "./lib/api";
 import { buildRandomArtistCoverMap } from "./lib/artistCover";
+import { buildGenreCoverPreviewMap } from "./lib/genreCovers";
 import { fmtDate, trackInfoBadges } from "./lib/metaFormat";
 import { ExcludeShuffleIcon } from "./components/ExcludeShuffleIcon";
 import {
@@ -311,9 +312,7 @@ function TrackListRow({
         <span className="track-row__meta">
           {track.artist} · {track.album}
         </span>
-        <span className="track-row__badges">
-          {infoLine}
-        </span>
+        <span className="track-row__badges">{infoLine}</span>
       </button>
       <div className="track-row__actions">
         {inQ ? (
@@ -492,6 +491,158 @@ function albumExclusionKey(album: LibraryAlbumIndex) {
   return `${album.artist}/${album.name}`;
 }
 
+function tracksInGenreByKey(
+  libraryIndex: LibraryIndex,
+  genreKey: string
+): LibraryTrackIndex[] {
+  if (genreKey === "__none__") {
+    return libraryIndex.tracks.filter((t) => !t.meta?.genre?.trim());
+  }
+  return libraryIndex.tracks.filter(
+    (t) => t.meta?.genre?.trim().toLowerCase() === genreKey
+  );
+}
+
+function trackHasKordFileMeta(t: LibraryTrackIndex) {
+  return Boolean(t.meta?.genre || t.meta?.releaseDate);
+}
+
+function LibraryGenreMetaChips({
+  genreKey,
+  index: libraryIndex,
+}: {
+  genreKey: string;
+  index: LibraryIndex;
+}) {
+  const { t } = useI18n();
+  const tracks = tracksInGenreByKey(libraryIndex, genreKey);
+  const albumIds = new Set(tracks.map((t) => t.albumId));
+  let nA = 0;
+  for (const aid of albumIds) {
+    const al = libraryIndex.albums.find((a) => a.id === aid);
+    if (al && !al.loose && !al.hasAlbumMeta) nA += 1;
+  }
+  const nS = tracks.filter((t) => !trackHasKordFileMeta(t)).length;
+  return (
+    <div
+      className="lib-meta-badges"
+      aria-label={t("library.metaFileStatusAria")}
+    >
+      <span
+        className={`lib-meta-chip${nA > 0 ? " lib-meta-chip--on" : ""}`}
+        title={
+          nA > 0
+            ? t("library.albumsNoMetaChip", { n: nA })
+            : t("library.albumsAllMetaChip")
+        }
+      >
+        A{nA > 0 ? nA : ""}
+      </span>
+      <span
+        className={`lib-meta-chip${nS > 0 ? " lib-meta-chip--on" : ""}`}
+        title={
+          nS > 0
+            ? t("library.tracksNoMetaChip", { n: nS })
+            : t("library.tracksAllMetaChip")
+        }
+      >
+        ♪{nS > 0 ? nS : ""}
+      </span>
+    </div>
+  );
+}
+
+function LibraryGenreExcludeChips({
+  genreKey,
+  index: libraryIndex,
+}: {
+  genreKey: string;
+  index: LibraryIndex;
+}) {
+  const { t } = useI18n();
+  const tracks = tracksInGenreByKey(libraryIndex, genreKey);
+  const excludedAlbums = getExcludedAlbums();
+  const excludedTracks = getExcludedTracks();
+  const albumIds = new Set(tracks.map((t) => t.albumId));
+  let nAl = 0;
+  for (const aid of albumIds) {
+    const al = libraryIndex.albums.find((a) => a.id === aid);
+    if (al && excludedAlbums.has(albumExclusionKey(al))) nAl += 1;
+  }
+  const nTr = tracks.filter((t) => excludedTracks.has(t.relPath)).length;
+  return (
+    <div
+      className="lib-meta-badges lib-meta-badges--tight"
+      aria-label={t("library.randomExcludeAria")}
+    >
+      <span
+        className={`lib-meta-chip lib-meta-chip--exclude${
+          nAl > 0 ? " lib-meta-chip--on" : ""
+        }`}
+        title={
+          nAl > 0
+            ? t("library.nAlbumsExcluded", { n: nAl })
+            : t("library.noAlbumsExcluded")
+        }
+      >
+        R{nAl > 0 ? nAl : ""}
+      </span>
+      <span
+        className={`lib-meta-chip lib-meta-chip--exclude${
+          nTr > 0 ? " lib-meta-chip--on" : ""
+        }`}
+        title={
+          nTr > 0
+            ? t("library.nTracksExcluded", { n: nTr })
+            : t("library.noTracksExcluded")
+        }
+      >
+        <ExcludeShuffleIcon className="lib-meta-chip__exclude-icon" />
+        {nTr > 0 ? nTr : null}
+      </span>
+    </div>
+  );
+}
+
+function LibraryGenreFavoriteChips({
+  genreKey,
+  index: libraryIndex,
+}: {
+  genreKey: string;
+  index: LibraryIndex;
+}) {
+  const { t } = useI18n();
+  const { favorites } = useUserState();
+  const n = useMemo(() => {
+    let c = 0;
+    for (const t of tracksInGenreByKey(libraryIndex, genreKey)) {
+      if (favorites.has(t.relPath)) c += 1;
+    }
+    return c;
+  }, [genreKey, libraryIndex, favorites]);
+  return (
+    <div
+      className="lib-meta-badges lib-meta-badges--tight"
+      aria-label={t("library.favoritesAria")}
+    >
+      <span
+        className={`lib-meta-chip lib-meta-chip--fav${
+          n > 0 ? " lib-meta-chip--on" : ""
+        }`}
+        title={
+          n > 0
+            ? n === 1
+              ? t("library.oneFavTrackArtist")
+              : t("library.nFavTracksArtist", { n })
+            : t("library.noFavArtist")
+        }
+      >
+        ♥{n > 0 ? n : ""}
+      </span>
+    </div>
+  );
+}
+
 function LibraryArtistExcludeChips({
   artist,
   index,
@@ -665,6 +816,77 @@ function LibraryAlbumExcludeChips({
         {nTr > 0 ? nTr : null}
       </span>
     </div>
+  );
+}
+
+function GenreCoverSlot({ relPath }: { relPath: string | null }) {
+  const [failed, setFailed] = useState(false);
+  if (!relPath || failed) {
+    return (
+      <div className="genre-quad__slot genre-quad__slot--empty" aria-hidden />
+    );
+  }
+  return (
+    <div className="genre-quad__slot">
+      <img
+        src={coverUrlForAlbumRelPath(relPath)}
+        alt=""
+        onError={() => setFailed(true)}
+      />
+    </div>
+  );
+}
+
+function GenreCard({
+  genreKey,
+  title,
+  albumCount,
+  trackCount,
+  albumSlots,
+  index: libraryIndex,
+  muted,
+  onOpen,
+}: {
+  genreKey: string;
+  title: string;
+  albumCount: number;
+  trackCount: number;
+  albumSlots: (string | null)[];
+  index: LibraryIndex;
+  muted?: boolean;
+  onOpen: () => void;
+}) {
+  const { t } = useI18n();
+  const quad = [...albumSlots];
+  while (quad.length < 4) quad.push(null);
+  const slots = quad.slice(0, 4) as (string | null)[];
+  const aU =
+    albumCount === 1 ? t("library.unitAlbum") : t("library.unitAlbumPlural");
+  const trU =
+    trackCount === 1 ? t("library.unitTrack") : t("library.unitTrackPlural");
+  return (
+    <button
+      type="button"
+      className={`artist-card${muted ? " artist-card--genre-muted" : ""}`}
+      onClick={onOpen}
+    >
+      <div className="genre-quad" aria-hidden>
+        {slots.map((rel, i) => (
+          <GenreCoverSlot key={`${genreKey}-${i}`} relPath={rel} />
+        ))}
+      </div>
+      <div className="artist-card__text">
+        <div className="artist-card__title">{title}</div>
+        <div className="artist-card__meta">
+          {albumCount} {aU} · {trackCount} {trU}
+        </div>
+        <div className="lib-badge-cluster lib-badge-cluster--card-foot">
+          <LibraryGenreMetaChips genreKey={genreKey} index={libraryIndex} />
+          <LibraryGenreFavoriteChips genreKey={genreKey} index={libraryIndex} />
+          <LibraryGenreExcludeChips genreKey={genreKey} index={libraryIndex} />
+        </div>
+      </div>
+    </button>
   );
 }
 
@@ -1191,6 +1413,29 @@ function LibraryView({
     () => buildRandomArtistCoverMap(index),
     [index]
   );
+  const genreCoverByKey = useMemo(
+    () => buildGenreCoverPreviewMap(index),
+    [index]
+  );
+
+  const genreAlbumTrackCounts = useMemo(() => {
+    const m = new Map<string, { albums: Set<string>; tracks: number }>();
+    const bump = (key: string, albumId: string) => {
+      let e = m.get(key);
+      if (!e) {
+        e = { albums: new Set<string>(), tracks: 0 };
+        m.set(key, e);
+      }
+      e.tracks += 1;
+      if (albumId) e.albums.add(albumId);
+    };
+    for (const t of index.tracks) {
+      const raw = t.meta?.genre?.trim();
+      if (!raw) bump("__none__", t.albumId);
+      else bump(raw.toLowerCase(), t.albumId);
+    }
+    return m;
+  }, [index.tracks]);
 
   const genreIndex = useMemo(() => {
     const byLower = new Map<string, { label: string; count: number }>();
@@ -1259,6 +1504,20 @@ function LibraryView({
     libOverviewSort,
     user.state.trackPlayCounts,
   ]);
+
+  const genreShuffleEligible = useMemo(() => {
+    if (!selectedGenreKey) return [] as LibraryTrackIndex[];
+    return tracksInSelectedGenre.filter(
+      (tr) =>
+        !excludedTracks.has(tr.relPath) &&
+        !excludedAlbums.has(`${tr.artist}/${tr.album}`)
+    );
+  }, [selectedGenreKey, tracksInSelectedGenre, excludedTracks, excludedAlbums]);
+
+  const selectedGenreAlbumCount =
+    selectedGenreKey != null
+      ? (genreAlbumTrackCounts.get(selectedGenreKey)?.albums.size ?? 0)
+      : 0;
 
   const sortedOverviewArtists = useMemo(() => {
     const counts = user.state.trackPlayCounts || {};
@@ -1369,6 +1628,19 @@ function LibraryView({
       user.state.recent.slice(0, 48).map((t) => t.relPath)
     );
     const shuffled = buildSmartRandomQueue(eligible, {
+      currentRelPath: p.current?.relPath,
+      currentArtist: p.current?.artist,
+      recentRelPaths,
+    });
+    p.playTrack(shuffled[0], shuffled, 0, { preserveQueueOrder: true });
+  };
+
+  const playGenreShuffle = () => {
+    if (!genreShuffleEligible.length) return;
+    const recentRelPaths = new Set(
+      user.state.recent.slice(0, 48).map((tr) => tr.relPath)
+    );
+    const shuffled = buildSmartRandomQueue(genreShuffleEligible, {
       currentRelPath: p.current?.relPath,
       currentArtist: p.current?.artist,
       recentRelPaths,
@@ -1529,7 +1801,9 @@ function LibraryView({
                     <button
                       type="button"
                       className="primary-btn"
-                      onClick={() => p.playTrack(albumTracks[0], albumTracks, 0)}
+                      onClick={() =>
+                        p.playTrack(albumTracks[0], albumTracks, 0)
+                      }
                     >
                       {t("library.playAlbum")}
                     </button>
@@ -1619,7 +1893,10 @@ function LibraryView({
                 onClick={() => onOpenArtist("")}
                 aria-label={t("library.backAllArtistsAria")}
               >
-                <span aria-hidden="true" className="page-toolbar-back-ic__glyph">
+                <span
+                  aria-hidden="true"
+                  className="page-toolbar-back-ic__glyph"
+                >
                   {"<"}
                 </span>
               </button>
@@ -1647,21 +1924,27 @@ function LibraryView({
                 <button
                   type="button"
                   className={artistAlbumSort === "date" ? "is-on" : ""}
-                  onClick={() => user.updateSettings({ artistAlbumSort: "date" })}
+                  onClick={() =>
+                    user.updateSettings({ artistAlbumSort: "date" })
+                  }
                 >
                   {t("library.sortDate")}
                 </button>
                 <button
                   type="button"
                   className={artistAlbumSort === "name" ? "is-on" : ""}
-                  onClick={() => user.updateSettings({ artistAlbumSort: "name" })}
+                  onClick={() =>
+                    user.updateSettings({ artistAlbumSort: "name" })
+                  }
                 >
                   {t("library.sortName")}
                 </button>
                 <button
                   type="button"
                   className={artistAlbumSort === "plays" ? "is-on" : ""}
-                  onClick={() => user.updateSettings({ artistAlbumSort: "plays" })}
+                  onClick={() =>
+                    user.updateSettings({ artistAlbumSort: "plays" })
+                  }
                 >
                   {t("library.sortByPlays")}
                 </button>
@@ -1703,41 +1986,49 @@ function LibraryView({
     <div className="view-stack">
       <section className="surface-card surface-card--toolbar-only">
         <div className="section-head section-head--page-toolbar">
-          <div>
-            {selectedGenreKey ? (
-              <>
-                <button
-                  type="button"
-                  className="text-btn back-btn"
-                  onClick={() => setSelectedGenreKey(null)}
+          {selectedGenreKey ? (
+            <div className="page-toolbar__lead page-toolbar__lead--backrow">
+              <button
+                type="button"
+                className="page-toolbar-back-ic"
+                onClick={() => setSelectedGenreKey(null)}
+                aria-label={t("library.backGenresAria")}
+              >
+                <span
+                  aria-hidden="true"
+                  className="page-toolbar-back-ic__glyph"
                 >
-                  {t("library.backGenres")}
-                </button>
+                  {"<"}
+                </span>
+              </button>
+              <div className="page-toolbar__textcol">
                 <p className="eyebrow">{t("library.genreEyebrow")}</p>
                 <h2>{selectedGenreLabel ?? t("common.emDash")}</h2>
-                <p className="subtle sm">
-                  {sortedGenreTracks.length === 1
-                    ? t("library.genreTrackCountOne")
-                    : t("library.genreTrackCount", {
-                        n: sortedGenreTracks.length,
-                      })}
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="eyebrow">{t("library.overviewEyebrow")}</p>
-                <h2>
-                  {libBrowse === "artists"
-                    ? t("library.tabArtists")
-                    : t("library.tabGenres")}
-                </h2>
-              </>
-            )}
-          </div>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p className="eyebrow">{t("library.overviewEyebrow")}</p>
+              <h2>
+                {libBrowse === "artists"
+                  ? t("library.tabArtists")
+                  : t("library.tabGenres")}
+              </h2>
+            </div>
+          )}
           <div className="section-head__tools">
             <div className="hero-card__actions">
-              <button type="button" className="primary-btn" onClick={runRandom}>
-                {t("listen.smartShuffle")}
+              <button
+                type="button"
+                className="primary-btn"
+                disabled={
+                  selectedGenreKey ? genreShuffleEligible.length === 0 : false
+                }
+                onClick={selectedGenreKey ? playGenreShuffle : runRandom}
+              >
+                {selectedGenreKey
+                  ? t("library.playGenreShuffle")
+                  : t("listen.smartShuffle")}
               </button>
             </div>
             <div
@@ -1755,7 +2046,9 @@ function LibraryView({
               <button
                 type="button"
                 className={libOverviewSort === "plays" ? "is-on" : ""}
-                onClick={() => user.updateSettings({ libOverviewSort: "plays" })}
+                onClick={() =>
+                  user.updateSettings({ libOverviewSort: "plays" })
+                }
               >
                 {t("library.sortByPlays")}
               </button>
@@ -1795,15 +2088,35 @@ function LibraryView({
           </div>
         ) : null}
         {selectedGenreKey ? (
-          <div className="list-stack">
-            {sortedGenreTracks.map((track) => (
-              <TrackListRow
-                key={track.relPath}
-                track={track}
-                onPlay={() => p.playTrack(track, [track], 0)}
-              />
-            ))}
-          </div>
+          <>
+            <div className="section-head section-head--page-toolbar">
+              <div>
+                <p className="eyebrow">{t("library.tracklistEyebrow")}</p>
+                <h2>
+                  {selectedGenreAlbumCount}{" "}
+                  {selectedGenreAlbumCount === 1
+                    ? t("library.unitAlbum")
+                    : t("library.unitAlbumPlural")}
+                  {" · "}
+                  {sortedGenreTracks.length}{" "}
+                  {sortedGenreTracks.length === 1
+                    ? t("library.unitTrack")
+                    : t("library.unitTrackPlural")}
+                </h2>
+              </div>
+            </div>
+            <div className="list-stack">
+              {sortedGenreTracks.map((track, trIndex) => (
+                <TrackListRow
+                  key={track.relPath}
+                  track={track}
+                  onPlay={() =>
+                    p.playTrack(track, sortedGenreTracks, trIndex)
+                  }
+                />
+              ))}
+            </div>
+          </>
         ) : libBrowse === "artists" ? (
           <div className="artist-grid">
             {sortedOverviewArtists.map((item) => (
@@ -1819,37 +2132,34 @@ function LibraryView({
           </div>
         ) : (
           <div className="genre-browse-wrap">
-            <div className="genre-browse-grid">
+            <div className="artist-grid">
               {genreIndex.noGenreCount > 0 ? (
-                <button
-                  type="button"
-                  className="genre-card genre-card--muted"
-                  onClick={() => setSelectedGenreKey("__none__")}
-                >
-                  <span className="genre-card__name">
-                    {t("library.genreCardNoGenre")}
-                  </span>
-                  <span className="genre-card__count">
-                    {t("library.genreCardTracks", {
-                      n: genreIndex.noGenreCount,
-                    })}
-                  </span>
-                </button>
+                <GenreCard
+                  genreKey="__none__"
+                  title={t("library.genreCardNoGenre")}
+                  albumCount={
+                    genreAlbumTrackCounts.get("__none__")?.albums.size ?? 0
+                  }
+                  trackCount={genreIndex.noGenreCount}
+                  albumSlots={genreCoverByKey.get("__none__") ?? []}
+                  index={index}
+                  muted
+                  onOpen={() => setSelectedGenreKey("__none__")}
+                />
               ) : null}
               {sortedGenreBrowseList.map((g) => (
-                <button
-                  type="button"
+                <GenreCard
                   key={g.key}
-                  className="genre-card"
-                  onClick={() => setSelectedGenreKey(g.key)}
-                >
-                  <span className="genre-card__name">{g.label}</span>
-                  <span className="genre-card__count">
-                    {g.count === 1
-                      ? t("library.genreCardTracksOne")
-                      : t("library.genreCardTracks", { n: g.count })}
-                  </span>
-                </button>
+                  genreKey={g.key}
+                  title={g.label}
+                  albumCount={
+                    genreAlbumTrackCounts.get(g.key)?.albums.size ?? 0
+                  }
+                  trackCount={g.count}
+                  albumSlots={genreCoverByKey.get(g.key) ?? []}
+                  index={index}
+                  onOpen={() => setSelectedGenreKey(g.key)}
+                />
               ))}
             </div>
             {genreIndex.list.length === 0 && genreIndex.noGenreCount === 0 ? (
@@ -2037,7 +2347,8 @@ function PlaylistsViewNew({
                     type="button"
                     className="chip-btn"
                     onClick={() =>
-                      p.current && user.addTrackToPlaylist(playlist.id, p.current)
+                      p.current &&
+                      user.addTrackToPlaylist(playlist.id, p.current)
                     }
                   >
                     {t("playlists.addCurrent")}

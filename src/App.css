@@ -564,63 +564,47 @@
   gap: 0.75rem;
 }
 
-.genre-browse-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
-  gap: 0.75rem;
-}
-
-.genre-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-  padding: 0.85rem 1rem;
-  border-radius: var(--radius-lg);
+.genre-quad {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 18px;
   border: 1px solid var(--border);
-  background: linear-gradient(
-    168deg,
-    color-mix(in srgb, var(--surface-elev-a) 88%, var(--surface3)),
-    var(--surface-elev-b)
-  );
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
-  cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease,
-    box-shadow 0.15s ease;
+  box-shadow: var(--shadow-elev-1);
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 0.5rem;
+  padding: 0.45rem;
+  background: var(--surface3);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.genre-quad__slot {
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 11px;
+  border: 1px solid color-mix(in srgb, var(--border) 55%, transparent 45%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
-.genre-card:hover {
-  border-color: color-mix(
-    in srgb,
-    var(--accent2) 32%,
-    var(--border-strong) 68%
-  );
-  background: linear-gradient(
-    168deg,
-    color-mix(in srgb, var(--accent2) 6%, var(--surface-elev-a)),
-    var(--surface-elev-b)
-  );
+.genre-quad__slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
-.genre-card--muted {
+.genre-quad__slot--empty {
+  background: color-mix(in srgb, var(--muted) 14%, var(--surface3));
+  opacity: 0.35;
+}
+
+.artist-card--genre-muted {
   border-style: dashed;
   opacity: 0.92;
-}
-
-.genre-card__name {
-  font-size: 0.95rem;
-  font-weight: 700;
-  line-height: 1.2;
-  color: var(--text);
-  word-break: break-word;
-}
-
-.genre-card__count {
-  margin-top: 0.3rem;
-  font-size: 0.75rem;
-  color: var(--muted);
-  font-weight: 600;
 }
 
 .hero-card {
