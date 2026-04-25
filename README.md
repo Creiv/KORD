@@ -1,98 +1,114 @@
-# KORD
+# Kord
 
-Local hub for listening to, organizing, and maintaining a personal music library.
+**Kord** is a local music hub: browse your library, play tracks with a persistent queue, manage playlists, and keep metadata organized. This repository provides a full-stack web app, an **Electron** desktop shell, and separate **packaged** builds for a **headless server** and a **lightweight client** for remote use on the same network.
 
-## Interface language
+- **End users** can follow [What you get](#what-you-get) and [How to run](#how-to-run) (server, client, or browser).
+- **Developers and contributors** can use [Project layout](#project-layout), [Build & packaging](#build--packaging), [Configuration](#configuration), and [API](#api).
 
-The UI defaults to **English**. In **Settings** you can choose **Italian**; strings live in `src/i18n/en.ts` and `src/i18n/it.ts` so more languages can be added later.
+## What you get
 
-## What it includes
-
-- Shell with Dashboard, Listen, Library, Studio, Queue, Playlists, Favorites, Recent, and Settings
-- Client-side routing with deep links into library and playlist views
-- Player with session restore, persistent queue, favorites, recent tracks, and audio visualizer
-- Express backend with a normalized library index, dashboard, and user state in `MUSIC_ROOT/.kord/user-state.v1.json` (if an older backup exists, it is read from `MUSIC_ROOT/.wpp/`)
-- Operational tools for downloads, cover search, and metadata enrichment
-- Test suite with Vitest and React Testing Library on the frontend and backend helpers
+- **Dashboard, Listen, Library, Studio, Queue, Playlists, Favorites, Recent, Settings** — a single shell with client-side routing and deep links.
+- **Player** with session restore, queue, favorites, recent tracks, and a visualizer.
+- **Server** (Node / Express) that indexes your music folder, serves the UI and API, and stores per-user state on disk.
+- **Tools** for downloads (optional `yt-dlp`), cover search, and metadata enrichment.
+- **i18n**: UI defaults to **English**; **Italian** is available in Settings. Strings are in `src/i18n/en.ts` and `src/i18n/it.ts`.
+- **Tests** (Vitest + React Testing Library) for UI, server helpers, and library logic.
 
 ## Requirements
 
-- A recent Node.js version
-- A local music folder
-- Optional: `yt-dlp` for the download module
+- A recent **Node.js** (for development and from-source use).
+- A folder of audio files.
+- Optional: **`yt-dlp`** for the download feature.
 
-## Desktop app (Electron)
+## How to run
 
-- **Development (window + Vite + server)**: `npm run dev:app` (Vite on 5173, server embedded in Electron; music folder is configured in the app user data).
-- **Installable package** (after `npm run build`):
-  - `npm run pack` — builds for the **OS you run the command on** (e.g. on Linux: AppImage in `release/`).
-  - `npm run pack:linux` / `pack:win` / `pack:mac` — force a target; **Windows and macOS** builds are usually produced on that OS (or in CI) because toolchains are not always available elsewhere.
-- Binaries end up in **`release/`** (name includes version, e.g. `kord-0.0.0-linux-x64.AppImage`).
-
-On Linux, if Chromium **sandbox** warnings appear, run with `ELECTRON_DISABLE_SANDBOX=1` or follow `chrome-sandbox` permission notes for non-installed builds (AppImage / `.deb` often do not require this).
-
-## Run in the browser
+### Run in the browser (development)
 
 ```bash
 npm install
 npm run dev
 ```
 
-By default the backend uses:
+The backend uses `MUSIC_ROOT` (or the path set in the app) and defaults to `PORT=3001`. You can override with environment variables. For older installs, `WPP_USER_CONFIG_DIR` is still read; the app also recognizes `KORD_USER_CONFIG_DIR`.
+
+### Full desktop app (Electron, development)
 
 ```bash
-MUSIC_ROOT=<set in app settings>
-PORT=3001
+npm run dev:app
 ```
 
-Override with environment variables. The desktop app also uses `KORD_USER_CONFIG_DIR` (with backward compatibility for `WPP_USER_CONFIG_DIR` on older builds).
+Vite and the server run inside Electron; the music root is set from app data.
 
-### LAN access
+### LAN access (any mode)
 
-In **Settings → Network** you can bind the API (and, in development, Vite) to all interfaces (`0.0.0.0`) so other devices on the same LAN can open the app. The flag is stored in `music-root.config.json` together with the music folder path (see server `musicRootConfig.mjs` for where that file lives). **Restart KORD** after changing it so processes pick up the new listen address.
+In **Settings → Network**, you can bind the server to all interfaces (`0.0.0.0`) so other devices on the same LAN can use Kord. The setting is stored with your music folder config; **restart** after changing it. The exact path of `music-root.config.json` is defined in the server’s `musicRootConfig.mjs`.
 
-## Scripts
+On **Linux**, packaged Electron may log Chromium **sandbox** warnings; you can set `ELECTRON_DISABLE_SANDBOX=1` for non-root runs or follow Chrome’s sandbox notes for your distro.
+
+## Packaged server and client (release)
+
+After a production build:
 
 ```bash
-npm run dev
 npm run build
-npm run lint
-npm test
 ```
 
-## User persistence
+- **Platform-specific** full app (e.g. AppImage on Linux) — same as before:
+  - `npm run pack` (current OS), or `npm run pack:linux` / `pack:win` / `pack:mac`.
+- **Kord Server** and **Kord Client** (versioned names in `release/`):
+  - Linux: `npm run pack:linux:server` / `npm run pack:linux:client`
+  - Windows: `npm run pack:win:server` / `npm run pack:win:client`
+  - macOS: `npm run pack:mac:server` / `npm run pack:mac:client`
 
-Server-side user state is stored at:
+You can pass a version as the last argument, e.g. `npm run pack:linux:server -- 2.0.0` (see `scripts/pack-release.mjs`).
 
-```txt
-MUSIC_ROOT/.kord/user-state.v1.json
-```
+- **Kord Server** — headless service for your music library; configure host/port and music root as documented for the server.
+- **Kord Client** — on first run, enter the server’s **IP:port** and pick an **account**; the window then opens the remote UI. The flow is a minimal, centered connect screen in `electron/connect.html` (no long onboarding copy).
 
-Installations that only had `MUSIC_ROOT/.wpp/` are still read automatically; new writes use `.kord/`. On-disk album and track metadata: `kord-albuminfo.json` and `kord-trackinfo.json` (legacy `wpp-*` files are still read).
+---
 
-On first launch, the app imports legacy data from `localStorage` (`kord-*` keys, with optional reads of old `wpp-*` keys).
+## For developers and contributors
 
-## Main API routes
+### Project layout (high level)
 
-- `GET /api/library`
-- `GET /api/library-index`
-- `GET /api/dashboard`
-- `GET /api/user-state`
-- `PUT /api/user-state`
-- `GET /api/download-preset`
-- `POST /api/download`
-- `GET /api/fs/list`
-- `POST /api/fs/mkdir`
-- `GET /api/artwork/search`
-- `POST /api/artwork/apply`
-- `POST /api/album-info/fetch`
-- `POST /api/track-info/fetch`
+- **`src/`** — React + Vite frontend, routing, player, settings, i18n.
+- **Server** — Express API, library index, file operations, state paths under `MUSIC_ROOT/.kord/` (see below).
+- **`electron/`** — Electron main process, preload, and `connect.html` for the **Client** build.
 
-## Tests
+### Common scripts
 
-The suite covers:
+| Script                                    | Purpose                                                                                                     |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `npm run dev`                             | Vite + API (browser dev)                                                                                    |
+| `npm run dev:app`                         | Full Electron dev                                                                                           |
+| `npm run build`                           | Production web + main bundle for Electron                                                                   |
+| `npm run lint`                            | Lint                                                                                                        |
+| `npm test`                                | Test suite                                                                                                  |
+| `npm run pack` / `pack:*`                 | Full Electron installers per platform                                                                       |
+| `npm run pack:*:server` / `pack:*:client` | Kord Server / Kord Client artifacts (see [Packaged server and client](#packaged-server-and-client-release)) |
+
+### User persistence (technical)
+
+- Server user state: **`MUSIC_ROOT/.kord/user-state.v1.json`**. Legacy **`MUSIC_ROOT/.wpp/`** is read if present; new writes go under **`.kord/`**.
+- Per-album / per-track JSON on disk: `kord-albuminfo.json`, `kord-trackinfo.json` (with legacy `wpp-*` read support).
+- First browser launch can import legacy keys from `localStorage` (`kord-*` / `wpp-*`).
+
+### API (main routes)
+
+- `GET /api/library` · `GET /api/library-index` · `GET /api/dashboard`
+- `GET /api/user-state` · `PUT /api/user-state`
+- `GET /api/download-preset` · `POST /api/download`
+- `GET /api/fs/list` · `POST /api/fs/mkdir`
+- `GET /api/artwork/search` · `POST /api/artwork/apply`
+- `POST /api/album-info/fetch` · `POST /api/track-info/fetch`
+
+### Tests (what the suite covers)
 
 - App rendering and navigation
 - Legacy user-state import
 - Server-side user-state persistence and sanitization
-- Library indexing and quality alerts
+- Library indexing and quality checks
+
+---
+
+If you add screenshots or a license file to the repository, link them from this document so visitors landing on GitHub get a clear first impression.

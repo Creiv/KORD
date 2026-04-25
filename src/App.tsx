@@ -312,10 +312,7 @@ function TrackListRow({
     getTrackExclusionEpoch
   );
   const exAlbums = getExcludedAlbums();
-  const albumShuffleExcluded = isTrackAlbumShuffleExcluded(
-    track,
-    exAlbums
-  );
+  const albumShuffleExcluded = isTrackAlbumShuffleExcluded(track, exAlbums);
   const trackShuffleExcluded = getExcludedTracks().has(track.relPath);
   const shuffleExcluded = albumShuffleExcluded || trackShuffleExcluded;
   const inQ = p.isTrackInQueue(track.relPath);
@@ -1591,8 +1588,7 @@ function LibraryView({
     const ex = getExcludedTracks();
     return tracksInSelectedGenre.filter(
       (tr) =>
-        !ex.has(tr.relPath) &&
-        !isTrackAlbumShuffleExcluded(tr, excludedAlbums)
+        !ex.has(tr.relPath) && !isTrackAlbumShuffleExcluded(tr, excludedAlbums)
     );
   }, [
     selectedGenreKey,
@@ -1606,8 +1602,7 @@ function LibraryView({
     const exT = getExcludedTracks();
     const exA = getExcludedAlbums();
     return tracksInSelectedGenre.every(
-      (tr) =>
-        exT.has(tr.relPath) || isTrackAlbumShuffleExcluded(tr, exA)
+      (tr) => exT.has(tr.relPath) || isTrackAlbumShuffleExcluded(tr, exA)
     );
   }, [tracksInSelectedGenre, trackExclusionEpoch, excludedAlbums]);
 
@@ -1916,9 +1911,7 @@ function LibraryView({
                       className={`ghost-btn ${
                         excludedAlbums.has(album.id) ? "is-on" : ""
                       }`}
-                      onClick={() =>
-                        user.toggleShuffleExcludedAlbum(album.id)
-                      }
+                      onClick={() => user.toggleShuffleExcludedAlbum(album.id)}
                     >
                       {t("library.randomExcludeBtn")}
                     </button>
@@ -2458,7 +2451,10 @@ function PlaylistsViewNew({
                       className="chip-btn"
                       disabled={!playlist.tracks.length}
                       onClick={() => {
-                        const queue = playlistToEnrichedList(playlist, trackByPath);
+                        const queue = playlistToEnrichedList(
+                          playlist,
+                          trackByPath
+                        );
                         if (queue[0]) p.playTrack(queue[0], queue, 0);
                       }}
                     >
@@ -2502,7 +2498,10 @@ function PlaylistsViewNew({
                       className="ghost-input compact playlist-rename-input"
                       defaultValue={activePlaylist.name}
                       onBlur={(event) =>
-                        user.renamePlaylist(activePlaylist.id, event.target.value)
+                        user.renamePlaylist(
+                          activePlaylist.id,
+                          event.target.value
+                        )
                       }
                       aria-label={t("playlists.renameAria")}
                     />
@@ -2675,7 +2674,9 @@ function computeStatisticsRankings(
   for (const tr of index.tracks) {
     totalPlays += counts[tr.relPath] ?? 0;
   }
-  const touchedTracks = index.tracks.filter((tr) => (counts[tr.relPath] ?? 0) > 0);
+  const touchedTracks = index.tracks.filter(
+    (tr) => (counts[tr.relPath] ?? 0) > 0
+  );
   const artistsTouched = new Set(touchedTracks.map((tr) => tr.artist)).size;
   const albumsTouched = new Set(touchedTracks.map((tr) => tr.albumId)).size;
 
@@ -2732,90 +2733,38 @@ function StatisticsView({
       </section>
 
       <div className="statistics-page__sections">
-      <section className="surface-card statistics-section">
-        <div className="statistics-section__head">
-          <h3>{t("statistics.sectionTracks")}</h3>
-        </div>
-        {data.topTracks.length === 0 ? (
-          <p className="panel-empty statistics-section__empty">
-            {t("statistics.rankEmpty")}
-          </p>
-        ) : (
-          <ol className="statistics-rank-list">
-            {data.topTracks.map((row, i) => (
-              <li key={row.tr.relPath}>
-                <button
-                  type="button"
-                  className="statistics-rank-row"
-                  aria-label={t("statistics.openInLibraryAria", {
-                    label: row.tr.title,
-                  })}
-                  onClick={() => openTrackInLibrary(row.tr)}
-                >
-                  <span className="statistics-rank-row__pos">{i + 1}</span>
-                  <img
-                    className="statistics-rank-row__art"
-                    src={coverUrlForTrackRelPath(row.tr.relPath)}
-                    alt=""
-                  />
-                  <div className="statistics-rank-row__text">
-                    <div className="statistics-rank-row__title">
-                      {row.tr.title}
-                    </div>
-                    <div className="statistics-rank-row__meta">
-                      {row.tr.artist} — {row.tr.album}
-                    </div>
-                  </div>
-                  <div className="statistics-rank-row__plays">
-                    {t("trackRow.playCount", { n: row.n })}
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
-
-      <section className="surface-card statistics-section">
-        <div className="statistics-section__head">
-          <h3>{t("statistics.sectionArtists")}</h3>
-        </div>
-        {data.topArtists.length === 0 ? (
-          <p className="panel-empty statistics-section__empty">
-            {t("statistics.rankEmpty")}
-          </p>
-        ) : (
-          <ol className="statistics-rank-list">
-            {data.topArtists.map((row, i) => {
-              const coverRel = artistCoverById.get(row.ar.id) ?? null;
-              return (
-                <li key={row.ar.id}>
+        <section className="surface-card statistics-section">
+          <div className="statistics-section__head">
+            <h3>{t("statistics.sectionTracks")}</h3>
+          </div>
+          {data.topTracks.length === 0 ? (
+            <p className="panel-empty statistics-section__empty">
+              {t("statistics.rankEmpty")}
+            </p>
+          ) : (
+            <ol className="statistics-rank-list">
+              {data.topTracks.map((row, i) => (
+                <li key={row.tr.relPath}>
                   <button
                     type="button"
                     className="statistics-rank-row"
                     aria-label={t("statistics.openInLibraryAria", {
-                      label: row.ar.name,
+                      label: row.tr.title,
                     })}
-                    onClick={() => onOpenArtist(row.ar.id)}
+                    onClick={() => openTrackInLibrary(row.tr)}
                   >
                     <span className="statistics-rank-row__pos">{i + 1}</span>
-                    {coverRel ? (
-                      <img
-                        className="statistics-rank-row__art"
-                        src={coverUrlForAlbumRelPath(coverRel)}
-                        alt=""
-                      />
-                    ) : (
-                      <div
-                        className="statistics-rank-row__art statistics-rank-row__art--fallback"
-                        aria-hidden
-                      >
-                        {initials(row.ar.name)}
-                      </div>
-                    )}
+                    <img
+                      className="statistics-rank-row__art"
+                      src={coverUrlForTrackRelPath(row.tr.relPath)}
+                      alt=""
+                    />
                     <div className="statistics-rank-row__text">
                       <div className="statistics-rank-row__title">
-                        {row.ar.name}
+                        {row.tr.title}
+                      </div>
+                      <div className="statistics-rank-row__meta">
+                        {row.tr.artist} — {row.tr.album}
                       </div>
                     </div>
                     <div className="statistics-rank-row__plays">
@@ -2823,108 +2772,164 @@ function StatisticsView({
                     </div>
                   </button>
                 </li>
-              );
-            })}
-          </ol>
-        )}
-      </section>
+              ))}
+            </ol>
+          )}
+        </section>
 
-      <section className="surface-card statistics-section">
-        <div className="statistics-section__head">
-          <h3>{t("statistics.sectionAlbums")}</h3>
-        </div>
-        {data.topAlbums.length === 0 ? (
-          <p className="panel-empty statistics-section__empty">
-            {t("statistics.rankEmpty")}
-          </p>
-        ) : (
-          <ol className="statistics-rank-list">
-            {data.topAlbums.map((row, i) => (
-              <li key={row.al.id}>
-                <button
-                  type="button"
-                  className="statistics-rank-row"
-                  aria-label={t("statistics.openInLibraryAria", {
-                    label: row.al.name,
-                  })}
-                  onClick={() => onOpenAlbum(row.al.artistId, row.al.name)}
-                >
-                  <span className="statistics-rank-row__pos">{i + 1}</span>
-                  <div className="statistics-rank-row__art statistics-rank-row__art--album">
-                    <AlbumCover album={row.al} compact />
-                  </div>
-                  <div className="statistics-rank-row__text">
-                    <div className="statistics-rank-row__title">
-                      {row.al.name}
-                    </div>
-                    <div className="statistics-rank-row__meta">{row.al.artist}</div>
-                  </div>
-                  <div className="statistics-rank-row__plays">
-                    {t("trackRow.playCount", { n: row.n })}
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
+        <section className="surface-card statistics-section">
+          <div className="statistics-section__head">
+            <h3>{t("statistics.sectionArtists")}</h3>
+          </div>
+          {data.topArtists.length === 0 ? (
+            <p className="panel-empty statistics-section__empty">
+              {t("statistics.rankEmpty")}
+            </p>
+          ) : (
+            <ol className="statistics-rank-list">
+              {data.topArtists.map((row, i) => {
+                const coverRel = artistCoverById.get(row.ar.id) ?? null;
+                return (
+                  <li key={row.ar.id}>
+                    <button
+                      type="button"
+                      className="statistics-rank-row"
+                      aria-label={t("statistics.openInLibraryAria", {
+                        label: row.ar.name,
+                      })}
+                      onClick={() => onOpenArtist(row.ar.id)}
+                    >
+                      <span className="statistics-rank-row__pos">{i + 1}</span>
+                      {coverRel ? (
+                        <img
+                          className="statistics-rank-row__art"
+                          src={coverUrlForAlbumRelPath(coverRel)}
+                          alt=""
+                        />
+                      ) : (
+                        <div
+                          className="statistics-rank-row__art statistics-rank-row__art--fallback"
+                          aria-hidden
+                        >
+                          {initials(row.ar.name)}
+                        </div>
+                      )}
+                      <div className="statistics-rank-row__text">
+                        <div className="statistics-rank-row__title">
+                          {row.ar.name}
+                        </div>
+                      </div>
+                      <div className="statistics-rank-row__plays">
+                        {t("trackRow.playCount", { n: row.n })}
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </section>
 
-      <section className="surface-card statistics-section statistics-section--genres">
-        <div className="statistics-section__head">
-          <h3>{t("statistics.sectionGenres")}</h3>
-        </div>
-        {data.topGenres.length === 0 ? (
-          <p className="panel-empty statistics-section__empty">
-            {t("statistics.genresEmpty")}
-          </p>
-        ) : (
-          <ol className="statistics-rank-list">
-            {data.topGenres.map((row, i) => (
-              <li key={row.key}>
-                <div className="statistics-rank-row statistics-rank-row--static">
-                  <span className="statistics-rank-row__pos">{i + 1}</span>
-                  <div
-                    className="statistics-rank-row__art statistics-rank-row__art--fallback statistics-rank-row__art--genre"
-                    aria-hidden
+        <section className="surface-card statistics-section">
+          <div className="statistics-section__head">
+            <h3>{t("statistics.sectionAlbums")}</h3>
+          </div>
+          {data.topAlbums.length === 0 ? (
+            <p className="panel-empty statistics-section__empty">
+              {t("statistics.rankEmpty")}
+            </p>
+          ) : (
+            <ol className="statistics-rank-list">
+              {data.topAlbums.map((row, i) => (
+                <li key={row.al.id}>
+                  <button
+                    type="button"
+                    className="statistics-rank-row"
+                    aria-label={t("statistics.openInLibraryAria", {
+                      label: row.al.name,
+                    })}
+                    onClick={() => onOpenAlbum(row.al.artistId, row.al.name)}
                   >
-                    G
-                  </div>
-                  <div className="statistics-rank-row__text">
-                    <div className="statistics-rank-row__title">{row.label}</div>
-                  </div>
-                  <div className="statistics-rank-row__plays">
-                    {t("trackRow.playCount", { n: row.n })}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
+                    <span className="statistics-rank-row__pos">{i + 1}</span>
+                    <div className="statistics-rank-row__art statistics-rank-row__art--album">
+                      <AlbumCover album={row.al} compact />
+                    </div>
+                    <div className="statistics-rank-row__text">
+                      <div className="statistics-rank-row__title">
+                        {row.al.name}
+                      </div>
+                      <div className="statistics-rank-row__meta">
+                        {row.al.artist}
+                      </div>
+                    </div>
+                    <div className="statistics-rank-row__plays">
+                      {t("trackRow.playCount", { n: row.n })}
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
 
-      <section className="surface-card statistics-section statistics-section--overview">
-        <div className="statistics-section__head">
-          <h3>{t("statistics.sectionOverview")}</h3>
-        </div>
-        <div className="stats-grid statistics-overview-grid">
-          <div className="metric-card statistics-metric">
-            <span>{t("statistics.overviewTotalPlays")}</span>
-            <strong>{data.overview.totalPlays}</strong>
+        <section className="surface-card statistics-section statistics-section--genres">
+          <div className="statistics-section__head">
+            <h3>{t("statistics.sectionGenres")}</h3>
           </div>
-          <div className="metric-card statistics-metric">
-            <span>{t("statistics.overviewTracksWithPlays")}</span>
-            <strong>{data.overview.tracksWithPlays}</strong>
+          {data.topGenres.length === 0 ? (
+            <p className="panel-empty statistics-section__empty">
+              {t("statistics.genresEmpty")}
+            </p>
+          ) : (
+            <ol className="statistics-rank-list">
+              {data.topGenres.map((row, i) => (
+                <li key={row.key}>
+                  <div className="statistics-rank-row statistics-rank-row--static">
+                    <span className="statistics-rank-row__pos">{i + 1}</span>
+                    <div
+                      className="statistics-rank-row__art statistics-rank-row__art--fallback statistics-rank-row__art--genre"
+                      aria-hidden
+                    >
+                      G
+                    </div>
+                    <div className="statistics-rank-row__text">
+                      <div className="statistics-rank-row__title">
+                        {row.label}
+                      </div>
+                    </div>
+                    <div className="statistics-rank-row__plays">
+                      {t("trackRow.playCount", { n: row.n })}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+
+        <section className="surface-card statistics-section statistics-section--overview">
+          <div className="statistics-section__head">
+            <h3>{t("statistics.sectionOverview")}</h3>
           </div>
-          <div className="metric-card statistics-metric">
-            <span>{t("statistics.overviewArtistsTouched")}</span>
-            <strong>{data.overview.artistsTouched}</strong>
+          <div className="stats-grid statistics-overview-grid">
+            <div className="metric-card statistics-metric">
+              <span>{t("statistics.overviewTotalPlays")}</span>
+              <strong>{data.overview.totalPlays}</strong>
+            </div>
+            <div className="metric-card statistics-metric">
+              <span>{t("statistics.overviewTracksWithPlays")}</span>
+              <strong>{data.overview.tracksWithPlays}</strong>
+            </div>
+            <div className="metric-card statistics-metric">
+              <span>{t("statistics.overviewArtistsTouched")}</span>
+              <strong>{data.overview.artistsTouched}</strong>
+            </div>
+            <div className="metric-card statistics-metric">
+              <span>{t("statistics.overviewAlbumsTouched")}</span>
+              <strong>{data.overview.albumsTouched}</strong>
+            </div>
           </div>
-          <div className="metric-card statistics-metric">
-            <span>{t("statistics.overviewAlbumsTouched")}</span>
-            <strong>{data.overview.albumsTouched}</strong>
-          </div>
-        </div>
-      </section>
+        </section>
       </div>
     </div>
   );
@@ -2984,9 +2989,9 @@ function SettingsView({
   const [netBusy, setNetBusy] = useState(false);
   const [netErr, setNetErr] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<AccountsResponse | null>(null);
-  const [selectedAccountId, setSelectedAccountIdState] = useState<string | null>(
-    () => getSelectedAccountId()
-  );
+  const [selectedAccountId, setSelectedAccountIdState] = useState<
+    string | null
+  >(() => getSelectedAccountId());
   const [newAccountName, setNewAccountName] = useState("");
   const [newAccountPath, setNewAccountPath] = useState("");
   const [accountBusy, setAccountBusy] = useState(false);
@@ -3135,7 +3140,10 @@ function SettingsView({
                 <h2>{t("accounts.createHeading")}</h2>
               </div>
             </div>
-            <div className="row gap flex-wrap" style={{ alignItems: "flex-end" }}>
+            <div
+              className="row gap flex-wrap"
+              style={{ alignItems: "flex-end" }}
+            >
               <label className="flex1" style={{ minWidth: "10rem" }}>
                 <span className="sr-only">{t("accounts.newNameAria")}</span>
                 <input
@@ -3318,7 +3326,9 @@ function SettingsView({
           <p className="subtle sm">{t("settings.networkNoUrl")}</p>
         ) : null}
         {initialListenOnLan !== null && listenOnLan !== initialListenOnLan ? (
-          <p className="subtle sm warnline">{t("settings.networkRestartHint")}</p>
+          <p className="subtle sm warnline">
+            {t("settings.networkRestartHint")}
+          </p>
         ) : null}
       </section>
     </div>
@@ -3355,9 +3365,7 @@ function PlayerDock({
   const openListenFromTopBar = (event: ReactMouseEvent<HTMLDivElement>) => {
     const el = event.target as HTMLElement;
     if (
-      el.closest(
-        "button, input, .volume2, .player-bar2__byline, label.volume2"
-      )
+      el.closest("button, input, .volume2, .player-bar2__byline, label.volume2")
     ) {
       return;
     }
@@ -3406,9 +3414,7 @@ function PlayerDock({
                       type="button"
                       className="player-bar2__crumb"
                       title={t("player.openAlbumLibTitle")}
-                      onClick={() =>
-                        onOpenLibraryAlbum(cur.artist, cur.album)
-                      }
+                      onClick={() => onOpenLibraryAlbum(cur.artist, cur.album)}
                     >
                       {cur.album}
                     </button>
@@ -3824,114 +3830,116 @@ function Shell() {
       <AlbumMetaEditProvider onSaved={refresh}>
         <div className="app-shell">
           <div className="main-shell">
-          <header className="topbar2 topbar2--toolbar" role="banner">
-            <h1 className="sr-only">
-              {t(
-                NAV_DEF.find((item) => item.id === route.section)?.labelKey ||
-                  "nav.dashboard"
-              )}
-            </h1>
-            <div className="topbar2__row">
-              <div className="topbar2__start">
-                <div className="topbar2__brand">
-                  <KordWordmarkSvg className="kord-wordmark-svg kord-wordmark-svg--topbar" />
+            <header className="topbar2 topbar2--toolbar" role="banner">
+              <h1 className="sr-only">
+                {t(
+                  NAV_DEF.find((item) => item.id === route.section)?.labelKey ||
+                    "nav.dashboard"
+                )}
+              </h1>
+              <div className="topbar2__row">
+                <div className="topbar2__start">
+                  <div className="topbar2__brand">
+                    <KordWordmarkSvg className="kord-wordmark-svg kord-wordmark-svg--topbar" />
+                  </div>
+                  <nav className="topbar-nav" aria-label={t("topbar.navAria")}>
+                    <div className="topbar-nav__group">
+                      {NAV_DEF.filter((item) => item.group === "core").map(
+                        (item) => (
+                          <button
+                            type="button"
+                            key={item.id}
+                            className={`topbar-nav__btn ${
+                              route.section === item.id ? "is-active" : ""
+                            }`}
+                            onClick={() => navigate({ section: item.id })}
+                          >
+                            {t(item.labelKey)}
+                          </button>
+                        )
+                      )}
+                    </div>
+                    <span className="topbar-nav__sep" aria-hidden />
+                    <div className="topbar-nav__group">
+                      {NAV_DEF.filter((item) => item.group === "secondary").map(
+                        (item) => (
+                          <button
+                            type="button"
+                            key={item.id}
+                            className={`topbar-nav__btn ${
+                              route.section === item.id ? "is-active" : ""
+                            }`}
+                            onClick={() => navigate({ section: item.id })}
+                          >
+                            {t(item.labelKey)}
+                          </button>
+                        )
+                      )}
+                    </div>
+                  </nav>
                 </div>
-                <nav className="topbar-nav" aria-label={t("topbar.navAria")}>
-                  <div className="topbar-nav__group">
-                    {NAV_DEF.filter((item) => item.group === "core").map(
-                      (item) => (
-                        <button
-                          type="button"
-                          key={item.id}
-                          className={`topbar-nav__btn ${
-                            route.section === item.id ? "is-active" : ""
-                          }`}
-                          onClick={() => navigate({ section: item.id })}
-                        >
-                          {t(item.labelKey)}
-                        </button>
-                      )
-                    )}
-                  </div>
-                  <span className="topbar-nav__sep" aria-hidden />
-                  <div className="topbar-nav__group">
-                    {NAV_DEF.filter((item) => item.group === "secondary").map(
-                      (item) => (
-                        <button
-                          type="button"
-                          key={item.id}
-                          className={`topbar-nav__btn ${
-                            route.section === item.id ? "is-active" : ""
-                          }`}
-                          onClick={() => navigate({ section: item.id })}
-                        >
-                          {t(item.labelKey)}
-                        </button>
-                      )
-                    )}
-                  </div>
-                </nav>
-              </div>
-              <div className="topbar2__end">
-                {index ? (
-                  <p className="topbar2__kpi">
-                    {t("topbar.kpi", {
-                      art: index.stats.artistCount,
-                      alb: index.stats.albumCount,
-                      state: user.saving
-                        ? t("topbar.saving")
-                        : t("topbar.saved"),
-                    })}
-                  </p>
-                ) : null}
-                <label className="topbar2__search">
-                  <span className="sr-only">{t("topbar.searchAria")}</span>
-                  <input
-                    ref={searchInputRef}
-                    className="ghost-input ghost-input--search ghost-input--topbar"
-                    type="search"
-                    name="library-search"
-                    placeholder={t("topbar.searchPlaceholder")}
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    onFocus={ensureLibrarySectionForSearch}
-                    autoComplete="off"
-                    role="searchbox"
-                    aria-label={t("topbar.searchAria")}
-                  />
-                </label>
-                <div className="topbar2__refresh-wrap">
-                  {toolsActivity.toolsAnyBusy ? (
-                    <span
-                      className="topbar2__tools-spinner"
-                      role="status"
-                      aria-label={t("topbar.toolsBusyTitle")}
-                    />
+                <div className="topbar2__end">
+                  {index ? (
+                    <p className="topbar2__kpi">
+                      {t("topbar.kpi", {
+                        art: index.stats.artistCount,
+                        alb: index.stats.albumCount,
+                        state: user.saving
+                          ? t("topbar.saving")
+                          : t("topbar.saved"),
+                      })}
+                    </p>
                   ) : null}
-                  <button
-                    type="button"
-                    className="ghost-btn ghost-btn--toolbar"
-                    onClick={refresh}
-                    title={t("topbar.refreshTitle")}
-                  >
-                    {t("topbar.refresh")}
-                  </button>
+                  <label className="topbar2__search">
+                    <span className="sr-only">{t("topbar.searchAria")}</span>
+                    <input
+                      ref={searchInputRef}
+                      className="ghost-input ghost-input--search ghost-input--topbar"
+                      type="search"
+                      name="library-search"
+                      placeholder={t("topbar.searchPlaceholder")}
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      onFocus={ensureLibrarySectionForSearch}
+                      autoComplete="off"
+                      role="searchbox"
+                      aria-label={t("topbar.searchAria")}
+                    />
+                  </label>
+                  <div className="topbar2__refresh-wrap">
+                    {toolsActivity.toolsAnyBusy ? (
+                      <span
+                        className="topbar2__tools-spinner"
+                        role="status"
+                        aria-label={t("topbar.toolsBusyTitle")}
+                      />
+                    ) : null}
+                    <button
+                      type="button"
+                      className="ghost-btn ghost-btn--toolbar"
+                      onClick={refresh}
+                      title={t("topbar.refreshTitle")}
+                    >
+                      {t("topbar.refresh")}
+                    </button>
+                  </div>
+                  <AccountBadge
+                    onOpenSettings={() => navigate({ section: "settings" })}
+                  />
                 </div>
-                <AccountBadge
-                  onOpenSettings={() => navigate({ section: "settings" })}
-                />
               </div>
-            </div>
-          </header>
+            </header>
 
-          {error && index ? <div className="inline-banner">{error}</div> : null}
-          {user.error ? (
-            <div className="inline-banner">
-              {t("persist.banner")} {user.error}
-            </div>
-          ) : null}
+            {error && index ? (
+              <div className="inline-banner">{error}</div>
+            ) : null}
+            {user.error ? (
+              <div className="inline-banner">
+                {t("persist.banner")} {user.error}
+              </div>
+            ) : null}
 
-          <main className="content-shell">{currentView}</main>
+            <main className="content-shell">{currentView}</main>
           </div>
 
           <PlayerDock

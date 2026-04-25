@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kord Client</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        background: radial-gradient(120% 80% at 50% 0%, #1a2330 0%, #0b0e14 45%, #080a0d 100%);
+        color: #e8ebf0;
+        -webkit-font-smoothing: antialiased;
+      }
+      .card {
+        width: 100%;
+        max-width: 20rem;
+        padding: 1.75rem 1.5rem 1.5rem;
+        border-radius: 16px;
+        background: rgba(18, 22, 30, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+      }
+      .brand {
+        text-align: center;
+        margin-bottom: 1.35rem;
+      }
+      .brand span {
+        display: block;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: #5c6b82;
+        margin-bottom: 0.35rem;
+      }
+      .brand h1 {
+        margin: 0;
+        font-size: 1.2rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        color: #f0f2f6;
+      }
+      label {
+        display: block;
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #7d8a9a;
+        margin-bottom: 0.4rem;
+      }
+      input,
+      select {
+        width: 100%;
+        padding: 0.58rem 0.7rem;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(6, 8, 12, 0.6);
+        color: #e8ebf0;
+        font-size: 0.9rem;
+        outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+      }
+      input::placeholder {
+        color: #4a5567;
+      }
+      input:focus,
+      select:focus {
+        border-color: rgba(100, 140, 255, 0.45);
+        box-shadow: 0 0 0 2px rgba(100, 140, 255, 0.12);
+      }
+      .row {
+        margin-bottom: 1rem;
+      }
+      .row.split {
+        display: grid;
+        grid-template-columns: 1fr 5.5rem;
+        gap: 0.65rem;
+        align-items: end;
+      }
+      .row.split .field {
+        min-width: 0;
+      }
+      .row:last-of-type {
+        margin-bottom: 0;
+      }
+      .err {
+        margin: 0.75rem 0 0;
+        padding: 0.5rem 0.55rem;
+        border-radius: 8px;
+        background: rgba(200, 80, 80, 0.12);
+        border: 1px solid rgba(200, 100, 100, 0.2);
+        color: #f0a8a8;
+        font-size: 0.8rem;
+        line-height: 1.35;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .err.hidden,
+      .row.hidden,
+      .actions.hidden,
+      .btn.open.hidden {
+        display: none;
+      }
+      .actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-top: 1.1rem;
+      }
+      button {
+        width: 100%;
+        border: none;
+        border-radius: 10px;
+        padding: 0.6rem 1rem;
+        font-size: 0.86rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: opacity 0.15s, transform 0.05s;
+      }
+      button:active:not(:disabled) {
+        transform: scale(0.99);
+      }
+      .btn {
+        background: linear-gradient(165deg, #4f7dff, #2e58d0);
+        color: #fff;
+        box-shadow: 0 4px 18px rgba(50, 100, 220, 0.25);
+      }
+      .btn:disabled {
+        opacity: 0.38;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+      .btn.open {
+        background: linear-gradient(165deg, #3a7a5c, #2a5a45);
+        box-shadow: 0 4px 18px rgba(40, 120, 80, 0.2);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card" role="main">
+      <div class="brand">
+        <span>Kord</span>
+        <h1>Connetti</h1>
+      </div>
+      <div class="row split">
+        <div class="field">
+          <label for="host">IP o hostname</label>
+          <input
+            id="host"
+            type="text"
+            value="192.168.1.100"
+            placeholder="192.168.1.100"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+        <div class="field">
+          <label for="port">Porta</label>
+          <input
+            id="port"
+            type="text"
+            inputmode="numeric"
+            value="3001"
+            placeholder="3001"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+      </div>
+      <div class="row hidden" id="accounts-wrap">
+        <label for="acc">Account</label>
+        <select id="acc"></select>
+      </div>
+      <p class="err hidden" id="err" aria-live="polite"></p>
+      <div class="actions" id="actions-1">
+        <button type="button" class="btn" id="btn-probe" disabled>Connetti</button>
+        <button type="button" class="btn open hidden" id="btn-open" disabled>Apri</button>
+      </div>
+    </div>
+    <script>
+      if (!window.kordClientConnect) {
+        document.body.innerHTML =
+          "<div class=card style=max-width:20rem><p style=color:#e89090;margin:0>Usa l’eseguibile <strong>Kord Client</strong>.</p></div>";
+        throw new Error("no bridge");
+      }
+      const E = (id) => document.getElementById(id);
+      const hostIn = E("host");
+      const portIn = E("port");
+      const accSel = E("acc");
+      const errEl = E("err");
+      const accountsWrap = E("accounts-wrap");
+      const btnProbe = E("btn-probe");
+      const btnOpen = E("btn-open");
+      let lastBase = "";
+
+      function showErr(m) {
+        if (!m) {
+          errEl.classList.add("hidden");
+          errEl.textContent = "";
+        } else {
+          errEl.classList.remove("hidden");
+          errEl.textContent = m;
+        }
+      }
+
+      function parseBaseUrl(str) {
+        if (!str || !String(str).trim()) return null;
+        const t = String(str).trim().replace(/\/+$/, "");
+        const withP = /^https?:\/\//i.test(t) ? t : `http://${t}`;
+        try {
+          const u = new URL(withP);
+          return { h: u.hostname, p: u.port || "3001" };
+        } catch {
+          return null;
+        }
+      }
+
+      function buildRaw() {
+        const h = hostIn.value.trim();
+        const ps = portIn.value.trim();
+        if (!h || !ps) return "";
+        if (!/^\d{1,5}$/.test(ps)) return "";
+        const n = parseInt(ps, 10);
+        if (n < 1 || n > 65535) return "";
+        return `${h}:${n}`;
+      }
+
+      function updateProbeButton() {
+        const raw = buildRaw();
+        btnProbe.disabled = !raw;
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const fromUrl = params.get("base");
+      if (fromUrl) {
+        const p = parseBaseUrl(decodeURIComponent(fromUrl));
+        if (p) {
+          hostIn.value = p.h;
+          portIn.value = p.p;
+        }
+      }
+      if (!fromUrl) {
+        hostIn.value = "192.168.1.100";
+        portIn.value = "3001";
+      }
+
+      [hostIn, portIn].forEach((el) => {
+        el.addEventListener("input", () => {
+          updateProbeButton();
+          showErr("");
+          accountsWrap.classList.add("hidden");
+          btnOpen.classList.add("hidden");
+        });
+      });
+      updateProbeButton();
+
+      window.kordClientConnect
+        .getSaved()
+        .then((s) => {
+          if (s && s.baseUrl && !fromUrl) {
+            const p = parseBaseUrl(s.baseUrl);
+            if (p) {
+              hostIn.value = p.h;
+              portIn.value = p.p;
+            }
+            updateProbeButton();
+          }
+        })
+        .catch(() => {});
+
+      btnProbe.addEventListener("click", async () => {
+        showErr("");
+        btnProbe.disabled = true;
+        const raw = buildRaw();
+        if (!raw) {
+          if (!hostIn.value.trim()) showErr("Inserisci un indirizzo IP o hostname.");
+          else if (!portIn.value.trim() || !/^\d+$/.test(portIn.value.trim()))
+            showErr("Inserisci un numero di porta (es. 3001).");
+          else
+            showErr("Porta non valida (usa 1–65535, senza http://).");
+          btnProbe.disabled = false;
+          updateProbeButton();
+          return;
+        }
+        const r = await window.kordClientConnect.probe(raw);
+        btnProbe.disabled = false;
+        if (!r || !r.ok) {
+          showErr((r && r.error) || "Connessione non riuscita.");
+          return;
+        }
+        lastBase = r.baseUrl;
+        const snap = r.accounts;
+        if (!snap || !Array.isArray(snap.accounts) || !snap.accounts.length) {
+          showErr("Nessun account sul server.");
+          return;
+        }
+        accSel.innerHTML = "";
+        for (const a of snap.accounts) {
+          const o = document.createElement("option");
+          o.value = a.id;
+          o.textContent = a.name;
+          accSel.appendChild(o);
+        }
+        if (snap.defaultAccountId) {
+          accSel.value = snap.defaultAccountId;
+        }
+        accountsWrap.classList.remove("hidden");
+        btnOpen.classList.remove("hidden");
+        btnOpen.disabled = false;
+      });
+
+      btnOpen.addEventListener("click", async () => {
+        if (!lastBase) return;
+        const id = accSel.value;
+        if (!id) return;
+        showErr("");
+        btnOpen.disabled = true;
+        const r = await window.kordClientConnect.join(lastBase, id);
+        btnOpen.disabled = false;
+        if (!r || !r.ok) {
+          showErr((r && r.error) || "Impossibile aprire.");
+        }
+      });
+    </script>
+  </body>
+</html>
