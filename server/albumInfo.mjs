@@ -131,6 +131,7 @@ export async function loadAlbumJsonMetaFromDir(albumDir) {
     const j = JSON.parse(raw)
     if (!j || typeof j !== "object") return null
     return {
+      title: j.title || j.name || null,
       releaseDate: j.date || j.releaseDate || null,
       label: j.label || null,
       country: j.country || null,
@@ -170,6 +171,46 @@ export async function loadTrackJsonMetaMapFromDir(albumDir) {
   } catch {
     return {}
   }
+}
+
+export async function saveAlbumManualMeta(albumDir, patch) {
+  const readPath = pickAlbumMetaPath(albumDir)
+  const writePath = path.join(albumDir, FILE_ALBUM)
+  let json = {}
+  if (existsSync(readPath)) {
+    try {
+      const raw = await fs.readFile(readPath, "utf8")
+      const j = JSON.parse(raw)
+      if (j && typeof j === "object") json = j
+    } catch {
+      json = {}
+    }
+  }
+  const next = { ...json }
+  const str = (v, max) => {
+    if (v == null) return null
+    const s = String(v).trim()
+    return s ? s.slice(0, max) : null
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "title")) {
+    next.title = str(patch.title, 500)
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "releaseDate")) {
+    next.releaseDate = str(patch.releaseDate, 64)
+    next.date = next.releaseDate
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "label")) {
+    next.label = str(patch.label, 300)
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "country")) {
+    next.country = str(patch.country, 64)
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "musicbrainzReleaseId")) {
+    next.musicbrainzReleaseId = str(patch.musicbrainzReleaseId, 200)
+  }
+  next.editedAt = new Date().toISOString()
+  await fs.writeFile(writePath, JSON.stringify(next, null, 2), "utf8")
+  return next
 }
 
 /**

@@ -10,6 +10,7 @@ import {
 } from "react";
 import { fetchUserState, saveUserState } from "../lib/api";
 import { fmtDate } from "../lib/metaFormat";
+import { randomUUID } from "../lib/randomUUID";
 import {
   APP_LOCALES,
   THEME_MODES,
@@ -243,6 +244,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
   const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
   const dirtyRef = useRef(false);
   const hydratedRef = useRef(false);
+  const saveSeqRef = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -274,8 +276,10 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
     if (!ready || !hydratedRef.current || !dirtyRef.current) return;
     const timer = window.setTimeout(() => {
       setSaving(true);
+      const seq = ++saveSeqRef.current;
       saveUserState(state)
         .then((next) => {
+          if (seq !== saveSeqRef.current) return;
           setState(normalizeUserState(next));
           setError(null);
           dirtyRef.current = false;
@@ -283,7 +287,9 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
         .catch((err: unknown) => {
           setError(String(err));
         })
-        .finally(() => setSaving(false));
+        .finally(() => {
+          if (seq === saveSeqRef.current) setSaving(false);
+        });
     }, 240);
     return () => window.clearTimeout(timer);
   }, [ready, state]);
@@ -297,10 +303,41 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       state.settings.locale === "it" ? "it" : "en";
   }, [state.settings.locale]);
 
-  const commit = useCallback((updater: (prev: UserStateV1) => UserStateV1) => {
-    dirtyRef.current = true;
-    setState((prev) => updater(prev));
+  const persistNow = useCallback((next: UserStateV1) => {
+    const seq = ++saveSeqRef.current;
+    setSaving(true);
+    saveUserState(next)
+      .then((saved) => {
+        if (seq !== saveSeqRef.current) return;
+        setState(normalizeUserState(saved));
+        setError(null);
+        dirtyRef.current = false;
+      })
+      .catch((err: unknown) => {
+        if (seq !== saveSeqRef.current) return;
+        setError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (seq === saveSeqRef.current) setSaving(false);
+      });
   }, []);
+
+  const commit = useCallback(
+    (
+      updater: (prev: UserStateV1) => UserStateV1,
+      options?: { immediate?: boolean }
+    ) => {
+      dirtyRef.current = true;
+      setState((prev) => {
+        const next = updater(prev);
+        if (options?.immediate) {
+          window.setTimeout(() => persistNow(next), 0);
+        }
+        return next;
+      });
+    },
+    [persistNow]
+  );
 
   const toggleFavorite = useCallback(
     (relPath: string) => {
@@ -403,18 +440,21 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
 
   const createPlaylist = useCallback(
     (name: string) => {
-      const id = crypto.randomUUID();
-      commit((prev) => ({
-        ...prev,
-        playlists: [
-          ...prev.playlists,
-          {
-            id,
-            name: name.trim() || "New playlist",
-            tracks: [],
-          },
-        ],
-      }));
+      const id = randomUUID();
+      commit(
+        (prev) => ({
+          ...prev,
+          playlists: [
+            ...prev.playlists,
+            {
+              id,
+              name: name.trim() || "New playlist",
+              tracks: [],
+            },
+          ],
+        }),
+        { immediate: true }
+      );
       setSelectedPlaylist(id);
       return id;
     },
@@ -423,24 +463,30 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
 
   const renamePlaylist = useCallback(
     (id: string, name: string) => {
-      commit((prev) => ({
-        ...prev,
-        playlists: prev.playlists.map((playlist) =>
-          playlist.id === id
-            ? { ...playlist, name: name.trim() || playlist.name }
-            : playlist
-        ),
-      }));
+      commit(
+        (prev) => ({
+          ...prev,
+          playlists: prev.playlists.map((playlist) =>
+            playlist.id === id
+              ? { ...playlist, name: name.trim() || playlist.name }
+              : playlist
+          ),
+        }),
+        { immediate: true }
+      );
     },
     [commit]
   );
 
   const deletePlaylist = useCallback(
     (id: string) => {
-      commit((prev) => ({
-        ...prev,
-        playlists: prev.playlists.filter((playlist) => playlist.id !== id),
-      }));
+      commit(
+        (prev) => ({
+          ...prev,
+          playlists: prev.playlists.filter((playlist) => playlist.id !== id),
+        }),
+        { immediate: true }
+      );
       setSelectedPlaylist((current) => (current === id ? null : current));
     },
     [commit]
@@ -448,72 +494,80 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
 
   const addTrackToPlaylist = useCallback(
     (id: string, track: EnrichedTrack) => {
-      commit((prev) => ({
-        ...prev,
-        playlists: prev.playlists.map((playlist) =>
-          playlist.id !== id
-            ? playlist
-            : {
-                ...playlist,
-                tracks: playlist.tracks.some(
-                  (item) => item.relPath === track.relPath
-                )
-                  ? playlist.tracks
-                  : [
-                      ...playlist.tracks,
-                      {
-                        relPath: track.relPath,
-                        title: track.title,
-                        artist: track.artist,
-                        album: track.album,
-                      },
-                    ],
-              }
-        ),
-      }));
+      commit(
+        (prev) => ({
+          ...prev,
+          playlists: prev.playlists.map((playlist) =>
+            playlist.id !== id
+              ? playlist
+              : {
+                  ...playlist,
+                  tracks: playlist.tracks.some(
+                    (item) => item.relPath === track.relPath
+                  )
+                    ? playlist.tracks
+                    : [
+                        ...playlist.tracks,
+                        {
+                          relPath: track.relPath,
+                          title: track.title,
+                          artist: track.artist,
+                          album: track.album,
+                        },
+                      ],
+                }
+          ),
+        }),
+        { immediate: true }
+      );
     },
     [commit]
   );
 
   const removeTrackFromPlaylist = useCallback(
     (id: string, relPath: string) => {
-      commit((prev) => ({
-        ...prev,
-        playlists: prev.playlists.map((playlist) =>
-          playlist.id === id
-            ? {
-                ...playlist,
-                tracks: playlist.tracks.filter(
-                  (track) => track.relPath !== relPath
-                ),
-              }
-            : playlist
-        ),
-      }));
+      commit(
+        (prev) => ({
+          ...prev,
+          playlists: prev.playlists.map((playlist) =>
+            playlist.id === id
+              ? {
+                  ...playlist,
+                  tracks: playlist.tracks.filter(
+                    (track) => track.relPath !== relPath
+                  ),
+                }
+              : playlist
+          ),
+        }),
+        { immediate: true }
+      );
     },
     [commit]
   );
 
   const saveQueueAsPlaylist = useCallback(
     (name: string, queue: EnrichedTrack[]) => {
-      const id = crypto.randomUUID();
-      commit((prev) => ({
-        ...prev,
-        playlists: [
-          ...prev.playlists,
-          {
-            id,
-            name:
-              name.trim() || `Queue ${fmtDate(new Date())}`,
-            tracks: queue.map((track) => ({
-              relPath: track.relPath,
-              title: track.title,
-              artist: track.artist,
-              album: track.album,
-            })),
-          },
-        ],
-      }));
+      const id = randomUUID();
+      commit(
+        (prev) => ({
+          ...prev,
+          playlists: [
+            ...prev.playlists,
+            {
+              id,
+              name: name.trim() || `Queue ${fmtDate(new Date())}`,
+              tracks: queue.map((track) => ({
+                relPath: track.relPath,
+                title: track.title,
+                artist: track.artist,
+                album: track.album,
+              })),
+            },
+          ],
+        }),
+        { immediate: true }
+      );
       setSelectedPlaylist(id);
       return id;
     },

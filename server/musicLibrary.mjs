@@ -64,14 +64,15 @@ function albumKey(artistName, albumName) {
 
 function trackFromFile({
   artistName,
-  albumName,
+  albumFolderName,
+  albumDisplayName,
   fileName,
   fullPath,
   trackMeta,
   albumMeta,
   loose,
 }) {
-  const relPath = relify([artistName, albumName, fileName])
+  const relPath = relify([artistName, albumFolderName, fileName])
   const fromFile = fileName.replace(AUDIO, "").trim() || fileName
   const tOverride =
     trackMeta?.title && String(trackMeta.title).trim()
@@ -85,8 +86,8 @@ function trackFromFile({
     title,
     relPath,
     artist: artistName,
-    album: albumName,
-    albumId: albumKey(artistName, albumName),
+    album: albumDisplayName || albumFolderName,
+    albumId: albumKey(artistName, albumFolderName),
     meta: {
       fileName,
       size: numOrNull(st.size),
@@ -118,7 +119,11 @@ function getCoverForAlbumDir(albumDir, albumRelPath) {
   return null
 }
 
-async function readAlbumTracks(artistName, albumName, albumDir, albumMeta) {
+async function readAlbumTracks(artistName, albumFolderName, albumDir, albumMeta) {
+  const albumDisplayName =
+    albumMeta?.title && String(albumMeta.title).trim()
+      ? String(albumMeta.title).trim()
+      : albumFolderName
   const trackMetaMap = await loadTrackJsonMetaMapFromDir(albumDir)
   const entries = await fs.readdir(albumDir, { withFileTypes: true })
   const tracks = []
@@ -127,7 +132,8 @@ async function readAlbumTracks(artistName, albumName, albumDir, albumMeta) {
     tracks.push(
       trackFromFile({
         artistName,
-        albumName,
+        albumFolderName,
+        albumDisplayName,
         fileName: entry.name,
         fullPath: path.join(albumDir, entry.name),
         trackMeta: trackMetaMap?.[entry.name] || null,
@@ -154,7 +160,8 @@ async function readLooseTracks(artistName, artistDir) {
     tracks.push(
       trackFromFile({
         artistName,
-        albumName: "Tracce",
+        albumFolderName: "Tracce",
+        albumDisplayName: "Tracce",
         fileName: entry.name,
         fullPath: path.join(artistDir, entry.name),
         trackMeta: null,
@@ -192,6 +199,10 @@ export async function buildLibraryIndex(musicRoot) {
       if (!sub.isDirectory() || sub.name.startsWith(".")) continue
       const albumDir = path.join(artistDir, sub.name)
       const albumMeta = await loadAlbumJsonMetaFromDir(albumDir)
+      const albumDisplayName =
+        albumMeta?.title && String(albumMeta.title).trim()
+          ? String(albumMeta.title).trim()
+          : sub.name
       const albumTracks = await readAlbumTracks(entry.name, sub.name, albumDir, albumMeta)
       if (!albumTracks.length) continue
       const albumRelPath = relify([entry.name, sub.name])
@@ -201,10 +212,11 @@ export async function buildLibraryIndex(musicRoot) {
         id: albumKey(entry.name, sub.name),
         artistId: entry.name,
         artist: entry.name,
-        name: sub.name,
+        name: albumDisplayName,
         relPath: albumRelPath,
         trackCount: albumTracks.length,
         coverRelPath,
+        title: albumMeta?.title || null,
         releaseDate: albumMeta?.releaseDate || null,
         label: albumMeta?.label || null,
         country: albumMeta?.country || null,
@@ -315,6 +327,7 @@ export function toLegacyLibrary(index) {
         .map((album) => ({
           id: album.loose ? "__loose__" : album.name,
           name: album.name,
+          relPath: album.relPath,
           trackCount: album.trackCount,
           tracks: album.tracks
             .map((relPath) => index.tracks.find((track) => track.relPath === relPath))

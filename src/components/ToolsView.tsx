@@ -203,7 +203,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
         if (al.id === "__loose__") continue
         o.push({
           label: `${a.name} — ${al.name}`,
-          value: `${a.name}/${al.name}`,
+          value: al.relPath || `${a.name}/${al.name}`,
           releaseDate: al.meta?.releaseDate || "",
         })
       }
@@ -240,7 +240,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
       for (const al of a.albums) {
         if (al.id === "__loose__") continue
         o.push({
-          value: `${a.name}/${al.name}`,
+          value: al.relPath || `${a.name}/${al.name}`,
           label: `${a.name} — ${al.name}`,
           artist: a.name,
           album: al.name,

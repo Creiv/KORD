@@ -34,6 +34,10 @@ import { buildGenreCoverPreviewMap } from "./lib/genreCovers";
 import { fmtDate, trackInfoBadges } from "./lib/metaFormat";
 import { ExcludeShuffleIcon } from "./components/ExcludeShuffleIcon";
 import {
+  AlbumMetaEditProvider,
+  useOpenAlbumMetaEdit,
+} from "./components/AlbumMetaEditor";
+import {
   TrackMetaEditGlyph,
   TrackMetaEditProvider,
   useOpenTrackMetaEdit,
@@ -200,6 +204,7 @@ function clientLegacyLibrary(
         .map((album) => ({
           id: album.loose ? "__loose__" : album.name,
           name: album.name,
+          relPath: album.relPath,
           trackCount: album.trackCount,
           hasAlbumMeta: album.hasAlbumMeta,
           tracks: album.tracks
@@ -219,6 +224,7 @@ function clientLegacyLibrary(
           album.musicbrainzReleaseId
             ? {
                 meta: {
+                  title: album.title,
                   releaseDate: album.releaseDate,
                   label: album.label,
                   country: album.country,
@@ -1374,6 +1380,7 @@ function LibraryView({
   const p = usePlayer();
   const user = useUserState();
   const { t, sortLocale } = useI18n();
+  const openAlbumMetaEdit = useOpenAlbumMetaEdit();
   const { libBrowse, libOverviewSort, artistAlbumSort } = user.state.settings;
   const [mode, setMode] = useState<"all" | "artists" | "albums" | "tracks">(
     "all"
@@ -1871,6 +1878,13 @@ function LibraryView({
                       }
                     >
                       {t("library.playAlbum")}
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-btn"
+                      onClick={() => openAlbumMetaEdit(album)}
+                    >
+                      {t("albumMeta.editButton")}
                     </button>
                     <button
                       type="button"
@@ -3751,8 +3765,9 @@ function Shell() {
 
   return (
     <TrackMetaEditProvider genreOptions={libraryGenreOptions} onSaved={refresh}>
-      <div className="app-shell">
-        <div className="main-shell">
+      <AlbumMetaEditProvider onSaved={refresh}>
+        <div className="app-shell">
+          <div className="main-shell">
           <header className="topbar2 topbar2--toolbar" role="banner">
             <h1 className="sr-only">
               {t(
@@ -3861,18 +3876,19 @@ function Shell() {
           ) : null}
 
           <main className="content-shell">{currentView}</main>
-        </div>
+          </div>
 
-        <PlayerDock
-          onGoToAscolta={() => navigate({ section: "ascolta" })}
-          onOpenLibraryArtist={(artist) =>
-            navigate({ section: "libreria", artist, album: null })
-          }
-          onOpenLibraryAlbum={(artist, album) =>
-            navigate({ section: "libreria", artist, album })
-          }
-        />
-      </div>
+          <PlayerDock
+            onGoToAscolta={() => navigate({ section: "ascolta" })}
+            onOpenLibraryArtist={(artist) =>
+              navigate({ section: "libreria", artist, album: null })
+            }
+            onOpenLibraryAlbum={(artist, album) =>
+              navigate({ section: "libreria", artist, album })
+            }
+          />
+        </div>
+      </AlbumMetaEditProvider>
     </TrackMetaEditProvider>
   );
 }

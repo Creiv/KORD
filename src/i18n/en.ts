@@ -42,6 +42,15 @@ export const EN: Record<string, string> = {
   "trackMeta.fieldGenre": "Genre",
   "trackMeta.fieldGenreHint":
     "Type any genre or pick one already used in your library.",
+  "albumMeta.editButton": "Edit album",
+  "albumMeta.editEyebrow": "kord-albuminfo",
+  "albumMeta.editHeading": "Edit album data",
+  "albumMeta.editHint":
+    "Saved next to the audio files (kord-albuminfo.json). The name changes only in KORD; the folder is not renamed.",
+  "albumMeta.fieldTitle": "Album name",
+  "albumMeta.fieldReleaseDate": "Release date",
+  "albumMeta.fieldLabel": "Label",
+  "albumMeta.fieldCountry": "Country",
   "trackRow.editMetaTitle": "Edit track metadata",
   "trackRow.editMetaAria": "Edit track metadata",
   "trackRow.removeQueueTitle": "Remove from queue",

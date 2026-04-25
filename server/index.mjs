@@ -23,6 +23,7 @@ import {
   fetchReleaseMetadata,
   fetchTrackMetadata,
   prepareTrackTitleForMeta,
+  saveAlbumManualMeta,
   sanitizeTrackTitlesFullLibrary,
   sanitizeTrackTitlesInAlbumDir,
   saveTrackManualMeta,
@@ -595,6 +596,37 @@ app.post("/api/album-info/fetch", async (req, res) => {
     delete payload.error
     await fs.writeFile(path.join(full, "kord-albuminfo.json"), JSON.stringify(payload, null, 2), "utf8")
     return res.json({ ok: true, albumPath, meta: payload })
+  } catch (error) {
+    return sendError(res, 500, String(error?.message || error))
+  }
+})
+
+app.post("/api/album-info/save", async (req, res) => {
+  const root = musicRootFromReq(req)
+  const albumPath = safeRelSeg(String(req.body?.albumPath || ""))
+  const patch = req.body?.patch
+  if (!albumPath) return sendError(res, 400, "albumPath is required")
+  if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+    return sendError(res, 400, "patch object is required")
+  }
+  try {
+    const full = path.join(root, albumPath.replaceAll("/", path.sep))
+    if (!underRoot(full, root) || !existsSync(full)) return sendError(res, 400, "Folder does not exist")
+    if (!statSync(full).isDirectory()) return sendError(res, 400, "Not a directory")
+    const allowed = [
+      "title",
+      "releaseDate",
+      "label",
+      "country",
+      "musicbrainzReleaseId",
+    ]
+    const safe = {}
+    for (const k of allowed) {
+      if (Object.prototype.hasOwnProperty.call(patch, k)) safe[k] = patch[k]
+    }
+    if (!Object.keys(safe).length) return sendError(res, 400, "No valid fields in patch")
+    const meta = await saveAlbumManualMeta(full, safe)
+    return sendOk(res, { albumPath, meta })
   } catch (error) {
     return sendError(res, 500, String(error?.message || error))
   }

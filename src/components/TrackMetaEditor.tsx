@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- hook + provider */
 import {
   createContext,
   useCallback,
@@ -67,11 +68,14 @@ function TrackMetaEditorModal({
 
   useEffect(() => {
     if (!track) return;
-    const m = track.meta;
-    setTitle(track.title);
-    setReleaseDate(toDateInputValue(m?.releaseDate ?? null));
-    setGenre(m?.genre?.trim() ?? "");
-    setErr(null);
+    const timer = window.setTimeout(() => {
+      const m = track.meta;
+      setTitle(track.title);
+      setReleaseDate(toDateInputValue(m?.releaseDate ?? null));
+      setGenre(m?.genre?.trim() ?? "");
+      setErr(null);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [track]);
 
   const submit = useCallback(

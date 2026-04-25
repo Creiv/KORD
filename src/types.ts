@@ -20,6 +20,7 @@ export type LibTrack = {
   meta?: TrackMeta;
 };
 export type AlbumMeta = {
+  title?: string | null;
   releaseDate: string | null;
   label: string | null;
   country: string | null;
@@ -29,6 +30,7 @@ export type AlbumMeta = {
 export type LibAlbum = {
   id: string;
   name: string;
+  relPath?: string;
   trackCount: number;
   tracks: LibTrack[];
   meta?: AlbumMeta;
@@ -125,6 +127,7 @@ export type LibraryAlbumIndex = {
   artistId: string;
   artist: string;
   name: string;
+  title?: string | null;
   relPath: string;
   trackCount: number;
   coverRelPath: string | null;

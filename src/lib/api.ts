@@ -131,7 +131,7 @@ export async function fetchUserState(): Promise<UserStateV1> {
 }
 
 export async function saveUserState(state: UserStateV1): Promise<UserStateV1> {
-  const response = await fetch("/api/user-state", {
+  const response = await fetch(apiUrl("/api/user-state"), {
     method: "PUT",
     headers: accountHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ state }),
@@ -413,12 +413,20 @@ export async function createMusicSubdir(
 
 export type FetchedAlbumMeta = {
   ok: boolean
+  title?: string | null
   musicbrainzReleaseId?: string
-  title?: string
   date: string | null
   country: string | null
   label: string | null
   fetchedAt?: string
+}
+
+export type AlbumMetaSavePatch = {
+  title?: string | null
+  releaseDate?: string | null
+  label?: string | null
+  country?: string | null
+  musicbrainzReleaseId?: string | null
 }
 
 export type FetchedTrackMeta = {
@@ -452,6 +460,21 @@ export async function fetchAlbumInfo(
       "error" in json ? json.error || "Failed to fetch album metadata" : "Failed to fetch album metadata",
     )
   return json as { ok: true; albumPath: string; meta: FetchedAlbumMeta }
+}
+
+export async function saveAlbumInfoManual(
+  albumPath: string,
+  patch: AlbumMetaSavePatch,
+): Promise<{ albumPath: string; meta: Record<string, unknown> }> {
+  const response = await fetch("/api/album-info/save", {
+    method: "POST",
+    headers: accountHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ albumPath, patch }),
+  })
+  const data = await unwrap<{ albumPath: string; meta: Record<string, unknown> }>(
+    response,
+  )
+  return data
 }
 
 export async function fetchTrackInfo(
