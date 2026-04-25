@@ -105,6 +105,8 @@ export const IT: Record<string, string> = {
     "{{n}} brano/i esclusi dal random intelligente",
   "library.noTracksExcludedAlbum":
     "Nessun brano escluso singolarmente dal random",
+  "library.nTracksBlockedByAlbumExclusion":
+    "{{n}} brani colpiti (album intero escluso dal random)",
   "library.unitAlbum": "album",
   "library.unitAlbumPlural": "album",
   "library.unitTrack": "brano",

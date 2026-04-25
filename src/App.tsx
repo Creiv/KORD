@@ -52,10 +52,8 @@ import {
   getExcludedAlbums,
   getExcludedTracks,
   getTrackExclusionEpoch,
-  setTracksShuffleExcluded,
+  isTrackAlbumShuffleExcluded,
   subscribeTrackExclusionEpoch,
-  toggleExcludedAlbum,
-  toggleExcludedTrack,
 } from "./lib/randomExclusions";
 import { buildSmartRandomQueue } from "./lib/smartShuffle";
 import {
@@ -313,8 +311,11 @@ function TrackListRow({
     getTrackExclusionEpoch,
     getTrackExclusionEpoch
   );
-  const albumShuffleKey = `${track.artist}/${track.album}`;
-  const albumShuffleExcluded = getExcludedAlbums().has(albumShuffleKey);
+  const exAlbums = getExcludedAlbums();
+  const albumShuffleExcluded = isTrackAlbumShuffleExcluded(
+    track,
+    exAlbums
+  );
   const trackShuffleExcluded = getExcludedTracks().has(track.relPath);
   const shuffleExcluded = albumShuffleExcluded || trackShuffleExcluded;
   const inQ = p.isTrackInQueue(track.relPath);
@@ -416,7 +417,7 @@ function TrackListRow({
           }
           onClick={() => {
             if (albumShuffleExcluded) return;
-            toggleExcludedTrack(track.relPath);
+            user.toggleShuffleExcludedTrack(track.relPath);
           }}
           aria-pressed={shuffleExcluded}
           aria-label={
@@ -551,7 +552,7 @@ function LibraryAlbumMetaChips({
 }
 
 function albumExclusionKey(album: LibraryAlbumIndex) {
-  return `${album.artist}/${album.name}`;
+  return album.id;
 }
 
 function tracksInGenreByKey(
@@ -721,9 +722,16 @@ function LibraryArtistExcludeChips({
     const al = index.albums.find((a) => a.id === aid);
     if (al && excludedAlbums.has(albumExclusionKey(al))) nAl += 1;
   }
-  const nTr = index.tracks.filter(
-    (t) => t.artist === artist.name && excludedTracks.has(t.relPath)
-  ).length;
+  let nTrackBlocked = 0;
+  for (const t of index.tracks) {
+    if (t.artist !== artist.name) continue;
+    const al = index.albums.find((a) => a.id === t.albumId);
+    if (al && excludedAlbums.has(albumExclusionKey(al))) {
+      nTrackBlocked += 1;
+      continue;
+    }
+    if (excludedTracks.has(t.relPath)) nTrackBlocked += 1;
+  }
   return (
     <div
       className="lib-meta-badges lib-meta-badges--tight"
@@ -743,16 +751,16 @@ function LibraryArtistExcludeChips({
       </span>
       <span
         className={`lib-meta-chip lib-meta-chip--exclude${
-          nTr > 0 ? " lib-meta-chip--on" : ""
+          nTrackBlocked > 0 ? " lib-meta-chip--on" : ""
         }`}
         title={
-          nTr > 0
-            ? t("library.nTracksExcluded", { n: nTr })
+          nTrackBlocked > 0
+            ? t("library.nTracksExcluded", { n: nTrackBlocked })
             : t("library.noTracksExcluded")
         }
       >
         <ExcludeShuffleIcon className="lib-meta-chip__exclude-icon" />
-        {nTr > 0 ? nTr : null}
+        {nTrackBlocked > 0 ? nTrackBlocked : null}
       </span>
     </div>
   );
@@ -846,7 +854,8 @@ function LibraryAlbumExcludeChips({
   const excludedTracks = getExcludedTracks();
   const key = albumExclusionKey(album);
   const fullAl = excludedAlbums.has(key);
-  const nTr = album.tracks.filter((rel) => excludedTracks.has(rel)).length;
+  const nTrIndiv = album.tracks.filter((rel) => excludedTracks.has(rel)).length;
+  const nTrackBlocked = fullAl ? album.tracks.length : nTrIndiv;
   const wrap =
     variant === "hero"
       ? "lib-meta-badges lib-meta-badges--hero"
@@ -867,16 +876,20 @@ function LibraryAlbumExcludeChips({
       </span>
       <span
         className={`lib-meta-chip lib-meta-chip--exclude${
-          nTr > 0 ? " lib-meta-chip--on" : ""
+          nTrackBlocked > 0 ? " lib-meta-chip--on" : ""
         }`}
         title={
-          nTr > 0
-            ? t("library.nTracksExcludedAlbum", { n: nTr })
+          nTrackBlocked > 0
+            ? fullAl
+              ? t("library.nTracksBlockedByAlbumExclusion", {
+                  n: nTrackBlocked,
+                })
+              : t("library.nTracksExcludedAlbum", { n: nTrIndiv })
             : t("library.noTracksExcludedAlbum")
         }
       >
         <ExcludeShuffleIcon className="lib-meta-chip__exclude-icon" />
-        {nTr > 0 ? nTr : null}
+        {nTrackBlocked > 0 ? nTrackBlocked : null}
       </span>
     </div>
   );
@@ -1394,8 +1407,9 @@ function LibraryView({
   const [mode, setMode] = useState<"all" | "artists" | "albums" | "tracks">(
     "all"
   );
-  const [excludedAlbums, setExcludedAlbums] = useState<Set<string>>(() =>
-    getExcludedAlbums()
+  const excludedAlbums = useMemo(
+    () => new Set(user.state.shuffleExcludedAlbumIds),
+    [user.state.shuffleExcludedAlbumIds]
   );
   const trackExclusionEpoch = useSyncExternalStore(
     subscribeTrackExclusionEpoch,
@@ -1472,7 +1486,7 @@ function LibraryView({
       (t) =>
         rels.has(t.relPath) &&
         !ex.has(t.relPath) &&
-        !excludedAlbums.has(`${t.artist}/${t.album}`)
+        !isTrackAlbumShuffleExcluded(t, excludedAlbums)
     );
   }, [artist, artistAlbums, index.tracks, excludedAlbums, trackExclusionEpoch]);
 
@@ -1577,7 +1591,8 @@ function LibraryView({
     const ex = getExcludedTracks();
     return tracksInSelectedGenre.filter(
       (tr) =>
-        !ex.has(tr.relPath) && !excludedAlbums.has(`${tr.artist}/${tr.album}`)
+        !ex.has(tr.relPath) &&
+        !isTrackAlbumShuffleExcluded(tr, excludedAlbums)
     );
   }, [
     selectedGenreKey,
@@ -1591,7 +1606,8 @@ function LibraryView({
     const exT = getExcludedTracks();
     const exA = getExcludedAlbums();
     return tracksInSelectedGenre.every(
-      (tr) => exT.has(tr.relPath) || exA.has(`${tr.artist}/${tr.album}`)
+      (tr) =>
+        exT.has(tr.relPath) || isTrackAlbumShuffleExcluded(tr, exA)
     );
   }, [tracksInSelectedGenre, trackExclusionEpoch, excludedAlbums]);
 
@@ -1898,14 +1914,10 @@ function LibraryView({
                     <button
                       type="button"
                       className={`ghost-btn ${
-                        excludedAlbums.has(`${artist.name}/${album.name}`)
-                          ? "is-on"
-                          : ""
+                        excludedAlbums.has(album.id) ? "is-on" : ""
                       }`}
                       onClick={() =>
-                        setExcludedAlbums(
-                          toggleExcludedAlbum(`${artist.name}/${album.name}`)
-                        )
+                        user.toggleShuffleExcludedAlbum(album.id)
                       }
                     >
                       {t("library.randomExcludeBtn")}
@@ -2105,7 +2117,7 @@ function LibraryView({
                     aria-label={t("library.genreRandomExcludeAria")}
                     onClick={() => {
                       if (!tracksInSelectedGenre.length) return;
-                      setTracksShuffleExcluded(
+                      user.setShuffleTracksExcludedBulk(
                         tracksInSelectedGenre.map((tr) => tr.relPath),
                         !genreToolbarBulkAllExcluded
                       );
@@ -3332,9 +3344,9 @@ function PlayerDock({
   );
   const percent = p.duration > 0 ? (p.currentTime / p.duration) * 100 : 0;
   const cur = p.current;
-  const albumShuffleKey = cur ? `${cur.artist}/${cur.album}` : "";
+  const exAlb = getExcludedAlbums();
   const albumShuffleExcluded = Boolean(
-    cur && getExcludedAlbums().has(albumShuffleKey)
+    cur && isTrackAlbumShuffleExcluded(cur, exAlb)
   );
   const trackShuffleExcluded = Boolean(
     cur && getExcludedTracks().has(cur.relPath)
@@ -3521,7 +3533,7 @@ function PlayerDock({
                 }
                 onClick={() => {
                   if (!cur || albumShuffleExcluded) return;
-                  toggleExcludedTrack(cur.relPath);
+                  user.toggleShuffleExcludedTrack(cur.relPath);
                 }}
               >
                 <span
@@ -3609,7 +3621,13 @@ function Shell() {
     if (!index) return;
     p.resyncTracksFromIndex(index);
     user.rehydrateTrackListsFromLibrary(index);
-  }, [index, p.resyncTracksFromIndex, user.rehydrateTrackListsFromLibrary]);
+    user.rehydrateShuffleExclusionsFromIndex(index);
+  }, [
+    index,
+    p.resyncTracksFromIndex,
+    user.rehydrateTrackListsFromLibrary,
+    user.rehydrateShuffleExclusionsFromIndex,
+  ]);
 
   useEffect(() => {
     const prev = prevSectionForSearchRef.current;

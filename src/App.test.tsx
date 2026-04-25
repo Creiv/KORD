@@ -108,6 +108,8 @@ const userState: UserStateV1 = {
   trackPlayCounts: {},
   playlists: [],
   queue: { tracks: [sampleTrack], currentIndex: 0 },
+  shuffleExcludedAlbumIds: [],
+  shuffleExcludedTrackRelPaths: [],
   settings: {
     theme: "midnight",
     vizMode: "bars",

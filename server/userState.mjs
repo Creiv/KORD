@@ -104,6 +104,11 @@ function sanitizeSettings(settings) {
   }
 }
 
+function sanitizeShuffleIdList(raw) {
+  if (!Array.isArray(raw)) return []
+  return uniqStrings(raw).slice(0, 100_000)
+}
+
 export function defaultUserState() {
   return {
     version: 1,
@@ -116,6 +121,8 @@ export function defaultUserState() {
       currentIndex: 0,
     },
     settings: sanitizeSettings({}),
+    shuffleExcludedAlbumIds: [],
+    shuffleExcludedTrackRelPaths: [],
   }
 }
 
@@ -144,6 +151,8 @@ export function sanitizeUserState(input) {
       ),
     },
     settings: sanitizeSettings(src.settings),
+    shuffleExcludedAlbumIds: sanitizeShuffleIdList(src.shuffleExcludedAlbumIds),
+    shuffleExcludedTrackRelPaths: sanitizeShuffleIdList(src.shuffleExcludedTrackRelPaths),
     migratedLegacy: src.migratedLegacy === true,
   }
 }

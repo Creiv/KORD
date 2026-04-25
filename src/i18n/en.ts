@@ -101,6 +101,8 @@ export const EN: Record<string, string> = {
   "library.nTracksExcludedAlbum":
     "{{n}} track(s) excluded individually from shuffle",
   "library.noTracksExcludedAlbum": "No tracks excluded individually",
+  "library.nTracksBlockedByAlbumExclusion":
+    "{{n}} tracks affected (entire album excluded from shuffle)",
   "library.unitAlbum": "album",
   "library.unitAlbumPlural": "albums",
   "library.unitTrack": "track",

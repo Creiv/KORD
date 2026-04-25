@@ -4,13 +4,17 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { fetchUserState, saveUserState } from "../lib/api";
+import { readLegacyLocalShuffleMigrated, clearLegacyLocalShuffle } from "../lib/legacyShuffleLocal";
 import { fmtDate } from "../lib/metaFormat";
 import { randomUUID } from "../lib/randomUUID";
+import { bumpTrackExclusionEpoch, setShuffleExclusionSnapshot } from "../lib/randomExclusions";
+import { normalizeShuffleAlbumKeysWithIndex } from "../lib/shuffleExclusionKeys";
 import {
   APP_LOCALES,
   THEME_MODES,
@@ -105,7 +109,15 @@ function normalizeUserState(s: UserStateV1): UserStateV1 {
         Boolean(relPath) && Number.isFinite(count) && Number(count) > 0
     )
   ) as Record<string, number>;
-  return { ...s, trackPlayCounts, settings: normalizeSettings(s.settings) };
+  return {
+    ...s,
+    trackPlayCounts,
+    settings: normalizeSettings(s.settings),
+    shuffleExcludedAlbumIds: uniqStrings(s.shuffleExcludedAlbumIds || []),
+    shuffleExcludedTrackRelPaths: uniqStrings(
+      s.shuffleExcludedTrackRelPaths || []
+    ),
+  };
 }
 
 function defaultUserState(): UserStateV1 {
@@ -117,6 +129,8 @@ function defaultUserState(): UserStateV1 {
     playlists: [],
     queue: { tracks: [], currentIndex: 0 },
     settings: defaultSettings(),
+    shuffleExcludedAlbumIds: [],
+    shuffleExcludedTrackRelPaths: [],
     migratedLegacy: false,
   };
 }
@@ -232,6 +246,10 @@ type UserStateContextValue = {
   removeTrackFromPlaylist: (id: string, relPath: string) => void;
   saveQueueAsPlaylist: (name: string, queue: EnrichedTrack[]) => string;
   rehydrateTrackListsFromLibrary: (index: LibraryIndex) => void;
+  toggleShuffleExcludedAlbum: (albumId: string) => void;
+  toggleShuffleExcludedTrack: (relPath: string) => void;
+  setShuffleTracksExcludedBulk: (relPaths: readonly string[], exclude: boolean) => void;
+  rehydrateShuffleExclusionsFromIndex: (index: LibraryIndex) => void;
 };
 
 const UserStateContext = createContext<UserStateContextValue | null>(null);
@@ -251,8 +269,26 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
     fetchUserState()
       .then((remote) => {
         if (!active) return;
-        const merged = normalizeUserState(mergeLegacy(remote));
-        dirtyRef.current = !remote.migratedLegacy;
+        let merged = normalizeUserState(mergeLegacy(remote));
+        const fromLocal = readLegacyLocalShuffleMigrated();
+        if (fromLocal.albumKeys.length > 0 || fromLocal.trackPaths.length > 0) {
+          merged = normalizeUserState({
+            ...merged,
+            shuffleExcludedAlbumIds: uniqStrings([
+              ...merged.shuffleExcludedAlbumIds,
+              ...fromLocal.albumKeys,
+            ]),
+            shuffleExcludedTrackRelPaths: uniqStrings([
+              ...merged.shuffleExcludedTrackRelPaths,
+              ...fromLocal.trackPaths,
+            ]),
+          });
+          clearLegacyLocalShuffle();
+        }
+        dirtyRef.current =
+          fromLocal.albumKeys.length > 0 ||
+          fromLocal.trackPaths.length > 0 ||
+          !remote.migratedLegacy;
         setState(merged);
         setError(null);
         setReady(true);
@@ -271,6 +307,16 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       active = false;
     };
   }, []);
+
+  const sAlbum = state.shuffleExcludedAlbumIds.join("\0");
+  const sTrack = state.shuffleExcludedTrackRelPaths.join("\0");
+  useLayoutEffect(() => {
+    setShuffleExclusionSnapshot(
+      state.shuffleExcludedAlbumIds,
+      state.shuffleExcludedTrackRelPaths
+    );
+    bumpTrackExclusionEpoch();
+  }, [sAlbum, sTrack]);
 
   useEffect(() => {
     if (!ready || !hydratedRef.current || !dirtyRef.current) return;
@@ -389,6 +435,84 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
           }),
         })),
       }));
+    },
+    [commit]
+  );
+
+  const rehydrateShuffleExclusionsFromIndex = useCallback(
+    (libraryIndex: LibraryIndex) => {
+      commit(
+        (prev) => {
+          const next = normalizeShuffleAlbumKeysWithIndex(
+            libraryIndex,
+            prev.shuffleExcludedAlbumIds
+          );
+          const s = prev.shuffleExcludedAlbumIds;
+          const a = [...s].sort().join("\0");
+          const b = [...next].sort().join("\0");
+          if (a === b) return prev;
+          return { ...prev, shuffleExcludedAlbumIds: next };
+        },
+        { immediate: true }
+      );
+    },
+    [commit]
+  );
+
+  const toggleShuffleExcludedAlbum = useCallback(
+    (albumId: string) => {
+      commit(
+        (prev) => {
+          const list = prev.shuffleExcludedAlbumIds || [];
+          const on = list.includes(albumId);
+          return {
+            ...prev,
+            shuffleExcludedAlbumIds: on
+              ? list.filter((x) => x !== albumId)
+              : [...list, albumId],
+          };
+        },
+        { immediate: true }
+      );
+    },
+    [commit]
+  );
+
+  const toggleShuffleExcludedTrack = useCallback(
+    (relPath: string) => {
+      if (!relPath) return;
+      commit(
+        (prev) => {
+          const list = prev.shuffleExcludedTrackRelPaths || [];
+          const on = list.includes(relPath);
+          return {
+            ...prev,
+            shuffleExcludedTrackRelPaths: on
+              ? list.filter((x) => x !== relPath)
+              : [...list, relPath],
+          };
+        },
+        { immediate: true }
+      );
+    },
+    [commit]
+  );
+
+  const setShuffleTracksExcludedBulk = useCallback(
+    (relPaths: readonly string[], exclude: boolean) => {
+      const paths = relPaths.filter(Boolean);
+      if (!paths.length) return;
+      commit(
+        (prev) => {
+          const set = new Set(prev.shuffleExcludedTrackRelPaths || []);
+          for (const p of paths) {
+            if (exclude) set.add(p);
+            else set.delete(p);
+          }
+          return { ...prev, shuffleExcludedTrackRelPaths: [...set] };
+        },
+        { immediate: true }
+      );
     },
     [commit]
   );
@@ -599,6 +723,10 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       removeTrackFromPlaylist,
       saveQueueAsPlaylist,
       rehydrateTrackListsFromLibrary,
+      toggleShuffleExcludedAlbum,
+      toggleShuffleExcludedTrack,
+      setShuffleTracksExcludedBulk,
+      rehydrateShuffleExclusionsFromIndex,
     }),
     [
       addTrackToPlaylist,
@@ -609,6 +737,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       getTrackPlayCount,
       incrementTrackPlayCount,
       pushRecent,
+      rehydrateShuffleExclusionsFromIndex,
       rehydrateTrackListsFromLibrary,
       ready,
       removeTrackFromPlaylist,
@@ -617,8 +746,11 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       saving,
       selectedPlaylist,
       setQueueSnapshot,
+      setShuffleTracksExcludedBulk,
       state,
       toggleFavorite,
+      toggleShuffleExcludedAlbum,
+      toggleShuffleExcludedTrack,
       updateSettings,
     ]
   );

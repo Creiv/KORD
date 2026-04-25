@@ -42,6 +42,8 @@ describe("UserStateProvider", () => {
               recent: [],
               playlists: [],
               queue: { tracks: [], currentIndex: 0 },
+              shuffleExcludedAlbumIds: [],
+              shuffleExcludedTrackRelPaths: [],
               settings: {
                 theme: "midnight",
                 vizMode: "bars",
@@ -73,6 +75,8 @@ describe("UserStateProvider", () => {
               ],
               playlists: [],
               queue: { tracks: [], currentIndex: 0 },
+              shuffleExcludedAlbumIds: [],
+              shuffleExcludedTrackRelPaths: [],
               settings: {
                 theme: "midnight",
                 vizMode: "bars",

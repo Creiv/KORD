@@ -48,6 +48,8 @@ export type LibraryResponse = { musicRoot: string; artists: LibArtist[] };
 export type EnrichedTrack = LibTrack & {
   artist: string;
   album: string;
+  /** Stable from library index (`artist::folder`); for shuffle exclusion. */
+  albumId?: string;
   albumMeta?: AlbumMeta;
 };
 
@@ -105,6 +107,10 @@ export type UserStateV1 = {
   playlists: UserPlaylist[];
   queue: QueueState;
   settings: UserSettings;
+  /** Album ids (stable `artist::folder`) esclusi dal random intelligente. */
+  shuffleExcludedAlbumIds: string[];
+  /** relPath tracce escluse singolarmente. */
+  shuffleExcludedTrackRelPaths: string[];
   migratedLegacy?: boolean;
 };
 
