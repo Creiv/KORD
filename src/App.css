@@ -1468,8 +1468,20 @@
 
 .library-view .artist-grid,
 .library-view .album-grid--artist {
+  display: flex;
+  flex-wrap: wrap;
   justify-content: center;
+  align-content: flex-start;
+  align-items: flex-start;
+  gap: 0.9rem;
   width: 100%;
+}
+
+.library-view .artist-grid > .artist-card,
+.library-view .album-grid--artist > .album-card {
+  flex: 0 0 auto;
+  width: min(200px, 100%);
+  max-width: 200px;
 }
 
 .library-view .subsection h3 {
@@ -1482,14 +1494,26 @@
 }
 
 .album-grid.compact.dashboard-updated-albums {
+  display: flex;
+  flex-wrap: wrap;
   justify-content: center;
+  align-content: flex-start;
+  align-items: flex-start;
+  gap: 0.9rem;
   width: 100%;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 200px));
 }
 
-.album-grid.compact.dashboard-updated-albums .album-card {
+.album-grid.compact.dashboard-updated-albums > .album-card {
+  flex: 0 0 auto;
+  width: min(200px, 100%);
   max-width: 200px;
-  width: 100%;
+}
+
+.album-grid.compact.dashboard-updated-albums .album-card__meta {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .artist-card,
@@ -1646,13 +1670,6 @@
   opacity: 1;
 }
 
-.album-hero__h1row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem 0.65rem;
-}
-
 .album-hero__h1 {
   margin: 0;
   line-height: 1.15;
@@ -1789,6 +1806,23 @@
   flex: 0 0 auto;
 }
 
+.album-hero__toprow.section-head.section-head--page-toolbar {
+  align-items: flex-start;
+}
+
+.album-hero__toprow .page-toolbar__lead--backrow {
+  align-items: flex-start;
+}
+
+.album-hero__toprow .page-toolbar__lead--backrow .page-toolbar-back-ic {
+  align-self: flex-start;
+  margin-top: 0.08rem;
+}
+
+.album-hero__toprow .section-head__tools {
+  align-items: flex-start;
+}
+
 .album-hero__toprow .hero-card__actions {
   margin: 0;
   flex-wrap: wrap;
@@ -1799,8 +1833,15 @@
   min-width: 0;
   width: 100%;
   flex: 0 0 auto;
-  display: grid;
-  gap: 0.45rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+}
+
+.album-hero__titleblock .album-hero__h1 {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .listen-stage__viz {
@@ -2876,7 +2917,7 @@
     max-height: var(--listen-art-size);
   }
 
-  .album-grid {
+  .album-grid:not(.album-grid--artist):not(.dashboard-updated-albums) {
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   }
 
