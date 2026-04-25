@@ -39,9 +39,11 @@ npm run dev:app
 
 Vite and the server run inside Electron; the music root is set from app data.
 
+The **packaged** Kord Server app (Linux and Windows) saves the HTTP port in **`kord-electron-port.json`** next to your other config (in the Electron **userData** folder). The first successful start uses **3001**, or the next free port if that one is taken; later launches reuse the same port. Set **`KORD_PORT`** or **`PORT`** in the environment to force a port and skip this file.
+
 ### LAN access (any mode)
 
-In **Settings → Network**, you can bind the server to all interfaces (`0.0.0.0`) so other devices on the same LAN can use Kord. The setting is stored with your music folder config; **restart** after changing it. The exact path of `music-root.config.json` is defined in the server’s `musicRootConfig.mjs`.
+In **Settings → Network** (only in the **Kord Server** app, not in the **Kord Client**), you can bind the server to all interfaces (`0.0.0.0`) so other devices on the same LAN can use Kord. The setting is stored with your music folder config; **restart** after changing it. The exact path of `music-root.config.json` is defined in the server’s `musicRootConfig.mjs`. The URL shown for LAN access picks a sensible IPv4 from your machine’s network interfaces; on **Windows** you may also need to allow the app in **Windows Defender Firewall** for incoming traffic on the server port, especially after the first run.
 
 On **Linux**, packaged Electron may log Chromium **sandbox** warnings; you can set `ELECTRON_DISABLE_SANDBOX=1` for non-root runs or follow Chrome’s sandbox notes for your distro.
 

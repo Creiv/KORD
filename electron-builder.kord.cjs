@@ -9,13 +9,22 @@ const isClient = flavor === "client"
 const serverFiles = b.files
 const clientFiles = ["package.json", "electron/**", "node_modules/**", "!server", "!dist"]
 
+const isWinHost = process.platform === "win32"
+const forceWinNsis = process.env.KORD_WIN_INSTALLER === "1"
+const useWinNsis = isWinHost || forceWinNsis
+const win = {
+  ...b.win,
+  signAndEditExecutable: isWinHost,
+  target: useWinNsis ? b.win.target : [{ target: "7z", arch: ["x64"] }],
+}
+
 module.exports = {
   ...b,
   appId: b.appId,
   productName: isClient ? "Kord Client" : "Kord Server",
   copyright: b.copyright,
   directories: b.directories,
-  win: b.win,
+  win,
   linux: b.linux,
   mac: b.mac,
   nsis: b.nsis,

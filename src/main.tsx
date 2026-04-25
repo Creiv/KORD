@@ -7,6 +7,7 @@ const u = new URLSearchParams(window.location.search)
 if (u.get("kordClient") === "1" && u.get("kordAccount")) {
   try {
     localStorage.setItem("kord-session-account-id", u.get("kordAccount") || "")
+    sessionStorage.setItem("kord-embed", "client")
   } catch {
     /* ignore */
   }

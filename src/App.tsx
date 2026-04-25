@@ -2999,6 +2999,13 @@ function SettingsView({
   const [initialListenOnLan, setInitialListenOnLan] = useState<boolean | null>(
     null
   );
+  const [isKordClientEmbed] = useState(() => {
+    try {
+      return sessionStorage.getItem("kord-embed") === "client";
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
     Promise.all([fetchConfig(), fetchAccounts()])
@@ -3295,42 +3302,44 @@ function SettingsView({
           </button>
         </div>
       </section>
-      <section className="surface-card">
-        <div className="section-head section-head--page-toolbar">
-          <div>
-            <p className="eyebrow">{t("settings.networkEyebrow")}</p>
-            <h2>{t("settings.networkHeading")}</h2>
+      {isKordClientEmbed ? null : (
+        <section className="surface-card">
+          <div className="section-head section-head--page-toolbar">
+            <div>
+              <p className="eyebrow">{t("settings.networkEyebrow")}</p>
+              <h2>{t("settings.networkHeading")}</h2>
+            </div>
           </div>
-        </div>
-        {netErr ? <p className="subtle sm warnline">{netErr}</p> : null}
-        <p className="subtle sm">
-          {t("settings.networkLead", {
-            port: serverPort,
-            devPort: devClientPort,
-          })}
-        </p>
-        <label className="setting-card checkbox">
-          <input
-            type="checkbox"
-            checked={listenOnLan}
-            disabled={netBusy}
-            onChange={(e) => saveListenOnLan(e.target.checked)}
-          />
-          <span>{t("settings.networkListenOnLan")}</span>
-        </label>
-        {listenOnLan && lanAccessUrl ? (
+          {netErr ? <p className="subtle sm warnline">{netErr}</p> : null}
           <p className="subtle sm">
-            {t("settings.networkUrlHint", { url: lanAccessUrl })}
+            {t("settings.networkLead", {
+              port: serverPort,
+              devPort: devClientPort,
+            })}
           </p>
-        ) : listenOnLan ? (
-          <p className="subtle sm">{t("settings.networkNoUrl")}</p>
-        ) : null}
-        {initialListenOnLan !== null && listenOnLan !== initialListenOnLan ? (
-          <p className="subtle sm warnline">
-            {t("settings.networkRestartHint")}
-          </p>
-        ) : null}
-      </section>
+          <label className="setting-card checkbox">
+            <input
+              type="checkbox"
+              checked={listenOnLan}
+              disabled={netBusy}
+              onChange={(e) => saveListenOnLan(e.target.checked)}
+            />
+            <span>{t("settings.networkListenOnLan")}</span>
+          </label>
+          {listenOnLan && lanAccessUrl ? (
+            <p className="subtle sm">
+              {t("settings.networkUrlHint", { url: lanAccessUrl })}
+            </p>
+          ) : listenOnLan ? (
+            <p className="subtle sm">{t("settings.networkNoUrl")}</p>
+          ) : null}
+          {initialListenOnLan !== null && listenOnLan !== initialListenOnLan ? (
+            <p className="subtle sm warnline">
+              {t("settings.networkRestartHint")}
+            </p>
+          ) : null}
+        </section>
+      )}
     </div>
   );
 }

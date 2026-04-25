@@ -102,14 +102,37 @@ function init() {
 
 init();
 
+function isIPv4Family(family) {
+  return family === "IPv4" || family === 4;
+}
+
+function scoreLanIPv4(addr) {
+  const p = String(addr).split(".");
+  if (p.length !== 4) return 0;
+  const a0 = Number(p[0]);
+  const a1 = Number(p[1]);
+  if (a0 === 10) return 80;
+  if (a0 === 192 && a1 === 168) return 100;
+  if (a0 === 172 && a1 >= 16 && a1 <= 31) return 40;
+  if (a0 === 169 && a1 === 254) return 5;
+  if (a0 === 100 && a1 >= 64 && a1 <= 127) return 20;
+  if (a0 === 127) return 0;
+  return 15;
+}
+
 function guessLanIPv4() {
   const nets = os.networkInterfaces();
+  const cands = [];
   for (const name of Object.keys(nets)) {
     for (const net of nets[name] || []) {
-      if (net.family === "IPv4" && !net.internal) return net.address;
+      if (!isIPv4Family(net.family) || net.internal) continue;
+      const addr = net.address;
+      if (addr && addr !== "0.0.0.0") cands.push({ addr, score: scoreLanIPv4(addr) });
     }
   }
-  return null;
+  if (!cands.length) return null;
+  cands.sort((a, b) => b.score - a.score);
+  return cands[0].addr;
 }
 
 export function getMusicRoot() {

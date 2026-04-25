@@ -4,11 +4,12 @@ import path from "path"
 import fs from "fs"
 import { fileURLToPath } from "url"
 import http from "http"
-import net from "net"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-let appPort = Number(process.env.PORT) || 3001
+const DEFAULT_SERVER_PORT = 3001
+const PORT_FILE = "kord-electron-port.json"
+let appPort = Number(process.env.KORD_PORT || process.env.PORT) || DEFAULT_SERVER_PORT
 
 function isDev() {
   return !app.isPackaged
@@ -35,18 +36,6 @@ function appendLaunchLog(message) {
   }
 }
 
-function findFreePort() {
-  return new Promise((resolve, reject) => {
-    const s = net.createServer()
-    s.on("error", reject)
-    s.listen(0, "127.0.0.1", () => {
-      const addr = s.address()
-      const p = addr && typeof addr === "object" && "port" in addr ? addr.port : null
-      s.close((err) => (err != null ? reject(err) : p != null ? resolve(p) : reject(new Error("No free port available"))))
-    })
-  })
-}
-
 function ensureUserDataConfig() {
   const dir = app.getPath("userData")
   fs.mkdirSync(dir, { recursive: true })
@@ -62,6 +51,42 @@ function ensureUserDataConfig() {
     /* ok */
   }
   fs.writeFileSync(configPath, JSON.stringify({ musicRoot: defaultRoot }, null, 2), "utf8")
+}
+
+function getPortFilePath() {
+  return path.join(app.getPath("userData"), PORT_FILE)
+}
+
+function hasExplicitServerPortFromEnv() {
+  const k = process.env.KORD_PORT
+  if (k != null && String(k).trim() !== "") return true
+  const p = process.env.PORT
+  if (p != null && String(p).trim() !== "") return true
+  return false
+}
+
+function readPersistedServerPort() {
+  try {
+    const raw = fs.readFileSync(getPortFilePath(), "utf8")
+    const n = JSON.parse(raw)?.serverPort
+    const v = Number(n)
+    if (Number.isFinite(v) && v >= 1 && v <= 65535) return Math.floor(v)
+  } catch {
+    /* ok */
+  }
+  return null
+}
+
+function writePersistedServerPort(p) {
+  try {
+    fs.writeFileSync(
+      getPortFilePath(),
+      JSON.stringify({ serverPort: p, savedAt: new Date().toISOString() }, null, 2),
+      "utf8",
+    )
+  } catch (e) {
+    appendLaunchLog(`warn: could not save ${PORT_FILE} ${e}`)
+  }
 }
 
 function waitForHealth(p, maxMs) {
@@ -191,11 +216,49 @@ function installAppMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
-function pickPort() {
-  if (isDev()) {
-    return Promise.resolve(Number(process.env.PORT) || 3001)
+function pickPortDevOrExplicit() {
+  return Number(process.env.KORD_PORT || process.env.PORT) || DEFAULT_SERVER_PORT
+}
+
+async function tryStartOnPort(userData, port, useStdio, cwd, script) {
+  const env = {
+    ...process.env,
+    KORD_USER_CONFIG_DIR: userData,
+    WPP_USER_CONFIG_DIR: userData,
+    PORT: String(port),
+    ELECTRON_RUN_AS_NODE: "1",
   }
-  return findFreePort()
+  appendLaunchLog(`spawn server on ${port} cwd=${cwd}`)
+  const child = spawn(process.execPath, [script], {
+    env,
+    cwd,
+    stdio: useStdio ? "inherit" : "ignore",
+  })
+  child.on("error", (err) => {
+    console.error("[kord] server", err)
+  })
+  const exitP = new Promise((resolve) => {
+    child.once("exit", (c) => resolve(c))
+  })
+  const healthP = waitForHealth(String(port), 45000)
+    .then(() => "ok")
+    .catch(() => "health-fail")
+  const r = await Promise.race([healthP, exitP.then((code) => ({ exit: code }))])
+  if (r !== "ok") {
+    try {
+      child.kill("SIGTERM")
+    } catch {
+      /* ok */
+    }
+    return false
+  }
+  serverChild = child
+  serverChild.on("exit", (code) => {
+    if (code !== 0 && code != null) {
+      appendLaunchLog(`server exit ${code}`)
+    }
+  })
+  return true
 }
 
 async function startServer() {
@@ -204,42 +267,40 @@ async function startServer() {
     isDev() ||
     process.env.KORD_ELECTRON_LOG === "1" ||
     process.env.WPP_ELECTRON_LOG === "1"
-  appPort = await pickPort()
-  const env = {
-    ...process.env,
-    KORD_USER_CONFIG_DIR: userData,
-    WPP_USER_CONFIG_DIR: userData,
-    PORT: String(appPort),
-    ELECTRON_RUN_AS_NODE: "1",
-  }
   const cwd = getProjectRoot()
   const script = getServerPath()
   if (!fs.existsSync(script)) {
     throw new Error(`Server not found: ${script}`)
   }
-  appendLaunchLog(`spawn server on ${appPort} cwd=${cwd}`)
-  serverChild = spawn(process.execPath, [script], {
-    env,
-    cwd,
-    stdio: useStdio ? "inherit" : "ignore",
-  })
-  serverChild.on("error", (err) => {
-    console.error("[kord] server", err)
-  })
-  const exitP = new Promise((resolve) => {
-    serverChild.once("exit", (c) => resolve(c))
-  })
-  const r = await Promise.race([waitForHealth(String(appPort), 45000).then(() => "ok"), exitP])
-  if (r !== "ok") {
-    throw new Error(
-      `The server process exited immediately (code ${String(r)}). If another instance is running or the port is busy, close the other window or restart the session.`,
-    )
-  }
-  serverChild.on("exit", (code) => {
-    if (code !== 0 && code != null) {
-      appendLaunchLog(`server exit ${code}`)
+
+  const explicit = hasExplicitServerPortFromEnv()
+  if (isDev() || explicit) {
+    appPort = pickPortDevOrExplicit()
+    const ok = await tryStartOnPort(userData, appPort, useStdio, cwd, script)
+    if (!ok) {
+      throw new Error(
+        `The server process exited immediately. If another instance is running or the port is busy, close the other window or restart the session.`,
+      )
     }
-  })
+    return
+  }
+
+  const preferred = readPersistedServerPort() ?? DEFAULT_SERVER_PORT
+  const maxTries = 80
+  for (let i = 0; i < maxTries; i++) {
+    const tryPort = preferred + i
+    if (tryPort > 65535) break
+    const ok = await tryStartOnPort(userData, tryPort, useStdio, cwd, script)
+    if (ok) {
+      appPort = tryPort
+      writePersistedServerPort(tryPort)
+      appendLaunchLog(`persisted server port ${tryPort}`)
+      return
+    }
+  }
+  throw new Error(
+    "Could not start the server on a free port. Close other apps using this range or set KORD_PORT in the environment.",
+  )
 }
 
 function createWindow() {
