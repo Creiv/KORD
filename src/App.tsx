@@ -237,17 +237,26 @@ function clientLegacyLibrary(
   };
 }
 
-function playlistToQueue(playlist: UserPlaylist) {
-  return playlist.tracks.map(
-    (track) =>
-      ({
-        id: track.relPath,
-        relPath: track.relPath,
-        title: track.title,
-        artist: track.artist,
-        album: track.album,
-      } as EnrichedTrack)
-  );
+function enrichedFromPlaylistItem(
+  tr: UserPlaylist["tracks"][number],
+  byPath: Map<string, EnrichedTrack> | null
+): EnrichedTrack {
+  const full = byPath?.get(tr.relPath);
+  if (full) return full;
+  return {
+    id: tr.relPath,
+    relPath: tr.relPath,
+    title: tr.title,
+    artist: tr.artist,
+    album: tr.album,
+  } as EnrichedTrack;
+}
+
+function playlistToEnrichedList(
+  playlist: UserPlaylist,
+  byPath: Map<string, EnrichedTrack> | null
+) {
+  return playlist.tracks.map((tr) => enrichedFromPlaylistItem(tr, byPath));
 }
 
 function TrackFileMetaChip({ meta }: { meta?: TrackMeta | null }) {
@@ -2254,7 +2263,11 @@ function LibraryView({
   );
 }
 
-function QueueViewNew() {
+function QueueViewNew({
+  onOpenSavedPlaylist,
+}: {
+  onOpenSavedPlaylist: (playlistId: string) => void;
+}) {
   const p = usePlayer();
   const user = useUserState();
   const { t } = useI18n();
@@ -2279,7 +2292,10 @@ function QueueViewNew() {
                 type="button"
                 className="primary-btn"
                 disabled={!p.queue.length}
-                onClick={() => user.saveQueueAsPlaylist(queueName, p.queue)}
+                onClick={() => {
+                  const id = user.saveQueueAsPlaylist(queueName, p.queue);
+                  onOpenSavedPlaylist(id);
+                }}
               >
                 {t("queue.savePlaylist")}
               </button>
@@ -2350,15 +2366,24 @@ function QueueViewNew() {
 
 function PlaylistsViewNew({
   route,
+  index,
   onPickPlaylist,
 }: {
   route: RouteState;
+  index: LibraryIndex | null;
   onPickPlaylist: (playlist: string | null) => void;
 }) {
   const p = usePlayer();
   const user = useUserState();
   const { t } = useI18n();
   const [name, setName] = useState("");
+  const trackByPath = useMemo(
+    () =>
+      index
+        ? new Map(index.tracks.map((t) => [t.relPath, t as EnrichedTrack]))
+        : null,
+    [index]
+  );
   const playlists = user.state.playlists;
   const activePlaylist =
     playlists.find(
@@ -2366,158 +2391,164 @@ function PlaylistsViewNew({
     ) || null;
 
   return (
-    <div className="dashboard-grid playlists-page">
-      <div className="view-stack">
-        <section className="surface-card surface-card--toolbar-only">
-          <div className="section-head section-head--page-toolbar">
-            <div>
-              <p className="eyebrow">{t("playlists.eyebrow")}</p>
-              <h2>{t("playlists.heading")}</h2>
-            </div>
-            <div className="section-head__tools">
-              <div className="playlist-toolbar-create">
-                <input
-                  className="ghost-input"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder={t("playlists.newPh")}
-                  aria-label={t("playlists.newPh")}
-                />
-                <button
-                  type="button"
-                  className="primary-btn"
-                  onClick={() => user.createPlaylist(name)}
-                >
-                  {t("playlists.create")}
-                </button>
-              </div>
-            </div>
+    <div className="view-stack playlists-page">
+      <section className="surface-card surface-card--toolbar-only">
+        <div className="section-head section-head--page-toolbar">
+          <div>
+            <p className="eyebrow">{t("playlists.eyebrow")}</p>
+            <h2>{t("playlists.heading")}</h2>
           </div>
-        </section>
-        <section className="surface-card">
-          <div className="list-stack">
-            {playlists.map((playlist) => (
-              <div
-                key={playlist.id}
-                className={`playlist-row ${
-                  activePlaylist?.id === playlist.id ? "is-active" : ""
-                }`}
+          <div className="section-head__tools">
+            <div className="hero-card__actions queue-hero-actions">
+              <input
+                className="ghost-input queue-name-input"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder={t("playlists.newPh")}
+                aria-label={t("playlists.newPh")}
+              />
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => user.createPlaylist(name)}
               >
-                <button
-                  type="button"
-                  className="playlist-row__main"
-                  onClick={() => onPickPlaylist(playlist.id)}
-                >
-                  <strong>{playlist.name}</strong>
-                  <span>
-                    {t("playlists.trackCount", { n: playlist.tracks.length })}
-                  </span>
-                </button>
-                <div className="track-row__actions">
-                  <button
-                    type="button"
-                    className="chip-btn"
-                    disabled={!playlist.tracks.length}
-                    onClick={() => {
-                      const queue = playlistToQueue(playlist);
-                      if (queue[0]) p.playTrack(queue[0], queue, 0);
-                    }}
-                  >
-                    {t("playlists.play")}
-                  </button>
-                  <button
-                    type="button"
-                    className="chip-btn"
-                    onClick={() =>
-                      p.current &&
-                      user.addTrackToPlaylist(playlist.id, p.current)
-                    }
-                  >
-                    {t("playlists.addCurrent")}
-                  </button>
-                  <button
-                    type="button"
-                    className="chip-btn danger"
-                    onClick={() => user.deletePlaylist(playlist.id)}
-                  >
-                    {t("playlists.delete")}
-                  </button>
-                </div>
-              </div>
-            ))}
+                {t("playlists.create")}
+              </button>
+            </div>
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
 
-      <div className="view-stack">
-        {activePlaylist ? (
-          <>
-            <section className="surface-card surface-card--toolbar-only">
-              <div className="section-head section-head--page-toolbar">
-                <div>
-                  <p className="eyebrow">{t("playlists.detailEyebrow")}</p>
-                  <h2>{activePlaylist.name}</h2>
-                </div>
-                <div className="section-head__tools">
-                  <input
-                    className="ghost-input compact playlist-rename-input"
-                    defaultValue={activePlaylist.name}
-                    onBlur={(event) =>
-                      user.renamePlaylist(activePlaylist.id, event.target.value)
-                    }
-                    aria-label={t("playlists.renameAria")}
-                  />
-                </div>
-              </div>
-            </section>
-            <section className="surface-card">
-              {activePlaylist.tracks.length === 0 ? (
-                <p className="panel-empty">{t("playlists.detailEmpty")}</p>
-              ) : (
-                <div className="list-stack">
-                  {activePlaylist.tracks.map((track, index) => {
-                    const enriched = playlistToQueue({
-                      ...activePlaylist,
-                      tracks: [track],
-                    })[0];
-                    return (
-                      <TrackListRow
-                        key={`${track.relPath}-${index}`}
-                        track={enriched}
-                        onPlay={() => {
-                          const queue = playlistToQueue(activePlaylist);
-                          p.playTrack(queue[index], queue, index);
-                        }}
-                        extraActions={
-                          <button
-                            type="button"
-                            className="track-row__ic track-row__ic--danger"
-                            title={t("playlists.removeFromPlTitle")}
-                            aria-label={t("playlists.removeFromPlAria")}
-                            onClick={() =>
-                              user.removeTrackFromPlaylist(
-                                activePlaylist.id,
-                                track.relPath
-                              )
-                            }
-                          >
-                            <span className="track-row__ic-glyph" aria-hidden>
-                              ×
-                            </span>
-                          </button>
-                        }
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-          </>
-        ) : (
+      <div className="dashboard-grid playlists-page__main">
+        <div className="view-stack">
           <section className="surface-card">
-            <p className="panel-empty">{t("playlists.pickOne")}</p>
+            <div className="list-stack">
+              {playlists.map((playlist) => (
+                <div
+                  key={playlist.id}
+                  className={`playlist-row ${
+                    activePlaylist?.id === playlist.id ? "is-active" : ""
+                  }`}
+                >
+                  <button
+                    type="button"
+                    className="playlist-row__main"
+                    onClick={() => onPickPlaylist(playlist.id)}
+                  >
+                    <strong>{playlist.name}</strong>
+                    <span>
+                      {t("playlists.trackCount", { n: playlist.tracks.length })}
+                    </span>
+                  </button>
+                  <div className="track-row__actions">
+                    <button
+                      type="button"
+                      className="chip-btn"
+                      disabled={!playlist.tracks.length}
+                      onClick={() => {
+                        const queue = playlistToEnrichedList(playlist, trackByPath);
+                        if (queue[0]) p.playTrack(queue[0], queue, 0);
+                      }}
+                    >
+                      {t("playlists.play")}
+                    </button>
+                    <button
+                      type="button"
+                      className="chip-btn"
+                      onClick={() =>
+                        p.current &&
+                        user.addTrackToPlaylist(playlist.id, p.current)
+                      }
+                    >
+                      {t("playlists.addCurrent")}
+                    </button>
+                    <button
+                      type="button"
+                      className="chip-btn danger"
+                      onClick={() => user.deletePlaylist(playlist.id)}
+                    >
+                      {t("playlists.delete")}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </section>
-        )}
+        </div>
+
+        <div className="view-stack">
+          {activePlaylist ? (
+            <>
+              <section className="surface-card surface-card--toolbar-only">
+                <div className="section-head section-head--page-toolbar">
+                  <div>
+                    <p className="eyebrow">{t("playlists.detailEyebrow")}</p>
+                    <h2>{activePlaylist.name}</h2>
+                  </div>
+                  <div className="section-head__tools">
+                    <input
+                      className="ghost-input compact playlist-rename-input"
+                      defaultValue={activePlaylist.name}
+                      onBlur={(event) =>
+                        user.renamePlaylist(activePlaylist.id, event.target.value)
+                      }
+                      aria-label={t("playlists.renameAria")}
+                    />
+                  </div>
+                </div>
+              </section>
+              <section className="surface-card">
+                {activePlaylist.tracks.length === 0 ? (
+                  <p className="panel-empty">{t("playlists.detailEmpty")}</p>
+                ) : (
+                  <div className="list-stack">
+                    {activePlaylist.tracks.map((track, index) => {
+                      const enriched = enrichedFromPlaylistItem(
+                        track,
+                        trackByPath
+                      );
+                      return (
+                        <TrackListRow
+                          key={`${track.relPath}-${index}`}
+                          track={enriched}
+                          onPlay={() => {
+                            const queue = playlistToEnrichedList(
+                              activePlaylist,
+                              trackByPath
+                            );
+                            p.playTrack(queue[index], queue, index);
+                          }}
+                          extraActions={
+                            <button
+                              type="button"
+                              className="track-row__ic track-row__ic--danger"
+                              title={t("playlists.removeFromPlTitle")}
+                              aria-label={t("playlists.removeFromPlAria")}
+                              onClick={() =>
+                                user.removeTrackFromPlaylist(
+                                  activePlaylist.id,
+                                  track.relPath
+                                )
+                              }
+                            >
+                              <span className="track-row__ic-glyph" aria-hidden>
+                                ×
+                              </span>
+                            </button>
+                          }
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            </>
+          ) : (
+            <section className="surface-card">
+              <p className="panel-empty">{t("playlists.pickOne")}</p>
+            </section>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -3712,11 +3743,18 @@ function Shell() {
           </div>
         );
       case "queue":
-        return <QueueViewNew />;
+        return (
+          <QueueViewNew
+            onOpenSavedPlaylist={(id) =>
+              navigate({ section: "playlists", playlist: id })
+            }
+          />
+        );
       case "playlists":
         return (
           <PlaylistsViewNew
             route={route}
+            index={index}
             onPickPlaylist={(playlist) =>
               navigate({ section: "playlists", playlist })
             }

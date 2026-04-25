@@ -512,21 +512,6 @@
   }
 }
 
-.playlist-toolbar-create {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.5rem 0.75rem;
-  min-width: min(100%, 22rem);
-  max-width: 100%;
-}
-
-.playlist-toolbar-create .ghost-input {
-  flex: 1 1 12rem;
-  min-width: 0;
-}
-
 .playlist-rename-input {
   flex: 0 1 16rem;
   min-width: 10rem;
@@ -575,7 +560,7 @@
   margin-bottom: 0;
 }
 
-.playlists-page > .view-stack {
+.playlists-page__main > .view-stack {
   min-width: 0;
 }
 
@@ -3131,18 +3116,6 @@
     display: grid;
     grid-template-columns: 1fr;
     min-width: 0;
-  }
-
-  .playlist-toolbar-create {
-    min-width: 0;
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: flex-start;
-  }
-
-  .playlist-toolbar-create .primary-btn {
-    width: 100%;
   }
 
   .inline-banner {
