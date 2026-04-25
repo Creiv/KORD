@@ -142,6 +142,22 @@ export function getMusicRootForAccount(accountId) {
   return getAccount(accountId).musicRoot;
 }
 
+export function findAccountById(accountId) {
+  const id = String(accountId || "").trim();
+  if (!id) return null;
+  return state.accounts.find((item) => item.id === id) || null;
+}
+
+export function getMusicRootForAccountStrict(accountId) {
+  const acc = findAccountById(accountId);
+  if (!acc) {
+    const e = new Error("Account not found");
+    e.code = "ACCOUNT_NOT_FOUND";
+    throw e;
+  }
+  return state.fromEnv ? state.path : acc.musicRoot;
+}
+
 export function isMusicRootFromEnv() {
   return state.fromEnv;
 }

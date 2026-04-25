@@ -15,10 +15,13 @@ import {
   getListenHost,
   getMusicRoot,
   getMusicRootForAccount,
+  findAccountById,
+  getMusicRootForAccountStrict,
   setListenOnLan,
   setPersistedMusicRoot,
   updateAccount,
 } from "./musicRootConfig.mjs"
+import { linkSharedAlbumForAccounts } from "./libraryLink.mjs"
 import {
   fetchReleaseMetadata,
   fetchTrackMetadata,
@@ -288,6 +291,25 @@ app.get("/api/library-index", async (req, res) => {
     return sendOk(res, index)
   } catch (error) {
     console.error(error)
+    return sendError(res, 500, String(error?.message || error))
+  }
+})
+
+app.get("/api/accounts/:id/library-index", async (req, res) => {
+  try {
+    const id = String(req.params.id || "").trim()
+    if (!id || !findAccountById(id)) {
+      return sendError(res, 404, "Account not found")
+    }
+    const root = getMusicRootForAccountStrict(id)
+    const index = await getLibraryIndex(root)
+    res.set("Cache-Control", "no-store, must-revalidate")
+    return sendOk(res, index)
+  } catch (error) {
+    console.error(error)
+    if (error?.code === "ACCOUNT_NOT_FOUND") {
+      return sendError(res, 404, String(error.message || error))
+    }
     return sendError(res, 500, String(error?.message || error))
   }
 })
@@ -709,6 +731,36 @@ app.post("/api/track-info/save", async (req, res) => {
     const meta = await saveTrackManualMeta(albumDir, fileName, safe)
     return res.json({ ok: true, relPath, meta })
   } catch (error) {
+    return sendError(res, 500, String(error?.message || error))
+  }
+})
+
+app.post("/api/studio/link-shared-album", async (req, res) => {
+  try {
+    const destId = accountIdFromReq(req)
+    const data = await linkSharedAlbumForAccounts(req.body || {}, destId)
+    return sendOk(res, data)
+  } catch (error) {
+    const code = error?.code
+    if (code === "ACCOUNT_NOT_FOUND") {
+      return sendError(res, 404, String(error.message || error))
+    }
+    if (
+      code === "SAME_ROOT" ||
+      code === "SAME_ACCOUNT" ||
+      code === "INVALID_REL" ||
+      code === "NOT_FOUND" ||
+      code === "NOT_DIR" ||
+      code === "NO_AUDIO" ||
+      code === "DEST_EXISTS" ||
+      code === "CLASH" ||
+      code === "BAD_BODY" ||
+      code === "NO_ALBUMS" ||
+      code === "ARTIST_NOTHING_LINKED"
+    ) {
+      return sendError(res, 400, String(error.message || error))
+    }
+    console.error(error)
     return sendError(res, 500, String(error?.message || error))
   }
 })

@@ -2608,8 +2608,59 @@
 
 .tool-block.tools-download,
 .tool-block.tools-meta,
-.tool-block.tools-art {
+.tool-block.tools-art,
+.tool-block.tools-shared-lib {
   padding: 1.15rem 1.2rem 1.25rem;
+}
+
+.tools-shared-browse {
+  margin-top: 0.5rem;
+}
+
+.tools-shared-browse-lead {
+  margin: 0 0 0.9rem;
+  line-height: 1.45;
+  max-width: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tools-shared-browse .block-label {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.tools-shared-browse-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.tools-shared-browse-row .select {
+  min-width: 11rem;
+  flex: 1 1 11rem;
+}
+
+.tools-shared-browse-picks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem 1rem;
+  align-items: end;
+  margin-top: 0.35rem;
+}
+
+.tools-shared-browse-picks .btn {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-top: 0.15rem;
+}
+
+@media (max-width: 600px) {
+  .tools-shared-browse-picks {
+    grid-template-columns: 1fr;
+  }
 }
 
 .studio-head {

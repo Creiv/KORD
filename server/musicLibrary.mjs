@@ -1,5 +1,6 @@
 import fs from "fs/promises"
 import { existsSync, statSync } from "fs"
+import { stat as statAsync } from "fs/promises"
 import path from "path"
 import { loadAlbumJsonMetaFromDir, loadTrackJsonMetaMapFromDir } from "./albumInfo.mjs"
 
@@ -119,6 +120,20 @@ function getCoverForAlbumDir(albumDir, albumRelPath) {
   return null
 }
 
+async function entryIsAudioInDir(entry, dir) {
+  if (!hasAudio(entry.name)) return false
+  if (entry.isFile()) return true
+  if (entry.isSymbolicLink()) {
+    try {
+      const st = await statAsync(path.join(dir, entry.name))
+      return st.isFile()
+    } catch {
+      return false
+    }
+  }
+  return false
+}
+
 async function readAlbumTracks(artistName, albumFolderName, albumDir, albumMeta) {
   const albumDisplayName =
     albumMeta?.title && String(albumMeta.title).trim()
@@ -128,7 +143,7 @@ async function readAlbumTracks(artistName, albumFolderName, albumDir, albumMeta)
   const entries = await fs.readdir(albumDir, { withFileTypes: true })
   const tracks = []
   for (const entry of entries) {
-    if (!entry.isFile() || !hasAudio(entry.name)) continue
+    if (!(await entryIsAudioInDir(entry, albumDir))) continue
     tracks.push(
       trackFromFile({
         artistName,
@@ -156,7 +171,7 @@ async function readLooseTracks(artistName, artistDir) {
   const entries = await fs.readdir(artistDir, { withFileTypes: true })
   const tracks = []
   for (const entry of entries) {
-    if (!entry.isFile() || !hasAudio(entry.name)) continue
+    if (!(await entryIsAudioInDir(entry, artistDir))) continue
     tracks.push(
       trackFromFile({
         artistName,

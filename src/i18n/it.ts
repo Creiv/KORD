@@ -326,6 +326,28 @@ export const IT: Record<string, string> = {
   "themePicker.stripAccent2": "Accent 2",
   "tools.studioHeroEyebrow": "Strumenti",
   "tools.studioHeroTitle": "Libreria e import",
+  "tools.sharedEyebrow": "Multi-account",
+  "tools.sharedTitle": "Condividere musica con altri utenti",
+  "tools.sharedBrowseDesc":
+    "Scegli l’utente, carica l’elenco, artista e album: sotto «Album» la prima voce è «Tutti gli album» (stessa cartella artista) oppure un album singolo. Vengono creati symlink e metadati kord sanificati; preferiti, blocchi shuffle, ascolti e coda restano nello stato del tuo account.",
+  "tools.sharedAllAlbums": "Tutti gli album",
+  "tools.sharedAlbumNeedArtist": "Scegli un artista…",
+  "tools.sharedLinkOkArtist":
+    "Collegati {{albums}} album, {{files}} file (saltati già collegati: {{skipped}}).{{extra}}",
+  "tools.sharedLinkArtistErrors": " Non collegate {{n}} cartelle.",
+  "tools.sharedPickPlaceholder": "Scegli…",
+  "tools.sharedPickSource": "Profilo sorgente",
+  "tools.sharedLoadCatalog": "Carica catalogo",
+  "tools.sharedLoadingCatalog": "Lettura…",
+  "tools.sharedPickArtist": "Artista",
+  "tools.sharedPickAlbum": "Album",
+  "tools.sharedAddToMine": "Aggiungi alla mia libreria",
+  "tools.sharedLinking": "Collegamento…",
+  "tools.sharedLinkOk": "Collegati {{linked}} file (saltati {{skipped}}) in `{{path}}`",
+  "tools.sharedNoOtherAccount": "Serve almeno un altro profilo oltre a quello attuale. Aggiungilo dalle impostazioni.",
+  "tools.sharedEnvLock":
+    "MUSIC_ROOT è fissata dall’ambiente: tutti i profili usano la stessa cartella; la sincronia tra account non applica (nessuna cartella distinta in cui creare i link).",
+  "tools.sharedErr": "Errore: {{e}}",
   "tools.downloadTitle": "Download",
   "tools.cmdUsed": "Comando usato",
   "tools.cmdFallback":
@@ -375,7 +397,7 @@ export const IT: Record<string, string> = {
   "tools.scanAllTracks": "Scansione tutti i brani",
   "tools.displayedTitles": "Titoli mostrati (da nome file)",
   "tools.titleHint":
-    "Senza rinominare i file: salva in kord-trackinfo.json un titolo senza prefisso tipo 01 - / 12 — e senza segmenti tra parentesi quadre […], calcolato dal nome file.",
+    "Rimuove: le parti in […] e i prefissi iniziali tipo 01- / 1- / 1.",
   "tools.previewAlbum": "Anteprima album",
   "tools.applyAlbum": "Applica su album",
   "tools.previewLibrary": "Anteprima tutta la libreria",

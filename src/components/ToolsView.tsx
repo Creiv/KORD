@@ -5,9 +5,13 @@ import { useI18n } from "../i18n/useI18n"
 import {
   applyArtwork,
   createMusicSubdir,
+  fetchAccounts,
   fetchAlbumInfo,
+  fetchLibraryIndexForAccount,
   fetchTrackInfo,
   fetchDownloadPreset,
+  getSelectedAccountId,
+  linkSharedFromAccount,
   listMusicDirs,
   runYtdlpDownload,
   sanitizeTrackTitles,
@@ -16,7 +20,8 @@ import {
 import type { ArtworkHit } from "../lib/api"
 import { fmtDate } from "../lib/metaFormat"
 import { albumFolderFromTrackRelPath } from "../lib/trackPaths"
-import type { LibTrack, LibraryResponse } from "../types"
+import type { LinkSharedAlbumResult, LinkSharedResult } from "../lib/api"
+import type { LibTrack, LibraryIndex, LibraryResponse } from "../types"
 
 type P = {
   library: LibraryResponse | null
@@ -61,6 +66,8 @@ const K_DL_OUT = "kord-dl-out"
 const W_DL_OUT = "wpp-dl-out"
 const K_COVER_ALB = "kord-cover-album"
 const W_COVER_ALB = "wpp-cover-album"
+
+const SHARED_ALL_ALBUMS = "__kord_all_albums__"
 
 export function ToolsView({ library, onRefreshLibrary }: P) {
   const p = usePlayer()
@@ -129,6 +136,21 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
       return false
     }
   })
+  const [sharedAccounts, setSharedAccounts] = useState<
+    { id: string; name: string; musicRoot: string }[]
+  >([])
+  const [sharedLockedByEnv, setSharedLockedByEnv] = useState(false)
+  const [localSessionAccount, setLocalSessionAccount] = useState<string | null>(() =>
+    getSelectedAccountId(),
+  )
+  const [sharedSourceId, setSharedSourceId] = useState("")
+  const [sharedIndex, setSharedIndex] = useState<LibraryIndex | null>(null)
+  const [sharedLoadBusy, setSharedLoadBusy] = useState(false)
+  const [sharedLinkBusy, setSharedLinkBusy] = useState(false)
+  const [sharedArtistId, setSharedArtistId] = useState("")
+  const [sharedAlbumRel, setSharedAlbumRel] = useState("")
+  const [sharedMsg, setSharedMsg] = useState<string | null>(null)
+  const [sharedErr, setSharedErr] = useState<string | null>(null)
   const [artArt, setArtArt] = useState("")
   const [artAlb, setArtAlb] = useState("")
   const [artRes, setArtRes] = useState<ArtworkHit[]>([])
@@ -195,6 +217,21 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
     }
   }, [albumForCover])
 
+  useEffect(() => {
+    fetchAccounts()
+      .then((a) => {
+        setSharedAccounts(a.accounts)
+        setSharedLockedByEnv(a.lockedByEnv)
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const h = () => setLocalSessionAccount(getSelectedAccountId())
+    window.addEventListener("kord-account-session-changed", h)
+    return () => window.removeEventListener("kord-account-session-changed", h)
+  }, [])
+
   const albumOpts = useMemo(() => {
     if (!library) return [] as { label: string; value: string; releaseDate: string }[]
     const o: { label: string; value: string; releaseDate: string }[] = []
@@ -258,6 +295,81 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
     })
     return o
   }, [library, sortLocale])
+
+  const otherSharedAccounts = useMemo(
+    () => sharedAccounts.filter((a) => a.id !== (localSessionAccount || "")),
+    [sharedAccounts, localSessionAccount],
+  )
+
+  const sharedAlbumsForArtist = useMemo(() => {
+    if (!sharedIndex || !sharedArtistId) return []
+    return sharedIndex.albums.filter((a) => a.artistId === sharedArtistId && !a.loose)
+  }, [sharedIndex, sharedArtistId])
+
+  const loadSharedCatalog = useCallback(() => {
+    if (!sharedSourceId) return
+    setSharedLoadBusy(true)
+    setSharedErr(null)
+    setSharedMsg(null)
+    setSharedIndex(null)
+    setSharedArtistId("")
+    setSharedAlbumRel("")
+    fetchLibraryIndexForAccount(sharedSourceId)
+      .then((ix) => {
+        setSharedIndex(ix)
+      })
+      .catch((e) => {
+        setSharedErr(
+          t("tools.sharedErr", { e: String((e as Error)?.message || e) }),
+        )
+        setSharedIndex(null)
+      })
+      .finally(() => setSharedLoadBusy(false))
+  }, [sharedSourceId, t])
+
+  const doLinkSharedAlbum = useCallback(() => {
+    if (!sharedSourceId || !sharedArtistId || !sharedAlbumRel) return
+    setSharedLinkBusy(true)
+    setSharedErr(null)
+    setSharedMsg(null)
+    const scope = sharedAlbumRel === SHARED_ALL_ALBUMS ? "artist" : "album"
+    const rel = scope === "artist" ? sharedArtistId : sharedAlbumRel
+    linkSharedFromAccount(sharedSourceId, rel, scope)
+      .then((r: LinkSharedResult) => {
+        if ("scope" in r && r.scope === "artist") {
+          const extra = r.errors?.length
+            ? t("tools.sharedLinkArtistErrors", { n: r.errors.length })
+            : ""
+          setSharedMsg(
+            t("tools.sharedLinkOkArtist", {
+              albums: r.albums.length,
+              files: r.totalLinked,
+              skipped: r.totalSkipped,
+              extra,
+            }) +
+              (r.errors?.length
+                ? ` ${r.errors.map((e) => e.relPath).join(", ")}`
+                : ""),
+          )
+        } else {
+          const al = r as LinkSharedAlbumResult
+          setSharedMsg(
+            t("tools.sharedLinkOk", {
+              linked: al.linked,
+              skipped: al.skipped,
+              path: al.destRelPath,
+            }),
+          )
+        }
+        onRefreshLibrary()
+      })
+      .catch((e) => {
+        setSharedErr(
+          t("tools.sharedErr", { e: String((e as Error)?.message || e) }),
+        )
+      })
+      .finally(() => setSharedLinkBusy(false))
+  }, [onRefreshLibrary, sharedAlbumRel, sharedArtistId, sharedSourceId, t])
 
   const useCurrentForArt = () => {
     if (p.current) {
@@ -633,6 +745,129 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
           {t("tools.studioHeroTitle")}
         </h2>
       </section>
+
+      {sharedAccounts.length >= 2 ? (
+        <section
+          className="tool-block glass tools-shared-lib"
+          aria-labelledby="tools-shared-title"
+        >
+          <header className="studio-head">
+            <p className="eyebrow">{t("tools.sharedEyebrow")}</p>
+            <h3 id="tools-shared-title">{t("tools.sharedTitle")}</h3>
+          </header>
+
+          <div className="studio-panel tools-shared-browse">
+            <p className="subtle sm tools-shared-browse-lead">
+              {t("tools.sharedBrowseDesc")}
+            </p>
+            {sharedLockedByEnv ? (
+              <p className="subtle sm warnline">{t("tools.sharedEnvLock")}</p>
+            ) : null}
+            {otherSharedAccounts.length === 0 ? (
+              <p className="subtle sm">{t("tools.sharedNoOtherAccount")}</p>
+            ) : (
+              <>
+                <div className="tools-shared-browse-row">
+                  <select
+                    className="select"
+                    value={sharedSourceId}
+                    onChange={(e) => {
+                      setSharedSourceId(e.target.value)
+                      setSharedIndex(null)
+                      setSharedArtistId("")
+                      setSharedAlbumRel("")
+                      setSharedMsg(null)
+                      setSharedErr(null)
+                    }}
+                    aria-label={t("tools.sharedPickSource")}
+                  >
+                    <option value="">{t("tools.sharedPickPlaceholder")}</option>
+                    {otherSharedAccounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="btn sm"
+                    onClick={loadSharedCatalog}
+                    disabled={!sharedSourceId || sharedLoadBusy}
+                  >
+                    {sharedLoadBusy
+                      ? t("tools.sharedLoadingCatalog")
+                      : t("tools.sharedLoadCatalog")}
+                  </button>
+                </div>
+                {sharedIndex ? (
+                  <div className="tools-shared-browse-picks">
+                    <div>
+                      <label className="subtle sm block-label" htmlFor="shared-artist-sel">
+                        {t("tools.sharedPickArtist")}
+                      </label>
+                      <select
+                        id="shared-artist-sel"
+                        className="select"
+                        value={sharedArtistId}
+                        onChange={(e) => {
+                          const v = e.target.value
+                          setSharedArtistId(v)
+                          setSharedAlbumRel(v ? SHARED_ALL_ALBUMS : "")
+                        }}
+                      >
+                        <option value="">{t("tools.sharedPickPlaceholder")}</option>
+                        {sharedIndex.artists.map((ar) => (
+                          <option key={ar.id} value={ar.id}>
+                            {ar.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="subtle sm block-label" htmlFor="shared-album-sel">
+                        {t("tools.sharedPickAlbum")}
+                      </label>
+                      <select
+                        id="shared-album-sel"
+                        className="select"
+                        value={sharedArtistId ? sharedAlbumRel : ""}
+                        onChange={(e) => setSharedAlbumRel(e.target.value)}
+                        disabled={!sharedArtistId}
+                      >
+                        {!sharedArtistId ? (
+                          <option value="">{t("tools.sharedAlbumNeedArtist")}</option>
+                        ) : (
+                          <>
+                            <option value={SHARED_ALL_ALBUMS}>{t("tools.sharedAllAlbums")}</option>
+                            {sharedAlbumsForArtist.map((al) => (
+                              <option key={al.relPath} value={al.relPath}>
+                                {al.name} · {al.trackCount}
+                              </option>
+                            ))}
+                          </>
+                        )}
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={doLinkSharedAlbum}
+                      disabled={sharedLinkBusy || !sharedArtistId || !sharedAlbumRel}
+                    >
+                      {sharedLinkBusy
+                        ? t("tools.sharedLinking")
+                        : t("tools.sharedAddToMine")}
+                    </button>
+                  </div>
+                ) : null}
+              </>
+            )}
+            {sharedMsg ? <p className="subtle sm">{sharedMsg}</p> : null}
+            {sharedErr ? <p className="subtle sm warnline">{sharedErr}</p> : null}
+          </div>
+        </section>
+      ) : null}
+
       <section className="tool-block glass tools-download">
         <header className="studio-head">
           <h3>{t("tools.downloadTitle")}</h3>
@@ -868,7 +1103,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
                 </button>
                 <button
                   type="button"
-                  className="btn"
+                  className="btn secondary"
                   onClick={fetchOneAlbumMeta}
                   disabled={metaBusy || !metaAlbumPath}
                 >
@@ -881,7 +1116,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
               <div className="studio-action-row">
                 <button
                   type="button"
-                  className="btn secondary"
+                  className="btn"
                   onClick={runMetaScanAll}
                   disabled={metaAllBusy || !library}
                   title={t("tools.scanAlbumsTitle")}
@@ -903,7 +1138,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
                 </button>
                 <button
                   type="button"
-                  className="btn secondary sm"
+                  className="btn sm"
                   onClick={runTrackScanAll}
                   disabled={!library || trackAllBusy}
                 >
@@ -937,7 +1172,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
               <div className="studio-action-row">
                 <button
                   type="button"
-                  className="btn sm"
+                  className="btn secondary sm"
                   disabled={!library || titleSanBusy}
                   onClick={() => runSanitizeTitles("all", true)}
                 >

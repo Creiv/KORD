@@ -321,6 +321,28 @@ export const EN: Record<string, string> = {
   "themePicker.stripAccent2": "Accent 2",
   "tools.studioHeroEyebrow": "Studio",
   "tools.studioHeroTitle": "Library tools",
+  "tools.sharedEyebrow": "Multi-account",
+  "tools.sharedTitle": "Share music with other users",
+  "tools.sharedBrowseDesc":
+    "Pick a user, load the index, then artist and album: under Album, the first option is All albums (entire artist folder) or pick a single album. Symlinks and sanitized kord metadata are created; favorites, shuffle blocks, play counts, and queue stay in your account state.",
+  "tools.sharedAllAlbums": "All albums",
+  "tools.sharedAlbumNeedArtist": "Choose an artist first…",
+  "tools.sharedLinkOkArtist":
+    "Linked {{albums}} albums, {{files}} new files (skipped as already present: {{skipped}}).{{extra}}",
+  "tools.sharedLinkArtistErrors": " {{n}} folder(s) were not linked.",
+  "tools.sharedPickPlaceholder": "Choose…",
+  "tools.sharedPickSource": "Source profile",
+  "tools.sharedLoadCatalog": "Load catalog",
+  "tools.sharedLoadingCatalog": "Loading…",
+  "tools.sharedPickArtist": "Artist",
+  "tools.sharedPickAlbum": "Album",
+  "tools.sharedAddToMine": "Add to my library",
+  "tools.sharedLinking": "Linking…",
+  "tools.sharedLinkOk": "Linked {{linked}} file(s) ({{skipped}} skipped) at `{{path}}`",
+  "tools.sharedNoOtherAccount": "Add another account in Settings to browse other libraries.",
+  "tools.sharedEnvLock":
+    "MUSIC_ROOT is set in the environment: all profiles share one folder, so per-account link sync is not available.",
+  "tools.sharedErr": "Error: {{e}}",
   "tools.downloadTitle": "Download",
   "tools.cmdUsed": "Command used",
   "tools.cmdFallback":
@@ -370,7 +392,7 @@ export const EN: Record<string, string> = {
   "tools.scanAllTracks": "Scan all tracks",
   "tools.displayedTitles": "Displayed titles (from file names)",
   "tools.titleHint":
-    "Without renaming files: save to kord-trackinfo.json a title without a numeric prefix like 01 - / 12 — and without […] segments, derived from the file name.",
+    "Removes: […] and leading numeric prefixes (1 - / 1. ).",
   "tools.previewAlbum": "Preview album",
   "tools.applyAlbum": "Apply to album",
   "tools.previewLibrary": "Preview entire library",

@@ -115,6 +115,46 @@ export async function fetchLibraryIndex(): Promise<LibraryIndex> {
   return unwrap<LibraryIndex>(response)
 }
 
+export async function fetchLibraryIndexForAccount(accountId: string): Promise<LibraryIndex> {
+  const response = await fetch(
+    `/api/accounts/${encodeURIComponent(accountId)}/library-index`,
+    { cache: "no-store" },
+  )
+  return unwrap<LibraryIndex>(response)
+}
+
+export type LinkSharedAlbumResult = {
+  scope?: "album"
+  linked: number
+  skipped: number
+  destRelPath: string
+  linkManifestPath: string
+}
+
+export type LinkSharedArtistResult = {
+  scope: "artist"
+  artist: string
+  albums: { destRelPath: string; linked: number; skipped: number; linkManifestPath: string }[]
+  errors?: { relPath: string; error: string; code?: string }[]
+  totalLinked: number
+  totalSkipped: number
+}
+
+export type LinkSharedResult = LinkSharedAlbumResult | LinkSharedArtistResult
+
+export async function linkSharedFromAccount(
+  sourceAccountId: string,
+  relPath: string,
+  scope: "album" | "artist" = "album",
+): Promise<LinkSharedResult> {
+  const response = await fetch("/api/studio/link-shared-album", {
+    method: "POST",
+    headers: accountHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ sourceAccountId, relPath, scope }),
+  })
+  return unwrap<LinkSharedResult>(response)
+}
+
 export async function fetchDashboard(): Promise<DashboardPayload> {
   const response = await fetch(apiUrl("/api/dashboard"), {
     cache: "no-store",

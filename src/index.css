@@ -797,6 +797,10 @@ ul {
   grid-column: span 6;
 }
 
+.tools > .tool-block.tools-shared-lib {
+  grid-column: 1 / -1;
+}
+
 .tools > .tool-block.tools-download {
   grid-column: span 7;
 }
