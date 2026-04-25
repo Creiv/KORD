@@ -22,6 +22,7 @@ coverage
 
 *.local
 server/music-root.config.json
+server/accounts/
 
 # Editor directories and files
 .vscode/*

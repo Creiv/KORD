@@ -6,6 +6,8 @@ import type {
 } from "../types"
 
 type Wrapped<T> = { ok: boolean; data: T; error: string | null }
+const SESSION_ACCOUNT_STORAGE_KEY = "kord-session-account-id"
+const LEGACY_ACTIVE_ACCOUNT_STORAGE_KEY = "kord-active-account-id"
 
 async function unwrap<T>(response: Response): Promise<T> {
   const json = (await response.json()) as T | Wrapped<T> | { error?: string }
@@ -23,45 +25,115 @@ async function unwrap<T>(response: Response): Promise<T> {
   return json as T
 }
 
+export function getSelectedAccountId(): string | null {
+  try {
+    return (
+      localStorage.getItem(SESSION_ACCOUNT_STORAGE_KEY) ||
+      localStorage.getItem(LEGACY_ACTIVE_ACCOUNT_STORAGE_KEY) ||
+      null
+    )
+  } catch {
+    return null
+  }
+}
+
+export function setSelectedAccountId(id: string) {
+  try {
+    localStorage.setItem(SESSION_ACCOUNT_STORAGE_KEY, id)
+    localStorage.removeItem(LEGACY_ACTIVE_ACCOUNT_STORAGE_KEY)
+    window.dispatchEvent(new CustomEvent("kord-account-session-changed"))
+  } catch {
+    /* ignore */
+  }
+}
+
+function rememberAvailableAccount(data: AccountsResponse | AppConfig) {
+  try {
+    const current = getSelectedAccountId()
+    if ("accounts" in data && current) {
+      if (data.accounts.some((account) => account.id === current)) return
+      const fallback = data.defaultAccountId || data.accounts[0]?.id
+      if (fallback) setSelectedAccountId(fallback)
+      return
+    }
+    if (current) return
+    const id = "accounts" in data
+      ? data.defaultAccountId || data.accounts[0]?.id
+      : data.defaultAccountId
+    if (id) setSelectedAccountId(id)
+  } catch {
+    /* ignore */
+  }
+}
+
+function accountParams(params: Record<string, string> = {}) {
+  const out = new URLSearchParams(params)
+  const id = getSelectedAccountId()
+  if (id) out.set("accountId", id)
+  return out
+}
+
+function accountHeaders(base: HeadersInit = {}) {
+  const id = getSelectedAccountId()
+  return id ? { ...base, "X-KORD-Account-Id": id } : base
+}
+
+function apiUrl(path: string, params: Record<string, string> = {}) {
+  const query = accountParams(params).toString()
+  return query ? `${path}?${query}` : path
+}
+
 export function mediaUrl(relPath: string) {
-  return `/media/${relPath
+  const path = `/media/${relPath
     .split("/")
     .map((segment) => encodeURIComponent(segment))
     .join("/")}`
+  const id = getSelectedAccountId()
+  return id ? `${path}?${new URLSearchParams({ accountId: id })}` : path
 }
 
 export function coverUrlForTrackRelPath(relPath: string) {
-  return `/api/cover?path=${encodeURIComponent(relPath)}`
+  return apiUrl("/api/cover", { path: relPath })
 }
 
 export function coverUrlForAlbumRelPath(relPath: string) {
-  return `/api/cover?path=${encodeURIComponent(relPath)}`
+  return apiUrl("/api/cover", { path: relPath })
 }
 
 export async function fetchLibrary(): Promise<LibraryResponse> {
-  const response = await fetch("/api/library")
+  const response = await fetch(apiUrl("/api/library"), {
+    headers: accountHeaders(),
+  })
   return unwrap<LibraryResponse>(response)
 }
 
 export async function fetchLibraryIndex(): Promise<LibraryIndex> {
-  const response = await fetch("/api/library-index", { cache: "no-store" })
+  const response = await fetch(apiUrl("/api/library-index"), {
+    cache: "no-store",
+    headers: accountHeaders(),
+  })
   return unwrap<LibraryIndex>(response)
 }
 
 export async function fetchDashboard(): Promise<DashboardPayload> {
-  const response = await fetch("/api/dashboard", { cache: "no-store" })
+  const response = await fetch(apiUrl("/api/dashboard"), {
+    cache: "no-store",
+    headers: accountHeaders(),
+  })
   return unwrap<DashboardPayload>(response)
 }
 
 export async function fetchUserState(): Promise<UserStateV1> {
-  const response = await fetch("/api/user-state")
+  const response = await fetch(apiUrl("/api/user-state"), {
+    headers: accountHeaders(),
+  })
   return unwrap<UserStateV1>(response)
 }
 
 export async function saveUserState(state: UserStateV1): Promise<UserStateV1> {
   const response = await fetch("/api/user-state", {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: accountHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ state }),
   })
   return unwrap<UserStateV1>(response)
@@ -74,11 +146,27 @@ export type AppConfig = {
   serverPort: number
   devClientPort: number
   lanAccessUrl: string | null
+  defaultAccountId?: string
+}
+
+export type Account = {
+  id: string
+  name: string
+  musicRoot: string
+}
+
+export type AccountsResponse = {
+  defaultAccountId: string
+  accounts: Account[]
+  lockedByEnv: boolean
+  createdAccountId?: string
 }
 
 export async function fetchConfig(): Promise<AppConfig> {
   const response = await fetch("/api/config")
-  return unwrap<AppConfig>(response)
+  const data = await unwrap<AppConfig>(response)
+  rememberAvailableAccount(data)
+  return data
 }
 
 export async function saveAppConfig(
@@ -86,7 +174,7 @@ export async function saveAppConfig(
 ): Promise<AppConfig> {
   const response = await fetch("/api/config", {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: accountHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(patch),
   })
   return unwrap<AppConfig>(response)
@@ -94,6 +182,53 @@ export async function saveAppConfig(
 
 export async function saveConfig(musicRoot: string): Promise<AppConfig> {
   return saveAppConfig({ musicRoot })
+}
+
+export async function fetchAccounts(): Promise<AccountsResponse> {
+  const response = await fetch("/api/accounts", { cache: "no-store" })
+  const data = await unwrap<AccountsResponse>(response)
+  rememberAvailableAccount(data)
+  return data
+}
+
+export async function createAccount(input: {
+  name: string
+  musicRoot: string
+}): Promise<AccountsResponse> {
+  const response = await fetch("/api/accounts", {
+    method: "POST",
+    headers: accountHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(input),
+  })
+  const data = await unwrap<AccountsResponse>(response)
+  if (data.createdAccountId) setSelectedAccountId(data.createdAccountId)
+  return data
+}
+
+export async function updateAccount(
+  id: string,
+  patch: { name?: string; musicRoot?: string },
+): Promise<AccountsResponse> {
+  const response = await fetch(`/api/accounts/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    headers: accountHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(patch),
+  })
+  const data = await unwrap<AccountsResponse>(response)
+  return data
+}
+
+export async function deleteAccount(id: string): Promise<AccountsResponse> {
+  const response = await fetch(`/api/accounts/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: accountHeaders(),
+  })
+  const data = await unwrap<AccountsResponse>(response)
+  const selected = getSelectedAccountId()
+  if (selected === id) {
+    setSelectedAccountId(data.accounts[0]?.id || data.defaultAccountId)
+  }
+  return data
 }
 
 export type PresetYtdlp = {
@@ -106,7 +241,9 @@ export type PresetYtdlp = {
 }
 
 export async function fetchDownloadPreset(): Promise<PresetYtdlp> {
-  const response = await fetch("/api/download-preset")
+  const response = await fetch(apiUrl("/api/download-preset"), {
+    headers: accountHeaders(),
+  })
   return unwrap<PresetYtdlp>(response)
 }
 
@@ -143,7 +280,7 @@ export async function runYtdlpDownload(
 ): Promise<DownloadRes> {
   const response = await fetch("/api/download", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: accountHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       url,
       ...(outputDir != null && outputDir !== "" ? { outputDir } : {}),
@@ -214,7 +351,9 @@ export type FsList = {
 }
 
 export async function listMusicDirs(path: string): Promise<FsList> {
-  const response = await fetch(`/api/fs/list?${new URLSearchParams({ path: path || "" })}`)
+  const response = await fetch(apiUrl("/api/fs/list", { path: path || "" }), {
+    headers: accountHeaders(),
+  })
   return unwrap<FsList>(response)
 }
 
@@ -238,7 +377,10 @@ export async function searchArtwork(
     if (opts.album) params.set("album", opts.album)
   }
   if (![...params.values()].length) return []
-  const response = await fetch(`/api/artwork/search?${params}`)
+  const response = await fetch(
+    apiUrl("/api/artwork/search", Object.fromEntries(params)),
+    { headers: accountHeaders() },
+  )
   const data = await unwrap<{ results: ArtworkHit[] }>(response)
   return data.results || []
 }
@@ -249,7 +391,7 @@ export async function applyArtwork(
 ): Promise<void> {
   const response = await fetch("/api/artwork/apply", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: accountHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ albumPath, imageUrl }),
   })
   await unwrap<{ saved: string }>(response)
@@ -261,7 +403,7 @@ export async function createMusicSubdir(
 ): Promise<{ relPath: string }> {
   const response = await fetch("/api/fs/mkdir", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: accountHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ parent, name }),
   })
   const json = (await response.json()) as { error?: string; relPath?: string }
@@ -299,7 +441,7 @@ export async function fetchAlbumInfo(
 ): Promise<{ ok: true; albumPath: string; meta: FetchedAlbumMeta }> {
   const response = await fetch("/api/album-info/fetch", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: accountHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ albumPath, artist, album }),
   })
   const json = (await response.json()) as
@@ -317,7 +459,7 @@ export async function fetchTrackInfo(
 ): Promise<{ ok: true; relPath: string; meta: FetchedTrackMeta }> {
   const response = await fetch("/api/track-info/fetch", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: accountHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ relPath }),
   })
   const json = (await response.json()) as
@@ -349,7 +491,7 @@ export async function saveTrackInfoManual(
 ): Promise<{ ok: true; relPath: string; meta: Record<string, unknown> }> {
   const response = await fetch("/api/track-info/save", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: accountHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ relPath, patch }),
   })
   const json = (await response.json()) as
@@ -391,7 +533,7 @@ export async function sanitizeTrackTitles(
 ): Promise<SanitizeTrackTitlesAll | SanitizeTrackTitlesOneAlbum> {
   const response = await fetch("/api/studio/sanitize-track-titles", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: accountHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       ...body,
       dryRun: Boolean((body as { dryRun?: boolean }).dryRun),

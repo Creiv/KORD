@@ -18,12 +18,17 @@ import { UserStateProvider, useUserState } from "./context/UserStateContext";
 import {
   coverUrlForAlbumRelPath,
   coverUrlForTrackRelPath,
+  createAccount as createApiAccount,
+  deleteAccount as deleteApiAccount,
+  fetchAccounts,
   fetchConfig,
   fetchDashboard,
   fetchLibraryIndex,
+  getSelectedAccountId,
   saveAppConfig,
-  saveConfig,
+  setSelectedAccountId,
 } from "./lib/api";
+import type { Account, AccountsResponse } from "./lib/api";
 import { buildRandomArtistCoverMap } from "./lib/artistCover";
 import { buildGenreCoverPreviewMap } from "./lib/genreCovers";
 import { fmtDate, trackInfoBadges } from "./lib/metaFormat";
@@ -2868,6 +2873,45 @@ function StatisticsView({
   );
 }
 
+function AccountBadge({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const { t } = useI18n();
+  const [accounts, setAccounts] = useState<AccountsResponse | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    getSelectedAccountId()
+  );
+
+  useEffect(() => {
+    fetchAccounts()
+      .then((next) => {
+        setAccounts(next);
+        setSelectedId(getSelectedAccountId() || next.defaultAccountId);
+      })
+      .catch(() => setAccounts(null));
+    const onChange = () => setSelectedId(getSelectedAccountId());
+    window.addEventListener("kord-account-session-changed", onChange);
+    return () =>
+      window.removeEventListener("kord-account-session-changed", onChange);
+  }, []);
+
+  if (!accounts || accounts.accounts.length === 0) return null;
+
+  const account =
+    accounts.accounts.find((item) => item.id === selectedId) ||
+    accounts.accounts[0];
+  const letter = (account.name.trim()[0] || "?").toUpperCase();
+  return (
+    <button
+      type="button"
+      className="account-badge"
+      title={t("accounts.openSettingsTitle", { name: account.name })}
+      aria-label={t("accounts.openSettingsTitle", { name: account.name })}
+      onClick={onOpenSettings}
+    >
+      <span aria-hidden>{letter}</span>
+    </button>
+  );
+}
+
 function SettingsView({
   onOpenSection,
 }: {
@@ -2875,50 +2919,53 @@ function SettingsView({
 }) {
   const user = useUserState();
   const { t, locale, setLocale } = useI18n();
-  const [libPath, setLibPath] = useState("");
   const [libLocked, setLibLocked] = useState(false);
-  const [libSaveBusy, setLibSaveBusy] = useState(false);
-  const [libErr, setLibErr] = useState<string | null>(null);
   const [listenOnLan, setListenOnLan] = useState(false);
   const [serverPort, setServerPort] = useState(3001);
   const [devClientPort, setDevClientPort] = useState(5173);
   const [lanAccessUrl, setLanAccessUrl] = useState<string | null>(null);
   const [netBusy, setNetBusy] = useState(false);
   const [netErr, setNetErr] = useState<string | null>(null);
-  const initialListenOnLanRef = useRef<boolean | null>(null);
+  const [accounts, setAccounts] = useState<AccountsResponse | null>(null);
+  const [selectedAccountId, setSelectedAccountIdState] = useState<string | null>(
+    () => getSelectedAccountId()
+  );
+  const [newAccountName, setNewAccountName] = useState("");
+  const [newAccountPath, setNewAccountPath] = useState("");
+  const [accountBusy, setAccountBusy] = useState(false);
+  const [accountErr, setAccountErr] = useState<string | null>(null);
+  const [initialListenOnLan, setInitialListenOnLan] = useState<boolean | null>(
+    null
+  );
 
   useEffect(() => {
-    fetchConfig()
-      .then((c) => {
-        setLibPath(c.musicRoot);
+    Promise.all([fetchConfig(), fetchAccounts()])
+      .then(([c, a]) => {
         setLibLocked(c.lockedByEnv);
-        if (initialListenOnLanRef.current === null) {
-          initialListenOnLanRef.current = c.listenOnLan;
-        }
+        setAccounts(a);
+        const selected = getSelectedAccountId() || a.defaultAccountId;
+        setSelectedAccountIdState(selected);
+        const current =
+          a.accounts.find((account) => account.id === selected) ||
+          a.accounts[0];
+        setNewAccountPath(current?.musicRoot || c.musicRoot);
+        setInitialListenOnLan((prev) => prev ?? c.listenOnLan);
         setListenOnLan(c.listenOnLan);
         setServerPort(c.serverPort);
         setDevClientPort(c.devClientPort);
         setLanAccessUrl(c.lanAccessUrl);
-        setLibErr(null);
         setNetErr(null);
+        setAccountErr(null);
       })
       .catch((e: unknown) =>
-        setLibErr(e instanceof Error ? e.message : String(e))
+        setAccountErr(e instanceof Error ? e.message : String(e))
       );
   }, []);
 
-  const saveLibraryRoot = () => {
-    setLibErr(null);
-    setLibSaveBusy(true);
-    saveConfig(libPath.trim())
-      .then(() => {
-        window.location.replace(new URL("/", window.location.href).href);
-      })
-      .catch((e: unknown) =>
-        setLibErr(e instanceof Error ? e.message : String(e))
-      )
-      .finally(() => setLibSaveBusy(false));
-  };
+  const selectedAccount: Account | null =
+    accounts?.accounts.find((account) => account.id === selectedAccountId) ||
+    accounts?.accounts[0] ||
+    null;
 
   const saveListenOnLan = (next: boolean) => {
     setNetErr(null);
@@ -2936,45 +2983,203 @@ function SettingsView({
       .finally(() => setNetBusy(false));
   };
 
+  const createNewAccount = () => {
+    setAccountErr(null);
+    setAccountBusy(true);
+    createApiAccount({
+      name: newAccountName.trim() || t("accounts.newFallback"),
+      musicRoot: newAccountPath.trim(),
+    })
+      .then((next) => {
+        setAccounts(next);
+        window.location.replace(new URL("/", window.location.href).href);
+      })
+      .catch((e: unknown) =>
+        setAccountErr(e instanceof Error ? e.message : String(e))
+      )
+      .finally(() => setAccountBusy(false));
+  };
+
+  const selectSessionAccount = (id: string) => {
+    if (!id || id === selectedAccountId) return;
+    setSelectedAccountId(id);
+    setSelectedAccountIdState(id);
+    window.location.replace(new URL("/", window.location.href).href);
+  };
+
+  const removeAccount = (id: string) => {
+    setAccountErr(null);
+    setAccountBusy(true);
+    deleteApiAccount(id)
+      .then((next) => {
+        setAccounts(next);
+        if (getSelectedAccountId() !== selectedAccountId) {
+          setSelectedAccountIdState(getSelectedAccountId());
+        }
+        window.location.replace(new URL("/", window.location.href).href);
+      })
+      .catch((e: unknown) =>
+        setAccountErr(e instanceof Error ? e.message : String(e))
+      )
+      .finally(() => setAccountBusy(false));
+  };
+
   return (
     <div className="dashboard-grid settings-page">
       <section className="surface-card">
         <div className="section-head section-head--page-toolbar">
           <div>
-            <p className="eyebrow">{t("settings.libraryEyebrow")}</p>
-            <h2>{t("settings.libraryHeading")}</h2>
+            <p className="eyebrow">{t("accounts.eyebrow")}</p>
+            <h2>{t("accounts.heading")}</h2>
           </div>
         </div>
-        {libErr ? <p className="subtle sm warnline">{libErr}</p> : null}
-        {libLocked ? (
-          <p className="subtle sm">
-            {t("settings.libLocked", { path: libPath })}
-          </p>
-        ) : (
-          <div className="row gap flex-wrap" style={{ alignItems: "flex-end" }}>
-            <label className="flex1" style={{ minWidth: "12rem" }}>
-              <span className="sr-only">{t("settings.libPathAria")}</span>
-              <input
-                type="text"
-                className="ghost-input w-full"
-                value={libPath}
-                onChange={(e) => setLibPath(e.target.value)}
-                autoComplete="off"
-                spellCheck={false}
-                placeholder={t("settings.libPathPh")}
-              />
-            </label>
-            <button
-              type="button"
-              className="btn"
-              disabled={libSaveBusy || !libPath.trim()}
-              onClick={saveLibraryRoot}
-            >
-              {libSaveBusy ? t("settings.saving") : t("settings.saveReload")}
-            </button>
+        {accountErr ? <p className="subtle sm warnline">{accountErr}</p> : null}
+        {accounts ? (
+          <div className="account-list">
+            {accounts.accounts.map((account) => {
+              const selected = account.id === selectedAccount?.id;
+              return (
+                <div
+                  key={account.id}
+                  className={`account-row${selected ? " is-selected" : ""}`}
+                >
+                  <button
+                    type="button"
+                    className="account-row__main"
+                    disabled={accountBusy || selected}
+                    onClick={() => selectSessionAccount(account.id)}
+                  >
+                    <span className="account-row__avatar" aria-hidden>
+                      {(account.name.trim()[0] || "?").toUpperCase()}
+                    </span>
+                    <span className="account-row__text">
+                      <strong>{account.name}</strong>
+                      <span>{account.musicRoot}</span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    disabled={accountBusy || accounts.accounts.length <= 1}
+                    onClick={() => removeAccount(account.id)}
+                  >
+                    {t("accounts.remove")}
+                  </button>
+                </div>
+              );
+            })}
           </div>
-        )}
-        <div className="settings-merge-block">
+        ) : null}
+        {!libLocked ? (
+          <div className="settings-merge-block">
+            <div className="section-head section-head--page-toolbar">
+              <div>
+                <p className="eyebrow">{t("accounts.createEyebrow")}</p>
+                <h2>{t("accounts.createHeading")}</h2>
+              </div>
+            </div>
+            <div className="row gap flex-wrap" style={{ alignItems: "flex-end" }}>
+              <label className="flex1" style={{ minWidth: "10rem" }}>
+                <span className="sr-only">{t("accounts.newNameAria")}</span>
+                <input
+                  type="text"
+                  className="ghost-input w-full"
+                  value={newAccountName}
+                  onChange={(event) => setNewAccountName(event.target.value)}
+                  placeholder={t("accounts.newNamePh")}
+                  autoComplete="off"
+                />
+              </label>
+              <label className="flex1" style={{ minWidth: "12rem" }}>
+                <span className="sr-only">{t("accounts.newPathAria")}</span>
+                <input
+                  type="text"
+                  className="ghost-input w-full"
+                  value={newAccountPath}
+                  onChange={(event) => setNewAccountPath(event.target.value)}
+                  placeholder={t("settings.libPathPh")}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </label>
+              <button
+                type="button"
+                className="btn"
+                disabled={accountBusy || !newAccountPath.trim()}
+                onClick={createNewAccount}
+              >
+                {accountBusy ? t("settings.saving") : t("accounts.create")}
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </section>
+      <section className="surface-card settings-ui-section">
+        <div className="section-head section-head--page-toolbar">
+          <div>
+            <p className="eyebrow">{t("settings.uiEyebrow")}</p>
+            <h2>{t("settings.uiHeading")}</h2>
+          </div>
+        </div>
+        <div className="settings-grid settings-ui-section__grid">
+          <label className="setting-card">
+            <span>{t("settings.language")}</span>
+            <select
+              value={locale}
+              onChange={(event) => setLocale(event.target.value as AppLocale)}
+            >
+              {APP_LOCALES.map((loc) => (
+                <option key={loc} value={loc}>
+                  {loc === "en" ? t("settings.langEn") : t("settings.langIt")}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="setting-card">
+            <span>{t("settings.theme")}</span>
+            <ThemePicker
+              value={user.state.settings.theme}
+              onChange={(theme) => user.updateSettings({ theme })}
+            />
+          </div>
+          <label className="setting-card">
+            <span>{t("settings.visualizer")}</span>
+            <select
+              value={user.state.settings.vizMode}
+              onChange={(event) =>
+                user.updateSettings({
+                  vizMode: event.target.value as
+                    | "bars"
+                    | "mirror"
+                    | "osc"
+                    | "signals"
+                    | "embers"
+                    | "kord",
+                })
+              }
+            >
+              <option value="bars">{t("settings.vizBars")}</option>
+              <option value="mirror">{t("settings.vizMirror")}</option>
+              <option value="osc">{t("settings.vizOsc")}</option>
+              <option value="signals">{t("settings.vizSignals")}</option>
+              <option value="embers">{t("settings.vizEmbers")}</option>
+              <option value="kord">{t("settings.vizKord")}</option>
+            </select>
+          </label>
+          <label className="setting-card checkbox">
+            <input
+              type="checkbox"
+              checked={user.state.settings.restoreSession}
+              onChange={(event) =>
+                user.updateSettings({ restoreSession: event.target.checked })
+              }
+            />
+            <span>{t("settings.restoreSession")}</span>
+          </label>
+        </div>
+      </section>
+      <section className="surface-card">
+        <div className="settings-merge-block settings-merge-block--first">
           <div className="section-head section-head--page-toolbar">
             <div>
               <p className="eyebrow">{t("settings.shortcutsEyebrow")}</p>
@@ -3055,74 +3260,9 @@ function SettingsView({
         ) : listenOnLan ? (
           <p className="subtle sm">{t("settings.networkNoUrl")}</p>
         ) : null}
-        {initialListenOnLanRef.current !== null &&
-        listenOnLan !== initialListenOnLanRef.current ? (
+        {initialListenOnLan !== null && listenOnLan !== initialListenOnLan ? (
           <p className="subtle sm warnline">{t("settings.networkRestartHint")}</p>
         ) : null}
-      </section>
-      <section className="surface-card settings-ui-section">
-        <div className="section-head section-head--page-toolbar">
-          <div>
-            <p className="eyebrow">{t("settings.uiEyebrow")}</p>
-            <h2>{t("settings.uiHeading")}</h2>
-          </div>
-        </div>
-        <div className="settings-grid settings-ui-section__grid">
-          <label className="setting-card">
-            <span>{t("settings.language")}</span>
-            <select
-              value={locale}
-              onChange={(event) => setLocale(event.target.value as AppLocale)}
-            >
-              {APP_LOCALES.map((loc) => (
-                <option key={loc} value={loc}>
-                  {loc === "en" ? t("settings.langEn") : t("settings.langIt")}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="setting-card">
-            <span>{t("settings.theme")}</span>
-            <ThemePicker
-              value={user.state.settings.theme}
-              onChange={(theme) => user.updateSettings({ theme })}
-            />
-          </div>
-          <label className="setting-card">
-            <span>{t("settings.visualizer")}</span>
-            <select
-              value={user.state.settings.vizMode}
-              onChange={(event) =>
-                user.updateSettings({
-                  vizMode: event.target.value as
-                    | "bars"
-                    | "mirror"
-                    | "osc"
-                    | "signals"
-                    | "embers"
-                    | "kord",
-                })
-              }
-            >
-              <option value="bars">{t("settings.vizBars")}</option>
-              <option value="mirror">{t("settings.vizMirror")}</option>
-              <option value="osc">{t("settings.vizOsc")}</option>
-              <option value="signals">{t("settings.vizSignals")}</option>
-              <option value="embers">{t("settings.vizEmbers")}</option>
-              <option value="kord">{t("settings.vizKord")}</option>
-            </select>
-          </label>
-          <label className="setting-card checkbox">
-            <input
-              type="checkbox"
-              checked={user.state.settings.restoreSession}
-              onChange={(event) =>
-                user.updateSettings({ restoreSession: event.target.checked })
-              }
-            />
-            <span>{t("settings.restoreSession")}</span>
-          </label>
-        </div>
       </section>
     </div>
   );
@@ -3706,6 +3846,9 @@ function Shell() {
                     {t("topbar.refresh")}
                   </button>
                 </div>
+                <AccountBadge
+                  onOpenSettings={() => navigate({ section: "settings" })}
+                />
               </div>
             </div>
           </header>

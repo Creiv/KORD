@@ -157,6 +157,21 @@
   margin-left: auto;
 }
 
+.account-badge {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border) 58%);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface3) 82%);
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 850;
+  box-shadow: var(--shadow-elev-1);
+}
+
 .topbar2__refresh-wrap {
   display: inline-flex;
   align-items: center;
@@ -320,10 +335,6 @@
 }
 
 @media (min-width: 901px) {
-  .settings-page.dashboard-grid > .settings-ui-section {
-    grid-column: 1 / -1;
-  }
-
   .settings-ui-section__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2018,6 +2029,71 @@
 .setting-card.checkbox {
   grid-template-columns: auto 1fr;
   align-items: center;
+}
+
+.account-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.account-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.7rem;
+  align-items: center;
+  padding: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface2) 78%, transparent);
+}
+
+.account-row.is-selected {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border) 58%);
+  background: color-mix(in srgb, var(--accent) 11%, var(--surface2) 89%);
+}
+
+.account-row__main {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+  text-align: left;
+}
+
+.account-row__avatar {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface3) 82%);
+  color: var(--accent);
+  font-weight: 850;
+}
+
+.account-row__text {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.account-row__text strong,
+.account-row__text span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-row__text span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.settings-merge-block--first {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .theme-picker {

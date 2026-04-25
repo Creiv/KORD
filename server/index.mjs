@@ -7,11 +7,17 @@ import { spawn } from "child_process"
 import { fileURLToPath } from "url"
 import { aggregateArtworkSearch } from "./artworkSearch.mjs"
 import {
+  createAccount,
+  deleteAccount,
+  getAccountsSnapshot,
   getConfigSnapshot,
+  getDefaultAccountId,
   getListenHost,
   getMusicRoot,
+  getMusicRootForAccount,
   setListenOnLan,
   setPersistedMusicRoot,
+  updateAccount,
 } from "./musicRootConfig.mjs"
 import {
   fetchReleaseMetadata,
@@ -91,8 +97,20 @@ function sendError(res, status, error, details = null) {
   return res.status(status).json({ ok: false, data: null, error, ...(details ? { details } : {}) })
 }
 
-function underRoot(full) {
-  const root = path.resolve(getMusicRoot())
+function accountIdFromReq(req) {
+  return (
+    String(req.query?.accountId || "").trim() ||
+    String(req.headers["x-kord-account-id"] || "").trim() ||
+    getDefaultAccountId()
+  )
+}
+
+function musicRootFromReq(req) {
+  return getMusicRootForAccount(accountIdFromReq(req))
+}
+
+function underRoot(full, musicRoot = getMusicRoot()) {
+  const root = path.resolve(musicRoot)
   const resolved = path.resolve(full)
   return resolved === root || resolved.startsWith(root + path.sep)
 }
@@ -128,9 +146,8 @@ function extractLastItemProgress(text) {
   return last ? { current: Number(last[1]), total: Number(last[2]) } : null
 }
 
-async function getLibraryIndex() {
-  const root = getMusicRoot()
-  if (!existsSync(root) || !underRoot(root)) {
+async function getLibraryIndex(root = getMusicRoot()) {
+  if (!existsSync(root) || !underRoot(root, root)) {
     throw new Error("Music library folder is not available")
   }
   return buildLibraryIndex(root)
@@ -151,8 +168,9 @@ app.use("/media", (req, res, next) => {
 app.use(
   "/media",
   (req, res, next) => {
+    const root = musicRootFromReq(req)
     express
-      .static(getMusicRoot(), {
+      .static(root, {
         index: false,
         setHeaders: (res, filePath) => {
           if (filePath.endsWith(".flac")) res.setHeader("Content-Type", "audio/flac")
@@ -161,14 +179,16 @@ app.use(
   },
 )
 
-app.get("/api/health", async (_req, res) => {
+app.get("/api/health", async (req, res) => {
   try {
-    const root = getMusicRoot()
-    const state = await readUserState(root)
+    const accountId = accountIdFromReq(req)
+    const root = musicRootFromReq(req)
+    const state = await readUserState(root, accountId)
     return sendOk(res, {
       musicRoot: root,
       exists: existsSync(root),
       userStateVersion: state.version,
+      accountId,
     })
   } catch (error) {
     return sendError(res, 500, String(error?.message || error))
@@ -209,9 +229,50 @@ app.put("/api/config", async (req, res) => {
   }
 })
 
-app.get("/api/library", async (_req, res) => {
+app.get("/api/accounts", (_req, res) => {
+  return sendOk(res, getAccountsSnapshot())
+})
+
+app.post("/api/accounts", async (req, res) => {
   try {
-    const index = await getLibraryIndex()
+    const body = req.body || {}
+    return sendOk(
+      res,
+      await createAccount({
+        name: body.name,
+        musicRoot: body.musicRoot,
+      }),
+      201,
+    )
+  } catch (error) {
+    if (error?.code === "ENV_LOCKED") return sendError(res, 403, error.message)
+    return sendError(res, 400, String(error?.message || error))
+  }
+})
+
+app.put("/api/accounts/:id", async (req, res) => {
+  try {
+    return sendOk(res, await updateAccount(req.params.id, req.body || {}))
+  } catch (error) {
+    if (error?.code === "ENV_LOCKED") return sendError(res, 403, error.message)
+    if (error?.code === "ACCOUNT_NOT_FOUND") return sendError(res, 404, error.message)
+    return sendError(res, 400, String(error?.message || error))
+  }
+})
+
+app.delete("/api/accounts/:id", async (req, res) => {
+  try {
+    return sendOk(res, await deleteAccount(req.params.id))
+  } catch (error) {
+    if (error?.code === "ACCOUNT_NOT_FOUND") return sendError(res, 404, error.message)
+    if (error?.code === "LAST_ACCOUNT") return sendError(res, 400, error.message)
+    return sendError(res, 400, String(error?.message || error))
+  }
+})
+
+app.get("/api/library", async (req, res) => {
+  try {
+    const index = await getLibraryIndex(musicRootFromReq(req))
     return res.json(toLegacyLibrary(index))
   } catch (error) {
     console.error(error)
@@ -219,9 +280,9 @@ app.get("/api/library", async (_req, res) => {
   }
 })
 
-app.get("/api/library-index", async (_req, res) => {
+app.get("/api/library-index", async (req, res) => {
   try {
-    const index = await getLibraryIndex()
+    const index = await getLibraryIndex(musicRootFromReq(req))
     res.set("Cache-Control", "no-store, must-revalidate")
     return sendOk(res, index)
   } catch (error) {
@@ -230,9 +291,14 @@ app.get("/api/library-index", async (_req, res) => {
   }
 })
 
-app.get("/api/dashboard", async (_req, res) => {
+app.get("/api/dashboard", async (req, res) => {
   try {
-    const [index, state] = await Promise.all([getLibraryIndex(), readUserState(getMusicRoot())])
+    const accountId = accountIdFromReq(req)
+    const root = musicRootFromReq(req)
+    const [index, state] = await Promise.all([
+      getLibraryIndex(root),
+      readUserState(root, accountId),
+    ])
     res.set("Cache-Control", "no-store, must-revalidate")
     return sendOk(res, buildDashboard(index, state))
   } catch (error) {
@@ -241,9 +307,9 @@ app.get("/api/dashboard", async (_req, res) => {
   }
 })
 
-app.get("/api/user-state", async (_req, res) => {
+app.get("/api/user-state", async (req, res) => {
   try {
-    const state = await readUserState(getMusicRoot())
+    const state = await readUserState(musicRootFromReq(req), accountIdFromReq(req))
     return sendOk(res, state)
   } catch (error) {
     return sendError(res, 500, String(error?.message || error))
@@ -253,7 +319,7 @@ app.get("/api/user-state", async (_req, res) => {
 app.put("/api/user-state", async (req, res) => {
   try {
     const payload = req.body?.state ?? req.body ?? defaultUserState()
-    const state = await writeUserState(getMusicRoot(), payload)
+    const state = await writeUserState(musicRootFromReq(req), payload, accountIdFromReq(req))
     return sendOk(res, state)
   } catch (error) {
     console.error(error)
@@ -262,25 +328,27 @@ app.put("/api/user-state", async (req, res) => {
 })
 
 app.get("/api/cover", (req, res) => {
+  const root = musicRootFromReq(req)
   const relPath = String(req.query.path || "")
   if (!relPath || relPath.includes("..") || hasReservedPathSegment(relPath)) {
     return res.status(400).end()
   }
-  const filePath = path.join(getMusicRoot(), relPath.replaceAll("/", path.sep))
-  if (!underRoot(filePath) || !existsSync(filePath)) return res.status(404).end()
+  const filePath = path.join(root, relPath.replaceAll("/", path.sep))
+  if (!underRoot(filePath, root) || !existsSync(filePath)) return res.status(404).end()
   const dir = statSync(filePath).isDirectory() ? filePath : path.dirname(filePath)
   for (const name of coverCandidates()) {
     const full = path.join(dir, name)
-    if (existsSync(full) && underRoot(full)) return res.sendFile(full)
+    if (existsSync(full) && underRoot(full, root)) return res.sendFile(full)
   }
   return res.status(404).end()
 })
 
 app.get("/api/track-stat", (req, res) => {
+  const root = musicRootFromReq(req)
   const relPath = safeRelSeg(String(req.query.path || ""))
   if (!relPath) return sendError(res, 400, "Missing path parameter")
-  const filePath = path.join(getMusicRoot(), relPath.replaceAll("/", path.sep))
-  if (!underRoot(filePath) || !existsSync(filePath)) return sendError(res, 404, "File not found")
+  const filePath = path.join(root, relPath.replaceAll("/", path.sep))
+  if (!underRoot(filePath, root) || !existsSync(filePath)) return sendError(res, 404, "File not found")
   try {
     const st = statSync(filePath)
     return sendOk(res, { size: st.size, mtime: st.mtimeMs })
@@ -313,7 +381,7 @@ app.post("/api/download", async (req, res) => {
   const url = String(req.body?.url || "").trim()
   if (!/^https?:\/\//i.test(url)) return sendError(res, 400, "Provide a valid http(s) URL")
   try {
-    const root = getMusicRoot()
+    const root = musicRootFromReq(req)
     const program = YTDLP_BIN
     const outTmpl = ytdlpOutputTemplate(url)
     const args = [...YTDLP_ARGS_BASE, "-o", outTmpl]
@@ -411,11 +479,12 @@ app.post("/api/download", async (req, res) => {
 })
 
 app.get("/api/fs/list", async (req, res) => {
+  const root = musicRootFromReq(req)
   const relPath = safeRelSeg(String(req.query.path || ""))
   if (relPath == null) return sendError(res, 400, "Invalid path")
   try {
-    const full = path.join(getMusicRoot(), relPath.replaceAll("/", path.sep))
-    if (!underRoot(full) || !existsSync(full))
+    const full = path.join(root, relPath.replaceAll("/", path.sep))
+    if (!underRoot(full, root) || !existsSync(full))
       return sendError(res, 400, "Path is outside the library or does not exist")
     const st = statSync(full)
     if (!st.isDirectory()) return sendError(res, 400, "Not a directory")
@@ -432,7 +501,7 @@ app.get("/api/fs/list", async (req, res) => {
       path: relPath,
       parent: relPath.split("/").filter(Boolean).slice(0, -1).join("/") || "",
       dirs,
-      musicRoot: getMusicRoot(),
+      musicRoot: root,
     })
   } catch (error) {
     return sendError(res, 500, String(error?.message || error))
@@ -440,6 +509,7 @@ app.get("/api/fs/list", async (req, res) => {
 })
 
 app.post("/api/fs/mkdir", async (req, res) => {
+  const root = musicRootFromReq(req)
   const parentRaw = req.body?.parent
   const parent = safeRelSeg(String(parentRaw == null ? "" : parentRaw))
   if (parent == null && parentRaw != null && String(parentRaw) !== "") {
@@ -452,8 +522,8 @@ app.post("/api/fs/mkdir", async (req, res) => {
   }
   try {
     const relPath = parent ? `${parent}/${name}` : name
-    const full = path.join(getMusicRoot(), relPath.replaceAll("/", path.sep))
-    if (!underRoot(full)) return sendError(res, 400, "Invalid path")
+    const full = path.join(root, relPath.replaceAll("/", path.sep))
+    if (!underRoot(full, root)) return sendError(res, 400, "Invalid path")
     if (existsSync(full)) return sendError(res, 400, "Folder already exists")
     await fs.mkdir(full, { recursive: false })
     return res.json({ ok: true, relPath: relPath.replaceAll(path.sep, "/") })
@@ -485,14 +555,15 @@ app.get("/api/artwork/search", async (req, res) => {
 })
 
 app.post("/api/artwork/apply", async (req, res) => {
+  const root = musicRootFromReq(req)
   const albumPath = safeRelSeg(String(req.body?.albumPath || ""))
   const imageUrl = String(req.body?.imageUrl || "").trim()
   if (!albumPath) return sendError(res, 400, "albumPath: relative folder (e.g. Artist/Album)")
   if (!/^https?:\/\//i.test(imageUrl))
     return sendError(res, 400, "Provide a valid http(s) image URL")
   try {
-    const full = path.join(getMusicRoot(), albumPath.replaceAll("/", path.sep))
-    if (!underRoot(full) || !existsSync(full)) return sendError(res, 400, "Folder does not exist")
+    const full = path.join(root, albumPath.replaceAll("/", path.sep))
+    if (!underRoot(full, root) || !existsSync(full)) return sendError(res, 400, "Folder does not exist")
     if (!statSync(full).isDirectory()) return sendError(res, 400, "Not a directory")
     const response = await fetch(imageUrl, { headers: { "User-Agent": "Kord/2.0" } })
     if (!response.ok) return sendError(res, 400, "Image download failed")
@@ -509,13 +580,14 @@ app.post("/api/artwork/apply", async (req, res) => {
 })
 
 app.post("/api/album-info/fetch", async (req, res) => {
+  const root = musicRootFromReq(req)
   const albumPath = safeRelSeg(String(req.body?.albumPath || ""))
   const artist = String(req.body?.artist || "").trim()
   const album = String(req.body?.album || "").trim()
   if (!albumPath) return sendError(res, 400, "albumPath is required")
   try {
-    const full = path.join(getMusicRoot(), albumPath.replaceAll("/", path.sep))
-    if (!underRoot(full) || !existsSync(full)) return sendError(res, 400, "Folder does not exist")
+    const full = path.join(root, albumPath.replaceAll("/", path.sep))
+    if (!underRoot(full, root) || !existsSync(full)) return sendError(res, 400, "Folder does not exist")
     if (!statSync(full).isDirectory()) return sendError(res, 400, "Not a directory")
     const meta = await fetchReleaseMetadata(artist, album)
     if (meta.error) return sendError(res, 404, meta.error)
@@ -529,11 +601,12 @@ app.post("/api/album-info/fetch", async (req, res) => {
 })
 
 app.post("/api/track-info/fetch", async (req, res) => {
+  const root = musicRootFromReq(req)
   const relPath = safeRelSeg(String(req.body?.relPath || ""))
   if (!relPath) return sendError(res, 400, "relPath is required")
   try {
-    const fullTrackPath = path.join(getMusicRoot(), relPath.replaceAll("/", path.sep))
-    if (!underRoot(fullTrackPath) || !existsSync(fullTrackPath) || !isAudioFile(fullTrackPath)) {
+    const fullTrackPath = path.join(root, relPath.replaceAll("/", path.sep))
+    if (!underRoot(fullTrackPath, root) || !existsSync(fullTrackPath) || !isAudioFile(fullTrackPath)) {
       return sendError(res, 404, "Track not found")
     }
     const parts = relPath.split("/").filter(Boolean)
@@ -542,8 +615,8 @@ app.post("/api/track-info/fetch", async (req, res) => {
     const album = parts.length >= 3 ? parts[1] : ""
     const albumRel = albumFolderFromRelPath(relPath)
     if (!albumRel) return sendError(res, 400, "Invalid track path")
-    const albumDir = path.join(getMusicRoot(), albumRel.replaceAll("/", path.sep))
-    if (!underRoot(albumDir) || !existsSync(albumDir)) return sendError(res, 404, "Album folder not found")
+    const albumDir = path.join(root, albumRel.replaceAll("/", path.sep))
+    if (!underRoot(albumDir, root) || !existsSync(albumDir)) return sendError(res, 404, "Album folder not found")
     const titleRaw = String(fileName)
       .replace(/\.(mp3|flac|m4a|ogg|opus|wav|aac)$/i, "")
       .trim() || fileName
@@ -568,6 +641,7 @@ app.post("/api/track-info/fetch", async (req, res) => {
 })
 
 app.post("/api/track-info/save", async (req, res) => {
+  const root = musicRootFromReq(req)
   const relPath = safeRelSeg(String(req.body?.relPath || ""))
   const patch = req.body?.patch
   if (!relPath) return sendError(res, 400, "relPath is required")
@@ -575,16 +649,16 @@ app.post("/api/track-info/save", async (req, res) => {
     return sendError(res, 400, "patch object is required")
   }
   try {
-    const fullTrackPath = path.join(getMusicRoot(), relPath.replaceAll("/", path.sep))
-    if (!underRoot(fullTrackPath) || !existsSync(fullTrackPath) || !isAudioFile(fullTrackPath)) {
+    const fullTrackPath = path.join(root, relPath.replaceAll("/", path.sep))
+    if (!underRoot(fullTrackPath, root) || !existsSync(fullTrackPath) || !isAudioFile(fullTrackPath)) {
       return sendError(res, 404, "Track not found")
     }
     const parts = relPath.split("/").filter(Boolean)
     const fileName = parts[parts.length - 1]
     const albumRel = albumFolderFromRelPath(relPath)
     if (!albumRel) return sendError(res, 400, "Invalid track path")
-    const albumDir = path.join(getMusicRoot(), albumRel.replaceAll("/", path.sep))
-    if (!underRoot(albumDir) || !existsSync(albumDir)) return sendError(res, 404, "Album folder not found")
+    const albumDir = path.join(root, albumRel.replaceAll("/", path.sep))
+    if (!underRoot(albumDir, root) || !existsSync(albumDir)) return sendError(res, 404, "Album folder not found")
     const allowed = [
       "title",
       "releaseDate",
@@ -612,7 +686,7 @@ app.post("/api/studio/sanitize-track-titles", async (req, res) => {
   const dryRun = Boolean(req.body?.dryRun)
   const albumPath = safeRelSeg(String(req.body?.albumPath || ""))
   try {
-    const root = getMusicRoot()
+    const root = musicRootFromReq(req)
     if (scope === "all") {
       const data = await sanitizeTrackTitlesFullLibrary(root, dryRun)
       return sendOk(res, data)
@@ -621,7 +695,7 @@ app.post("/api/studio/sanitize-track-titles", async (req, res) => {
       return sendError(res, 400, "albumPath is required for album scope")
     }
     const full = path.join(root, albumPath.replaceAll("/", path.sep))
-    if (!underRoot(full) || !existsSync(full) || !statSync(full).isDirectory()) {
+    if (!underRoot(full, root) || !existsSync(full) || !statSync(full).isDirectory()) {
       return sendError(res, 400, "Invalid album folder")
     }
     const r = await sanitizeTrackTitlesInAlbumDir(full, dryRun)

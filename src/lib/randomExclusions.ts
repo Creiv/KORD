@@ -4,6 +4,8 @@ const K_TRACKS = "kord-random-exclude-tracks"
 const K_ALBUMS = "kord-random-exclude-albums"
 const WPP_TRACKS = "wpp-random-exclude-tracks"
 const WPP_ALBUMS = "wpp-random-exclude-albums"
+const SESSION_ACCOUNT_STORAGE_KEY = "kord-session-account-id"
+const LEGACY_ACTIVE_ACCOUNT_STORAGE_KEY = "kord-active-account-id"
 
 /** Tracks not excluded from smart shuffle (same logic as library). */
 export function eligibleTracksForIntelligentRandom(
@@ -29,8 +31,31 @@ function loadSet(key: string): Set<string> {
   }
 }
 
+function selectedAccountId(): string | null {
+  try {
+    return (
+      localStorage.getItem(SESSION_ACCOUNT_STORAGE_KEY) ||
+      localStorage.getItem(LEGACY_ACTIVE_ACCOUNT_STORAGE_KEY) ||
+      null
+    )
+  } catch {
+    return null
+  }
+}
+
+function accountKey(primary: string): string {
+  const id = selectedAccountId()
+  return id ? `${primary}:${id}` : primary
+}
+
 function mergedExclusionSet(primary: string, legacy: string): Set<string> {
-  return new Set([...loadSet(primary), ...loadSet(legacy)])
+  const id = selectedAccountId()
+  const scoped = loadSet(accountKey(primary))
+  if (!id) return new Set([...scoped, ...loadSet(primary), ...loadSet(legacy)])
+  if (id === "default") {
+    return new Set([...scoped, ...loadSet(primary), ...loadSet(legacy)])
+  }
+  return scoped
 }
 
 function saveSet(key: string, s: Set<string>) {
@@ -76,7 +101,7 @@ export function toggleExcludedTrack(relPath: string): Set<string> {
   const s = mergedExclusionSet(K_TRACKS, WPP_TRACKS)
   if (s.has(relPath)) s.delete(relPath)
   else s.add(relPath)
-  saveSet(K_TRACKS, s)
+  saveSet(accountKey(K_TRACKS), s)
   bumpTrackExclusionEpoch()
   return s
 }
@@ -91,7 +116,7 @@ export function setTracksShuffleExcluded(
     if (exclude) s.add(rel)
     else s.delete(rel)
   }
-  saveSet(K_TRACKS, s)
+  saveSet(accountKey(K_TRACKS), s)
   bumpTrackExclusionEpoch()
   return s
 }
@@ -100,7 +125,7 @@ export function toggleExcludedAlbum(albumKey: string): Set<string> {
   const s = mergedExclusionSet(K_ALBUMS, WPP_ALBUMS)
   if (s.has(albumKey)) s.delete(albumKey)
   else s.add(albumKey)
-  saveSet(K_ALBUMS, s)
+  saveSet(accountKey(K_ALBUMS), s)
   bumpTrackExclusionEpoch()
   return s
 }

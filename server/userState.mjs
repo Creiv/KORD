@@ -1,6 +1,7 @@
 import fs from "fs/promises"
 import { existsSync } from "fs"
 import path from "path"
+import { CONFIG_FILE } from "./musicRootConfig.mjs"
 
 function isObj(v) {
   return Boolean(v) && typeof v === "object" && !Array.isArray(v)
@@ -147,6 +148,18 @@ export function sanitizeUserState(input) {
   }
 }
 
+function safeAccountId(accountId) {
+  const id = String(accountId || "").trim()
+  if (!id) return null
+  return id.replace(/[^a-zA-Z0-9._-]/g, "_")
+}
+
+function filePathAccount(accountId) {
+  const id = safeAccountId(accountId)
+  if (!id) return null
+  return path.join(path.dirname(CONFIG_FILE), "accounts", id, "user-state.v1.json")
+}
+
 function filePathKord(musicRoot) {
   return path.join(musicRoot, ".kord", "user-state.v1.json")
 }
@@ -154,21 +167,47 @@ function filePathWpp(musicRoot) {
   return path.join(musicRoot, ".wpp", "user-state.v1.json")
 }
 
-export async function readUserState(musicRoot) {
+async function readStateFile(fp) {
+  const raw = await fs.readFile(fp, "utf8")
+  return sanitizeUserState(JSON.parse(raw))
+}
+
+export async function readUserState(musicRoot, accountId = null) {
+  const accountPath = filePathAccount(accountId)
+  if (accountPath && existsSync(accountPath)) {
+    try {
+      return await readStateFile(accountPath)
+    } catch {
+      return defaultUserState()
+    }
+  }
   const p = filePathKord(musicRoot)
   const legacy = filePathWpp(musicRoot)
   const use = existsSync(p) ? p : existsSync(legacy) ? legacy : null
-  if (!use) return defaultUserState()
+  if (!use) {
+    const state = defaultUserState()
+    if (accountId && safeAccountId(accountId) !== "default") {
+      state.migratedLegacy = true
+    }
+    return state
+  }
   try {
-    const raw = await fs.readFile(use, "utf8")
-    return sanitizeUserState(JSON.parse(raw))
+    const state = await readStateFile(use)
+    if (accountId && safeAccountId(accountId) !== "default") {
+      state.migratedLegacy = true
+    }
+    if (accountPath) {
+      await fs.mkdir(path.dirname(accountPath), { recursive: true })
+      await fs.writeFile(accountPath, JSON.stringify(state, null, 2), "utf8")
+    }
+    return state
   } catch {
     return defaultUserState()
   }
 }
 
-export async function writeUserState(musicRoot, input) {
-  const fp = filePathKord(musicRoot)
+export async function writeUserState(musicRoot, input, accountId = null) {
+  const fp = filePathAccount(accountId) || filePathKord(musicRoot)
   await fs.mkdir(path.dirname(fp), { recursive: true })
   const state = sanitizeUserState(input)
   await fs.writeFile(fp, JSON.stringify(state, null, 2), "utf8")
