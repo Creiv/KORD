@@ -292,6 +292,8 @@ export const IT: Record<string, string> = {
   "statistics.overviewTracksWithPlays": "Brani riprodotti",
   "statistics.overviewArtistsTouched": "Artisti coinvolti",
   "statistics.overviewAlbumsTouched": "Album coinvolti",
+  "statistics.overviewFavoritesTotal": "Totale preferiti",
+  "statistics.overviewBlockedTotal": "Totale esclusi (random)",
   "statistics.openInLibraryAria": "Apri in libreria: {{label}}",
   "player.openListenTitle": "Apri la scheda Ascolta",
   "player.openArtistLibTitle": "Apri l’artista in Libreria",

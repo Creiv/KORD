@@ -287,6 +287,8 @@ export const EN: Record<string, string> = {
   "statistics.overviewTracksWithPlays": "Tracks with plays",
   "statistics.overviewArtistsTouched": "Artists touched",
   "statistics.overviewAlbumsTouched": "Albums touched",
+  "statistics.overviewFavoritesTotal": "Total favorites",
+  "statistics.overviewBlockedTotal": "Smart shuffle blocks",
   "statistics.openInLibraryAria": "Open in library: {{label}}",
   "player.openListenTitle": "Open Listen",
   "player.openArtistLibTitle": "Open artist in Library",

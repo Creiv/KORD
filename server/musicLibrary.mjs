@@ -376,7 +376,7 @@ export function buildDashboard(index, userState) {
   const recentlyUpdatedAlbums = [...index.albums]
     .filter((album) => !album.loose)
     .sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0))
-    .slice(0, 8)
+    .slice(0, 24)
   const qualityAlerts = [
     {
       id: "albums-without-cover",

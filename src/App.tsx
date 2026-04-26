@@ -29,6 +29,7 @@ import {
   setSelectedAccountId,
 } from "./lib/api";
 import type { Account, AccountsResponse } from "./lib/api";
+import { useDashboardUpdatedAlbumsGrid } from "./hooks/useDashboardUpdatedAlbumsGrid";
 import { buildRandomArtistCoverMap } from "./lib/artistCover";
 import { buildGenreCoverPreviewMap } from "./lib/genreCovers";
 import { fmtDate, trackInfoBadges } from "./lib/metaFormat";
@@ -1024,6 +1025,8 @@ function DashboardView({
 }) {
   const { t } = useI18n();
   const user = useUserState();
+  const { ref: updatedAlbumsGridRef, cols: updatedGridCols, maxItems: updatedAlbumsMax } =
+    useDashboardUpdatedAlbumsGrid();
   const favoriteTracksSorted = useMemo(
     () =>
       [...(dashboard?.favoriteTracks || [])].sort(
@@ -1126,8 +1129,16 @@ function DashboardView({
               {t("dashboard.openLibrary")}
             </button>
           </div>
-          <div className="album-grid compact dashboard-updated-albums">
-            {dashboard.recentlyUpdatedAlbums.slice(0, 6).map((album) => (
+          <div
+            ref={updatedAlbumsGridRef}
+            className="album-grid compact dashboard-updated-albums"
+            style={{
+              gridTemplateColumns: `repeat(${updatedGridCols}, minmax(200px, 1fr))`,
+            }}
+          >
+            {dashboard.recentlyUpdatedAlbums
+              .slice(0, updatedAlbumsMax)
+              .map((album) => (
               <button
                 type="button"
                 key={album.id}
@@ -2714,6 +2725,15 @@ function StatisticsView({
     () => buildRandomArtistCoverMap(index),
     [index]
   );
+  const totalFavorites = user.state.favorites?.length ?? 0;
+  const totalShuffleBlocks = useMemo(() => {
+    const tr = user.state.shuffleExcludedTrackRelPaths?.length ?? 0;
+    const al = user.state.shuffleExcludedAlbumIds?.length ?? 0;
+    return tr + al;
+  }, [
+    user.state.shuffleExcludedTrackRelPaths,
+    user.state.shuffleExcludedAlbumIds,
+  ]);
 
   const openTrackInLibrary = (tr: LibraryTrackIndex) => {
     const arId =
@@ -2927,6 +2947,14 @@ function StatisticsView({
             <div className="metric-card statistics-metric">
               <span>{t("statistics.overviewAlbumsTouched")}</span>
               <strong>{data.overview.albumsTouched}</strong>
+            </div>
+            <div className="metric-card statistics-metric statistics-metric--summary-wide">
+              <span>{t("statistics.overviewFavoritesTotal")}</span>
+              <strong>{totalFavorites}</strong>
+            </div>
+            <div className="metric-card statistics-metric statistics-metric--summary-wide">
+              <span>{t("statistics.overviewBlockedTotal")}</span>
+              <strong>{totalShuffleBlocks}</strong>
             </div>
           </div>
         </section>
