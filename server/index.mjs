@@ -147,6 +147,13 @@ function hasReservedPathSegment(p) {
   return false
 }
 
+function pathHasParentDirSegment(p) {
+  for (const seg of String(p || "").replace(/\\/g, "/").split("/")) {
+    if (seg === "..") return true
+  }
+  return false
+}
+
 function safeRelSeg(value) {
   if (value == null) return null
   const normalized = String(value).replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "")
@@ -183,7 +190,7 @@ function albumFolderFromRelPath(relPath) {
 
 app.use("/media", (req, res, next) => {
   const reqPath = req.path || ""
-  if (reqPath.includes("..") || hasReservedPathSegment(reqPath)) return res.status(404).end()
+  if (pathHasParentDirSegment(reqPath) || hasReservedPathSegment(reqPath)) return res.status(404).end()
   next()
 })
 
@@ -373,7 +380,7 @@ app.put("/api/user-state", async (req, res) => {
 app.get("/api/cover", (req, res) => {
   const root = musicRootFromReq(req)
   const relPath = String(req.query.path || "")
-  if (!relPath || relPath.includes("..") || hasReservedPathSegment(relPath)) {
+  if (!relPath || pathHasParentDirSegment(relPath) || hasReservedPathSegment(relPath)) {
     return res.status(400).end()
   }
   const filePath = path.join(root, relPath.replaceAll("/", path.sep))
@@ -560,7 +567,7 @@ app.post("/api/fs/mkdir", async (req, res) => {
   }
   const name = String(req.body?.name || "").trim()
   if (name.length < 1 || name.length > 200) return sendError(res, 400, "Name too short or too long")
-  if (name.includes("/") || name.includes("..") || name === "kord" || name === "node_modules") {
+  if (name.includes("/") || name === ".." || name === "." || name === "kord" || name === "node_modules") {
     return sendError(res, 400, "Invalid name")
   }
   try {
