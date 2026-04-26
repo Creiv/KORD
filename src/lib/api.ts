@@ -271,6 +271,74 @@ export async function deleteAccount(id: string): Promise<AccountsResponse> {
   return data
 }
 
+export type ActivityLogEntry = {
+  ts: string
+  accountId: string
+  kind: string
+  action: string
+  folder: string | null
+  musicRoot?: string
+  detail?: string | null
+}
+
+export async function fetchActivityLog(
+  limit = 500,
+): Promise<{ entries: ActivityLogEntry[] }> {
+  const response = await fetch(
+    apiUrl("/api/activity-log", { limit: String(limit) }),
+    { cache: "no-store", headers: accountHeaders() },
+  )
+  return unwrap<{ entries: ActivityLogEntry[] }>(response)
+}
+
+/** Scarica un ZIP: config, stato utente e metadati (json) per tutti gli account, senza audio. */
+export async function downloadKordDataBackup(): Promise<string> {
+  const response = await fetch(apiUrl("/api/backup/kord-data"), {
+    method: "GET",
+    cache: "no-store",
+    headers: accountHeaders(),
+  })
+  if (!response.ok) {
+    const text = await response.text()
+    let msg = "Backup failed"
+    try {
+      const j = JSON.parse(text) as { error?: string }
+      if (j?.error) msg = j.error
+    } catch {
+      if (text) msg = text
+    }
+    throw new Error(msg)
+  }
+  const cd = response.headers.get("Content-Disposition") || ""
+  const m = /filename\*?=(?:UTF-8''|"?)([^";\n]+)/i.exec(cd)
+  const name =
+    (m?.[1] || "")
+      .replace(/^["']|["']$/g, "")
+      .trim() || "kord-backup.zip"
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = decodeURIComponent(name)
+  a.rel = "noopener"
+  a.click()
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  return name
+}
+
+export async function uploadKordDataRestore(
+  file: File,
+): Promise<{ restored: boolean; accountCount: number }> {
+  const fd = new FormData()
+  fd.append("file", file)
+  const response = await fetch(apiUrl("/api/backup/kord-restore"), {
+    method: "POST",
+    body: fd,
+    headers: accountHeaders(),
+  })
+  return unwrap<{ restored: boolean; accountCount: number }>(response)
+}
+
 export type PresetYtdlp = {
   found: boolean
   file: string | null

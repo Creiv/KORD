@@ -8,7 +8,11 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
+import type {
+  ChangeEvent,
+  MouseEvent as ReactMouseEvent,
+  ReactNode,
+} from "react";
 import { PlayerProvider, usePlayer } from "./context/PlayerContext";
 import {
   ToolsActivityProvider,
@@ -21,6 +25,9 @@ import {
   createAccount as createApiAccount,
   deleteAccount as deleteApiAccount,
   fetchAccounts,
+  downloadKordDataBackup,
+  uploadKordDataRestore,
+  fetchActivityLog,
   fetchConfig,
   fetchDashboard,
   fetchLibraryIndex,
@@ -28,7 +35,7 @@ import {
   saveAppConfig,
   setSelectedAccountId,
 } from "./lib/api";
-import type { Account, AccountsResponse } from "./lib/api";
+import type { Account, AccountsResponse, ActivityLogEntry } from "./lib/api";
 import { useDashboardUpdatedAlbumsGrid } from "./hooks/useDashboardUpdatedAlbumsGrid";
 import { buildRandomArtistCoverMap } from "./lib/artistCover";
 import { buildGenreCoverPreviewMap } from "./lib/genreCovers";
@@ -3039,6 +3046,16 @@ function SettingsView({
   const [initialListenOnLan, setInitialListenOnLan] = useState<boolean | null>(
     null
   );
+  const [activityLog, setActivityLog] = useState<ActivityLogEntry[] | null>(null);
+  const [activityLogErr, setActivityLogErr] = useState<string | null>(null);
+  const [activityLogBusy, setActivityLogBusy] = useState(false);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [backupOk, setBackupOk] = useState<string | null>(null);
+  const [backupErr, setBackupErr] = useState<string | null>(null);
+  const [restoreBusy, setRestoreBusy] = useState(false);
+  const [restoreOk, setRestoreOk] = useState<string | null>(null);
+  const [restoreErr, setRestoreErr] = useState<string | null>(null);
+  const restoreFileInputRef = useRef<HTMLInputElement | null>(null);
   const [isKordClientEmbed] = useState(() => {
     try {
       return sessionStorage.getItem("kord-embed") === "client";
@@ -3071,10 +3088,32 @@ function SettingsView({
       );
   }, []);
 
+  const loadActivityLog = useCallback(() => {
+    setActivityLogErr(null);
+    setActivityLogBusy(true);
+    fetchActivityLog(500)
+      .then((d) =>
+        setActivityLog(Array.isArray(d.entries) ? d.entries : []),
+      )
+      .catch((e: unknown) =>
+        setActivityLogErr(e instanceof Error ? e.message : String(e))
+      )
+      .finally(() => setActivityLogBusy(false));
+  }, []);
+
+  useEffect(() => {
+    loadActivityLog();
+  }, [loadActivityLog]);
+
   const selectedAccount: Account | null =
     accounts?.accounts.find((account) => account.id === selectedAccountId) ||
     accounts?.accounts[0] ||
     null;
+
+  const accountNameById = useMemo(() => {
+    if (!accounts?.accounts?.length) return null;
+    return new Map(accounts.accounts.map((a) => [a.id, a.name] as const));
+  }, [accounts]);
 
   const saveListenOnLan = (next: boolean) => {
     setNetErr(null);
@@ -3114,6 +3153,43 @@ function SettingsView({
     setSelectedAccountId(id);
     setSelectedAccountIdState(id);
     window.location.replace(new URL("/", window.location.href).href);
+  };
+
+  const runKordBackup = () => {
+    setBackupErr(null);
+    setBackupOk(null);
+    setBackupBusy(true);
+    downloadKordDataBackup()
+      .then((name) => {
+        setBackupOk(t("settings.backupSuccess", { name }));
+        window.setTimeout(() => setBackupOk(null), 5000);
+      })
+      .catch((e: unknown) =>
+        setBackupErr(e instanceof Error ? e.message : String(e))
+      )
+      .finally(() => setBackupBusy(false));
+  };
+
+  const onRestoreFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const f = event.target.files?.[0];
+    if (event.target) event.target.value = "";
+    if (!f) return;
+    if (!f.name.toLowerCase().endsWith(".zip")) {
+      setRestoreErr(t("settings.restoreErrNotZip"));
+      return;
+    }
+    setRestoreErr(null);
+    setRestoreOk(null);
+    setRestoreBusy(true);
+    uploadKordDataRestore(f)
+      .then(() => {
+        setRestoreOk(t("settings.restoreSuccess"));
+        window.setTimeout(() => setRestoreOk(null), 8000);
+      })
+      .catch((e: unknown) =>
+        setRestoreErr(e instanceof Error ? e.message : String(e))
+      )
+      .finally(() => setRestoreBusy(false));
   };
 
   const removeAccount = (id: string) => {
@@ -3380,6 +3456,128 @@ function SettingsView({
           ) : null}
         </section>
       )}
+      {isKordClientEmbed ? null : (
+        <section
+          className="surface-card settings-activity-section"
+          aria-label={t("settings.backupHeading")}
+        >
+          <div className="section-head section-head--page-toolbar">
+            <div>
+              <p className="eyebrow">{t("settings.backupEyebrow")}</p>
+              <h2>{t("settings.backupHeading")}</h2>
+            </div>
+            <div
+              className="row gap flex-wrap"
+              style={{ alignItems: "center", justifyContent: "flex-end" }}
+            >
+              <button
+                type="button"
+                className="btn secondary sm"
+                disabled={backupBusy || restoreBusy}
+                onClick={runKordBackup}
+              >
+                {backupBusy
+                  ? t("settings.backupRunning")
+                  : t("settings.backupCta")}
+              </button>
+              <input
+                ref={restoreFileInputRef}
+                type="file"
+                accept=".zip,application/zip"
+                className="sr-only"
+                aria-label={t("settings.restoreCta")}
+                onChange={onRestoreFileChange}
+              />
+              <button
+                type="button"
+                className="btn secondary sm"
+                disabled={restoreBusy || backupBusy}
+                onClick={() => restoreFileInputRef.current?.click()}
+              >
+                {restoreBusy
+                  ? t("settings.restoreRunning")
+                  : t("settings.restoreCta")}
+              </button>
+            </div>
+          </div>
+          {backupErr ? <p className="subtle sm warnline">{backupErr}</p> : null}
+          {backupOk ? <p className="subtle sm">{backupOk}</p> : null}
+          {restoreErr ? <p className="subtle sm warnline">{restoreErr}</p> : null}
+          {restoreOk ? <p className="subtle sm">{restoreOk}</p> : null}
+        </section>
+      )}
+      <section
+        className="surface-card settings-activity-section"
+        aria-label={t("settings.activityLogHeading")}
+      >
+        <div className="section-head section-head--page-toolbar">
+          <div>
+            <p className="eyebrow">{t("settings.activityLogEyebrow")}</p>
+            <h2>{t("settings.activityLogHeading")}</h2>
+          </div>
+          <button
+            type="button"
+            className="btn secondary sm"
+            disabled={activityLogBusy}
+            onClick={loadActivityLog}
+          >
+            {activityLogBusy
+              ? t("settings.saving")
+              : t("settings.activityLogReload")}
+          </button>
+        </div>
+        {activityLogErr ? (
+          <p className="subtle sm warnline">{activityLogErr}</p>
+        ) : null}
+        {activityLog && !activityLog.length ? (
+          <p className="subtle sm">{t("settings.activityLogEmpty")}</p>
+        ) : null}
+        {activityLog && activityLog.length > 0 ? (
+          <div
+            className="activity-log-scroll"
+            style={{ maxHeight: "22rem", overflow: "auto" }}
+          >
+            <table className="activity-log-table">
+              <thead>
+                <tr>
+                  <th>{t("settings.activityLogColTime")}</th>
+                  <th>{t("settings.activityLogColAccount")}</th>
+                  <th>{t("settings.activityLogColKind")}</th>
+                  <th>{t("settings.activityLogColAction")}</th>
+                  <th>{t("settings.activityLogColFolder")}</th>
+                  <th>{t("settings.activityLogColDetail")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activityLog.map((row, i) => (
+                  <tr key={`${row.ts}-${i}`}>
+                    <td className="activity-log-td-nowrap">
+                      {new Date(row.ts).toLocaleString(locale, {
+                        dateStyle: "short",
+                        timeStyle: "medium",
+                      })}
+                    </td>
+                    <td
+                      className="activity-log-td-clip"
+                      title={row.accountId}
+                    >
+                      {accountNameById?.get(row.accountId) ?? row.accountId}
+                    </td>
+                    <td>{row.kind}</td>
+                    <td>{row.action}</td>
+                    <td className="activity-log-td-clip" title={row.folder || ""}>
+                      {row.folder || "—"}
+                    </td>
+                    <td className="activity-log-td-clip" title={row.detail || ""}>
+                      {row.detail || "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }

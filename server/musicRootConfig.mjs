@@ -86,7 +86,7 @@ function normalizeAccounts(file) {
   return accounts;
 }
 
-function init() {
+function applyConfigFileToState() {
   const file = readFileObject();
   state.listenOnLan = Boolean(file.listenOnLan);
   state.accounts = normalizeAccounts(file);
@@ -100,7 +100,16 @@ function init() {
   state.path = state.accounts[0]?.musicRoot || path.resolve(DEFAULT_PATH);
 }
 
+function init() {
+  applyConfigFileToState();
+}
+
 init();
+
+/** Rilegge `music-root.config.json` da disco (dopo restore o modifica esterna). */
+export function reloadConfigFromDisk() {
+  applyConfigFileToState();
+}
 
 function isIPv4Family(family) {
   return family === "IPv4" || family === 4;

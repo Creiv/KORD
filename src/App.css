@@ -878,6 +878,44 @@
   max-width: 100%;
 }
 
+.settings-page .settings-activity-section {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.activity-log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.activity-log-table th,
+.activity-log-table td {
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line2, rgba(255, 255, 255, 0.08));
+}
+
+.activity-log-table th {
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  background: var(--surface1, #1a1a1c);
+  z-index: 1;
+}
+
+.activity-log-td-nowrap {
+  white-space: nowrap;
+}
+
+.activity-log-td-clip {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
 .statistics-page.view-stack {
   gap: 1rem;
 }

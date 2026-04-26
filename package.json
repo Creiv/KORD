@@ -30,16 +30,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "archiver": "^7.0.1",
     "cors": "^2.8.6",
     "express": "^5.2.1",
+    "multer": "^2.1.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-window": "^2.2.7"
+    "react-window": "^2.2.7",
+    "unzipper": "^0.12.3"
   },
   "devDependencies": {
-    "electron": "^39.0.0",
-    "electron-builder": "^26.0.0",
-    "wait-on": "^8.0.0",
     "@eslint/js": "^10.0.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -52,6 +52,8 @@
     "@types/react-window": "^1.8.8",
     "@vitejs/plugin-react": "^6.0.1",
     "concurrently": "^9.2.1",
+    "electron": "^39.0.0",
+    "electron-builder": "^26.0.0",
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
@@ -60,7 +62,8 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
     "vite": "^8.0.10",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.5",
+    "wait-on": "^8.0.0"
   },
   "build": {
     "appId": "com.kord.app",

@@ -1,0 +1,24 @@
+{"ts":"2026-04-26T14:57:27.904Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"settings","action":"update","folder":null,"detail":"locale"}
+{"ts":"2026-04-26T14:57:27.904Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"settings","action":"update","folder":null,"detail":"vizMode"}
+{"ts":"2026-04-26T14:57:27.904Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"playlist","action":"delete","folder":null,"detail":"Queue 25-04-2026"}
+{"ts":"2026-04-26T14:57:27.905Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"playlist","action":"delete","folder":null,"detail":"Queue 25-04-2026"}
+{"ts":"2026-04-26T14:57:27.904Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"settings","action":"update","folder":null,"detail":"theme"}
+{"ts":"2026-04-26T14:57:27.905Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"settings","action":"update","folder":null,"detail":"locale"}
+{"ts":"2026-04-26T14:57:27.905Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"settings","action":"update","folder":null,"detail":"theme"}
+{"ts":"2026-04-26T14:57:27.905Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"settings","action":"update","folder":null,"detail":"vizMode"}
+{"ts":"2026-04-26T14:57:58.190Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"studio","action":"sanitize_titles","folder":null,"detail":"library"}
+{"ts":"2026-04-26T15:01:50.857Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"library","action":"track_metadata_save","folder":"Eminem/Encore","detail":"01 - Curtains Up.flac: title, releaseDate, genre"}
+{"ts":"2026-04-26T15:02:09.357Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"settings","action":"update","folder":null,"detail":"locale"}
+{"ts":"2026-04-26T15:02:11.280Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"settings","action":"update","folder":null,"detail":"theme"}
+{"ts":"2026-04-26T15:02:15.836Z","accountId":"ceae51b7-3d98-40d8-b2ec-00f4b043e7f2","musicRoot":"/home/diego-ubuntu/Musica/BraniNicole","kind":"settings","action":"update","folder":null,"detail":"theme"}
+{"ts":"2026-04-26T15:07:23.176Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"settings","action":"update","folder":null,"detail":"restoreSession"}
+{"ts":"2026-04-26T15:07:23.177Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"settings","action":"update","folder":null,"detail":"restoreSession"}
+{"ts":"2026-04-26T15:07:47.869Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"settings","action":"update","folder":null,"detail":"libBrowse"}
+{"ts":"2026-04-26T15:07:59.687Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"settings","action":"update","folder":null,"detail":"libBrowse"}
+{"ts":"2026-04-26T15:08:18.270Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"settings","action":"update","folder":null,"detail":"restoreSession"}
+{"ts":"2026-04-26T15:08:35.603Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"studio","action":"sanitize_titles","folder":null,"detail":"library"}
+{"ts":"2026-04-26T15:10:16.006Z","accountId":"ceae51b7-3d98-40d8-b2ec-00f4b043e7f2","musicRoot":"/home/diego-ubuntu/Musica/BraniNicole","kind":"library","action":"track_metadata_save","folder":"Doja Cat/Planet Her","detail":"02 - Doja Cat - Naked (Visualizer).flac: title, releaseDate, genre"}
+{"ts":"2026-04-26T15:10:38.965Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"studio","action":"sanitize_titles","folder":null,"detail":"library"}
+{"ts":"2026-04-26T15:11:56.677Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"studio","action":"download","folder":"Linkin Park","detail":"https://www.youtube.com/playlist?list=OLAK5uy_nP5MPYwON84r-9OMGg102ZAGt8SUARRew"}
+{"ts":"2026-04-26T15:12:44.346Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"studio","action":"cover_save","folder":"Salmo/Hellvisback","detail":"cover.jpg"}
+{"ts":"2026-04-26T15:14:00.448Z","accountId":"default","musicRoot":"/home/diego-ubuntu/Musica/Brani","kind":"studio","action":"sanitize_titles","folder":null,"detail":"library (785 files)"}

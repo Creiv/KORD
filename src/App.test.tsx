@@ -141,6 +141,26 @@ function mockApi() {
         JSON.stringify({ ok: true, data: userState, error: null })
       );
     }
+    if (url.includes("/api/accounts") && !url.includes("library-index")) {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          data: {
+            defaultAccountId: "default",
+            accounts: [
+              { id: "default", name: "Default", musicRoot: "/music" },
+            ],
+            lockedByEnv: false,
+          },
+          error: null,
+        })
+      );
+    }
+    if (url.includes("/api/activity-log")) {
+      return new Response(
+        JSON.stringify({ ok: true, data: { entries: [] }, error: null })
+      );
+    }
     return new Response(JSON.stringify({ ok: true, data: {}, error: null }));
   }) as typeof fetch;
 }

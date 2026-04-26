@@ -20,6 +20,7 @@ import {
   setListenOnLan,
   setPersistedMusicRoot,
   updateAccount,
+  isMusicRootFromEnv,
 } from "./musicRootConfig.mjs"
 import { linkSharedAlbumForAccounts } from "./libraryLink.mjs"
 import {
@@ -38,8 +39,15 @@ import {
   isAudioFile,
   toLegacyLibrary,
 } from "./musicLibrary.mjs"
-import { defaultUserState, readUserState, writeUserState } from "./userState.mjs"
+import { mergeUserStateForPut, readUserState, writeUserState } from "./userState.mjs"
 import { resolveYtdlpPath } from "./ytdlpPath.mjs"
+import {
+  appendActivityLog,
+  diffUserStatePlaylistsAndSettings,
+  readActivityLogs,
+} from "./activityLog.mjs"
+import multer from "multer"
+import { streamKordBackupZip, restoreKordFromZipBuffer } from "./backupKord.mjs"
 
 const PORT = Number(process.env.PORT) || 3001
 const YTDLP_ARGS_LOSSLESS = [
@@ -111,6 +119,11 @@ const app = express()
 app.use(cors())
 app.use(express.json({ limit: "2mb" }))
 
+const uploadKordBackup = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 512 * 1024 * 1024 },
+})
+
 function sendOk(res, data, status = 200) {
   return res.status(status).json({ ok: true, data, error: null })
 }
@@ -125,6 +138,15 @@ function accountIdFromReq(req) {
     String(req.headers["x-kord-account-id"] || "").trim() ||
     getDefaultAccountId()
   )
+}
+
+function actLog(req, entry) {
+  const accountId = accountIdFromReq(req)
+  return appendActivityLog({
+    accountId,
+    musicRoot: getMusicRootForAccount(accountId),
+    ...entry,
+  })
 }
 
 function musicRootFromReq(req) {
@@ -226,6 +248,61 @@ app.get("/api/health", async (req, res) => {
   }
 })
 
+app.get("/api/activity-log", async (req, res) => {
+  try {
+    const n = Number(req.query?.limit)
+    const limit = Number.isFinite(n) && n > 0 ? Math.min(5000, Math.floor(n)) : 500
+    const entries = await readActivityLogs(limit)
+    return sendOk(res, { entries })
+  } catch (error) {
+    return sendError(res, 500, String(error?.message || error))
+  }
+})
+
+app.get("/api/backup/kord-data", async (req, res) => {
+  try {
+    const name = `kord-backup-${new Date().toISOString().replaceAll(":", "-")}.zip`
+    res.setHeader("Content-Type", "application/zip")
+    res.setHeader("Content-Disposition", `attachment; filename="${name}"`)
+    res.setHeader("Cache-Control", "no-store, must-revalidate")
+    await streamKordBackupZip(res, getAccountsSnapshot)
+  } catch (error) {
+    if (!res.headersSent) {
+      return sendError(res, 500, String(error?.message || error))
+    }
+    try {
+      res.end()
+    } catch {
+      /* ignore */
+    }
+  }
+})
+
+app.post("/api/backup/kord-restore", uploadKordBackup.single("file"), async (req, res) => {
+  try {
+    if (isMusicRootFromEnv()) {
+      return sendError(
+        res,
+        403,
+        "Restore is not available when MUSIC_ROOT is set in the environment",
+      )
+    }
+    if (!req.file?.buffer?.length) {
+      return sendError(res, 400, "Missing or empty file")
+    }
+    const data = await restoreKordFromZipBuffer(req.file.buffer)
+    return sendOk(res, data)
+  } catch (error) {
+    if (error?.code === "ENV_LOCKED") {
+      return sendError(res, 403, String(error.message || error))
+    }
+    if (error?.code === "BAD_BACKUP") {
+      return sendError(res, 400, String(error.message || error))
+    }
+    return sendError(res, 500, String(error?.message || error))
+  }
+})
+
 app.get("/api/config", (_req, res) => {
   return sendOk(res, getConfigSnapshot())
 })
@@ -244,10 +321,22 @@ app.put("/api/config", async (req, res) => {
         )
       }
       await setPersistedMusicRoot(next)
+      void actLog(req, {
+        kind: "server",
+        action: "config",
+        folder: next,
+        detail: "musicRoot",
+      })
       did = true
     }
     if (typeof body.listenOnLan === "boolean") {
       await setListenOnLan(body.listenOnLan)
+      void actLog(req, {
+        kind: "server",
+        action: "config",
+        folder: null,
+        detail: `listenOnLan=${body.listenOnLan}`,
+      })
       did = true
     }
     if (!did) {
@@ -267,14 +356,18 @@ app.get("/api/accounts", (_req, res) => {
 app.post("/api/accounts", async (req, res) => {
   try {
     const body = req.body || {}
-    return sendOk(
-      res,
-      await createAccount({
-        name: body.name,
-        musicRoot: body.musicRoot,
-      }),
-      201,
-    )
+    const created = await createAccount({
+      name: body.name,
+      musicRoot: body.musicRoot,
+    })
+    const newAcc = created.accounts.find((a) => a.id === created.createdAccountId)
+    void actLog(req, {
+      kind: "server",
+      action: "account_create",
+      folder: newAcc?.musicRoot || null,
+      detail: newAcc ? `${newAcc.name} (${newAcc.id})` : created.createdAccountId,
+    })
+    return sendOk(res, created, 201)
   } catch (error) {
     if (error?.code === "ENV_LOCKED") return sendError(res, 403, error.message)
     return sendError(res, 400, String(error?.message || error))
@@ -283,7 +376,22 @@ app.post("/api/accounts", async (req, res) => {
 
 app.put("/api/accounts/:id", async (req, res) => {
   try {
-    return sendOk(res, await updateAccount(req.params.id, req.body || {}))
+    const id = String(req.params.id || "").trim()
+    const before = findAccountById(id)
+    const patch = req.body || {}
+    const next = await updateAccount(id, patch)
+    const parts = []
+    if (patch.name != null && before && String(patch.name) !== before.name) {
+      parts.push("name")
+    }
+    if (patch.musicRoot != null) parts.push("musicRoot")
+    void actLog(req, {
+      kind: "server",
+      action: "account_update",
+      folder: next.accounts.find((a) => a.id === id)?.musicRoot || null,
+      detail: `${id}: ${parts.length ? parts.join(",") : "account"}`,
+    })
+    return sendOk(res, next)
   } catch (error) {
     if (error?.code === "ENV_LOCKED") return sendError(res, 403, error.message)
     if (error?.code === "ACCOUNT_NOT_FOUND") return sendError(res, 404, error.message)
@@ -293,7 +401,16 @@ app.put("/api/accounts/:id", async (req, res) => {
 
 app.delete("/api/accounts/:id", async (req, res) => {
   try {
-    return sendOk(res, await deleteAccount(req.params.id))
+    const id = String(req.params.id || "").trim()
+    const before = findAccountById(id)
+    const snap = await deleteAccount(id)
+    void actLog(req, {
+      kind: "server",
+      action: "account_delete",
+      folder: before?.musicRoot || null,
+      detail: before ? `${before.name} (${id})` : id,
+    })
+    return sendOk(res, snap)
   } catch (error) {
     if (error?.code === "ACCOUNT_NOT_FOUND") return sendError(res, 404, error.message)
     if (error?.code === "LAST_ACCOUNT") return sendError(res, 400, error.message)
@@ -368,8 +485,18 @@ app.get("/api/user-state", async (req, res) => {
 
 app.put("/api/user-state", async (req, res) => {
   try {
-    const payload = req.body?.state ?? req.body ?? defaultUserState()
-    const state = await writeUserState(musicRootFromReq(req), payload, accountIdFromReq(req))
+    const accId = accountIdFromReq(req)
+    const root = musicRootFromReq(req)
+    const prev = await readUserState(root, accId)
+    const raw = req.body?.state ?? req.body
+    if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+      return sendError(res, 400, "Invalid state: expected a JSON object")
+    }
+    const payload = mergeUserStateForPut(prev, raw)
+    const state = await writeUserState(root, payload, accId)
+    for (const ev of diffUserStatePlaylistsAndSettings(prev, state)) {
+      void actLog(req, ev)
+    }
     return sendOk(res, state)
   } catch (error) {
     console.error(error)
@@ -432,10 +559,11 @@ app.post("/api/download", async (req, res) => {
   if (!/^https?:\/\//i.test(url)) return sendError(res, 400, "Provide a valid http(s) URL")
   try {
     const root = musicRootFromReq(req)
+    const outputDirForLog = safeRelSeg(String(req.body?.outputDir || ""))
     const program = resolveYtdlpPath()
     const outTmpl = ytdlpOutputTemplate(url)
     const args = [...ytdlpArgsBase(), "-o", outTmpl]
-    const outputDir = safeRelSeg(String(req.body?.outputDir || ""))
+    const outputDir = outputDirForLog
     if (outputDir != null && outputDir.length > 0) {
       const oi = args.findIndex((arg) => arg === "-o" || arg === "--output")
       if (oi >= 0 && args[oi + 1] != null) {
@@ -484,6 +612,19 @@ app.post("/api/download", async (req, res) => {
     })
     child.on("close", (code) => {
       result.code = code ?? -1
+      if (result.code === 0) {
+        const folder =
+          outputDirForLog && outputDirForLog.length > 0
+            ? outputDirForLog.replace(/\\/g, "/")
+            : "."
+        const u = url.length > 500 ? `${url.slice(0, 497)}…` : url
+        void actLog(req, {
+          kind: "studio",
+          action: "download",
+          folder,
+          detail: u,
+        })
+      }
       const combined = `${result.stdout}\n${result.stderr}`
       const progress =
         extractLastItemProgress(combined) ?? lastProgressEmitted
@@ -623,6 +764,12 @@ app.post("/api/artwork/apply", async (req, res) => {
     const dest = path.join(full, `cover.${ext}`)
     const data = await response.arrayBuffer()
     await fs.writeFile(dest, Buffer.from(data))
+    void actLog(req, {
+      kind: "studio",
+      action: "cover_save",
+      folder: albumPath,
+      detail: path.basename(dest),
+    })
     return sendOk(res, { saved: path.basename(dest), albumPath, abs: dest })
   } catch (error) {
     return sendError(res, 500, String(error?.message || error))
@@ -644,6 +791,12 @@ app.post("/api/album-info/fetch", async (req, res) => {
     const payload = { ...meta, fetchedAt: new Date().toISOString() }
     delete payload.error
     await fs.writeFile(path.join(full, "kord-albuminfo.json"), JSON.stringify(payload, null, 2), "utf8")
+    void actLog(req, {
+      kind: "library",
+      action: "album_metadata_fetch",
+      folder: albumPath,
+      detail: "MusicBrainz / release metadata",
+    })
     return res.json({ ok: true, albumPath, meta: payload })
   } catch (error) {
     return sendError(res, 500, String(error?.message || error))
@@ -675,6 +828,12 @@ app.post("/api/album-info/save", async (req, res) => {
     }
     if (!Object.keys(safe).length) return sendError(res, 400, "No valid fields in patch")
     const meta = await saveAlbumManualMeta(full, safe)
+    void actLog(req, {
+      kind: "library",
+      action: "album_metadata_save",
+      folder: albumPath,
+      detail: Object.keys(safe).join(", "),
+    })
     return sendOk(res, { albumPath, meta })
   } catch (error) {
     return sendError(res, 500, String(error?.message || error))
@@ -715,6 +874,12 @@ app.post("/api/track-info/fetch", async (req, res) => {
     }
     json[fileName] = { ...meta, fetchedAt: new Date().toISOString() }
     await fs.writeFile(fp, JSON.stringify(json, null, 2), "utf8")
+    void actLog(req, {
+      kind: "library",
+      action: "track_metadata_fetch",
+      folder: albumRel,
+      detail: fileName,
+    })
     return res.json({ ok: true, relPath, meta: json[fileName] })
   } catch (error) {
     return sendError(res, 500, String(error?.message || error))
@@ -756,6 +921,12 @@ app.post("/api/track-info/save", async (req, res) => {
     }
     if (!Object.keys(safe).length) return sendError(res, 400, "No valid fields in patch")
     const meta = await saveTrackManualMeta(albumDir, fileName, safe)
+    void actLog(req, {
+      kind: "library",
+      action: "track_metadata_save",
+      folder: albumRel,
+      detail: `${fileName}: ${Object.keys(safe).join(", ")}`,
+    })
     return res.json({ ok: true, relPath, meta })
   } catch (error) {
     return sendError(res, 500, String(error?.message || error))
@@ -766,6 +937,16 @@ app.post("/api/studio/link-shared-album", async (req, res) => {
   try {
     const destId = accountIdFromReq(req)
     const data = await linkSharedAlbumForAccounts(req.body || {}, destId)
+    const brief =
+      data.scope === "artist"
+        ? `artist ${data.artist} → ${data.totalLinked} linked`
+        : `album ${data.destRelPath} (+${data.linked} files)`
+    void actLog(req, {
+      kind: "studio",
+      action: "link_shared",
+      folder: data.scope === "artist" ? null : data.destRelPath,
+      detail: brief,
+    })
     return sendOk(res, data)
   } catch (error) {
     const code = error?.code
@@ -800,6 +981,15 @@ app.post("/api/studio/sanitize-track-titles", async (req, res) => {
     const root = musicRootFromReq(req)
     if (scope === "all") {
       const data = await sanitizeTrackTitlesFullLibrary(root, dryRun)
+      if (!dryRun && data.changes.length > 0) {
+        const n = data.changes.length
+        void actLog(req, {
+          kind: "studio",
+          action: "sanitize_titles",
+          folder: null,
+          detail: `library (${n} file${n === 1 ? "" : "s"})`,
+        })
+      }
       return sendOk(res, data)
     }
     if (!albumPath) {
@@ -810,6 +1000,15 @@ app.post("/api/studio/sanitize-track-titles", async (req, res) => {
       return sendError(res, 400, "Invalid album folder")
     }
     const r = await sanitizeTrackTitlesInAlbumDir(full, dryRun)
+    if (!dryRun && r.changes.length > 0) {
+      const n = r.changes.length
+      void actLog(req, {
+        kind: "studio",
+        action: "sanitize_titles",
+        folder: albumPath,
+        detail: `album (${n} file${n === 1 ? "" : "s"})`,
+      })
+    }
     return sendOk(res, { ...r, albumPath })
   } catch (error) {
     return sendError(res, 500, String(error?.message || error))

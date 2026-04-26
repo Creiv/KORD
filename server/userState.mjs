@@ -126,6 +126,31 @@ export function defaultUserState() {
   }
 }
 
+/**
+ * Unisce l'aggiornamento client con lo stato già su disco, così un body vuoto o parziale
+ * non azzera preferiti, playlist e impostazioni.
+ */
+export function mergeUserStateForPut(prev, patch) {
+  if (!isObj(patch) || Array.isArray(patch)) return prev
+  if (Object.keys(patch).length === 0) return prev
+  const out = { ...prev }
+  for (const k of Object.keys(patch)) {
+    if (patch[k] === undefined) continue
+    if (k === "settings") {
+      if (isObj(patch.settings)) {
+        out.settings = { ...prev.settings, ...patch.settings }
+      }
+      continue
+    }
+    if (k === "queue" && isObj(patch.queue)) {
+      out.queue = patch.queue
+      continue
+    }
+    out[k] = patch[k]
+  }
+  return out
+}
+
 export function sanitizeUserState(input) {
   const base = defaultUserState()
   const src = isObj(input) ? input : {}
@@ -167,6 +192,11 @@ function filePathAccount(accountId) {
   const id = safeAccountId(accountId)
   if (!id) return null
   return path.join(path.dirname(CONFIG_FILE), "accounts", id, "user-state.v1.json")
+}
+
+/** Percorso assoluto dello user state sotto la cartella di configurazione (es. `accounts/…/user-state.v1.json`). */
+export function getUserStateFilePathInConfigDir(accountId) {
+  return filePathAccount(accountId)
 }
 
 function filePathKord(musicRoot) {
