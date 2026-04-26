@@ -10,7 +10,7 @@ const LIB_EXCLUDE = new Set([
   ".wpp",
   ".kord",
 ])
-const AUDIO_RE = /\.(mp3|flac|m4a|ogg|opus|wav|aac)$/i
+const AUDIO_RE = /\.(mp3|flac|m4a|ogg|opus|wav|aac|webm)$/i
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
@@ -273,10 +273,141 @@ export async function saveTrackManualMeta(albumDir, fileName, patch) {
   return next
 }
 
+function reEscape(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+function isCollabParensContent(inner) {
+  const t = String(inner).trim()
+  if (t.length < 1) return false
+  if (/^feat\.?|^ft[.\s]|^with\s+|\bfeatur(?:ing|e)\b|^\s*con\s+\w/i.test(t)) return true
+  if (/\b(?:feat|ft)\.?\s+[A-Za-zÀ-ÿ"'']/i.test(t)) return true
+  if (/[,&]\s*[\w"'' -]+\s+(?:&|feat|and)\b/i.test(t)) return true
+  return false
+}
+
+const JUNK_PAREN_PATTERNS = [
+  /\bofficial(\s*audio|\s*video|\s*music)?\b/i,
+  /\boriginal(\s*mix|\s*version)?\b/i,
+  /\borig\.?\b/i,
+  /\bremaster(ed|ing)?\b/i,
+  /\bre-?master/i,
+  /\bradio\s*edit/i,
+  /\b(?:album|single|clean|short|long|full)\s*version\b/i,
+  /\bextended(\s*mix|\s*version)?\b/i,
+  /\b(?:club|dub|extended|radio)\s*mix\b/i,
+  /\bvisuali[sz]er\b/i,
+  /\b(?:lyric|lyrics?)\s*video/i,
+  /^\s*lyrics?\s*$/i,
+  /^\s*music\s*video\s*$/i,
+  /\b(?:4k|uhd|h\.?265|h\.?264|2160p|1080p|720p)\b/i,
+  /(?:^|[^\d])\bhd\b|^\s*hd\s*$/i,
+  /\bmusic\s*video\b/i,
+  /\b(?:video|audio|clip)\b(?!\s*feat)/i,
+  /\baudio\s*only/i,
+  /\bfrom\s+the\b/i,
+  /\bsoundtrack|^\s*ost\s*$/i,
+  /\btrailer|teaser|preview\b/i,
+  /\bdeluxe|explicit|clean(\s*version)?\b/i,
+  /^\s*clean\s*$/i,
+  /^\s*mv\s*$/i,
+  /\bclip\b|^\s*clip\s*$/i,
+  /\bbts\b|behind\s+the\s+scenes/i,
+  /\blive(\s*at|\s*version|\s*acoustic|\s*in\b)/i,
+  /^\s*live\s*$/i,
+  /studio\s*session|piano|orchestra|unplugged|acoustic(?!a)/i,
+  /instrumental(?!e)|karaoke|mono|stereo|lossless|high[-\s]*quality|^\s*hq\s*$/i,
+  /^\s*edit\s*$/i,
+  /\bremix\b/,
+  /^\s*mix\s*$/i,
+  /\bwork\s*print|rough\s*mix|outtake|acapella|a[\s*]cappella/i,
+  /^\s*version\s*$/i,
+  /\b\d{4}\s*remaster/i,
+  /cover(?:\s*ver|version)?/i,
+  /re-?(?:issue|press|press(?:ing|ed)|cut)/i,
+  /demo|sketch|bootleg(?!a)/i,
+  /m\/v\b/i,
+]
+
+function isJunkParensContent(inner) {
+  if (isCollabParensContent(inner)) return false
+  if (String(inner).trim().length < 1) return false
+  return JUNK_PAREN_PATTERNS.some((re) => re.test(inner))
+}
+
+function stripJunkRoundParens(s) {
+  const re = /\s*([\(（])([^)）]+)([\)）])/g
+  let t = String(s)
+  for (let pass = 0; pass < 15; pass++) {
+    const before = t
+    t = t.replace(re, (full, _o, inner, _c) => {
+      if (isJunkParensContent(inner)) return " "
+      return full
+    })
+    t = t.replace(/\s+/g, " ").trim()
+    if (t === before) break
+  }
+  return t
+}
+
+function stripTailYouTubeCruft(s) {
+  let t = String(s || "").replace(/\s+/g, " ").trim()
+  t = stripJunkRoundParens(t)
+  for (let i = 0; i < 4; i++) {
+    const before = t
+    t = t.replace(/\s*-\s*topic\s*$/i, "").trim()
+    t = t.replace(/\s*\|\s*[^|]+\s*-\s*Topic\s*$/i, "").trim()
+    t = t.replace(/\s+/g, " ").trim()
+    if (t === before) break
+  }
+  return t
+}
+
+function artistFolderNameVariants(artistFolder) {
+  const a = String(artistFolder || "").trim()
+  if (a.length < 2) return []
+  const out = [a]
+  if (/^The\s+/i.test(a)) out.push(a.replace(/^The\s+/i, "").trim())
+  else out.push(`The ${a}`)
+  return out.filter((x) => x.length >= 2)
+}
+
+function stripIfArtistLeadsName(s, artistFolder) {
+  for (const v of artistFolderNameVariants(artistFolder)) {
+    const re = new RegExp(`^\\s*${reEscape(v)}\\s*[-–—|]\\s*`, "i")
+    if (re.test(s)) return s.replace(re, "").trim()
+  }
+  return s
+}
+
+function stripIfArtistTrailsWithDash(s, artistFolder) {
+  for (const v of artistFolderNameVariants(artistFolder)) {
+    const re = new RegExp(
+      `^(.*)\\s*[-–—|]\\s*${reEscape(v)}(?:\\s+(\\([^)]+\\)))?\\s*$`,
+      "i",
+    )
+    const m = s.match(re)
+    if (m) {
+      const left = m[1].trim()
+      if (left.length < 1) return s
+      if (m[2]) {
+        return `${left} ${m[2].trim()}`.replace(/\s+/g, " ").trim()
+      }
+      return left
+    }
+  }
+  return s
+}
+
 /**
- * Rimuove segmenti [testo], prefisso "numero + trattino" o "numero + punto" dal nome file (senza estensione).
+ * Rimuove […], numerazione, parentesi tonde il cui testo sembra promozionale (official, original, remaster,
+ * version, video, 4K, live, clean, …) senza toccare (feat. / ft. / with …), poi - Topic, e l’eventuale
+ * prefisso/suffisso " - Artista" dalla cartella artista/ album.
+ * Solo stringhe, nessuna dipendenza esterna (niente API).
+ * @param {string} raw
+ * @param {{ artistFolder?: string } | undefined} [opts]
  */
-export function sanitizeLocalTrackTitleDisplay(raw) {
+export function sanitizeLocalTrackTitleDisplay(raw, opts) {
   let s = String(raw || "")
     .replace(/\[[^\]]*\]/g, " ")
     .replace(/\s+/g, " ")
@@ -284,12 +415,16 @@ export function sanitizeLocalTrackTitleDisplay(raw) {
   s = s.replace(/^\d+\s*[-–—]\s*/i, "").trim()
   s = s.replace(/^\d+\s*\.\s+/, "").trim()
   s = s.replace(/\s+/g, " ").trim()
+  s = stripTailYouTubeCruft(s)
+  s = stripIfArtistLeadsName(s, opts?.artistFolder)
+  s = stripIfArtistTrailsWithDash(s, opts?.artistFolder)
+  s = s.replace(/\s+/g, " ").trim()
   if (s.length > 200) s = s.slice(0, 200)
   return s
 }
 
 /**
- * Scrive in kord-trackinfo.json (o legacy wpp-*) il campo `title` quando il nome file contiene numeri+trattino o […] da normalizzare.
+ * Scrive in kord-trackinfo.json (o legacy wpp-*) il campo `title` quando `sanitizeLocalTrackTitleDisplay` produce un testo diverso dal nome file (senza estensione).
  * @param {string} albumDir percorso assoluto album
  * @param {boolean} dryRun
  */
@@ -308,10 +443,12 @@ export async function sanitizeTrackTitlesInAlbumDir(albumDir, dryRun) {
       mut = {}
     }
   }
+  const segs = path.normalize(albumDir).split(path.sep).filter(Boolean)
+  const artistFolder = segs.length >= 2 ? segs[segs.length - 2] : ""
   for (const e of entries) {
     if (!e.isFile() || !AUDIO_RE.test(e.name)) continue
     const base = e.name.replace(AUDIO_RE, "").trim() || e.name
-    const to = sanitizeLocalTrackTitleDisplay(base)
+    const to = sanitizeLocalTrackTitleDisplay(base, { artistFolder })
     if (to === base) continue
     const existing =
       mut[e.name] && typeof mut[e.name] === "object" ? { ...mut[e.name] } : {}

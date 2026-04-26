@@ -346,7 +346,7 @@ export const EN: Record<string, string> = {
   "tools.downloadTitle": "Download",
   "tools.cmdUsed": "Command used",
   "tools.cmdFallback":
-    'yt-dlp -x --audio-format flac --embed-thumbnail --add-metadata -o "…" + URL',
+    'yt-dlp -f bestaudio[ext=m4a]/… --add-metadata -o "…" + URL (native audio, no ffmpeg)',
   "tools.destination": "Destination",
   "tools.musicRoot": "Music",
   "tools.up": "← Up",
@@ -392,7 +392,7 @@ export const EN: Record<string, string> = {
   "tools.scanAllTracks": "Scan all tracks",
   "tools.displayedTitles": "Displayed titles (from file names)",
   "tools.titleHint":
-    "Removes: […] and leading numeric prefixes (1 - / 1. ).",
+    "Cleans display titles (string heuristics): removes […], leading 01- / 1. , round parens whose text looks promotional (official, original, remaster, version, video, live, clean, 4K…), keeps (feat. / with …), then “- Topic” and redundant “Artist -” at start/end from the library folder. No network, no new deps.",
   "tools.previewAlbum": "Preview album",
   "tools.applyAlbum": "Apply to album",
   "tools.previewLibrary": "Preview entire library",
@@ -443,11 +443,12 @@ export const EN: Record<string, string> = {
   "tools.sanitizeHeadApplyLib":
     "Title apply — entire library\nAlbums scanned: {{a}} · files to fix: {{c}}\n",
   "tools.sanitizeNoFixLib":
-    "No file names with numeric prefix or […] to fix.\n",
+    "No tracks where the derived title from the file name would differ (nothing to normalize).\n",
   "tools.sanitizeMore": "… and {{n}} more.",
   "tools.sanitizeHeadPreviewAlb": "Title preview — {{path}}\n",
   "tools.sanitizeHeadApplyAlb": "kord-trackinfo write — {{path}}\n",
-  "tools.sanitizeNoFixAlb": "No files to fix in this album.\n",
+  "tools.sanitizeNoFixAlb":
+    "No tracks in this album where the normalized title differs from the file stem.\n",
   "tools.sanitizeRefreshHint":
     "OK, refresh the library if it does not update automatically.\n",
   "tools.sanitizeErr": "Titles: {{e}}\n",

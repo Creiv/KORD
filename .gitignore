@@ -34,3 +34,7 @@ server/accounts/
 *.njsproj
 *.sln
 *.sw?
+
+server/bin/yt-dlp
+server/bin/yt-dlp.exe
+!server/bin/.gitkeep

@@ -30,6 +30,10 @@ process.env.KORD_APP_VERSION = version
 
 if (flavor === "server") {
   execSync("npm run build", { stdio: "inherit", cwd: root })
+  execSync(`node ${path.join(root, "scripts", "fetch-ytdlp.mjs")} ${platform}`, {
+    stdio: "inherit",
+    cwd: root,
+  })
 }
 
 execSync(`npx electron-builder ${platFlag} --config ${configPath}`, {

@@ -39,16 +39,24 @@ import {
   toLegacyLibrary,
 } from "./musicLibrary.mjs"
 import { defaultUserState, readUserState, writeUserState } from "./userState.mjs"
+import { resolveYtdlpPath } from "./ytdlpPath.mjs"
 
 const PORT = Number(process.env.PORT) || 3001
-const YTDLP_BIN = process.env.YTDLP_PATH || "yt-dlp"
-const YTDLP_ARGS_BASE = [
+const YTDLP_ARGS_LOSSLESS = [
   "-x",
   "--audio-format",
   "flac",
   "--embed-thumbnail",
   "--add-metadata",
 ]
+const YTDLP_ARGS_NATIVE = [
+  "-f",
+  "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio",
+  "--add-metadata",
+]
+function ytdlpArgsBase() {
+  return process.env.KORD_YTDLP_LOSSLESS === "1" ? YTDLP_ARGS_LOSSLESS : YTDLP_ARGS_NATIVE
+}
 
 function isProbablyPlaylistUrl(url) {
   try {
@@ -62,32 +70,42 @@ function isProbablyPlaylistUrl(url) {
   }
 }
 
+const YTDLP_NAME = "%(track,title)s"
+
 function ytdlpOutputTemplate(url) {
   try {
     const u = new URL(url)
     const host = u.hostname.replace(/^www\./, "")
     if (host.endsWith("bandcamp.com")) {
-      return "%(album)s/%(autonumber)02d - %(title)s.%(ext)s"
+      return `%(album)s/%(autonumber)02d - ${YTDLP_NAME}.%(ext)s`
     }
     const pl = isProbablyPlaylistUrl(url)
     if (host.includes("music.youtube.com")) {
       if (pl) {
-        return "%(playlist_title)s/%(autonumber)02d - %(title)s.%(ext)s"
+        return `%(playlist_title)s/%(autonumber)02d - ${YTDLP_NAME}.%(ext)s`
       }
-      return "%(album)s/%(autonumber)02d - %(title)s.%(ext)s"
+      return `%(album)s/%(autonumber)02d - ${YTDLP_NAME}.%(ext)s`
     }
     if (pl) {
-      return "%(playlist_title)s/%(autonumber)02d - %(title)s.%(ext)s"
+      return `%(playlist_title)s/%(autonumber)02d - ${YTDLP_NAME}.%(ext)s`
     }
   } catch {
     /* ignore */
   }
-  return "%(title)s/%(autonumber)02d - %(title)s.%(ext)s"
+  return `%(title)s/%(autonumber)02d - ${YTDLP_NAME}.%(ext)s`
 }
 
-const YTDLP_CMD_DISPLAY = `yt-dlp ${[...YTDLP_ARGS_BASE, "-o", "%(folder)s/%(autonumber)02d - %(title)s.%(ext)s"]
-  .map((a) => (/\s/.test(a) ? `"${a}"` : a))
-  .join(" ")} + URL — folder = playlist title | album (Bandcamp / YT Music track) | video title`
+function ytdlpCmdDisplay() {
+  const bin = resolveYtdlpPath()
+  const base = ytdlpArgsBase()
+  const note =
+    process.env.KORD_YTDLP_LOSSLESS === "1"
+      ? " (FLAC, richiede ffmpeg)"
+      : " (audio nativo, senza ffmpeg)"
+  return `${bin} ${[...base, "-o", `%(folder)s/%(autonumber)02d - ${YTDLP_NAME}.%(ext)s`]
+    .map((a) => (/\s/.test(a) ? `"${a}"` : a))
+    .join(" ")} + URL${note} — folder = …, nome file = track|title`
+}
 
 const app = express()
 app.use(cors())
@@ -178,6 +196,8 @@ app.use(
         index: false,
         setHeaders: (res, filePath) => {
           if (filePath.endsWith(".flac")) res.setHeader("Content-Type", "audio/flac")
+          else if (filePath.endsWith(".m4a")) res.setHeader("Content-Type", "audio/mp4")
+          else if (filePath.endsWith(".webm")) res.setHeader("Content-Type", "audio/webm")
         },
       })(req, res, next)
   },
@@ -385,10 +405,10 @@ app.get("/api/download-preset", async (_req, res) => {
     return sendOk(res, {
       found: true,
       file: null,
-      text: YTDLP_CMD_DISPLAY,
-      program: YTDLP_BIN,
+      text: ytdlpCmdDisplay(),
+      program: resolveYtdlpPath(),
       args: [
-        ...YTDLP_ARGS_BASE,
+        ...ytdlpArgsBase(),
         "-o",
         "%(playlist_title)s/%(autonumber)02d - %(title)s.%(ext)s",
       ],
@@ -405,9 +425,9 @@ app.post("/api/download", async (req, res) => {
   if (!/^https?:\/\//i.test(url)) return sendError(res, 400, "Provide a valid http(s) URL")
   try {
     const root = musicRootFromReq(req)
-    const program = YTDLP_BIN
+    const program = resolveYtdlpPath()
     const outTmpl = ytdlpOutputTemplate(url)
-    const args = [...YTDLP_ARGS_BASE, "-o", outTmpl]
+    const args = [...ytdlpArgsBase(), "-o", outTmpl]
     const outputDir = safeRelSeg(String(req.body?.outputDir || ""))
     if (outputDir != null && outputDir.length > 0) {
       const oi = args.findIndex((arg) => arg === "-o" || arg === "--output")
@@ -672,7 +692,7 @@ app.post("/api/track-info/fetch", async (req, res) => {
     const albumDir = path.join(root, albumRel.replaceAll("/", path.sep))
     if (!underRoot(albumDir, root) || !existsSync(albumDir)) return sendError(res, 404, "Album folder not found")
     const titleRaw = String(fileName)
-      .replace(/\.(mp3|flac|m4a|ogg|opus|wav|aac)$/i, "")
+      .replace(/\.(mp3|flac|m4a|ogg|opus|wav|aac|webm)$/i, "")
       .trim() || fileName
     const title = prepareTrackTitleForMeta(artist, titleRaw) || titleRaw
     const meta = await fetchTrackMetadata(artist, title, album, titleRaw)

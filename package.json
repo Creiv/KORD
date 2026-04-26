@@ -21,6 +21,7 @@
     "pack:win:client": "node scripts/pack-release.mjs client win",
     "pack:mac:server": "node scripts/pack-release.mjs server mac",
     "pack:mac:client": "node scripts/pack-release.mjs client mac",
+    "ytdlp:fetch": "node scripts/fetch-ytdlp.mjs",
     "pack:win": "npm run build && electron-builder --win",
     "pack:mac": "npm run build && electron-builder --mac",
     "lint": "eslint .",

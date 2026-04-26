@@ -10,7 +10,7 @@
 - **Dashboard, Listen, Library, Studio, Queue, Playlists, Favorites, Recent, Settings** — a single shell with client-side routing and deep links.
 - **Player** with session restore, queue, favorites, recent tracks, and a visualizer.
 - **Server** (Node / Express) that indexes your music folder, serves the UI and API, and stores per-user state on disk.
-- **Tools** for downloads (optional `yt-dlp`), cover search, and metadata enrichment.
+- **Tools** for downloads (optional `yt-dlp`; uses **native m4a/webm** audio without bundling `ffmpeg` — the library also indexes **mp3, flac, ogg, opus**, etc.), cover search, and metadata enrichment.
 - **i18n**: UI defaults to **English**; **Italian** is available in Settings. Strings are in `src/i18n/en.ts` and `src/i18n/it.ts`.
 - **Tests** (Vitest + React Testing Library) for UI, server helpers, and library logic.
 
@@ -18,7 +18,7 @@
 
 - A recent **Node.js** (for development and from-source use).
 - A folder of audio files.
-- Optional: **`yt-dlp`** for the download feature.
+- Optional: **`yt-dlp`** for the download feature (in development, install it on your `PATH`, or set `YTDLP_PATH`). **Packaged Kord Server** runs `scripts/fetch-ytdlp.mjs` during `pack:*:server` and ships the official binary under `server/bin/` for that OS, so **Studio download** works without a separate install. Override with `YTDLP_PATH` or `KORD_YTDLP_LINUX_ASSET` (see `scripts/fetch-ytdlp.mjs`). Downloads use **native AAC/Opus** (m4a/webm) by default so **ffmpeg is not required**; set **`KORD_YTDLP_LOSSLESS=1`** to force FLAC extraction (needs **ffmpeg** on the server).
 
 ## How to run
 

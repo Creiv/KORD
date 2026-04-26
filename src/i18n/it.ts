@@ -351,7 +351,7 @@ export const IT: Record<string, string> = {
   "tools.downloadTitle": "Download",
   "tools.cmdUsed": "Comando usato",
   "tools.cmdFallback":
-    'yt-dlp -x --audio-format flac --embed-thumbnail --add-metadata -o "…" + URL',
+    'yt-dlp -f bestaudio[ext=m4a]/… --add-metadata -o "…" + URL (audio nativo, senza ffmpeg)',
   "tools.destination": "Destinazione",
   "tools.musicRoot": "Musica",
   "tools.up": "← Su",
@@ -397,7 +397,7 @@ export const IT: Record<string, string> = {
   "tools.scanAllTracks": "Scansione tutti i brani",
   "tools.displayedTitles": "Titoli mostrati (da nome file)",
   "tools.titleHint":
-    "Rimuove: le parti in […] e i prefissi iniziali tipo 01- / 1- / 1.",
+    "Pulisce i titoli (solo testo): toglie […], prefissi 01- / 1. , parentesi ( ) con parole promo (official, original, remaster, version, video, live, clean, 4K…), senza rimuovere (feat. / with …), poi - Topic e prefisso/suffisso «Artista -» dalla cartella.",
   "tools.previewAlbum": "Anteprima album",
   "tools.applyAlbum": "Applica su album",
   "tools.previewLibrary": "Anteprima tutta la libreria",
@@ -449,11 +449,12 @@ export const IT: Record<string, string> = {
   "tools.sanitizeHeadApplyLib":
     "Applicazione titoli visibili — tutta la libreria\nAlbum scansionati: {{a}} · file da aggiustare: {{c}}\n",
   "tools.sanitizeNoFixLib":
-    "Nessun nome file con prefisso numerico o con […] da correggere.\n",
+    "Nessun brano in cui i titoli calcolati dal nome file differiscono da quello grezzo (nulla da normalizzare).\n",
   "tools.sanitizeMore": "… e altre {{n}} voci.",
   "tools.sanitizeHeadPreviewAlb": "Anteprima titoli — {{path}}\n",
   "tools.sanitizeHeadApplyAlb": "Scrittura kord-trackinfo — {{path}}\n",
-  "tools.sanitizeNoFixAlb": "Nessun file da aggiustare in questo album.\n",
+  "tools.sanitizeNoFixAlb":
+    "Nessun brano in cui il titolo normalizzato differisce dal nome file in questo album.\n",
   "tools.sanitizeRefreshHint":
     "OK, aggiorna la libreria se non si aggiorna da sola.\n",
   "tools.sanitizeErr": "Titoli: {{e}}\n",

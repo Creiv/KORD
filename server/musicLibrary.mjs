@@ -4,7 +4,7 @@ import { stat as statAsync } from "fs/promises"
 import path from "path"
 import { loadAlbumJsonMetaFromDir, loadTrackJsonMetaMapFromDir } from "./albumInfo.mjs"
 
-const AUDIO = /\.(mp3|flac|m4a|ogg|opus|wav|aac)$/i
+const AUDIO = /\.(mp3|flac|m4a|ogg|opus|wav|aac|webm)$/i
 const EXCLUDE = new Set([
   "kord",
   "node_modules",
