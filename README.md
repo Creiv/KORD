@@ -110,7 +110,3 @@ You can pass a version as the last argument, e.g. `npm run pack:linux:server -- 
 - Legacy user-state import
 - Server-side user-state persistence and sanitization
 - Library indexing and quality checks
-
----
-
-If you add screenshots or a license file to the repository, link them from this document so visitors landing on GitHub get a clear first impression.
