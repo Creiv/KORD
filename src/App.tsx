@@ -32,6 +32,7 @@ import type { Account, AccountsResponse } from "./lib/api";
 import { useDashboardUpdatedAlbumsGrid } from "./hooks/useDashboardUpdatedAlbumsGrid";
 import { buildRandomArtistCoverMap } from "./lib/artistCover";
 import { buildGenreCoverPreviewMap } from "./lib/genreCovers";
+import { parseTrackGenres, trackBelongsToGenreKey } from "./lib/genres";
 import { fmtDate, trackInfoBadges } from "./lib/metaFormat";
 import { ExcludeShuffleIcon } from "./components/ExcludeShuffleIcon";
 import {
@@ -142,28 +143,27 @@ function useAppRoute() {
   }, []);
   const navigate = (next: Partial<RouteState>) => {
     startTransition(() => {
-      const merged = {
+      const merged: RouteState = {
         ...route,
         ...next,
-        artist:
-          next.section && next.section !== "libreria"
-            ? null
-            : next.artist !== undefined
-            ? next.artist
-            : route.artist,
-        album:
-          next.section && next.section !== "libreria"
-            ? null
-            : next.album !== undefined
-            ? next.album
-            : route.album,
-        playlist:
-          next.section && next.section !== "playlists"
-            ? null
-            : next.playlist !== undefined
-            ? next.playlist
-            : route.playlist,
+        section: (next.section ?? route.section) as Section,
       };
+      if (next.section && next.section !== "libreria") {
+        merged.artist = null;
+        merged.album = null;
+      } else if (next.section === "libreria") {
+        if (!("artist" in next)) merged.artist = null;
+        if (!("album" in next)) merged.album = null;
+      } else {
+        merged.artist = next.artist !== undefined ? next.artist : route.artist;
+        merged.album = next.album !== undefined ? next.album : route.album;
+      }
+      merged.playlist =
+        merged.section && merged.section !== "playlists"
+          ? null
+          : next.playlist !== undefined
+            ? next.playlist
+            : route.playlist;
       window.history.pushState({}, "", buildHref(merged));
       setRoute(merged);
     });
@@ -260,7 +260,7 @@ function playlistToEnrichedList(
 
 function TrackFileMetaChip({ meta }: { meta?: TrackMeta | null }) {
   const { t } = useI18n();
-  const isOn = !meta?.genre && !meta?.releaseDate;
+  const isOn = !parseTrackGenres(meta?.genre).length && !meta?.releaseDate;
   return (
     <span
       className={`lib-meta-chip${isOn ? " lib-meta-chip--on" : ""}`}
@@ -557,16 +557,15 @@ function tracksInGenreByKey(
   libraryIndex: LibraryIndex,
   genreKey: string
 ): LibraryTrackIndex[] {
-  if (genreKey === "__none__") {
-    return libraryIndex.tracks.filter((t) => !t.meta?.genre?.trim());
-  }
-  return libraryIndex.tracks.filter(
-    (t) => t.meta?.genre?.trim().toLowerCase() === genreKey
+  return libraryIndex.tracks.filter((t) =>
+    trackBelongsToGenreKey(t.meta?.genre, genreKey)
   );
 }
 
 function trackHasKordFileMeta(t: LibraryTrackIndex) {
-  return Boolean(t.meta?.genre || t.meta?.releaseDate);
+  return Boolean(
+    parseTrackGenres(t.meta?.genre).length > 0 || t.meta?.releaseDate
+  );
 }
 
 function LibraryGenreMetaChips({
@@ -1398,12 +1397,14 @@ function LibraryView({
   index,
   route,
   query,
+  libraryHomeTick,
   onOpenArtist,
   onOpenAlbum,
 }: {
   index: LibraryIndex;
   route: RouteState;
   query: string;
+  libraryHomeTick: number;
   onOpenArtist: (artist: string) => void;
   onOpenAlbum: (artist: string, album: string) => void;
 }) {
@@ -1426,6 +1427,12 @@ function LibraryView({
   );
   const [selectedGenreKey, setSelectedGenreKey] = useState<string | null>(null);
   const normalizedQuery = query.trim().toLowerCase();
+
+  useEffect(() => {
+    if (libraryHomeTick < 1) return;
+    setSelectedGenreKey(null);
+    setMode("all");
+  }, [libraryHomeTick]);
 
   const artist = route.artist
     ? index.artists.find((item) => item.id === route.artist) || null
@@ -1519,9 +1526,9 @@ function LibraryView({
       if (albumId) e.albums.add(albumId);
     };
     for (const t of index.tracks) {
-      const raw = t.meta?.genre?.trim();
-      if (!raw) bump("__none__", t.albumId);
-      else bump(raw.toLowerCase(), t.albumId);
+      const toks = parseTrackGenres(t.meta?.genre);
+      if (toks.length === 0) bump("__none__", t.albumId);
+      else for (const g of toks) bump(g.toLowerCase(), t.albumId);
     }
     return m;
   }, [index.tracks]);
@@ -1530,15 +1537,17 @@ function LibraryView({
     const byLower = new Map<string, { label: string; count: number }>();
     let noGenre = 0;
     for (const t of index.tracks) {
-      const raw = t.meta?.genre?.trim();
-      if (!raw) {
+      const toks = parseTrackGenres(t.meta?.genre);
+      if (toks.length === 0) {
         noGenre += 1;
         continue;
       }
-      const low = raw.toLowerCase();
-      const prev = byLower.get(low);
-      if (!prev) byLower.set(low, { label: raw, count: 1 });
-      else prev.count += 1;
+      for (const raw of toks) {
+        const low = raw.toLowerCase();
+        const prev = byLower.get(low);
+        if (!prev) byLower.set(low, { label: raw, count: 1 });
+        else prev.count += 1;
+      }
     }
     const list = Array.from(byLower.entries())
       .map(([key, v]) => ({ key, label: v.label, count: v.count }))
@@ -1550,11 +1559,8 @@ function LibraryView({
 
   const tracksInSelectedGenre = useMemo(() => {
     if (!selectedGenreKey) return [] as LibraryTrackIndex[];
-    if (selectedGenreKey === "__none__") {
-      return index.tracks.filter((t) => !t.meta?.genre?.trim());
-    }
-    return index.tracks.filter(
-      (t) => t.meta?.genre?.trim().toLowerCase() === selectedGenreKey
+    return index.tracks.filter((t) =>
+      trackBelongsToGenreKey(t.meta?.genre, selectedGenreKey)
     );
   }, [index.tracks, selectedGenreKey]);
 
@@ -1663,8 +1669,8 @@ function LibraryView({
       const playsForGenreKey = (key: string) => {
         let s = 0;
         for (const t of index.tracks) {
-          const g = t.meta?.genre?.trim().toLowerCase();
-          if (g === key) s += counts[t.relPath] ?? 0;
+          if (!trackBelongsToGenreKey(t.meta?.genre, key)) continue;
+          s += counts[t.relPath] ?? 0;
         }
         return s;
       };
@@ -1687,8 +1693,9 @@ function LibraryView({
     if (!normalizedQuery) return null;
     const genreOk = (relPath: string) => {
       const t = index.tracks.find((x) => x.relPath === relPath);
-      const g = t?.meta?.genre?.trim().toLowerCase();
-      return Boolean(g && g.includes(normalizedQuery));
+      return parseTrackGenres(t?.meta?.genre).some((g) =>
+        g.toLowerCase().includes(normalizedQuery)
+      );
     };
     return {
       artists: index.artists.filter((item) => {
@@ -1696,7 +1703,9 @@ function LibraryView({
         return index.tracks.some(
           (t) =>
             t.artist === item.name &&
-            t.meta?.genre?.trim().toLowerCase().includes(normalizedQuery)
+            parseTrackGenres(t.meta?.genre).some((g) =>
+              g.toLowerCase().includes(normalizedQuery)
+            )
         );
       }),
       albums: index.albums.filter((item) => {
@@ -1713,8 +1722,8 @@ function LibraryView({
           item.title.toLowerCase().includes(normalizedQuery) ||
           item.artist.toLowerCase().includes(normalizedQuery) ||
           item.album.toLowerCase().includes(normalizedQuery) ||
-          Boolean(
-            item.meta?.genre?.trim().toLowerCase().includes(normalizedQuery)
+          parseTrackGenres(item.meta?.genre).some((g) =>
+            g.toLowerCase().includes(normalizedQuery)
           )
       ),
     };
@@ -1919,12 +1928,15 @@ function LibraryView({
                     </button>
                     <button
                       type="button"
-                      className={`ghost-btn ${
+                      className={`ghost-btn library-toolbar-exclude-btn ${
                         excludedAlbums.has(album.id) ? "is-on" : ""
                       }`}
                       onClick={() => user.toggleShuffleExcludedAlbum(album.id)}
+                      title={t("library.randomExcludeBtn")}
+                      aria-label={t("library.randomExcludeAria")}
+                      aria-pressed={excludedAlbums.has(album.id)}
                     >
-                      {t("library.randomExcludeBtn")}
+                      <ExcludeShuffleIcon className="library-toolbar-exclude-btn__ic" />
                     </button>
                   </div>
                 </div>
@@ -2665,12 +2677,12 @@ function computeStatisticsRankings(
   for (const tr of index.tracks) {
     const n = counts[tr.relPath] ?? 0;
     if (n <= 0) continue;
-    const raw = tr.meta?.genre?.trim();
-    if (!raw) continue;
-    const key = raw.toLowerCase();
-    const prev = genreMap.get(key);
-    if (prev) prev.n += n;
-    else genreMap.set(key, { label: raw, n });
+    for (const raw of parseTrackGenres(tr.meta?.genre)) {
+      const key = raw.toLowerCase();
+      const prev = genreMap.get(key);
+      if (prev) prev.n += n;
+      else genreMap.set(key, { label: raw, n });
+    }
   }
   const topGenres = [...genreMap.entries()]
     .map(([key, v]) => ({ key, label: v.label, n: v.n }))
@@ -3636,6 +3648,7 @@ function Shell() {
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
+  const [libraryHomeTick, setLibraryHomeTick] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -3744,8 +3757,7 @@ function Shell() {
     if (!index) return [];
     const s = new Set<string>();
     for (const tr of index.tracks) {
-      const g = tr.meta?.genre?.trim();
-      if (g) s.add(g);
+      for (const g of parseTrackGenres(tr.meta?.genre)) s.add(g);
     }
     return [...s].sort((a, b) =>
       a.localeCompare(b, undefined, { sensitivity: "base" })
@@ -3785,6 +3797,7 @@ function Shell() {
             index={index}
             route={route}
             query={deferredSearch}
+            libraryHomeTick={libraryHomeTick}
             onOpenArtist={(artist) =>
               navigate({
                 section: "libreria",
@@ -3889,7 +3902,13 @@ function Shell() {
                             className={`topbar-nav__btn ${
                               route.section === item.id ? "is-active" : ""
                             }`}
-                            onClick={() => navigate({ section: item.id })}
+                            onClick={() => {
+                              if (item.id === "libreria") {
+                                setSearch("");
+                                setLibraryHomeTick((n) => n + 1);
+                              }
+                              navigate({ section: item.id });
+                            }}
                           >
                             {t(item.labelKey)}
                           </button>

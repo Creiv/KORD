@@ -1,4 +1,5 @@
 import type { LibraryIndex } from "../types";
+import { parseTrackGenres } from "./genres";
 
 function shuffleSlice<T>(items: T[], max: number): T[] {
   const a = [...items];
@@ -35,9 +36,9 @@ export function buildGenreCoverPreviewMap(
   for (const t of index.tracks) {
     const albumId = t.albumId;
     if (!albumId) continue;
-    const raw = t.meta?.genre?.trim();
-    if (!raw) add("__none__", albumId);
-    else add(raw.toLowerCase(), albumId);
+    const tokens = parseTrackGenres(t.meta?.genre);
+    if (tokens.length === 0) add("__none__", albumId);
+    else for (const g of tokens) add(g.toLowerCase(), albumId);
   }
 
   const out = new Map<string, (string | null)[]>();

@@ -10,6 +10,10 @@ import {
 } from "react";
 import { saveTrackInfoManual } from "../lib/api";
 import { useI18n } from "../i18n/useI18n";
+import {
+  parseTrackGenres,
+  serializeTrackGenres,
+} from "../lib/genres";
 import type { EnrichedTrack } from "../types";
 
 const TrackMetaEditContext = createContext<(track: EnrichedTrack) => void>(
@@ -47,6 +51,17 @@ export function TrackMetaEditGlyph() {
   );
 }
 
+function addGenreToken(
+  current: string[],
+  token: string,
+): string[] {
+  const t = token.trim();
+  if (!t) return current;
+  const k = t.toLowerCase();
+  if (current.some((g) => g.toLowerCase() === k)) return current;
+  return [...current, t];
+}
+
 function TrackMetaEditorModal({
   track,
   genreOptions,
@@ -59,10 +74,11 @@ function TrackMetaEditorModal({
   onSaved: () => void;
 }) {
   const { t } = useI18n();
-  const genreListId = useId();
+  const pickId = useId();
   const [title, setTitle] = useState("");
   const [releaseDate, setReleaseDate] = useState("");
-  const [genre, setGenre] = useState("");
+  const [genres, setGenres] = useState<string[]>([]);
+  const [newGenre, setNewGenre] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -72,11 +88,25 @@ function TrackMetaEditorModal({
       const m = track.meta;
       setTitle(track.title);
       setReleaseDate(toDateInputValue(m?.releaseDate ?? null));
-      setGenre(m?.genre?.trim() ?? "");
+      setGenres(parseTrackGenres(m?.genre));
+      setNewGenre("");
       setErr(null);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [track]);
+
+  const availableFromLibrary = genreOptions.filter(
+    (g) => !genres.some((s) => s.toLowerCase() === g.toLowerCase()),
+  );
+
+  const removeGenre = useCallback((i: number) => {
+    setGenres((prev) => prev.filter((_, j) => j !== i));
+  }, []);
+
+  const addNewGenre = useCallback(() => {
+    setGenres((prev) => addGenreToken(prev, newGenre));
+    setNewGenre("");
+  }, [newGenre]);
 
   const submit = useCallback(
     async (e: FormEvent) => {
@@ -88,7 +118,7 @@ function TrackMetaEditorModal({
         await saveTrackInfoManual(track.relPath, {
           title: title.trim() === "" ? null : title.trim(),
           releaseDate: releaseDate.trim() === "" ? null : releaseDate.trim(),
-          genre: genre.trim() === "" ? null : genre.trim(),
+          genre: serializeTrackGenres(genres),
         });
         await Promise.resolve(onSaved());
         onClose();
@@ -98,7 +128,7 @@ function TrackMetaEditorModal({
         setBusy(false);
       }
     },
-    [track, title, releaseDate, genre, onClose, onSaved],
+    [track, title, releaseDate, genres, onClose, onSaved],
   );
 
   if (!track) return null;
@@ -146,24 +176,72 @@ function TrackMetaEditorModal({
               onChange={(ev) => setReleaseDate(ev.target.value)}
             />
           </label>
-          <label className="meta-edit-field">
+          <div className="meta-edit-field">
             <span>{t("trackMeta.fieldGenre")}</span>
-            <input
-              className="ghost-input w-full"
-              list={genreListId}
-              value={genre}
-              onChange={(ev) => setGenre(ev.target.value)}
-              autoComplete="off"
-            />
-            <datalist id={genreListId}>
-              {genreOptions.map((g) => (
-                <option key={g} value={g} />
+            <div className="meta-edit-genre-chips" role="list">
+              {genres.map((g, i) => (
+                <span key={`${g}-${i}`} className="meta-edit-genre-chip" role="listitem">
+                  <span className="meta-edit-genre-chip__text">{g}</span>
+                  <button
+                    type="button"
+                    className="meta-edit-genre-chip__x"
+                    onClick={() => removeGenre(i)}
+                    aria-label={t("trackMeta.fieldGenreRemoveAria", { g })}
+                  >
+                    ×
+                  </button>
+                </span>
               ))}
-            </datalist>
+            </div>
+            <div className="meta-edit-genre-add">
+            <label className="sr-only" htmlFor={pickId}>
+              {t("trackMeta.fieldGenrePick")}
+            </label>
+              <select
+                key={`${genres.length}-${availableFromLibrary.length}`}
+                id={pickId}
+                className="ghost-input w-full"
+                defaultValue=""
+                onChange={(ev) => {
+                  const v = ev.target.value;
+                  if (v) setGenres((prev) => addGenreToken(prev, v));
+                }}
+              >
+                <option value="">{t("trackMeta.fieldGenrePickPlaceholder")}</option>
+                {availableFromLibrary.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="meta-edit-genre-custom">
+              <input
+                className="ghost-input"
+                value={newGenre}
+                onChange={(ev) => setNewGenre(ev.target.value)}
+                onKeyDown={(ev) => {
+                  if (ev.key === "Enter") {
+                    ev.preventDefault();
+                    addNewGenre();
+                  }
+                }}
+                placeholder={t("trackMeta.fieldGenreNewPlaceholder")}
+                autoComplete="off"
+              />
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={addNewGenre}
+                disabled={!newGenre.trim()}
+              >
+                {t("trackMeta.fieldGenreAdd")}
+              </button>
+            </div>
             <span className="subtle sm meta-edit-field-hint">
               {t("trackMeta.fieldGenreHint")}
             </span>
-          </label>
+          </div>
           <p className="subtle sm">{t("trackMeta.editHint")}</p>
           {err ? <p className="subtle sm warnline">{err}</p> : null}
           <div className="meta-edit-actions">

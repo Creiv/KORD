@@ -21,6 +21,7 @@ import type { ArtworkHit } from "../lib/api"
 import { fmtDate } from "../lib/metaFormat"
 import { albumFolderFromTrackRelPath } from "../lib/trackPaths"
 import type { LinkSharedAlbumResult, LinkSharedResult } from "../lib/api"
+import { formatTrackGenresForDisplay } from "../lib/genres"
 import type { LibTrack, LibraryIndex, LibraryResponse } from "../types"
 
 type P = {
@@ -518,7 +519,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
             t("tools.metaTrackOk", {
               title: p.current?.title ?? "",
               date: fmtDate(r.meta.releaseDate),
-              genre: r.meta.genre || t("common.emDash"),
+              genre: formatTrackGenresForDisplay(r.meta.genre) || t("common.emDash"),
             }),
         )
         onRefreshLibrary()
@@ -542,7 +543,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
       const tr = findLibTrack(library, rel)
       const m = tr?.meta
       if (!m) return true
-      return !(m.genre || m.releaseDate)
+      return !(formatTrackGenresForDisplay(m.genre) || m.releaseDate)
     })
     const skippedT = rels.length - toFetch.length
     setMetaLog(

@@ -3,6 +3,7 @@ import { existsSync, statSync } from "fs"
 import { stat as statAsync } from "fs/promises"
 import path from "path"
 import { loadAlbumJsonMetaFromDir, loadTrackJsonMetaMapFromDir } from "./albumInfo.mjs"
+import { parseTrackGenres } from "./genres.mjs"
 
 const AUDIO = /\.(mp3|flac|m4a|ogg|opus|wav|aac|webm)$/i
 const EXCLUDE = new Set([
@@ -52,7 +53,10 @@ function hasAudio(name) {
 }
 
 function trackHasFileMeta(t) {
-  return Boolean(t?.meta?.genre || t?.meta?.releaseDate)
+  return Boolean(
+    (t?.meta?.genre && parseTrackGenres(t.meta.genre).length > 0) ||
+      t?.meta?.releaseDate,
+  )
 }
 
 function relify(parts) {
@@ -315,7 +319,8 @@ export async function buildLibraryIndex(musicRoot) {
     albumsWithoutCover: albums.filter((album) => !album.hasCover && !album.loose).length,
     albumsWithoutMeta: albums.filter((album) => !album.hasAlbumMeta && !album.loose).length,
     tracksWithoutMeta: tracks.filter(
-      (track) => !track.meta?.genre && !track.meta?.releaseDate,
+      (track) =>
+        !parseTrackGenres(track.meta?.genre).length && !track.meta?.releaseDate,
     ).length,
     looseAlbumCount: albums.filter((album) => album.loose).length,
   }

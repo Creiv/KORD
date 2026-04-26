@@ -1,4 +1,5 @@
 import type { EnrichedTrack } from "../types"
+import { formatTrackGenresForDisplay } from "./genres"
 
 function pad2(n: number) {
   return String(n).padStart(2, "0")
@@ -43,7 +44,8 @@ export function trackInfoBadges(
   const out: string[] = []
   if (t.meta?.releaseDate) out.push(`${labels.track} ${fmtDate(t.meta.releaseDate)}`)
   if (t.albumMeta?.releaseDate) out.push(`${labels.album} ${fmtDate(t.albumMeta.releaseDate)}`)
-  if (t.meta?.genre) out.push(t.meta.genre)
+  const g = formatTrackGenresForDisplay(t.meta?.genre)
+  if (g) out.push(g)
   if (t.albumMeta?.label) out.push(t.albumMeta.label)
   if (t.albumMeta?.country) out.push(t.albumMeta.country)
   return out.filter(Boolean)

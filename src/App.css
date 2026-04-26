@@ -3466,6 +3466,69 @@
   font-size: 0.8rem;
 }
 
+.meta-edit-genre-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+  min-width: 0;
+}
+
+.meta-edit-genre-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  max-width: 100%;
+  padding: 0.2rem 0.2rem 0.2rem 0.5rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-elev-a) 92%, var(--border) 8%);
+  font-size: 0.84rem;
+}
+
+.meta-edit-genre-chip__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 14rem;
+}
+
+.meta-edit-genre-chip__x {
+  flex-shrink: 0;
+  line-height: 1;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0;
+}
+
+.meta-edit-genre-chip__x:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--border) 35%, transparent);
+}
+
+.meta-edit-genre-add {
+  margin-bottom: 0.5rem;
+}
+
+.meta-edit-genre-custom {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  margin-bottom: 0.3rem;
+}
+
+.meta-edit-genre-custom .ghost-input {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
 .meta-edit-actions {
   display: flex;
   flex-wrap: wrap;

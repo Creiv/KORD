@@ -1,6 +1,7 @@
 import fs from "fs/promises"
 import { existsSync } from "fs"
 import path from "path"
+import { normalizeStoredGenreString } from "./genres.mjs"
 
 const LIB_EXCLUDE = new Set([
   "kord",
@@ -249,7 +250,13 @@ export async function saveTrackManualMeta(albumDir, fileName, patch) {
     next.releaseDate = str(patch.releaseDate, 64)
   }
   if (Object.prototype.hasOwnProperty.call(patch, "genre")) {
-    next.genre = str(patch.genre, 200)
+    const g = patch.genre
+    if (g === "" || g == null) {
+      next.genre = null
+    } else {
+      const norm = normalizeStoredGenreString(String(g))
+      next.genre = norm ? str(norm, 800) : null
+    }
   }
   if (Object.prototype.hasOwnProperty.call(patch, "source")) {
     next.source = str(patch.source, 200)
@@ -998,6 +1005,12 @@ export async function fetchTrackMetadataTheAudioDB(artist, title, album, titleFr
   return { error: "No results" }
 }
 
+function withNormalizedTrackGenre(m) {
+  if (!m || m.error || !m.ok) return m
+  if (m.genre == null) return m
+  return { ...m, genre: normalizeStoredGenreString(m.genre) }
+}
+
 /**
  * Ordine: Deezer (niente 403) → TheAudioDB → MusicBrainz (date/durata) → iTunes (genere se disponibile).
  */
@@ -1009,16 +1022,16 @@ export async function fetchTrackMetadata(artist, title, album, titleFromFile) {
       : t
 
   const dz = await fetchTrackMetadataDeezer(artist, t, album, tFile)
-  if (dz.ok) return dz
+  if (dz.ok) return withNormalizedTrackGenre(dz)
   await sleep(200)
   const adb = await fetchTrackMetadataTheAudioDB(artist, t, album, tFile)
-  if (adb.ok) return adb
+  if (adb.ok) return withNormalizedTrackGenre(adb)
   await sleep(1000)
   const mb = await fetchTrackMetadataMusicBrainz(artist, t)
-  if (mb.ok) return mb
+  if (mb.ok) return withNormalizedTrackGenre(mb)
   await sleep(200)
   const it = await fetchTrackMetadataItunes(artist, t, album)
-  if (it.ok) return it
+  if (it.ok) return withNormalizedTrackGenre(it)
   if (it.error === "Title missing") return it
   const parts = [dz.error, adb.error, mb.error, it.error].filter(Boolean)
   return {

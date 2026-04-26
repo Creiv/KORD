@@ -42,7 +42,6 @@ function AlbumMetaEditorModal({
   const [releaseDate, setReleaseDate] = useState("");
   const [label, setLabel] = useState("");
   const [country, setCountry] = useState("");
-  const [musicbrainzReleaseId, setMusicbrainzReleaseId] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -53,7 +52,6 @@ function AlbumMetaEditorModal({
       setReleaseDate(toDateInputValue(album.releaseDate));
       setLabel(album.label || "");
       setCountry(album.country || "");
-      setMusicbrainzReleaseId(album.musicbrainzReleaseId || "");
       setErr(null);
     }, 0);
   }, [album]);
@@ -70,10 +68,6 @@ function AlbumMetaEditorModal({
           releaseDate: releaseDate.trim() === "" ? null : releaseDate.trim(),
           label: label.trim() === "" ? null : label.trim(),
           country: country.trim() === "" ? null : country.trim(),
-          musicbrainzReleaseId:
-            musicbrainzReleaseId.trim() === ""
-              ? null
-              : musicbrainzReleaseId.trim(),
         });
         await Promise.resolve(onSaved());
         onClose();
@@ -83,16 +77,7 @@ function AlbumMetaEditorModal({
         setBusy(false);
       }
     },
-    [
-      album,
-      country,
-      label,
-      musicbrainzReleaseId,
-      onClose,
-      onSaved,
-      releaseDate,
-      title,
-    ],
+    [album, country, label, onClose, onSaved, releaseDate, title],
   );
 
   if (!album) return null;
@@ -155,15 +140,6 @@ function AlbumMetaEditorModal({
               className="ghost-input w-full"
               value={country}
               onChange={(event) => setCountry(event.target.value)}
-              autoComplete="off"
-            />
-          </label>
-          <label className="meta-edit-field">
-            <span>{t("albumMeta.fieldMusicbrainz")}</span>
-            <input
-              className="ghost-input w-full"
-              value={musicbrainzReleaseId}
-              onChange={(event) => setMusicbrainzReleaseId(event.target.value)}
               autoComplete="off"
             />
           </label>
