@@ -275,6 +275,9 @@ export const IT: Record<string, string> = {
   "settings.activityLogColAction": "Azione",
   "settings.activityLogColFolder": "Cartella",
   "settings.activityLogColDetail": "Dettaglio",
+  "settings.colophonLine1": "Kord {{version}} by Creiv",
+  "settings.colophonLine2":
+    "Solo per uso privato e non commerciale; non destinato alla vendita o alla redistribuzione. Libreria e dati di account restano su questo dispositivo.",
   "settings.uiEyebrow": "Preferenze interfaccia",
   "settings.uiHeading": "Tema e visualizer",
   "settings.theme": "Tema",

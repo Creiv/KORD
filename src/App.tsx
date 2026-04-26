@@ -305,6 +305,7 @@ function TrackListRow({
   extraActions,
 }: {
   track: EnrichedTrack;
+  /** If omitted, row is active when it matches the current track (`relPath`). Queue uses explicit index. */
   active?: boolean;
   onPlay: () => void;
   metaRight?: string;
@@ -333,8 +334,12 @@ function TrackListRow({
       album: t("badges.album"),
     }).join(" · ") ||
     t("common.emDash");
+  const rowActive =
+    active !== undefined
+      ? active
+      : Boolean(p.current && p.current.relPath === track.relPath);
   return (
-    <div className={`track-row ${active ? "is-active" : ""}`}>
+    <div className={`track-row ${rowActive ? "is-active" : ""}`}>
       <TrackRowArt relPath={track.relPath} />
       <button type="button" className="track-row__main" onClick={onPlay}>
         <span className="track-row__title-row">
@@ -3063,6 +3068,7 @@ function SettingsView({
       return false;
     }
   });
+  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "1.3.0");
 
   useEffect(() => {
     Promise.all([fetchConfig(), fetchAccounts()])
@@ -3578,6 +3584,18 @@ function SettingsView({
           </div>
         ) : null}
       </section>
+      <footer
+        className="settings-colophon"
+        role="contentinfo"
+        aria-label={t("settings.colophonLine1", { version: kordAppVersion })}
+      >
+        <p className="settings-colophon__line">
+          {t("settings.colophonLine1", { version: kordAppVersion })}
+        </p>
+        <p className="settings-colophon__subtle subtle sm">
+          {t("settings.colophonLine2")}
+        </p>
+      </footer>
     </div>
   );
 }

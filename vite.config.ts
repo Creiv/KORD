@@ -30,8 +30,20 @@ function readListenOnLanFromDisk() {
 const exposeLan =
   readListenOnLanFromDisk() || process.env.KORD_LISTEN_ON_LAN === "1";
 
+const packageVersion = (() => {
+  try {
+    const raw = readFileSync(join(__dirname, "package.json"), "utf8");
+    return String(JSON.parse(raw)?.version || "0.0.0");
+  } catch {
+    return "0.0.0";
+  }
+})();
+
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    "import.meta.env.VITE_KORD_VERSION": JSON.stringify(packageVersion),
+  },
   plugins: [react()],
   test: {
     globals: true,

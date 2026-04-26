@@ -167,7 +167,8 @@ export const EN: Record<string, string> = {
   "library.playGenreShuffle": "Random genre",
   "library.genreRandomExcludeTitle":
     "Exclude or restore all tracks in this genre from smart shuffle",
-  "library.genreRandomExcludeAria": "Shuffle exclusion for all tracks in this genre",
+  "library.genreRandomExcludeAria":
+    "Shuffle exclusion for all tracks in this genre",
   "library.randomExcludeBtn": "Shuffle exclusion",
   "library.tracklistEyebrow": "Tracklist",
   "library.tracklistHeading": "{{n}} tracks",
@@ -252,7 +253,8 @@ export const EN: Record<string, string> = {
   "settings.activityLogEyebrow": "History",
   "settings.activityLogHeading": "Server activity log",
   "settings.backupEyebrow": "Backup",
-  "settings.backupHeading": "Kord config and library metadata (no audio, all users)",
+  "settings.backupHeading":
+    "Kord config and library metadata (no audio, all users)",
   "settings.backupCta": "BACKUP",
   "settings.backupRunning": "Preparing…",
   "settings.backupSuccess": "Download started: {{name}}",
@@ -269,6 +271,9 @@ export const EN: Record<string, string> = {
   "settings.activityLogColAction": "Action",
   "settings.activityLogColFolder": "Folder",
   "settings.activityLogColDetail": "Detail",
+  "settings.colophonLine1": "Kord {{version}} by Creiv",
+  "settings.colophonLine2":
+    "Private, non‑commercial use only. Not for resale or redistribution. Your library and account data stay on this device.",
   "settings.uiEyebrow": "Interface preferences",
   "settings.uiHeading": "Theme and visualizer",
   "settings.theme": "Theme",
@@ -365,8 +370,10 @@ export const EN: Record<string, string> = {
   "tools.sharedPickAlbum": "Album",
   "tools.sharedAddToMine": "Add to my library",
   "tools.sharedLinking": "Linking…",
-  "tools.sharedLinkOk": "Linked {{linked}} file(s) ({{skipped}} skipped) at `{{path}}`",
-  "tools.sharedNoOtherAccount": "Add another account in Settings to browse other libraries.",
+  "tools.sharedLinkOk":
+    "Linked {{linked}} file(s) ({{skipped}} skipped) at `{{path}}`",
+  "tools.sharedNoOtherAccount":
+    "Add another account in Settings to browse other libraries.",
   "tools.sharedEnvLock":
     "MUSIC_ROOT is set in the environment: all profiles share one folder, so per-account link sync is not available.",
   "tools.sharedErr": "Error: {{e}}",

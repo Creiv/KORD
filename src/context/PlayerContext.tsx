@@ -88,6 +88,24 @@ function pickPrevIndex(
   return null;
 }
 
+const MAX_QUEUE_LENGTH = 500;
+
+function capQueueAroundFocus<T>(items: T[], focusIndex: number) {
+  if (items.length <= MAX_QUEUE_LENGTH) {
+    const i = items.length
+      ? Math.max(0, Math.min(focusIndex, items.length - 1))
+      : 0;
+    return { items, index: i };
+  }
+  const safe = Math.max(0, Math.min(focusIndex, items.length - 1));
+  let start = Math.max(0, safe - Math.floor(MAX_QUEUE_LENGTH / 2));
+  if (start + MAX_QUEUE_LENGTH > items.length) {
+    start = items.length - MAX_QUEUE_LENGTH;
+  }
+  const sliced = items.slice(start, start + MAX_QUEUE_LENGTH);
+  return { items: sliced, index: safe - start };
+}
+
 function reorder<T>(items: T[], from: number, to: number) {
   const next = [...items];
   const [moved] = next.splice(from, 1);
@@ -198,13 +216,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     restoredRef.current = true;
     if (restoreSession && persistedQueue.tracks.length > 0) {
       const timer = window.setTimeout(() => {
-        setQueue(persistedQueue.tracks);
-        setCurrentIndex(persistedQueue.currentIndex);
-        setCurrent(
-          persistedQueue.tracks[persistedQueue.currentIndex] ||
-            persistedQueue.tracks[0] ||
-            null
+        const { items, index } = capQueueAroundFocus(
+          persistedQueue.tracks,
+          persistedQueue.currentIndex,
         );
+        setQueue(items);
+        setCurrentIndex(index);
+        setCurrent(items[index] || items[0] || null);
         keepPlayingRef.current = false;
       }, 0);
       return () => window.clearTimeout(timer);
@@ -357,10 +375,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       at?: number,
       opts?: { preserveQueueOrder?: boolean }
     ) => {
-      const nextQueue = list?.length ? [...list] : [track];
+      const fullQueue = list?.length ? [...list] : [track];
       const nextIndex =
-        at ?? nextQueue.findIndex((item) => item.relPath === track.relPath);
-      const safeIndex = nextIndex >= 0 ? nextIndex : 0;
+        at ?? fullQueue.findIndex((item) => item.relPath === track.relPath);
+      const preCapIndex = nextIndex >= 0 ? nextIndex : 0;
+      const { items: nextQueue, index: safeIndex } = capQueueAroundFocus(
+        fullQueue,
+        preCapIndex,
+      );
       const newSig = nextQueue.map((t) => t.relPath).join("\0");
       const oldSig = queueRef.current.map((t) => t.relPath).join("\0");
       const queueReplaced = newSig !== oldSig;
@@ -406,16 +428,23 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const addToQueue = useCallback(
     (track: EnrichedTrack | EnrichedTrack[]) => {
       const items = Array.isArray(track) ? track : [track];
-      setQueue((prev) => {
+      const prev = queueRef.current;
+      const space = Math.max(0, MAX_QUEUE_LENGTH - prev.length);
+      const toAdd = items.slice(0, space);
+      if (!toAdd.length) return;
+      if (!current && toAdd[0]) setCurrent(toAdd[0]);
+      setQueue((p) => {
+        const sp = Math.max(0, MAX_QUEUE_LENGTH - p.length);
+        const add = items.slice(0, sp);
         if (shuffleRef.current) {
           preShuffleRelPathsRef.current = [
-            ...(preShuffleRelPathsRef.current ?? prev.map((t) => t.relPath)),
-            ...items.map((t) => t.relPath),
+            ...(preShuffleRelPathsRef.current ?? p.map((t) => t.relPath)),
+            ...add.map((t) => t.relPath),
           ];
         }
-        return [...prev, ...items];
+        if (!add.length) return p;
+        return [...p, ...add];
       });
-      if (!current && items[0]) setCurrent(items[0]);
     },
     [current]
   );
@@ -548,10 +577,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       const newIdx = cur
         ? restored.findIndex((t) => t.relPath === cur.relPath)
         : 0;
-      const i = newIdx >= 0 ? newIdx : 0;
-      setQueue(restored);
+      const j = newIdx >= 0 ? newIdx : 0;
+      const { items, index: i } = capQueueAroundFocus(restored, j);
+      setQueue(items);
       setCurrentIndex(i);
-      setCurrent(restored[i] || null);
+      setCurrent(items[i] || null);
       return;
     }
     setShuffleState(true);
