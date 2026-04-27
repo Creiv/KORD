@@ -607,6 +607,10 @@ export const IT: Record<string, string> = {
   "tools.dlRootLabel": "(root Musica)",
   "tools.dlResult": "{{ok}} (code {{code}})\n",
   "tools.dlResultOk": "Completato.\n",
+  "tools.dlStop": "Interrompi",
+  "tools.dlStoppedByUser": "Download interrotto.\n",
+  "tools.dlBatchStoppedHint":
+    "Download multiplo interrotto; gli album non ancora avviati sono stati saltati.",
   "tools.dlResultErr": "Errore (codice {{code}}).\n",
   "tools.dlOk": "OK",
   "tools.dlErr": "Errore",

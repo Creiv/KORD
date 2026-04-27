@@ -4413,6 +4413,12 @@
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--border) 40%, transparent);
 }
 
+.dl-progress-stop-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.45rem;
+}
+
 .dl-progress-wrap--dual {
   display: flex;
   flex-direction: column;

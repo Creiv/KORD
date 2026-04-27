@@ -18,12 +18,17 @@ import {
   linkSharedFromAccount,
   listMusicDirs,
   runYtdlpDownload,
+  cancelStudioDownload,
+  applyGenreAutoBatch,
   sanitizeTrackTitles,
-  saveTrackInfoManual,
   searchArtwork,
   pruneOrphanTrackMetaForAlbum,
 } from "../lib/api";
-import type { ArtworkHit, YoutubeReleasesList } from "../lib/api";
+import type {
+  ArtworkHit,
+  StudioDownloadKind,
+  YoutubeReleasesList,
+} from "../lib/api";
 import { fmtDate } from "../lib/metaFormat";
 import { albumFolderFromTrackRelPath } from "../lib/trackPaths";
 import type { LinkSharedAlbumResult, LinkSharedResult } from "../lib/api";
@@ -286,6 +291,8 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
   const relAborter = useRef<AbortController | null>(null);
   const relLogTotalRef = useRef(0);
   const relLogUploaderRef = useRef("");
+  const dlActiveDownloadIdRef = useRef<string | null>(null);
+  const dlBatchStopRef = useRef(false);
   const [dlReplaceMode, setDlReplaceMode] = useState(false);
   const [dlTrackProg, setDlTrackProg] = useState<{
     current: number;
@@ -906,32 +913,30 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
       return;
     setGenreAutoBusy(true);
     setGenreAutoProg(null);
-    let ok = 0;
     try {
-      for (let i = 0; i < list.length; i += 1) {
-        const row = list[i]!;
-        setGenreAutoProg({ current: i + 1, total: list.length });
-        try {
-          await saveTrackInfoManual(row.relPath, {
-            genre: row.genreSerialized,
-          });
-          ok += 1;
-        } catch (e) {
-          setMetaLog(
-            (s) =>
-              s +
-              t("tools.genreAutoApplyErr", {
-                path: row.relPath,
-                err: String((e as Error)?.message || e),
-              })
-          );
-        }
-        if (i < list.length - 1) {
-          await new Promise((r) => setTimeout(r, 40));
-        }
+      const data = await applyGenreAutoBatch(
+        list.map((row) => ({
+          relPath: row.relPath,
+          genre: row.genreSerialized,
+        })),
+      );
+      setMetaLog((s) => s + t("tools.genreAutoApplyDone", { n: data.ok }));
+      for (const e of data.errors) {
+        setMetaLog(
+          (s) =>
+            s +
+            t("tools.genreAutoApplyErr", {
+              path: e.relPath,
+              err: e.err,
+            }),
+        );
       }
-      setMetaLog((s) => s + t("tools.genreAutoApplyDone", { n: ok }));
       onRefreshLibrary();
+    } catch (e) {
+      setMetaLog(
+        (s) =>
+          s + t("tools.sharedErr", { e: String((e as Error)?.message || e) }),
+      );
     } finally {
       setGenreAutoProg(null);
       setGenreAutoBusy(false);
@@ -1004,6 +1009,12 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
     }
   };
 
+  const stopStudioDownload = () => {
+    dlBatchStopRef.current = true;
+    const id = dlActiveDownloadIdRef.current;
+    if (id) void cancelStudioDownload(id);
+  };
+
   const runDl = () => {
     if (!url.trim()) return;
     if (!urlMatchesStudioDlMode(url, dlYtSource, dlUrlMode)) {
@@ -1033,8 +1044,13 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
         );
       }
       setDlTrackProg(null);
+      dlBatchStopRef.current = false;
       setDlBusy(true);
       setDlProg(null);
+      const dlId = crypto.randomUUID();
+      dlActiveDownloadIdRef.current = dlId;
+      const studioDlKind: StudioDownloadKind =
+        dlUrlMode === "playlist" ? "download_playlist" : "download_single";
       setLog(
         (x) =>
           x +
@@ -1043,21 +1059,27 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
           })
       );
       try {
-        const r = await runYtdlpDownload(url.trim(), dlPath, (p) =>
-          setDlProg({ current: p.current, total: p.total })
+        const r = await runYtdlpDownload(
+          url.trim(),
+          dlPath,
+          (p) => setDlProg({ current: p.current, total: p.total }),
+          { downloadId: dlId, downloadKind: studioDlKind }
         );
         if (r.progress && r.progress.total > 0) {
           setDlProg({ current: r.progress.current, total: r.progress.total });
         }
+        if (r.cancelled) setDlProg(null);
         const detail = ytdlpLogDetailForUser(r);
-        setLog(
-          (x) =>
+        setLog((x) => {
+          if (r.cancelled) return x + t("tools.dlStoppedByUser") + "\n";
+          return (
             x +
             (r.ok
               ? t("tools.dlResultOk")
               : t("tools.dlResultErr", { code: r.code }) +
                 (detail ? t("tools.dlErrDetail", { detail }) : ""))
-        );
+          );
+        });
         await onRefreshLibrary();
         if (replaceSnap && indexBefore) {
           await runReplaceAfterDownload(indexBefore, replaceSnap);
@@ -1068,6 +1090,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
             x + t("tools.dlFail", { e: String((e as Error)?.message || e) })
         );
       } finally {
+        dlActiveDownloadIdRef.current = null;
         setDlBusy(false);
       }
     })();
@@ -1217,6 +1240,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
         );
       }
       setDlBusy(true);
+      dlBatchStopRef.current = false;
       setDlTrackProg(multiRelease ? { current: 0, total: 0 } : null);
       setDlProg({ current: 1, total: list.length });
       const rootLabel = dlPath || t("tools.dlRootLabel");
@@ -1226,50 +1250,74 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
           t("tools.dlStart", { path: rootLabel }) +
           ` — ${list.length} album(s)\n`
       );
-      for (let i = 0; i < list.length; i += 1) {
-        const item = list[i]!;
-        setDlProg({ current: i + 1, total: list.length });
-        if (multiRelease) setDlTrackProg({ current: 0, total: 0 });
-        setLog(
-          (x) =>
-            x +
-            t("tools.dlBatchLine", {
-              i: i + 1,
-              n: list.length,
-              title: item.title,
-            })
-        );
-        try {
-          const r = await runYtdlpDownload(
-            item.url,
-            dlPath,
-            multiRelease
-              ? (p) => setDlTrackProg({ current: p.current, total: p.total })
-              : undefined
-          );
-          const detail = ytdlpLogDetailForUser(r);
+      const studioDlKind: StudioDownloadKind =
+        dlYtSource === "music" ? "download_ytmusic" : "download_releases";
+      try {
+        for (let i = 0; i < list.length; i += 1) {
+          if (dlBatchStopRef.current) {
+            setLog((x) => x + t("tools.dlBatchStoppedHint") + "\n");
+            break;
+          }
+          const item = list[i]!;
+          setDlProg({ current: i + 1, total: list.length });
+          if (multiRelease) setDlTrackProg({ current: 0, total: 0 });
           setLog(
             (x) =>
               x +
-              (r.ok
-                ? t("tools.dlResultOk")
-                : t("tools.dlResultErr", { code: r.code }) +
-                  (detail ? t("tools.dlErrDetail", { detail }) : ""))
+              t("tools.dlBatchLine", {
+                i: i + 1,
+                n: list.length,
+                title: item.title,
+              })
           );
-        } catch (e) {
-          setLog(
-            (x) =>
-              x + t("tools.dlFail", { e: String((e as Error)?.message || e) })
-          );
+          const dlId = crypto.randomUUID();
+          dlActiveDownloadIdRef.current = dlId;
+          try {
+            const r = await runYtdlpDownload(
+              item.url,
+              dlPath,
+              multiRelease
+                ? (p) => setDlTrackProg({ current: p.current, total: p.total })
+                : undefined,
+              { downloadId: dlId, downloadKind: studioDlKind }
+            );
+            const detail = ytdlpLogDetailForUser(r);
+            if (r.cancelled) {
+              setLog((x) => x + t("tools.dlStoppedByUser") + "\n");
+              break;
+            }
+            setLog(
+              (x) =>
+                x +
+                (r.ok
+                  ? t("tools.dlResultOk")
+                  : t("tools.dlResultErr", { code: r.code }) +
+                    (detail ? t("tools.dlErrDetail", { detail }) : ""))
+            );
+          } catch (e) {
+            setLog(
+              (x) =>
+                x + t("tools.dlFail", { e: String((e as Error)?.message || e) })
+            );
+          } finally {
+            dlActiveDownloadIdRef.current = null;
+          }
         }
+        if (!dlBatchStopRef.current) {
+          setDlProg({ current: list.length, total: list.length });
+        } else {
+          setDlProg(null);
+          setDlTrackProg(null);
+        }
+        if (multiRelease && !dlBatchStopRef.current) setDlTrackProg(null);
+        await onRefreshLibrary();
+        if (replaceSnap && indexBefore) {
+          await runReplaceAfterDownload(indexBefore, replaceSnap);
+        }
+      } finally {
+        dlActiveDownloadIdRef.current = null;
+        setDlBusy(false);
       }
-      setDlProg({ current: list.length, total: list.length });
-      if (multiRelease) setDlTrackProg(null);
-      await onRefreshLibrary();
-      if (replaceSnap && indexBefore) {
-        await runReplaceAfterDownload(indexBefore, replaceSnap);
-      }
-      setDlBusy(false);
     })();
   };
 
@@ -1952,6 +2000,17 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                 .join(" ")}
               aria-live="polite"
             >
+              {dlBusy ? (
+                <div className="dl-progress-stop-row">
+                  <button
+                    type="button"
+                    className="btn danger sm"
+                    onClick={stopStudioDownload}
+                  >
+                    {t("tools.dlStop")}
+                  </button>
+                </div>
+              ) : null}
               {showReleaseMultiTrackBar ? (
                 <>
                   <div className="dl-progress-block">

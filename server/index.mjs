@@ -58,6 +58,22 @@ import {
 
 const execFileAsync = promisify(execFile)
 
+/** downloadId (UUID) → { child, userCancelled, killTimer } per /api/download-cancel */
+const activeYtdlpDownloads = new Map()
+
+function isUuidDownloadId(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value ?? "").trim(),
+  )
+}
+
+const STUDIO_DOWNLOAD_KINDS = new Set([
+  "download_single",
+  "download_playlist",
+  "download_releases",
+  "download_ytmusic",
+])
+
 const PORT = Number(process.env.PORT) || 3001
 /**
  * Solo formati audio già muxati: niente merge, niente postprocessori che richiedono ffmpeg
@@ -975,10 +991,47 @@ app.get("/api/download-preset", async (_req, res) => {
   }
 })
 
+app.post("/api/download-cancel", (req, res) => {
+  const downloadId = String(req.body?.downloadId ?? "").trim()
+  if (!isUuidDownloadId(downloadId)) {
+    return sendError(res, 400, "Invalid downloadId")
+  }
+  const entry = activeYtdlpDownloads.get(downloadId)
+  if (!entry?.child) {
+    return sendError(res, 404, "No active download")
+  }
+  entry.userCancelled = true
+  try {
+    entry.child.kill("SIGTERM")
+  } catch {
+    /* ignore */
+  }
+  if (process.platform !== "win32") {
+    if (entry.killTimer) clearTimeout(entry.killTimer)
+    entry.killTimer = setTimeout(() => {
+      try {
+        if (entry.child && !entry.child.killed) entry.child.kill("SIGKILL")
+      } catch {
+        /* ignore */
+      }
+    }, 4500)
+  }
+  return sendOk(res, { ok: true })
+})
+
 app.post("/api/download", async (req, res) => {
   if (process.env.ENABLE_YTDLP === "0") return sendError(res, 403, "Download disabled (ENABLE_YTDLP=0)")
   let url = coerceYtdlpUrl(String(req.body?.url ?? ""))
   if (!/^https?:\/\//i.test(url)) return sendError(res, 400, "Provide a valid http(s) URL")
+  const downloadId = String(req.body?.downloadId ?? "").trim()
+  if (!isUuidDownloadId(downloadId)) {
+    return sendError(res, 400, "Invalid or missing downloadId (UUID)")
+  }
+  if (activeYtdlpDownloads.has(downloadId)) {
+    return sendError(res, 409, "downloadId already in use")
+  }
+  let downloadKind = String(req.body?.downloadKind ?? "").trim()
+  if (!STUDIO_DOWNLOAD_KINDS.has(downloadKind)) downloadKind = "download_unknown"
   try {
     const root = musicRootFromReq(req)
     const outputDirForLog = safeRelSeg(String(req.body?.outputDir || ""))
@@ -996,6 +1049,12 @@ app.post("/api/download", async (req, res) => {
     args.push(url)
     const result = { stdout: "", stderr: "", code: -1 }
     const command = `${program} ${args.map((arg) => (/\s/.test(arg) ? `"${arg}"` : arg)).join(" ")}`
+    const entry = {
+      userCancelled: false,
+      child: /** @type {import("child_process").ChildProcess | null} */ (null),
+      killTimer: /** @type {ReturnType<typeof setTimeout> | null} */ (null),
+    }
+    activeYtdlpDownloads.set(downloadId, entry)
     res.status(200)
     res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8")
     res.setHeader("Cache-Control", "no-store")
@@ -1021,7 +1080,9 @@ app.post("/api/download", async (req, res) => {
     const child = spawn(program, args, {
       cwd: root,
       env: { ...process.env, FORCE_COLOR: "0" },
+      ...winHideExec(),
     })
+    entry.child = child
     const killYtdlpOnDisconnect = () => {
       if (!child.killed) {
         try {
@@ -1050,6 +1111,10 @@ app.post("/api/download", async (req, res) => {
     })
     child.on("close", (code) => {
       removeDisconnectListeners()
+      const reg = activeYtdlpDownloads.get(downloadId)
+      const cancelled = Boolean(reg?.userCancelled)
+      if (reg?.killTimer) clearTimeout(reg.killTimer)
+      activeYtdlpDownloads.delete(downloadId)
       result.code = code ?? -1
       if (result.code === 0) {
         const folder =
@@ -1059,7 +1124,7 @@ app.post("/api/download", async (req, res) => {
         const u = url.length > 500 ? `${url.slice(0, 497)}…` : url
         void actLog(req, {
           kind: "studio",
-          action: "download",
+          action: downloadKind,
           folder,
           detail: u,
         })
@@ -1073,6 +1138,7 @@ app.post("/api/download", async (req, res) => {
             `${JSON.stringify({
               type: "done",
               ok: result.code === 0,
+              cancelled,
               stdout: result.stdout,
               stderr: result.stderr,
               code: result.code,
@@ -1087,6 +1153,9 @@ app.post("/api/download", async (req, res) => {
     })
     child.on("error", (error) => {
       removeDisconnectListeners()
+      const reg = activeYtdlpDownloads.get(downloadId)
+      if (reg?.killTimer) clearTimeout(reg.killTimer)
+      activeYtdlpDownloads.delete(downloadId)
       result.code = -1
       result.stderr += `\n${error.message}`
       finish(() => {
@@ -1095,6 +1164,7 @@ app.post("/api/download", async (req, res) => {
             `${JSON.stringify({
               type: "done",
               ok: false,
+              cancelled: false,
               stdout: result.stdout,
               stderr: result.stderr,
               code: result.code,
@@ -1109,6 +1179,7 @@ app.post("/api/download", async (req, res) => {
       })
     })
   } catch (error) {
+    activeYtdlpDownloads.delete(downloadId)
     return sendError(res, 500, String(error?.message || error))
   }
 })
@@ -1476,6 +1547,71 @@ app.post("/api/track-info/prune-orphans", async (req, res) => {
   }
 })
 
+app.post("/api/studio/genre-auto-apply", async (req, res) => {
+  const root = musicRootFromReq(req)
+  const items = req.body?.items
+  if (!Array.isArray(items) || items.length === 0) {
+    return sendError(res, 400, "items: non-empty array required")
+  }
+  if (items.length > 50_000) {
+    return sendError(res, 400, "Too many items")
+  }
+  let ok = 0
+  const errors = []
+  try {
+    for (const raw of items) {
+      const relPath = safeRelSeg(String(raw?.relPath ?? ""))
+      const genre = String(raw?.genre ?? "").trim()
+      if (!relPath || !genre) {
+        errors.push({ relPath: relPath || "?", err: "missing relPath or genre" })
+        continue
+      }
+      const fullTrackPath = path.join(root, relPath.replaceAll("/", path.sep))
+      if (
+        !underRoot(fullTrackPath, root) ||
+        !existsSync(fullTrackPath) ||
+        !isAudioFile(fullTrackPath)
+      ) {
+        errors.push({ relPath, err: "track not found" })
+        continue
+      }
+      const parts = relPath.split("/").filter(Boolean)
+      const fileName = parts[parts.length - 1]
+      const albumRel = albumFolderFromRelPath(relPath)
+      if (!albumRel) {
+        errors.push({ relPath, err: "invalid path" })
+        continue
+      }
+      const albumDir = path.join(root, albumRel.replaceAll("/", path.sep))
+      if (!underRoot(albumDir, root) || !existsSync(albumDir)) {
+        errors.push({ relPath, err: "album folder not found" })
+        continue
+      }
+      try {
+        await saveTrackManualMeta(albumDir, fileName, { genre })
+        ok += 1
+      } catch (e) {
+        errors.push({ relPath, err: String(e?.message ?? e) })
+      }
+    }
+    if (ok > 0) {
+      void actLog(req, {
+        kind: "studio",
+        action: "genre_auto_apply",
+        folder: null,
+        detail: `${ok} track(s)${errors.length ? `, ${errors.length} error(s)` : ""}`,
+      })
+    }
+    return sendOk(res, {
+      ok,
+      errorCount: errors.length,
+      errors: errors.slice(0, 80),
+    })
+  } catch (error) {
+    return sendError(res, 500, String(error?.message || error))
+  }
+})
+
 app.post("/api/studio/link-shared-album", async (req, res) => {
   try {
     const destId = accountIdFromReq(req)
@@ -1528,7 +1664,7 @@ app.post("/api/studio/sanitize-track-titles", async (req, res) => {
         const n = data.changes.length
         void actLog(req, {
           kind: "studio",
-          action: "sanitize_titles",
+          action: "sanitize_titles_library",
           folder: null,
           detail: `library (${n} file${n === 1 ? "" : "s"})`,
         })
@@ -1547,7 +1683,7 @@ app.post("/api/studio/sanitize-track-titles", async (req, res) => {
       const n = r.changes.length
       void actLog(req, {
         kind: "studio",
-        action: "sanitize_titles",
+        action: "sanitize_titles_album",
         folder: albumPath,
         detail: `album (${n} file${n === 1 ? "" : "s"})`,
       })

@@ -487,6 +487,7 @@ export type DownloadRes = {
   musicRoot: string
   command: string
   error?: string
+  cancelled?: boolean
 }
 
 function downloadResFromDoneMsg(msg: Record<string, unknown>): DownloadRes {
@@ -498,9 +499,38 @@ function downloadResFromDoneMsg(msg: Record<string, unknown>): DownloadRes {
     progress: (msg.progress as DownloadRes["progress"]) ?? null,
     musicRoot: String(msg.musicRoot ?? ""),
     command: String(msg.command ?? ""),
+    ...(msg.cancelled === true ? { cancelled: true } : {}),
     ...(msg.error != null && msg.error !== ""
       ? { error: String(msg.error) }
       : {}),
+  }
+}
+
+export type StudioDownloadKind =
+  | "download_single"
+  | "download_playlist"
+  | "download_releases"
+  | "download_ytmusic"
+  | "download_unknown"
+
+export type RunYtdlpDownloadOpts = {
+  signal?: AbortSignal
+  /** UUID v4 — obbligatorio per poter fermare il download da /api/download-cancel */
+  downloadId: string
+  /** Classificazione per il registro attività (Impostazioni) */
+  downloadKind?: StudioDownloadKind
+}
+
+export async function cancelStudioDownload(downloadId: string): Promise<void> {
+  try {
+    const response = await fetch(apiUrl("/api/download-cancel"), {
+      method: "POST",
+      headers: accountHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ downloadId }),
+    })
+    if (response.ok) await unwrap(response)
+  } catch {
+    /* richiesta best-effort */
   }
 }
 
@@ -508,14 +538,20 @@ export async function runYtdlpDownload(
   url: string,
   outputDir?: string,
   onProgress?: (p: { current: number; total: number }) => void,
-  signal?: AbortSignal,
+  opts?: RunYtdlpDownloadOpts,
 ): Promise<DownloadRes> {
+  const downloadId = opts?.downloadId?.trim() ?? ""
+  if (!downloadId) {
+    throw new Error("runYtdlpDownload: downloadId required")
+  }
   const response = await fetch("/api/download", {
     method: "POST",
-    signal,
+    signal: opts?.signal,
     headers: accountHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       url,
+      downloadId,
+      downloadKind: opts?.downloadKind ?? "download_unknown",
       ...(outputDir != null && outputDir !== "" ? { outputDir } : {}),
     }),
   })
@@ -831,4 +867,21 @@ export async function sanitizeTrackTitles(
     }),
   })
   return unwrap<SanitizeTrackTitlesAll | SanitizeTrackTitlesOneAlbum>(response)
+}
+
+export type GenreAutoApplyBatchRes = {
+  ok: number
+  errorCount: number
+  errors: { relPath: string; err: string }[]
+}
+
+export async function applyGenreAutoBatch(
+  items: { relPath: string; genre: string }[],
+): Promise<GenreAutoApplyBatchRes> {
+  const response = await fetch(apiUrl("/api/studio/genre-auto-apply"), {
+    method: "POST",
+    headers: accountHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ items }),
+  })
+  return unwrap<GenreAutoApplyBatchRes>(response)
 }

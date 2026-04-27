@@ -604,6 +604,10 @@ export const EN: Record<string, string> = {
   "tools.dlRootLabel": "(Music root)",
   "tools.dlResult": "{{ok}} (code {{code}})\n",
   "tools.dlResultOk": "Done.\n",
+  "tools.dlStop": "Stop",
+  "tools.dlStoppedByUser": "Download stopped.\n",
+  "tools.dlBatchStoppedHint":
+    "Batch download stopped; albums not yet started were skipped.",
   "tools.dlResultErr": "Error (code {{code}}).\n",
   "tools.dlOk": "OK",
   "tools.dlErr": "Error",
