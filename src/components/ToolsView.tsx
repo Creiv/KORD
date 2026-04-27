@@ -18,6 +18,7 @@ import {
   linkSharedFromAccount,
   listMusicDirs,
   fetchDownloadFlatCount,
+  newStudioDownloadId,
   runYtdlpDownload,
   cancelStudioDownload,
   applyGenreAutoBatch,
@@ -1067,18 +1068,18 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
       dlBatchStopRef.current = false;
       setDlBusy(true);
       setDlProg(null);
-      const dlId = crypto.randomUUID();
-      dlActiveDownloadIdRef.current = dlId;
-      const studioDlKind: StudioDownloadKind =
-        dlUrlMode === "playlist" ? "download_playlist" : "download_single";
-      setLog(
-        (x) =>
-          x +
-          t("tools.dlStart", {
-            path: dlPath || t("tools.dlRootLabel"),
-          })
-      );
       try {
+        const dlId = newStudioDownloadId();
+        dlActiveDownloadIdRef.current = dlId;
+        const studioDlKind: StudioDownloadKind =
+          dlUrlMode === "playlist" ? "download_playlist" : "download_single";
+        setLog(
+          (x) =>
+            x +
+            t("tools.dlStart", {
+              path: dlPath || t("tools.dlRootLabel"),
+            })
+        );
         const r = await runYtdlpDownload(
           url.trim(),
           dlPath,
@@ -1290,7 +1291,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                 title: item.title,
               })
           );
-          const dlId = crypto.randomUUID();
+          const dlId = newStudioDownloadId();
           dlActiveDownloadIdRef.current = dlId;
           try {
             const r = await runYtdlpDownload(

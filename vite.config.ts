@@ -56,7 +56,12 @@ export default defineConfig({
     port: 5173,
     host: exposeLan ? true : undefined,
     proxy: {
-      "/api": { target: "http://127.0.0.1:3001", changeOrigin: true },
+      "/api": {
+        target: "http://127.0.0.1:3001",
+        changeOrigin: true,
+        timeout: 0,
+        proxyTimeout: 0,
+      },
       "/media": { target: "http://127.0.0.1:3001", changeOrigin: true },
     },
   },
@@ -64,7 +69,12 @@ export default defineConfig({
     port: 4173,
     host: exposeLan ? true : undefined,
     proxy: {
-      "/api": { target: "http://127.0.0.1:3001", changeOrigin: true },
+      "/api": {
+        target: "http://127.0.0.1:3001",
+        changeOrigin: true,
+        timeout: 0,
+        proxyTimeout: 0,
+      },
       "/media": { target: "http://127.0.0.1:3001", changeOrigin: true },
     },
   },

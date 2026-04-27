@@ -548,6 +548,27 @@ export async function fetchDownloadFlatCount(url: string): Promise<number> {
   return Math.floor(n)
 }
 
+/** UUID v4 per /api/download: su http://IP:porta randomUUID() può lanciare (contesto non sicuro). */
+export function newStudioDownloadId(): string {
+  const c = globalThis.crypto
+  if (c && typeof c.randomUUID === "function") {
+    try {
+      return c.randomUUID()
+    } catch {
+      /* SecurityError fuori da localhost/https */
+    }
+  }
+  if (!c || typeof c.getRandomValues !== "function") {
+    throw new Error("Impossibile generare downloadId (crypto assente)")
+  }
+  const buf = new Uint8Array(16)
+  c.getRandomValues(buf)
+  buf[6] = (buf[6]! & 0x0f) | 0x40
+  buf[8] = (buf[8]! & 0x3f) | 0x80
+  const h = Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("")
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`
+}
+
 export async function runYtdlpDownload(
   url: string,
   outputDir?: string,
@@ -558,7 +579,7 @@ export async function runYtdlpDownload(
   if (!downloadId) {
     throw new Error("runYtdlpDownload: downloadId required")
   }
-  const response = await fetch("/api/download", {
+  const response = await fetch(apiUrl("/api/download"), {
     method: "POST",
     signal: opts?.signal,
     headers: accountHeaders({ "Content-Type": "application/json" }),
@@ -597,6 +618,8 @@ export async function runYtdlpDownload(
     } catch {
       return
     }
+    const ty = msg.type
+    if (ty === "keepalive" || ty === "started") return
     if (msg.type === "progress" && onProgress) {
       const pr = msg.progress as { current?: number; total?: number } | undefined
       if (
@@ -607,7 +630,18 @@ export async function runYtdlpDownload(
         onProgress({ current: pr.current, total: pr.total })
       }
     }
-    if (msg.type === "done") final = downloadResFromDoneMsg(msg)
+    if (msg.type === "done") {
+      const pr = msg.progress as { current?: number; total?: number } | undefined
+      if (
+        onProgress &&
+        pr &&
+        typeof pr.current === "number" &&
+        typeof pr.total === "number"
+      ) {
+        onProgress({ current: pr.current, total: pr.total })
+      }
+      final = downloadResFromDoneMsg(msg)
+    }
   }
   for (;;) {
     const { done, value } = await reader.read()

@@ -1104,12 +1104,29 @@ app.post("/api/download", async (req, res) => {
     activeYtdlpDownloads.set(downloadId, entry)
     res.status(200)
     res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8")
-    res.setHeader("Cache-Control", "no-store")
+    res.setHeader("Cache-Control", "no-store, no-transform")
+    res.setHeader("X-Accel-Buffering", "no")
+    res.setHeader("Connection", "close")
+    try {
+      req.socket?.setNoDelay?.(true)
+    } catch {
+      /* ignore */
+    }
+    let keepAliveTimer = /** @type {ReturnType<typeof setInterval> | null} */ (null)
+    const clearKeepAlive = () => {
+      if (keepAliveTimer != null) {
+        clearInterval(keepAliveTimer)
+        keepAliveTimer = null
+      }
+    }
+    if (typeof res.flushHeaders === "function") res.flushHeaders()
+    res.write(`${JSON.stringify({ type: "started" })}\n`)
     let responded = false
     let lastProgressEmitted = null
     const finish = (fn) => {
       if (responded) return
       responded = true
+      clearKeepAlive()
       fn()
     }
     const emitProgressIfNew = () => {
@@ -1133,13 +1150,27 @@ app.post("/api/download", async (req, res) => {
     const killYtdlpOnDisconnect = () => {
       forceKillStudioYtdlp(child)
     }
-    const onClientGone = () => killYtdlpOnDisconnect()
+    const onClientGone = () => {
+      if (responded) return
+      killYtdlpOnDisconnect()
+    }
     req.on("aborted", onClientGone)
     res.on("close", onClientGone)
     const removeDisconnectListeners = () => {
       req.removeListener("aborted", onClientGone)
       res.removeListener("close", onClientGone)
     }
+    keepAliveTimer = setInterval(() => {
+      if (responded || res.writableEnded) {
+        clearKeepAlive()
+        return
+      }
+      try {
+        res.write(`${JSON.stringify({ type: "keepalive" })}\n`)
+      } catch {
+        clearKeepAlive()
+      }
+    }, 5000)
     child.stdout.setEncoding("utf8")
     child.stderr.setEncoding("utf8")
     child.stdout.on("data", (chunk) => {
@@ -1174,21 +1205,22 @@ app.post("/api/download", async (req, res) => {
       const progress =
         extractLastItemProgress(combined) ?? lastProgressEmitted
       finish(() => {
-        if (!res.writableEnded) {
-          res.write(
-            `${JSON.stringify({
-              type: "done",
-              ok: result.code === 0,
-              cancelled,
-              stdout: result.stdout,
-              stderr: result.stderr,
-              code: result.code,
-              progress,
-              musicRoot: root,
-              command,
-            })}\n`,
-          )
-          res.end()
+        try {
+          const line = `${JSON.stringify({
+            type: "done",
+            ok: result.code === 0,
+            cancelled,
+            stdout: result.stdout,
+            stderr: result.stderr,
+            code: result.code,
+            progress,
+            musicRoot: root,
+            command,
+          })}\n`
+          if (!res.writableEnded) res.write(line)
+          if (!res.writableEnded) res.end()
+        } catch {
+          /* client già disconnesso */
         }
       })
     })
@@ -1200,22 +1232,23 @@ app.post("/api/download", async (req, res) => {
       result.code = -1
       result.stderr += `\n${error.message}`
       finish(() => {
-        if (!res.writableEnded) {
-          res.write(
-            `${JSON.stringify({
-              type: "done",
-              ok: false,
-              cancelled: false,
-              stdout: result.stdout,
-              stderr: result.stderr,
-              code: result.code,
-              progress: lastProgressEmitted,
-              error: error.message,
-              musicRoot: root,
-              command,
-            })}\n`,
-          )
-          res.end()
+        try {
+          const line = `${JSON.stringify({
+            type: "done",
+            ok: false,
+            cancelled: false,
+            stdout: result.stdout,
+            stderr: result.stderr,
+            code: result.code,
+            progress: lastProgressEmitted,
+            error: error.message,
+            musicRoot: root,
+            command,
+          })}\n`
+          if (!res.writableEnded) res.write(line)
+          if (!res.writableEnded) res.end()
+        } catch {
+          /* client già disconnesso */
         }
       })
     })
