@@ -22,6 +22,7 @@ import type { ArtworkHit, YoutubeReleasesList } from "../lib/api"
 import { fmtDate } from "../lib/metaFormat"
 import { albumFolderFromTrackRelPath } from "../lib/trackPaths"
 import type { LinkSharedAlbumResult, LinkSharedResult } from "../lib/api"
+import { ytdlpLogDetailForUser } from "../lib/ytdlpLogFilter"
 import { classifyYoutubeUrl } from "../lib/youtubeUrl"
 import { formatTrackGenresForDisplay } from "../lib/genres"
 import type { LibArtist, LibTrack, LibraryIndex, LibraryResponse } from "../types"
@@ -540,12 +541,18 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
       }
       const row = toFetch[i]!
       setMetaScanProg({ current: i + 1, total: toFetch.length })
-      setMetaLog((s) => s + `[${i + 1}/${toFetch.length}] ${row.path}…\n`)
       try {
         await fetchAlbumInfo(row.path, row.artist, row.album)
-        setMetaLog((s) => s + "  → ok\n")
       } catch (e) {
-        setMetaLog((s) => s + `  → ${e}\n`)
+        setMetaLog((s) =>
+          s +
+          t("tools.metaScanItemErr", {
+            i: i + 1,
+            total: toFetch.length,
+            path: row.path,
+            err: String((e as Error)?.message || e),
+          }),
+        )
       }
       if (i < toFetch.length - 1) {
         await new Promise((r) => setTimeout(r, 1100))
@@ -622,13 +629,18 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
       }
       const rel = toFetch[i]!
       setTrackScanProg({ current: i + 1, total: toFetch.length })
-      setMetaLog((s) =>
-        s + t("tools.trackScanLine", { i: i + 1, total: toFetch.length, path: rel }),
-      )
       try {
         await fetchTrackInfo(rel)
       } catch (e) {
-        setMetaLog((s) => s + `  → ${e}\n`)
+        setMetaLog((s) =>
+          s +
+          t("tools.trackScanItemErr", {
+            i: i + 1,
+            total: toFetch.length,
+            path: rel,
+            err: String((e as Error)?.message || e),
+          }),
+        )
       }
       if (i < toFetch.length - 1) {
         await new Promise((r) => setTimeout(r, 350))
@@ -739,34 +751,14 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
         if (r.progress && r.progress.total > 0) {
           setDlProg({ current: r.progress.current, total: r.progress.total })
         }
-        const errText = [r.error, r.stderr]
-          .filter(Boolean)
-          .join("\n")
-          .split(/\r?\n/)
-          .map((l) => l.trim())
-          .filter(
-            (l) =>
-              l.length > 0 &&
-              (/\berror\b/i.test(l) ||
-                /\bwarning\b/i.test(l) ||
-                /\bfailed\b/i.test(l) ||
-                /\b403\b|\b404\b/.test(l)),
-          )
-          .join("\n")
+        const detail = ytdlpLogDetailForUser(r)
         setLog(
           (x) =>
             x +
-            t("tools.dlResult", {
-              ok: r.ok ? t("tools.dlOk") : t("tools.dlErr"),
-              code: r.code,
-            }) +
-            (r.progress?.total
-              ? t("tools.dlProgress", {
-                  cur: r.progress.current,
-                  total: r.progress.total,
-                })
-              : "") +
-            (errText ? t("tools.dlErrDetail", { detail: errText }) : ""),
+            (r.ok
+              ? t("tools.dlResultOk")
+              : t("tools.dlResultErr", { code: r.code }) +
+                (detail ? t("tools.dlErrDetail", { detail }) : "")),
         )
         onRefreshLibrary()
       })
@@ -858,29 +850,14 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
               : undefined,
             ac.signal,
           )
-          const errText = [r.error, r.stderr]
-            .filter(Boolean)
-            .join("\n")
-            .split(/\r?\n/)
-            .map((l) => l.trim())
-            .filter(
-              (l) =>
-                l.length > 0 &&
-                (/\berror\b/i.test(l) ||
-                  /\bwarning\b/i.test(l) ||
-                  /\bfailed\b/i.test(l) ||
-                  /\b403\b|\b404\b/.test(l)),
-            )
-            .join("\n")
+          const detail = ytdlpLogDetailForUser(r)
           setLog(
             (x) =>
               x +
-              t("tools.dlResult", {
-                ok: r.ok ? t("tools.dlOk") : t("tools.dlErr"),
-                code: r.code,
-              }) +
-              (errText ? t("tools.dlErrDetail", { detail: errText }) : "") +
-              "\n",
+              (r.ok
+                ? t("tools.dlResultOk")
+                : t("tools.dlResultErr", { code: r.code }) +
+                  (detail ? t("tools.dlErrDetail", { detail }) : "")),
           )
         } catch (e) {
           if (isAbortError(e)) {
