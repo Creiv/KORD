@@ -369,6 +369,13 @@ export type YoutubeReleasesList = {
   entries: YoutubeReleaseEntry[]
 }
 
+export type YoutubeReleasesListMeta = {
+  listTitle: string
+  uploader: string
+  channelUrl: string
+  total: number
+}
+
 export async function fetchYoutubeReleasesList(
   url: string,
 ): Promise<YoutubeReleasesList> {
@@ -378,6 +385,97 @@ export async function fetchYoutubeReleasesList(
     body: JSON.stringify({ url }),
   })
   return unwrap<YoutubeReleasesList>(response)
+}
+
+/**
+ * Stesso elenco coi conteggi, ma in streaming (NDJSON): meta → entry × N → done.
+ */
+export async function streamYoutubeReleasesList(
+  url: string,
+  cbs: {
+    onMeta: (m: YoutubeReleasesListMeta) => void
+    onEntry: (e: YoutubeReleaseEntry) => void
+    onDone: () => void
+  },
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(apiUrl("/api/youtube-releases-list"), {
+    method: "POST",
+    signal,
+    headers: accountHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ url, stream: true }),
+  })
+  if (!response.ok) {
+    let msg = `Request failed (${response.status})`
+    try {
+      const j = (await response.json()) as { error?: string }
+      if (j.error) msg = j.error
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg)
+  }
+  const reader = response.body?.getReader()
+  if (!reader) throw new Error("Releases: response body not readable")
+  const decoder = new TextDecoder()
+  let buffer = ""
+  let gotDone = false
+  const handleLine = (t: string) => {
+    if (!t.trim()) return
+    let row: {
+      type?: string
+      listTitle?: string
+      uploader?: string
+      channelUrl?: string
+      total?: number
+      entry?: YoutubeReleaseEntry
+      message?: string
+    }
+    try {
+      row = JSON.parse(t) as typeof row
+    } catch {
+      throw new Error("Releases: invalid response line")
+    }
+    if (row.type === "meta") {
+      cbs.onMeta({
+        listTitle: String(row.listTitle ?? "").trim(),
+        uploader: String(row.uploader ?? "").trim(),
+        channelUrl: String(row.channelUrl ?? "").trim(),
+        total: Math.max(0, Math.floor(Number(row.total) || 0)),
+      })
+      return
+    }
+    if (row.type === "entry" && row.entry) {
+      cbs.onEntry(row.entry)
+      return
+    }
+    if (row.type === "done") {
+      gotDone = true
+      cbs.onDone()
+      return
+    }
+    if (row.type === "error") {
+      throw new Error(
+        String(row.message ?? "Releases stream error").trim() || "Releases error",
+      )
+    }
+  }
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (value) {
+      buffer += decoder.decode(value, { stream: true })
+    }
+    const parts = buffer.split("\n")
+    buffer = parts.pop() ?? ""
+    for (const line of parts) {
+      handleLine(line)
+    }
+    if (done) {
+      handleLine(buffer)
+      break
+    }
+  }
+  if (!gotDone) cbs.onDone()
 }
 
 export type DownloadRes = {

@@ -50,9 +50,14 @@ function stripRedundantArtistPrefix(artist, title) {
   return t.replace(re, "").trim()
 }
 
-/** Unicode / YouTube: rende i titoli più cercabili */
-export function cleanTrackTitleForSearch(raw) {
+/**
+ * Unicode / YouTube: rende i titoli più cercabili.
+ * @param {string} [artist] se indicato, rimuove il prefisso "Artista -" ridondante (stesso criterio di stripRedundantArtistPrefix).
+ */
+export function cleanTrackTitleForSearch(raw, artist) {
   let s = String(raw || "")
+  const ar = String(artist || "").trim()
+  if (ar.length >= 2) s = stripRedundantArtistPrefix(ar, s)
   s = s
     .replace(/[？?…]/g, " ")
     .replace(/[⧸／﹨]/g, " ")
@@ -60,27 +65,23 @@ export function cleanTrackTitleForSearch(raw) {
   s = s.split(/\s*[|｜]\s*/)[0] ?? s
   s = s.split(/\s*\/\/\s*/)[0] ?? s
   s = s.replace(/^\d{1,2}\s*[-–—.]\s*/i, "")
+  s = s.replace(/\s*[\[【]([\s\S]*?)[\]】]/gi, (match, inner) => {
+    if (/^skit$/i.test(String(inner || "").trim())) return match
+    return " "
+  })
   s = s.replace(
-    /\s*[\[【].*?[\]】]|\s*[\(（](?:official|clean|lyric|full\s+version|hd|4k|video|audio|live|anime|skit|hidden)[^)\]]*[\)）]/gi,
+    /\s*[\(（](?:official|lyric|hd|4k|video|audio|anime|hidden|original|re-?master|remaster|music\s*video|lyric(?:s)?\s*video|audio\s*only|visuali[sz]er|amazon(?:\s*music)?|apple(?:\s*music)?|youtub(?:e|e\s*music|e\s*topic)?|spotify|deezer|tidal|vevo|soundcloud|pandora|iheartradio|shazam|napster|full\s*album)[^)\]]*[\)）]/gi,
     " ",
   )
   s = s.replace(
-    /\s*[\(（]?\s*(?:feat\.?|ft\.?|featuring|con)\s*[^)]+/gi,
+    /\s*-\s*(?:Official\s+)?(?:Music\s+Video|Video|Audio|Lyric\s+Video|Lyrics?|Remaster)\b/gi,
     " ",
   )
-  s = s.replace(
-    /\s*-\s*(?:Official\s+)?(?:Music\s+Video|Video|Audio|Lyric\s+Video|Lyrics?|Remaster|Live)\b/gi,
-    " ",
-  )
-  s = s.replace(
-    /\s*[\(（]?(?:Long\s+Version|Clean\s+Version|Remaster(?:ed)?\s*\d*)\s*[\)）]?/gi,
-    " ",
-  )
-  s = s.replace(
-    /(?:Eminem|Caparezza|Salmo|Fabri Fibra|Linkin Park|TonyPitony)\s*-\s*/gi,
-    " ",
-  )
-  s = s.replace(/\s+\[[a-z0-9\s]+\]\s*$/i, " ")
+  s = s.replace(/\s+\[[a-z0-9\s]+\]\s*$/i, (m) => {
+    const inner = m.replace(/^\s*\[|\]\s*$/g, "").trim()
+    if (/^skit$/i.test(inner)) return m
+    return " "
+  })
   s = s.replace(/\s+/g, " ").trim()
   if (s.length > 200) s = s.slice(0, 200)
   return s
@@ -89,7 +90,7 @@ export function cleanTrackTitleForSearch(raw) {
 export function prepareTrackTitleForMeta(artist, titleFromFile) {
   const base = String(titleFromFile || "").trim()
   const a = String(artist || "").trim()
-  return cleanTrackTitleForSearch(stripRedundantArtistPrefix(a, base)) || base
+  return cleanTrackTitleForSearch(base, a) || base
 }
 
 function cleanAlbumNameForSearch(raw) {
@@ -295,12 +296,12 @@ function isCollabParensContent(inner) {
 
 const JUNK_PAREN_PATTERNS = [
   /\bofficial(\s*audio|\s*video|\s*music)?\b/i,
-  /\boriginal(\s*mix|\s*version)?\b/i,
+  /\boriginal(\s*mix)?\b/i,
+  /\boriginal\s*version\b/i,
   /\borig\.?\b/i,
   /\bremaster(ed|ing)?\b/i,
   /\bre-?master/i,
   /\bradio\s*edit/i,
-  /\b(?:album|single|clean|short|long|full)\s*version\b/i,
   /\bextended(\s*mix|\s*version)?\b/i,
   /\b(?:club|dub|extended|radio)\s*mix\b/i,
   /\bvisuali[sz]er\b/i,
@@ -315,12 +316,12 @@ const JUNK_PAREN_PATTERNS = [
   /\bfrom\s+the\b/i,
   /\bsoundtrack|^\s*ost\s*$/i,
   /\btrailer|teaser|preview\b/i,
-  /\bdeluxe|explicit|clean(\s*version)?\b/i,
-  /^\s*clean\s*$/i,
+  /\b(?:deluxe|explicit)\b/i,
+  /\b(?:amazon|apple\s*music|youtub(?:e|e\s*music|e\s*topic)?|spotify|deezer|tidal|vevo|soundcloud|pandora|iheartradio|shazam|napster|bandcamp)(?:\s*music)?\b/i,
   /^\s*mv\s*$/i,
   /\bclip\b|^\s*clip\s*$/i,
   /\bbts\b|behind\s+the\s+scenes/i,
-  /\blive(\s*at|\s*version|\s*acoustic|\s*in\b)/i,
+  /\blive(\s*at|\s*acoustic|\s*in\b)/i,
   /^\s*live\s*$/i,
   /studio\s*session|piano|orchestra|unplugged|acoustic(?!a)/i,
   /instrumental(?!e)|karaoke|mono|stereo|lossless|high[-\s]*quality|^\s*hq\s*$/i,
@@ -407,12 +408,10 @@ function stripIfArtistTrailsWithDash(s, artistFolder) {
 }
 
 /**
- * Rimuove […], numerazione, parentesi tonde il cui testo sembra promozionale (official, original, remaster,
- * version, video, 4K, live, clean, …) senza toccare (feat. / ft. / with …), poi - Topic, e l’eventuale
- * prefisso/suffisso " - Artista" dalla cartella artista/ album.
- * Solo stringhe, nessuna dipendenza esterna (niente API).
+ * Rimuove […], numerazione, parentesi “junk” (no versioni long/clean, no feat), poi - Topic.
+ * Prefisso “Artista - ”: usa `trackArtist` da kord-trackinfo se presente, altrimenti `artistFolder`.
  * @param {string} raw
- * @param {{ artistFolder?: string } | undefined} [opts]
+ * @param {{ artistFolder?: string; trackArtist?: string } | undefined} [opts]
  */
 export function sanitizeLocalTrackTitleDisplay(raw, opts) {
   let s = String(raw || "")
@@ -423,8 +422,10 @@ export function sanitizeLocalTrackTitleDisplay(raw, opts) {
   s = s.replace(/^\d+\s*\.\s+/, "").trim()
   s = s.replace(/\s+/g, " ").trim()
   s = stripTailYouTubeCruft(s)
-  s = stripIfArtistLeadsName(s, opts?.artistFolder)
-  s = stripIfArtistTrailsWithDash(s, opts?.artistFolder)
+  const arForRedundant =
+    String(opts?.trackArtist || "").trim() || (opts?.artistFolder || "")
+  s = stripIfArtistLeadsName(s, arForRedundant)
+  s = stripIfArtistTrailsWithDash(s, arForRedundant)
   s = s.replace(/\s+/g, " ").trim()
   if (s.length > 200) s = s.slice(0, 200)
   return s
@@ -455,10 +456,14 @@ export async function sanitizeTrackTitlesInAlbumDir(albumDir, dryRun) {
   for (const e of entries) {
     if (!e.isFile() || !AUDIO_RE.test(e.name)) continue
     const base = e.name.replace(AUDIO_RE, "").trim() || e.name
-    const to = sanitizeLocalTrackTitleDisplay(base, { artistFolder })
-    if (to === base) continue
     const existing =
       mut[e.name] && typeof mut[e.name] === "object" ? { ...mut[e.name] } : {}
+    const trackArtist = String(existing.artist || "").trim()
+    const to = sanitizeLocalTrackTitleDisplay(base, {
+      artistFolder,
+      ...(trackArtist ? { trackArtist } : {}),
+    })
+    if (to === base) continue
     changes.push({ fileName: e.name, from: base, to })
     if (!dryRun) {
       mut[e.name] = { ...existing, title: to }
@@ -715,7 +720,7 @@ export async function fetchReleaseMetadata(artist, album) {
 export async function fetchTrackMetadataItunes(artist, title, album) {
   const ar = String(artist || "").trim()
   const tt0 = String(title || "").trim()
-  const clean = cleanTrackTitleForSearch(tt0) || tt0
+  const clean = cleanTrackTitleForSearch(tt0, ar) || tt0
   const al = cleanAlbumNameForSearch(String(album || ""))
   if (clean.length < 1) return { error: "Title missing" }
   const baseTerms = [
@@ -804,8 +809,8 @@ export async function fetchTrackMetadataDeezer(artist, title, album, titleFromFi
   const ar = String(artist || "").trim()
   const tMain = String(title || "").trim()
   const tFile = String(titleFromFile != null ? titleFromFile : tMain).trim()
-  const clean = cleanTrackTitleForSearch(tMain) || tMain
-  const fromFile = cleanTrackTitleForSearch(tFile) || tFile
+  const clean = cleanTrackTitleForSearch(tMain, ar) || tMain
+  const fromFile = cleanTrackTitleForSearch(tFile, ar) || tFile
   const al = cleanAlbumNameForSearch(String(album || ""))
   if (clean.length < 1) return { error: "Title missing" }
   const qSet = new Set()
@@ -955,8 +960,8 @@ export async function fetchTrackMetadataTheAudioDB(artist, title, album, titleFr
   const tFile = String(titleFromFile != null ? titleFromFile : t0).trim()
   const candidates = new Set(
     [
-      cleanTrackTitleForSearch(t0) || t0,
-      cleanTrackTitleForSearch(tFile) || tFile,
+      cleanTrackTitleForSearch(t0, ar) || t0,
+      cleanTrackTitleForSearch(tFile, ar) || tFile,
       t0.split(/\s+/).slice(0, 8).join(" "),
     ].filter((s) => s.length > 0),
   )

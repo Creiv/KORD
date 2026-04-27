@@ -53,24 +53,64 @@ import { streamKordBackupZip, restoreKordFromZipBuffer } from "./backupKord.mjs"
 const execFileAsync = promisify(execFile)
 
 const PORT = Number(process.env.PORT) || 3001
-/** Opzionale: FLAC più pesante, richiede ffmpeg. */
-const YTDLP_ARGS_LOSSLESS = [
-  "-x",
-  "--audio-format",
-  "flac",
-  "--embed-thumbnail",
-  "--add-metadata",
-]
-/** Preferenza m4a (AAC), poi webm (Opus), poi qualunque bestaudio — niente ffmpeg. */
-const YTDLP_ARGS_NATIVE = [
+/**
+ * Solo formati audio già muxati: niente merge, niente postprocessori che richiedono ffmpeg
+ * (--add-metadata / -x / estrazione usano ffmpeg e non sono supportati in produzione).
+ */
+const YTDLP_ARGS = [
   "-f",
   "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio",
-  "--add-metadata",
 ]
 
 function ytdlpArgsBase() {
-  if (process.env.KORD_YTDLP_LOSSLESS === "1") return YTDLP_ARGS_LOSSLESS
-  return YTDLP_ARGS_NATIVE
+  if (process.env.KORD_YTDLP_LOSSLESS === "1") {
+    console.warn(
+      "[kord] KORD_YTDLP_LOSSLESS is ignored: lossless extraction requires ffmpeg, which Kord does not rely on.",
+    )
+  }
+  return YTDLP_ARGS
+}
+
+function normalizeHttpUrlForYtdlp(raw) {
+  const s = String(raw ?? "").trim()
+  if (!s) return s
+  if (s.startsWith("//")) return `https:${s}`
+  return s
+}
+
+function pickFlatPlaylistEntryUrl(e) {
+  const from = [e.url, e.webpage_url, e.original_url]
+  for (const v of from) {
+    if (v == null) continue
+    const s = String(v).trim()
+    if (s) return s
+  }
+  return ""
+}
+
+/** URL assoluto per yt-dlp (path relativi da --flat-playlist, link //, ecc.). */
+function coerceYtdlpUrl(raw) {
+  let s = normalizeHttpUrlForYtdlp(raw)
+  if (!s) return s
+  if (/^https?:\/\//i.test(s)) return s
+  if (s.startsWith("/")) return `https://www.youtube.com${s}`
+  if (/^(?:watch\?|playlist\?|embed\/|shorts\/)/i.test(s)) {
+    return `https://www.youtube.com/${s}`
+  }
+  return s
+}
+
+/** Se l'estrattore non espone href completo, ricostruisci da id (playlist / video). */
+function guessYoutubeUrlFromEntryId(id) {
+  const s = String(id ?? "").trim()
+  if (!s) return ""
+  if (/^[a-zA-Z0-9_-]{11}$/.test(s)) {
+    return `https://www.youtube.com/watch?v=${encodeURIComponent(s)}`
+  }
+  if (/^(?:PL|OLAK5uy_|UU|FL|RD|WL|LL|LM)[a-zA-Z0-9_-]+$/.test(s)) {
+    return `https://www.youtube.com/playlist?list=${encodeURIComponent(s)}`
+  }
+  return ""
 }
 
 function ytdlpCookieArgs() {
@@ -78,7 +118,49 @@ function ytdlpCookieArgs() {
   return cookies ? ["--cookies", cookies] : []
 }
 
-async function ytdlpPlaylistTrackCount(program, playlistUrl) {
+function ytdlpChildExecOptions() {
+  return { env: { ...process.env, FORCE_COLOR: "0" }, ...winHideExec() }
+}
+function winHideExec() {
+  return process.platform === "win32" ? { windowsHide: true } : {}
+}
+
+/** Estrae JSON da stdout di yt-dlp -J (BOM, warning occasionali in coda al buffer). */
+function parseYtdlpJsonStdout(buf) {
+  const s0 = String(buf ?? "").replace(/^\uFEFF/, "")
+  const s = s0.trim()
+  if (!s) return null
+  const tryParse = (x) => {
+    try {
+      return JSON.parse(x)
+    } catch {
+      return null
+    }
+  }
+  let o = tryParse(s)
+  if (o) return o
+  const i = s.indexOf("{")
+  if (i < 0) return null
+  o = tryParse(s.slice(i))
+  return o
+}
+
+function releaseEnrichConfig() {
+  const raw = String(process.env.KORD_YTDLP_RELEASE_MAX_COUNT_ENRICH ?? "0").trim()
+  const max = raw === "" || raw === "0" ? 0 : Math.max(0, Number.parseInt(raw, 10) || 0)
+  const defTimeout = process.platform === "win32" ? 32_000 : 18_000
+  const tStr = process.env.KORD_YTDLP_RELEASE_COUNT_TIMEOUT_MS
+  const t = tStr != null && String(tStr).trim() !== "" ? String(tStr).trim() : String(defTimeout)
+  const timeoutMs = Math.min(120_000, Math.max(2000, Number.parseInt(t, 10) || defTimeout))
+  const defConc = process.platform === "win32" ? 3 : 5
+  const cStr = process.env.KORD_YTDLP_RELEASE_COUNT_CONCURRENCY
+  const c = cStr != null && String(cStr).trim() !== "" ? String(cStr).trim() : String(defConc)
+  const concurrency = Math.min(16, Math.max(1, Number.parseInt(c, 10) || defConc))
+  return { max, timeoutMs, concurrency }
+}
+
+/** Conteggio brani per URL playlist (un solo yt-dlp -J: timeout per non bloccare mai all’infinito). */
+async function ytdlpPlaylistTrackCount(program, playlistUrl, timeoutMs) {
   const args = [
     "-J",
     "--flat-playlist",
@@ -91,9 +173,12 @@ async function ytdlpPlaylistTrackCount(program, playlistUrl) {
     const { stdout } = await execFileAsync(program, args, {
       maxBuffer: 16 * 1024 * 1024,
       encoding: "utf8",
-      env: { ...process.env, FORCE_COLOR: "0" },
+      ...ytdlpChildExecOptions(),
+      timeout: timeoutMs,
     })
-    const j = JSON.parse(String(stdout))
+    const j = parseYtdlpJsonStdout(stdout)
+    if (!j || typeof j !== "object") return null
+    if (j._type === "video") return 1
     if (typeof j.playlist_count === "number" && j.playlist_count >= 0) {
       return j.playlist_count
     }
@@ -104,20 +189,113 @@ async function ytdlpPlaylistTrackCount(program, playlistUrl) {
   }
 }
 
-async function enrichReleaseEntriesWithTrackCounts(program, items) {
-  const size = 4
+async function enrichReleaseEntryChunks(program, items, timeoutMs, concurrency) {
   const out = []
-  for (let i = 0; i < items.length; i += size) {
-    const chunk = items.slice(i, i + size)
+  for (let i = 0; i < items.length; i += concurrency) {
+    const chunk = items.slice(i, i + concurrency)
     const part = await Promise.all(
       chunk.map(async (item) => {
-        const trackCount = await ytdlpPlaylistTrackCount(program, item.url)
+        const trackCount = await ytdlpPlaylistTrackCount(
+          program,
+          item.url,
+          timeoutMs,
+        )
         return { ...item, trackCount }
       }),
     )
     out.push(...part)
   }
   return out
+}
+
+/**
+ * Esegue il conteggio brani in parallelo (fino a concurrency) e invoca onEntry
+ * nell’ordine originale (0, 1, 2, …) non appena ogni slot è pronto.
+ * Con max: solo le prime voci hanno ytdlp; le altre hanno trackCount: null.
+ */
+async function enrichReleaseEntriesInOrder(
+  program,
+  items,
+  max,
+  timeoutMs,
+  concurrency,
+  onEntry,
+) {
+  const n = items.length
+  if (n === 0) return
+  const out = new Array(n)
+  let nextEmit = 0
+  const tryEmit = () => {
+    while (nextEmit < n && out[nextEmit] != null) {
+      onEntry(out[nextEmit])
+      nextEmit += 1
+    }
+  }
+  let nextI = 0
+  async function worker() {
+    while (true) {
+      const i = nextI
+      nextI += 1
+      if (i >= n) return
+      const item = items[i]
+      let trackCount = null
+      if (max === 0 || i < max) {
+        trackCount = await ytdlpPlaylistTrackCount(program, item.url, timeoutMs)
+      }
+      out[i] = { ...item, trackCount }
+      tryEmit()
+    }
+  }
+  const k = Math.min(concurrency, n)
+  await Promise.all(Array.from({ length: k }, () => worker()))
+}
+
+async function enrichReleaseEntriesWithTrackCounts(program, items) {
+  const { max, timeoutMs, concurrency } = releaseEnrichConfig()
+  if (max > 0 && items.length > max) {
+    const head = await enrichReleaseEntryChunks(
+      program,
+      items.slice(0, max),
+      timeoutMs,
+      concurrency,
+    )
+    const tail = items
+      .slice(max)
+      .map((item) => ({ ...item, trackCount: null }))
+    return [...head, ...tail]
+  }
+  return enrichReleaseEntryChunks(program, items, timeoutMs, concurrency)
+}
+
+function buildYoutubeReleasesListEntries(data) {
+  const raw = Array.isArray(data.entries) ? data.entries : []
+  const entries = []
+  for (const e of raw) {
+    const id = String(e.id ?? "").trim()
+    const title = String(e.title ?? "").trim()
+    let norm = coerceYtdlpUrl(pickFlatPlaylistEntryUrl(e))
+    if (!norm || !/^https?:\/\//i.test(norm)) {
+      norm = guessYoutubeUrlFromEntryId(id)
+    }
+    if (id && title && norm && /^https?:\/\//i.test(norm)) {
+      entries.push({ id, title, url: norm })
+    }
+  }
+  return {
+    entries,
+    listTitle: String(data.title ?? "").trim(),
+    uploader: String(
+      data.uploader ?? data.channel ?? data.uploader_id ?? "",
+    ).trim(),
+    channelUrl: String(
+      data.channel_url ?? data.uploader_url ?? "",
+    ).trim(),
+  }
+}
+
+function writeYoutubeReleasesNdjsonLine(res, obj) {
+  if (res.writableEnded) return
+  res.write(`${JSON.stringify(obj)}\n`)
 }
 
 function isProbablyPlaylistUrl(url) {
@@ -167,10 +345,8 @@ function ytdlpCmdDisplay() {
   const bin = resolveYtdlpPath()
   const base = ytdlpArgsBase()
   const cook = ytdlpCookieArgs()
-  const lossy = process.env.KORD_YTDLP_LOSSLESS === "1"
-  const note = lossy
-    ? " (KORD_YTDLP_LOSSLESS: -x + FLAC, richiede ffmpeg)"
-    : " (predefinito: prefer m4a → webm → bestaudio; niente ffmpeg; LOSSLESS=1 per FLAC)"
+  const note =
+    " (m4a → webm/opus → bestaudio; no ffmpeg / no metadata embed)"
   return `${bin} ${[...base, ...cook, "-o", `%(folder)s/%(autonumber)02d - ${YTDLP_NAME}.%(ext)s`]
     .map((a) => (/\s/.test(a) ? `"${a}"` : a))
     .join(" ")} + URL${note} — folder = …, nome file = track|title`
@@ -612,7 +788,7 @@ app.post("/api/youtube-releases-list", async (req, res) => {
   if (process.env.ENABLE_YTDLP === "0") {
     return sendError(res, 403, "Download disabled (ENABLE_YTDLP=0)")
   }
-  const url = String(req.body?.url || "").trim()
+  const url = coerceYtdlpUrl(String(req.body?.url ?? ""))
   if (!/^https?:\/\//i.test(url)) {
     return sendError(res, 400, "Invalid URL")
   }
@@ -636,24 +812,14 @@ app.post("/api/youtube-releases-list", async (req, res) => {
     const jsonText = execFileSync(program, args, {
       maxBuffer: 32 * 1024 * 1024,
       encoding: "utf8",
-      env: { ...process.env, FORCE_COLOR: "0" },
+      ...ytdlpChildExecOptions(),
     })
-    const data = JSON.parse(String(jsonText))
-    const raw = Array.isArray(data.entries) ? data.entries : []
-    const entries = []
-    for (const e of raw) {
-      const id = String(e.id ?? "").trim()
-      const title = String(e.title ?? "").trim()
-      const link =
-        e.url != null
-          ? String(e.url)
-          : e.webpage_url != null
-            ? String(e.webpage_url)
-            : ""
-      if (id && title && link && /^https?:\/\//i.test(link)) {
-        entries.push({ id, title, url: link })
-      }
+    const data = parseYtdlpJsonStdout(jsonText)
+    if (!data) {
+      return sendError(res, 500, "yt-dlp returned no parseable JSON")
     }
+    const { entries, listTitle, uploader, channelUrl } =
+      buildYoutubeReleasesListEntries(data)
     if (!entries.length) {
       return sendError(
         res,
@@ -661,18 +827,50 @@ app.post("/api/youtube-releases-list", async (req, res) => {
         "No releases in list (or yt-dlp could not expand this page).",
       )
     }
+    const wantStream = Boolean(req.body?.stream)
+    if (wantStream) {
+      res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8")
+      res.setHeader("Cache-Control", "no-cache")
+      res.setHeader("X-Accel-Buffering", "no")
+      if (typeof res.flushHeaders === "function") res.flushHeaders()
+      const { max, timeoutMs, concurrency } = releaseEnrichConfig()
+      try {
+        writeYoutubeReleasesNdjsonLine(res, {
+          type: "meta",
+          listTitle,
+          uploader,
+          channelUrl,
+          total: entries.length,
+        })
+        await enrichReleaseEntriesInOrder(
+          program,
+          entries,
+          max,
+          timeoutMs,
+          concurrency,
+          (entry) => {
+            writeYoutubeReleasesNdjsonLine(res, { type: "entry", entry })
+          },
+        )
+        writeYoutubeReleasesNdjsonLine(res, { type: "done" })
+        res.end()
+      } catch (err) {
+        writeYoutubeReleasesNdjsonLine(res, {
+          type: "error",
+          message: String(err?.message ?? err).slice(0, 2_000),
+        })
+        res.end()
+      }
+      return
+    }
     const entriesWithCounts = await enrichReleaseEntriesWithTrackCounts(
       program,
       entries,
     )
     return sendOk(res, {
-      listTitle: String(data.title ?? "").trim(),
-      uploader: String(
-        data.uploader ?? data.channel ?? data.uploader_id ?? "",
-      ).trim(),
-      channelUrl: String(
-        data.channel_url ?? data.uploader_url ?? "",
-      ).trim(),
+      listTitle,
+      uploader,
+      channelUrl,
       entries: entriesWithCounts,
     })
   } catch (error) {
@@ -717,7 +915,7 @@ app.get("/api/download-preset", async (_req, res) => {
 
 app.post("/api/download", async (req, res) => {
   if (process.env.ENABLE_YTDLP === "0") return sendError(res, 403, "Download disabled (ENABLE_YTDLP=0)")
-  const url = String(req.body?.url || "").trim()
+  let url = coerceYtdlpUrl(String(req.body?.url ?? ""))
   if (!/^https?:\/\//i.test(url)) return sendError(res, 400, "Provide a valid http(s) URL")
   try {
     const root = musicRootFromReq(req)
@@ -1105,20 +1303,33 @@ app.post("/api/track-info/fetch", async (req, res) => {
     const titleRaw = String(fileName)
       .replace(/\.(mp3|flac|m4a|ogg|opus|wav|aac|webm)$/i, "")
       .trim() || fileName
-    const title = prepareTrackTitleForMeta(artist, titleRaw) || titleRaw
-    const meta = await fetchTrackMetadata(artist, title, album, titleRaw)
-    if (meta.error) return sendError(res, 404, meta.error)
-    const fp = path.join(albumDir, "kord-trackinfo.json")
+    const fpKord = path.join(albumDir, "kord-trackinfo.json")
+    const fpWpp = path.join(albumDir, "wpp-trackinfo.json")
+    const fpRead = existsSync(fpKord) ? fpKord : existsSync(fpWpp) ? fpWpp : null
     let json = {}
-    if (existsSync(fp)) {
+    if (fpRead) {
       try {
-        json = JSON.parse(await fs.readFile(fp, "utf8")) || {}
+        json = JSON.parse(await fs.readFile(fpRead, "utf8")) || {}
       } catch {
         json = {}
       }
     }
+    const existingTr = json[fileName]
+    const artistFromTrackInfo =
+      existingTr &&
+      typeof existingTr === "object" &&
+      typeof existingTr.artist === "string"
+        ? String(existingTr.artist).trim()
+        : ""
+    const artistForTitle = artistFromTrackInfo || artist
+    const title =
+      prepareTrackTitleForMeta(artistForTitle, titleRaw) || titleRaw
+    const meta = await fetchTrackMetadata(artistForTitle, title, album, titleRaw)
+    if (meta.error) return sendError(res, 404, meta.error)
     json[fileName] = { ...meta, fetchedAt: new Date().toISOString() }
-    await fs.writeFile(fp, JSON.stringify(json, null, 2), "utf8")
+    const fpWrite =
+      existsSync(fpWpp) && !existsSync(fpKord) ? fpWpp : fpKord
+    await fs.writeFile(fpWrite, JSON.stringify(json, null, 2), "utf8")
     void actLog(req, {
       kind: "library",
       action: "track_metadata_fetch",

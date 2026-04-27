@@ -3097,6 +3097,71 @@
   white-space: nowrap;
 }
 
+.tools-dl-releases__enrich {
+  margin: 0.35rem 0 0;
+}
+
+.tools-dl-releases__row--skeleton {
+  pointer-events: none;
+}
+
+.tools-dl-releases__check--skeleton {
+  cursor: default;
+  grid-template-columns: auto 1fr auto;
+}
+
+.tools-dl-releases__sk-pad {
+  width: 1rem;
+  min-height: 1rem;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--border) 80%, var(--bg));
+  opacity: 0.5;
+  align-self: start;
+  margin-top: 0.12rem;
+}
+
+.tools-dl-releases__sk-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.tools-dl-releases__skeleton-bar {
+  height: 0.7rem;
+  max-width: 100%;
+  border-radius: 4px;
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, var(--border) 90%, var(--bg)) 0%,
+    color-mix(in srgb, var(--muted) 28%, var(--border)) 40%,
+    color-mix(in srgb, var(--border) 90%, var(--bg)) 80%
+  );
+  background-size: 220% 100%;
+  animation: tools-dl-releases-skel 1.1s ease-in-out infinite;
+}
+
+.tools-dl-releases__skeleton-bar--sub {
+  width: min(100%, 12rem);
+  height: 0.48rem;
+  opacity: 0.72;
+}
+
+.tools-dl-releases__skeleton-bcount {
+  width: 2.2rem;
+  min-width: 2.2rem;
+  height: 0.6rem;
+}
+
+@keyframes tools-dl-releases-skel {
+  0% {
+    background-position: 0% 0;
+  }
+  100% {
+    background-position: 100% 0;
+  }
+}
+
 .tools-dl-releases__check input {
   margin: 0;
   align-self: start;

@@ -82,7 +82,7 @@ import {
 } from "./types";
 import "./App.css";
 import "./responsive.css";
-import { MobileBottomNav } from "./components/MobileBottomNav";
+import { MobileBottomNav } from "./components/MobileBottomNav.tsx";
 
 type RouteState = {
   section: AppSection;
@@ -1448,8 +1448,10 @@ function LibraryView({
 
   useEffect(() => {
     if (libraryHomeTick < 1) return;
-    setSelectedGenreKey(null);
-    setMode("all");
+    startTransition(() => {
+      setSelectedGenreKey(null);
+      setMode("all");
+    });
   }, [libraryHomeTick]);
 
   const artist = route.artist
@@ -3103,7 +3105,7 @@ function SettingsView({
       return false;
     }
   });
-  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "1.3.0");
+  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "1.4.0");
 
   useEffect(() => {
     Promise.all([fetchConfig(), fetchAccounts()])
@@ -3144,7 +3146,9 @@ function SettingsView({
 
   useEffect(() => {
     if (isKordClientEmbed) return;
-    loadActivityLog();
+    queueMicrotask(() => {
+      loadActivityLog();
+    });
   }, [isKordClientEmbed, loadActivityLog]);
 
   const selectedAccount: Account | null =

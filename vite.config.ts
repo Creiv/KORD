@@ -7,7 +7,8 @@ import { defineConfig } from "vitest/config";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function configFilePath() {
-  const userDir = process.env.KORD_USER_CONFIG_DIR || process.env.WPP_USER_CONFIG_DIR;
+  const userDir =
+    process.env.KORD_USER_CONFIG_DIR || process.env.WPP_USER_CONFIG_DIR;
   if (userDir && String(userDir).trim()) {
     return join(resolve(String(userDir).trim()), "music-root.config.json");
   }

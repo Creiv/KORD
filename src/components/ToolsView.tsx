@@ -19,7 +19,7 @@ import {
   fetchLibraryIndexForAccount,
   fetchTrackInfo,
   fetchDownloadPreset,
-  fetchYoutubeReleasesList,
+  streamYoutubeReleasesList,
   getSelectedAccountId,
   linkSharedFromAccount,
   listMusicDirs,
@@ -89,13 +89,6 @@ const K_COVER_ALB = "kord-cover-album"
 const W_COVER_ALB = "wpp-cover-album"
 
 const SHARED_ALL_ALBUMS = "__kord_all_albums__"
-
-function isAbortError(e: unknown): boolean {
-  if (e instanceof Error && e.name === "AbortError") return true
-  if (typeof DOMException !== "undefined" && e instanceof DOMException)
-    return e.name === "AbortError"
-  return false
-}
 
 function normalizeDlProgress(
   p: { current: number; total: number } | null,
@@ -231,14 +224,18 @@ export function ToolsView({
   const [metaAlb, setMetaAlb] = useState("")
   const [coverPickArtist, setCoverPickArtist] = useState("")
   const [relPayload, setRelPayload] = useState<YoutubeReleasesList | null>(null)
+  const [relStreamTotal, setRelStreamTotal] = useState<number | null>(null)
+  const [relStreamComplete, setRelStreamComplete] = useState(false)
   const [relSel, setRelSel] = useState<Set<string>>(() => new Set())
   const [relLoadBusy, setRelLoadBusy] = useState(false)
+  const relAborter = useRef<AbortController | null>(null)
+  const relLogTotalRef = useRef(0)
+  const relLogUploaderRef = useRef("")
   const [dlReplaceMode, setDlReplaceMode] = useState(false)
   const [dlTrackProg, setDlTrackProg] = useState<{
     current: number
     total: number
   } | null>(null)
-  const dlAbortRef = useRef<AbortController | null>(null)
   const [albumForCover, setAlbumForCover] = useState(() => {
     try {
       return (
@@ -299,12 +296,21 @@ export function ToolsView({
   useEffect(() => {
     if (classifyYoutubeUrl(url) === "releases") return
     setRelPayload(null)
+    setRelStreamTotal(null)
+    setRelStreamComplete(false)
     setRelSel(new Set())
   }, [url])
 
   useEffect(() => {
     loadDlFs("")
   }, [loadDlFs])
+
+  useEffect(
+    () => () => {
+      relAborter.current?.abort()
+    },
+    [],
+  )
 
   const commitDlDest = (path: string) => {
     setDlPath(path)
@@ -854,8 +860,6 @@ export function ToolsView({
         )
       }
       setDlTrackProg(null)
-      const ac = new AbortController()
-      dlAbortRef.current = ac
       setDlBusy(true)
       setDlProg(null)
       setLog((x) =>
@@ -869,7 +873,6 @@ export function ToolsView({
           url.trim(),
           dlPath,
           (p) => setDlProg({ current: p.current, total: p.total }),
-          ac.signal,
         )
         if (r.progress && r.progress.total > 0) {
           setDlProg({ current: r.progress.current, total: r.progress.total })
@@ -888,23 +891,13 @@ export function ToolsView({
           await runReplaceAfterDownload(indexBefore, replaceSnap)
         }
       } catch (e) {
-        if (isAbortError(e)) {
-          setLog((x) => x + t("tools.dlCancelled"))
-          await onRefreshLibrary()
-        } else {
-          setLog((x) =>
-            x + t("tools.dlFail", { e: String((e as Error)?.message || e) }),
-          )
-        }
+        setLog((x) =>
+          x + t("tools.dlFail", { e: String((e as Error)?.message || e) }),
+        )
       } finally {
-        dlAbortRef.current = null
         setDlBusy(false)
       }
     })()
-  }
-
-  const cancelDownload = () => {
-    dlAbortRef.current?.abort()
   }
 
   const runReplaceAfterDownload = useCallback(
@@ -949,34 +942,74 @@ export function ToolsView({
       setLog((x) => x + t("tools.dlPickFolder"))
       return
     }
+    relAborter.current?.abort()
+    relAborter.current = new AbortController()
+    const signal = relAborter.current.signal
     setRelLoadBusy(true)
-    fetchYoutubeReleasesList(url.trim())
-      .then((data) => {
-        setRelPayload(data)
-        setRelSel(new Set(data.entries.map((e) => e.id)))
-        setLog(
-          (x) =>
-            x +
-            t("tools.dlReleasesListTitle") +
-            `: ${data.entries.length}` +
-            (data.uploader
-              ? ` — ${t("tools.dlReleasesUploader", { name: data.uploader })}`
-              : "") +
-            "\n",
-        )
-      })
-      .catch((e) =>
+    setRelStreamComplete(false)
+    setRelStreamTotal(null)
+    setRelPayload(null)
+    setRelSel(new Set())
+    void streamYoutubeReleasesList(
+      url.trim(),
+      {
+        onMeta: (m) => {
+          relLogTotalRef.current = m.total
+          relLogUploaderRef.current = m.uploader
+          setRelStreamTotal(m.total)
+          setRelPayload({
+            listTitle: m.listTitle,
+            uploader: m.uploader,
+            channelUrl: m.channelUrl,
+            entries: [],
+          })
+        },
+        onEntry: (e) => {
+          setRelPayload((p) =>
+            p ? { ...p, entries: [...p.entries, e] } : null,
+          )
+          setRelSel((prev) => new Set([...prev, e.id]))
+        },
+        onDone: () => {
+          setRelStreamComplete(true)
+          setRelLoadBusy(false)
+          const n = relLogTotalRef.current
+          const u = relLogUploaderRef.current
+          setLog(
+            (x) =>
+              x +
+              t("tools.dlReleasesListTitle") +
+              `: ${n}` +
+              (u ? ` — ${t("tools.dlReleasesUploader", { name: u })}` : "") +
+              "\n",
+          )
+        },
+      },
+      signal,
+    )
+      .catch((e) => {
+        if (String((e as Error)?.name) === "AbortError") {
+          setRelLoadBusy(false)
+          return
+        }
         setLog(
           (x) =>
             x + t("tools.sharedErr", { e: String((e as Error)?.message || e) }),
-        ),
-      )
-      .finally(() => setRelLoadBusy(false))
+        )
+        setRelLoadBusy(false)
+        setRelPayload(null)
+        setRelStreamTotal(null)
+        setRelStreamComplete(false)
+      })
   }
 
   const runReleasesDl = () => {
     if (!relPayload || !dlDestPicked) {
       if (!dlDestPicked) setLog((x) => x + t("tools.dlPickFolder"))
+      return
+    }
+    if (!relStreamComplete) {
+      setLog((x) => x + t("tools.dlReleasesWaitEnrich") + "\n")
       return
     }
     const list = relPayload.entries.filter((e) => relSel.has(e.id))
@@ -1009,14 +1042,11 @@ export function ToolsView({
           t("tools.dlStart", { path: rootLabel }) +
           ` — ${list.length} album(s)\n`,
       )
-      let userAborted = false
       for (let i = 0; i < list.length; i += 1) {
         const item = list[i]!
         setDlProg({ current: i + 1, total: list.length })
         if (multiRelease) setDlTrackProg({ current: 0, total: 0 })
         setLog((x) => x + t("tools.dlBatchLine", { i: i + 1, n: list.length, title: item.title }))
-        const ac = new AbortController()
-        dlAbortRef.current = ac
         try {
           const r = await runYtdlpDownload(
             item.url,
@@ -1024,7 +1054,6 @@ export function ToolsView({
             multiRelease
               ? (p) => setDlTrackProg({ current: p.current, total: p.total })
               : undefined,
-            ac.signal,
           )
           const detail = ytdlpLogDetailForUser(r)
           setLog(
@@ -1036,19 +1065,10 @@ export function ToolsView({
                   (detail ? t("tools.dlErrDetail", { detail }) : "")),
           )
         } catch (e) {
-          if (isAbortError(e)) {
-            setLog((x) => x + t("tools.dlCancelled"))
-            userAborted = true
-            break
-          }
           setLog((x) => x + t("tools.dlFail", { e: String((e as Error)?.message || e) }))
-        } finally {
-          dlAbortRef.current = null
         }
       }
-      if (!userAborted) {
-        setDlProg({ current: list.length, total: list.length })
-      }
+      setDlProg({ current: list.length, total: list.length })
       if (multiRelease) setDlTrackProg(null)
       await onRefreshLibrary()
       if (replaceSnap && indexBefore) {
@@ -1447,6 +1467,7 @@ export function ToolsView({
                   <ul
                     className="tools-dl-releases__list tools-dl-releases__list--grid"
                     aria-label={t("tools.dlReleasesListTitle")}
+                    aria-busy={!relStreamComplete}
                   >
                     {relPayload.entries.map((e) => (
                       <li key={e.id} className="tools-dl-releases__row">
@@ -1474,7 +1495,38 @@ export function ToolsView({
                         </label>
                       </li>
                     ))}
+                    {relStreamTotal != null && !relStreamComplete
+                      ? Array.from(
+                          {
+                            length: Math.max(
+                              0,
+                              relStreamTotal - relPayload.entries.length,
+                            ),
+                          },
+                          (_, sk) => (
+                            <li
+                              key={`rel-sk-${sk}`}
+                              className="tools-dl-releases__row tools-dl-releases__row--skeleton"
+                              aria-hidden
+                            >
+                              <div className="tools-dl-releases__check tools-dl-releases__check--skeleton">
+                                <span className="tools-dl-releases__sk-pad" />
+                                <div className="tools-dl-releases__sk-text">
+                                  <div className="tools-dl-releases__skeleton-bar" />
+                                  <div className="tools-dl-releases__skeleton-bar tools-dl-releases__skeleton-bar--sub" />
+                                </div>
+                                <div className="tools-dl-releases__skeleton-bar tools-dl-releases__skeleton-bcount" />
+                              </div>
+                            </li>
+                          ),
+                        )
+                      : null}
                   </ul>
+                  {relPayload && !relStreamComplete ? (
+                    <p className="subtle sm tools-dl-releases__enrich" role="status">
+                      {t("tools.dlReleasesEnriching")}
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
               <div className="studio-inline-actions studio-inline-actions--spaced">
@@ -1490,15 +1542,17 @@ export function ToolsView({
                       : t("tools.dlLoadReleases")}
                   </button>
                 ) : dlBusy ? (
-                  <button type="button" className="btn secondary" onClick={cancelDownload}>
-                    {t("tools.dlCancelDownload")}
-                  </button>
+                  <span className="subtle sm" role="status">
+                    {t("tools.inProgress")}
+                  </span>
                 ) : (
                   <button
                     type="button"
                     className="btn"
                     onClick={runReleasesDl}
-                    disabled={!dlDestPicked || relSel.size === 0}
+                    disabled={
+                      !dlDestPicked || relSel.size === 0 || !relStreamComplete
+                    }
                   >
                     {t("tools.dlDownloadSelected")}
                   </button>
@@ -1508,9 +1562,9 @@ export function ToolsView({
           ) : (
             <div className="studio-inline-actions studio-inline-actions--spaced">
               {dlBusy ? (
-                <button type="button" className="btn secondary" onClick={cancelDownload}>
-                  {t("tools.dlCancelDownload")}
-                </button>
+                <span className="subtle sm" role="status">
+                  {t("tools.inProgress")}
+                </span>
               ) : (
                 <button
                   type="button"
