@@ -32,6 +32,7 @@ import {
   sanitizeTrackTitlesFullLibrary,
   sanitizeTrackTitlesInAlbumDir,
   saveTrackManualMeta,
+  pruneOrphanTrackMetaInAlbumDir,
 } from "./albumInfo.mjs"
 import {
   buildDashboard,
@@ -49,6 +50,11 @@ import {
 } from "./activityLog.mjs"
 import multer from "multer"
 import { streamKordBackupZip, restoreKordFromZipBuffer } from "./backupKord.mjs"
+import { fetchYoutubeMusicBrowseReleasesList } from "./youtubeMusicBrowse.mjs"
+import {
+  fetchYoutubeWebReleasesList,
+  isYoutubeWebReleasesPageUrl,
+} from "./youtubeWebReleasesInnertube.mjs"
 
 const execFileAsync = promisify(execFile)
 
@@ -784,6 +790,22 @@ function isYoutubeReleasesTabUrl(value) {
   }
 }
 
+/** Pagina «Album» / browse su YouTube Music (elenco album per artista). */
+function isYoutubeMusicBrowseUrl(value) {
+  try {
+    const u = new URL(String(value).trim())
+    const h = u.hostname.replace(/^www\./, "").toLowerCase()
+    if (!h.endsWith("music.youtube.com")) return false
+    return u.pathname.includes("/browse")
+  } catch {
+    return false
+  }
+}
+
+function isYoutubeMultiAlbumListUrl(value) {
+  return isYoutubeReleasesTabUrl(value) || isYoutubeMusicBrowseUrl(value)
+}
+
 app.post("/api/youtube-releases-list", async (req, res) => {
   if (process.env.ENABLE_YTDLP === "0") {
     return sendError(res, 403, "Download disabled (ENABLE_YTDLP=0)")
@@ -792,31 +814,71 @@ app.post("/api/youtube-releases-list", async (req, res) => {
   if (!/^https?:\/\//i.test(url)) {
     return sendError(res, 400, "Invalid URL")
   }
-  if (!isYoutubeReleasesTabUrl(url)) {
+  if (!isYoutubeMultiAlbumListUrl(url)) {
     return sendError(
       res,
       400,
-      "URL must be a YouTube channel releases page (e.g. …/releases).",
+      "URL must be a YouTube /releases tab or a YouTube Music /browse/… album list page.",
     )
   }
   const program = resolveYtdlpPath()
-  const args = [
-    "-J",
-    "--flat-playlist",
-    "--no-download",
-    "--no-warnings",
-    ...ytdlpCookieArgs(),
-    url,
-  ]
   try {
-    const jsonText = execFileSync(program, args, {
-      maxBuffer: 32 * 1024 * 1024,
-      encoding: "utf8",
-      ...ytdlpChildExecOptions(),
-    })
-    const data = parseYtdlpJsonStdout(jsonText)
-    if (!data) {
-      return sendError(res, 500, "yt-dlp returned no parseable JSON")
+    let data = null
+    if (isYoutubeMusicBrowseUrl(url)) {
+      const ytm = await fetchYoutubeMusicBrowseReleasesList(url)
+      if (ytm.error) {
+        return sendError(res, 400, String(ytm.error))
+      }
+      if (!ytm.entries.length) {
+        return sendError(
+          res,
+          400,
+          "No releases found on this YouTube Music browse page (Innertube).",
+        )
+      }
+      data = {
+        entries: ytm.entries,
+        title: ytm.title,
+        uploader: ytm.uploader,
+        channel_url: ytm.channel_url,
+      }
+    } else {
+      const preferInnertube =
+        String(process.env.KORD_YT_WEB_RELEASES_INNERTUBE ?? "1").trim() !== "0"
+      if (preferInnertube && isYoutubeWebReleasesPageUrl(url)) {
+        try {
+          const web = await fetchYoutubeWebReleasesList(url)
+          if (!web.error && web.entries.length) {
+            data = {
+              entries: web.entries,
+              title: web.title,
+              uploader: web.uploader,
+              channel_url: web.channel_url,
+            }
+          }
+        } catch {
+          /* yt-dlp sotto */
+        }
+      }
+      if (!data) {
+        const args = [
+          "-J",
+          "--flat-playlist",
+          "--no-download",
+          "--no-warnings",
+          ...ytdlpCookieArgs(),
+          url,
+        ]
+        const jsonText = execFileSync(program, args, {
+          maxBuffer: 32 * 1024 * 1024,
+          encoding: "utf8",
+          ...ytdlpChildExecOptions(),
+        })
+        data = parseYtdlpJsonStdout(jsonText)
+        if (!data) {
+          return sendError(res, 500, "yt-dlp returned no parseable JSON")
+        }
+      }
     }
     const { entries, listTitle, uploader, channelUrl } =
       buildYoutubeReleasesListEntries(data)
@@ -1384,6 +1446,31 @@ app.post("/api/track-info/save", async (req, res) => {
       detail: `${fileName}: ${Object.keys(safe).join(", ")}`,
     })
     return res.json({ ok: true, relPath, meta })
+  } catch (error) {
+    return sendError(res, 500, String(error?.message || error))
+  }
+})
+
+app.post("/api/track-info/prune-orphans", async (req, res) => {
+  const root = musicRootFromReq(req)
+  const albumPath = safeRelSeg(String(req.body?.albumPath || ""))
+  if (!albumPath) return sendError(res, 400, "albumPath is required")
+  try {
+    const full = path.join(root, albumPath.replaceAll("/", path.sep))
+    if (!underRoot(full, root) || !existsSync(full)) {
+      return sendError(res, 400, "Folder does not exist")
+    }
+    if (!statSync(full).isDirectory()) return sendError(res, 400, "Not a directory")
+    const r = await pruneOrphanTrackMetaInAlbumDir(full)
+    if (r.removed.length) {
+      void actLog(req, {
+        kind: "library",
+        action: "track_metadata_prune_orphans",
+        folder: albumPath,
+        detail: `${r.removed.length} key(s): ${r.removed.slice(0, 12).join(", ")}${r.removed.length > 12 ? "…" : ""}`,
+      })
+    }
+    return sendOk(res, { albumPath, removed: r.removed, written: r.written })
   } catch (error) {
     return sendError(res, 500, String(error?.message || error))
   }

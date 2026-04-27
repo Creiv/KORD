@@ -21,6 +21,7 @@ import {
   sanitizeTrackTitles,
   saveTrackInfoManual,
   searchArtwork,
+  pruneOrphanTrackMetaForAlbum,
 } from "../lib/api";
 import type { ArtworkHit, YoutubeReleasesList } from "../lib/api";
 import { fmtDate } from "../lib/metaFormat";
@@ -32,7 +33,6 @@ import {
   type FolderReplaceSnapshot,
 } from "../lib/downloadFolderReplace";
 import { ytdlpLogDetailForUser } from "../lib/ytdlpLogFilter";
-import { classifyYoutubeUrl } from "../lib/youtubeUrl";
 import { formatTrackGenresForDisplay } from "../lib/genres";
 import { computeGenreAutoAssignments } from "../lib/genreAutoAssign";
 import type {
@@ -41,6 +41,11 @@ import type {
   LibraryIndex,
   LibraryResponse,
 } from "../types";
+import {
+  urlMatchesStudioDlMode,
+  type DlVideoMode,
+  type DlYtSource,
+} from "../lib/youtubeUrl";
 import {
   UiChevronRight,
   UiDownload,
@@ -198,8 +203,13 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
     setTitleSanBusy,
     genreAutoBusy,
     setGenreAutoBusy,
+    trackPruneBusy,
+    setTrackPruneBusy,
+    trackPruneProg,
+    setTrackPruneProg,
     stopMetaAll,
     stopTrackAll,
+    stopTrackPrune,
   } = useToolsActivity();
   const [genreAutoProg, setGenreAutoProg] = useState<{
     current: number;
@@ -207,6 +217,8 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
   } | null>(null);
   const [preset, setPreset] = useState<string | null>(null);
   const [url, setUrl] = useState("");
+  const [dlYtSource, setDlYtSource] = useState<DlYtSource>("video");
+  const [dlUrlMode, setDlUrlMode] = useState<DlVideoMode>("single");
   const [dlList, setDlList] = useState<{
     path: string;
     parent: string;
@@ -340,12 +352,11 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
   }, [library, albumForCover]);
 
   useEffect(() => {
-    if (classifyYoutubeUrl(url) === "releases") return;
     setRelPayload(null);
     setRelStreamTotal(null);
     setRelStreamComplete(false);
     setRelSel(new Set());
-  }, [url]);
+  }, [url, dlUrlMode, dlYtSource]);
 
   useEffect(() => {
     loadDlFs("");
@@ -404,6 +415,26 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
     );
   }, [library, sortLocale]);
 
+  const studioMetaBusy = useMemo(
+    () =>
+      metaBusy ||
+      metaAllBusy ||
+      trackMetaBusy ||
+      trackAllBusy ||
+      genreAutoBusy ||
+      trackPruneBusy ||
+      titleSanBusy,
+    [
+      metaBusy,
+      metaAllBusy,
+      trackMetaBusy,
+      trackAllBusy,
+      genreAutoBusy,
+      trackPruneBusy,
+      titleSanBusy,
+    ]
+  );
+
   const metaAlbumsForPick = useMemo(() => {
     if (!library || !metaArtistName)
       return [] as { relPath: string; name: string }[];
@@ -436,7 +467,21 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
       );
   }, [library, coverPickArtist, sortLocale]);
 
-  const dlKind = useMemo(() => classifyYoutubeUrl(url), [url]);
+  const dlUrlPlaceholder = useMemo(() => {
+    if (dlYtSource === "music") return t("tools.dlUrlPhYtMusic");
+    if (dlUrlMode === "single") return t("tools.dlUrlPhSingle");
+    if (dlUrlMode === "playlist") return t("tools.dlUrlPhPlaylist");
+    return t("tools.dlUrlPhReleases");
+  }, [dlYtSource, dlUrlMode, t]);
+
+  const showMultiAlbumPicker =
+    dlYtSource === "music" ||
+    (dlYtSource === "video" && dlUrlMode === "releases");
+
+  const dlUrlValid = useMemo(
+    () => urlMatchesStudioDlMode(url, dlYtSource, dlUrlMode),
+    [url, dlYtSource, dlUrlMode]
+  );
 
   const otherSharedAccounts = useMemo(
     () => sharedAccounts.filter((a) => a.id !== (localSessionAccount || "")),
@@ -751,6 +796,68 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
     onRefreshLibrary();
   };
 
+  const runPruneOrphanTrackMeta = async () => {
+    if (!library) return;
+    if (!window.confirm(t("tools.trackMetaPruneConfirm"))) return;
+    stopTrackPrune.current = false;
+    setTrackPruneBusy(true);
+    setTrackPruneProg(null);
+    const list: string[] = [];
+    for (const a of library.artists) {
+      for (const al of a.albums) {
+        const folder = al.relPath?.trim() || `${a.name}/${al.name}`;
+        if (folder) list.push(folder);
+      }
+    }
+    setMetaLog((s) => s + t("tools.trackMetaPruneStart", { n: list.length }));
+    let albumsTouched = 0;
+    let keysRemoved = 0;
+    for (let i = 0; i < list.length; i += 1) {
+      if (stopTrackPrune.current) {
+        setMetaLog((s) => s + t("tools.trackMetaPruneStop"));
+        setTrackPruneProg(null);
+        setTrackPruneBusy(false);
+        onRefreshLibrary();
+        return;
+      }
+      const albumPath = list[i]!;
+      setTrackPruneProg({ current: i + 1, total: list.length });
+      try {
+        const r = await pruneOrphanTrackMetaForAlbum(albumPath);
+        if (r.removed.length) {
+          albumsTouched += 1;
+          keysRemoved += r.removed.length;
+          const files =
+            r.removed.length > 6
+              ? `${r.removed.slice(0, 6).join(", ")}…`
+              : r.removed.join(", ");
+          setMetaLog(
+            (s) => s + t("tools.trackMetaPruneAlbum", { path: albumPath, files })
+          );
+        }
+      } catch (e) {
+        setMetaLog(
+          (s) =>
+            s +
+            t("tools.trackMetaPruneItemErr", {
+              i: i + 1,
+              total: list.length,
+              path: albumPath,
+              err: String((e as Error)?.message || e),
+            })
+        );
+      }
+    }
+    setTrackPruneProg(null);
+    setTrackPruneBusy(false);
+    setMetaLog(
+      (s) =>
+        s +
+        t("tools.trackMetaPruneDone", { a: albumsTouched, k: keysRemoved })
+    );
+    onRefreshLibrary();
+  };
+
   const runGenreAutoPreview = useCallback(() => {
     if (!libraryIndex) {
       setMetaLog((s) => s + t("tools.genreAutoNoIndex"));
@@ -899,7 +1006,11 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
 
   const runDl = () => {
     if (!url.trim()) return;
-    if (dlKind === "releases") {
+    if (!urlMatchesStudioDlMode(url, dlYtSource, dlUrlMode)) {
+      setLog((x) => x + t("tools.dlUrlMismatch"));
+      return;
+    }
+    if (showMultiAlbumPicker) {
       setLog((x) => x + t("tools.dlNeedLoadReleases"));
       return;
     }
@@ -1004,6 +1115,10 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
 
   const loadReleasesCatalog = () => {
     if (!url.trim()) return;
+    if (!urlMatchesStudioDlMode(url, dlYtSource, dlUrlMode)) {
+      setLog((x) => x + t("tools.dlUrlMismatch"));
+      return;
+    }
     if (!dlDestPicked) {
       setLog((x) => x + t("tools.dlPickFolder"));
       return;
@@ -1069,6 +1184,10 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
   };
 
   const runReleasesDl = () => {
+    if (!urlMatchesStudioDlMode(url, dlYtSource, dlUrlMode)) {
+      setLog((x) => x + t("tools.dlUrlMismatch"));
+      return;
+    }
     if (!relPayload || !dlDestPicked) {
       if (!dlDestPicked) setLog((x) => x + t("tools.dlPickFolder"));
       return;
@@ -1163,17 +1282,10 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
     });
   };
 
-  const relTypeLabel = () => {
-    if (dlKind === "single") return t("tools.dlTypeSingle");
-    if (dlKind === "playlist") return t("tools.dlTypePlaylist");
-    if (dlKind === "releases") return t("tools.dlTypeReleases");
-    return t("tools.dlTypeOther");
-  };
-
   const dlProgNorm = normalizeDlProgress(dlProg);
   const dlTrackNorm = normalizeTrackInAlbumProgress(dlTrackProg);
   const showReleaseMultiTrackBar =
-    dlKind === "releases" &&
+    showMultiAlbumPicker &&
     dlProgNorm != null &&
     dlProgNorm.tot > 1 &&
     (dlBusy || dlTrackProg != null);
@@ -1566,21 +1678,111 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
 
         <div className="studio-panel">
           <h4 className="studio-panel-title">{t("tools.dlLinkSection")}</h4>
-          <p className="subtle sm tools-dl-detected">
-            <span className="tools-dl-detected__label">
-              {t("tools.dlTypeLabel")}:
-            </span>{" "}
-            <strong>{relTypeLabel()}</strong>
-          </p>
+          <div className="tools-dl-modes">
+            <div className="tools-dl-mode">
+              <span className="tools-dl-mode__label subtle sm">
+                {t("tools.dlYtVideoLabel")}
+              </span>
+              <div
+                className="tools-dl-mode__seg"
+                role="group"
+                aria-label={t("tools.dlYtVideoLabel")}
+              >
+                <button
+                  type="button"
+                  className={`tools-dl-mode__btn${dlYtSource === "video" && dlUrlMode === "single" ? " is-on" : ""}`}
+                  aria-pressed={
+                    dlYtSource === "video" && dlUrlMode === "single"
+                  }
+                  onClick={() => {
+                    setDlYtSource("video");
+                    setDlUrlMode("single");
+                  }}
+                >
+                  {t("tools.dlTypeSingle")}
+                </button>
+                <button
+                  type="button"
+                  className={`tools-dl-mode__btn${dlYtSource === "video" && dlUrlMode === "playlist" ? " is-on" : ""}`}
+                  aria-pressed={
+                    dlYtSource === "video" && dlUrlMode === "playlist"
+                  }
+                  onClick={() => {
+                    setDlYtSource("video");
+                    setDlUrlMode("playlist");
+                  }}
+                >
+                  {t("tools.dlTypePlaylist")}
+                </button>
+                <button
+                  type="button"
+                  className={`tools-dl-mode__btn${dlYtSource === "video" && dlUrlMode === "releases" ? " is-on" : ""}`}
+                  aria-pressed={
+                    dlYtSource === "video" && dlUrlMode === "releases"
+                  }
+                  onClick={() => {
+                    setDlYtSource("video");
+                    setDlUrlMode("releases");
+                  }}
+                >
+                  {t("tools.dlTypeReleases")}
+                </button>
+              </div>
+              <span className="tools-dl-mode__help-wrap">
+                <button
+                  type="button"
+                  className="tools-dl-mode__help"
+                  aria-label={t("tools.dlModeHelpAria")}
+                >
+                  ?
+                </button>
+                <span className="tools-dl-mode__tip" role="tooltip">
+                  {t("tools.dlModeGuide")}
+                </span>
+              </span>
+            </div>
+            <div className="tools-dl-mode">
+              <span className="tools-dl-mode__label subtle sm">
+                {t("tools.dlYtMusicLabel")}
+              </span>
+              <div
+                className="tools-dl-mode__seg tools-dl-mode__seg--one"
+                role="group"
+                aria-label={t("tools.dlYtMusicLabel")}
+              >
+                <button
+                  type="button"
+                  className={`tools-dl-mode__btn${dlYtSource === "music" ? " is-on" : ""}`}
+                  aria-pressed={dlYtSource === "music"}
+                  onClick={() => setDlYtSource("music")}
+                >
+                  {t("tools.dlYtMusicMode")}
+                </button>
+              </div>
+              <span className="tools-dl-mode__help-wrap">
+                <button
+                  type="button"
+                  className="tools-dl-mode__help"
+                  aria-label={t("tools.dlYtMusicHelpAria")}
+                >
+                  ?
+                </button>
+                <span className="tools-dl-mode__tip" role="tooltip">
+                  {t("tools.dlYtMusicGuide")}
+                </span>
+              </span>
+            </div>
+          </div>
           <input
             type="url"
             className="w-full"
-            placeholder={t("tools.dlUrlPh")}
+            placeholder={dlUrlPlaceholder}
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             autoComplete="off"
+            aria-invalid={url.trim() !== "" && !dlUrlValid}
           />
-          {dlKind === "releases" ? (
+          {showMultiAlbumPicker ? (
             <div className="tools-dl-releases">
               {relPayload ? (
                 <div className="tools-dl-releases__picks tools-dl-releases__picks--full">
@@ -1690,7 +1892,12 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                     type="button"
                     className="btn"
                     onClick={loadReleasesCatalog}
-                    disabled={relLoadBusy || !url.trim() || !dlDestPicked}
+                    disabled={
+                      relLoadBusy ||
+                      !url.trim() ||
+                      !dlDestPicked ||
+                      !dlUrlValid
+                    }
                   >
                     {relLoadBusy
                       ? t("tools.dlReleasesLoading")
@@ -1706,7 +1913,10 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                     className="btn"
                     onClick={runReleasesDl}
                     disabled={
-                      !dlDestPicked || relSel.size === 0 || !relStreamComplete
+                      !dlDestPicked ||
+                      relSel.size === 0 ||
+                      !relStreamComplete ||
+                      !dlUrlValid
                     }
                   >
                     {t("tools.dlDownloadSelected")}
@@ -1725,7 +1935,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                   type="button"
                   className="btn"
                   onClick={runDl}
-                  disabled={!url.trim() || !dlDestPicked}
+                  disabled={!url.trim() || !dlDestPicked || !dlUrlValid}
                 >
                   {t("tools.downloadRun")}
                 </button>
@@ -1946,7 +2156,20 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
         </div>
 
         <div className="studio-panel">
-          <h4 className="studio-panel-title">{t("tools.actions")}</h4>
+          <div className="studio-panel-title-row">
+            <h4 className="studio-panel-title">{t("tools.actions")}</h4>
+            <button
+              type="button"
+              className="btn secondary sm"
+              onClick={() => {
+                void runPruneOrphanTrackMeta();
+              }}
+              disabled={!library || studioMetaBusy}
+              title={t("tools.trackMetaPruneTitle")}
+            >
+              {trackPruneBusy ? "…" : t("tools.trackMetaPruneOrphans")}
+            </button>
+          </div>
           <div className="studio-action-groups">
             <div className="studio-action-group">
               <span className="studio-action-group-label">
@@ -1957,7 +2180,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                   type="button"
                   className="btn secondary sm"
                   onClick={setMetaFromCurrent}
-                  disabled={!p.current}
+                  disabled={!p.current || studioMetaBusy}
                 >
                   {t("tools.fromNowPlaying")}
                 </button>
@@ -1965,7 +2188,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                   type="button"
                   className="btn secondary"
                   onClick={fetchOneAlbumMeta}
-                  disabled={metaBusy || !metaAlbumPath}
+                  disabled={!metaAlbumPath || studioMetaBusy}
                 >
                   {metaBusy
                     ? t("tools.fetchingMeta")
@@ -1982,7 +2205,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                   type="button"
                   className="btn"
                   onClick={runMetaScanAll}
-                  disabled={metaAllBusy || !library || genreAutoBusy}
+                  disabled={!library || studioMetaBusy}
                   title={t("tools.scanAlbumsTitle")}
                 >
                   {metaAllBusy
@@ -2000,7 +2223,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                   type="button"
                   className="btn secondary sm"
                   onClick={fetchCurrentTrackMeta}
-                  disabled={!p.current || trackMetaBusy || genreAutoBusy}
+                  disabled={!p.current || studioMetaBusy}
                 >
                   {trackMetaBusy ? "…" : t("tools.currentTrackMeta")}
                 </button>
@@ -2008,7 +2231,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                   type="button"
                   className="btn sm"
                   onClick={runTrackScanAll}
-                  disabled={!library || trackAllBusy || genreAutoBusy}
+                  disabled={!library || studioMetaBusy}
                 >
                   {trackAllBusy
                     ? t("tools.scanning")
@@ -2027,7 +2250,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                 <button
                   type="button"
                   className="btn secondary sm"
-                  disabled={!libraryIndex || genreAutoBusy}
+                  disabled={!libraryIndex || studioMetaBusy}
                   onClick={runGenreAutoPreview}
                 >
                   {genreAutoBusy ? "…" : t("tools.genreAutoPreview")}
@@ -2035,7 +2258,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                 <button
                   type="button"
                   className="btn sm"
-                  disabled={!libraryIndex || genreAutoBusy}
+                  disabled={!libraryIndex || studioMetaBusy}
                   onClick={() => {
                     void runGenreAutoApply();
                   }}
@@ -2057,7 +2280,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                 <button
                   type="button"
                   className="btn secondary sm"
-                  disabled={!metaAlbumPath || titleSanBusy}
+                  disabled={!metaAlbumPath || studioMetaBusy}
                   onClick={() => runSanitizeTitles("album", true)}
                 >
                   {titleSanBusy ? "…" : t("tools.previewAlbum")}
@@ -2065,7 +2288,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                 <button
                   type="button"
                   className="btn secondary sm"
-                  disabled={!metaAlbumPath || titleSanBusy}
+                  disabled={!metaAlbumPath || studioMetaBusy}
                   onClick={() => runSanitizeTitles("album", false)}
                 >
                   {titleSanBusy ? "…" : t("tools.applyAlbum")}
@@ -2075,7 +2298,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                 <button
                   type="button"
                   className="btn secondary sm"
-                  disabled={!library || titleSanBusy}
+                  disabled={!library || studioMetaBusy}
                   onClick={() => runSanitizeTitles("all", true)}
                 >
                   {titleSanBusy ? "…" : t("tools.previewLibrary")}
@@ -2083,7 +2306,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                 <button
                   type="button"
                   className="btn sm"
-                  disabled={!library || titleSanBusy}
+                  disabled={!library || studioMetaBusy}
                   onClick={() => runSanitizeTitles("all", false)}
                 >
                   {titleSanBusy ? "…" : t("tools.applyLibrary")}
@@ -2163,7 +2386,31 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
               </div>
             </div>
           ) : null}
-          {(metaAllBusy || trackAllBusy) && (
+          {trackPruneBusy && trackPruneProg && trackPruneProg.total > 0 ? (
+            <div className="dl-progress-wrap">
+              <div className="dl-progress-top">
+                <span>{t("tools.progressTrackMetaPrune")}</span>
+                <span>
+                  {trackPruneProg.current}/{trackPruneProg.total}
+                </span>
+              </div>
+              <div className="dl-progress-rail">
+                <div
+                  className="dl-progress-fill"
+                  style={{
+                    width: `${Math.max(
+                      2,
+                      Math.min(
+                        100,
+                        (trackPruneProg.current / trackPruneProg.total) * 100
+                      )
+                    )}%`,
+                  }}
+                />
+              </div>
+            </div>
+          ) : null}
+          {(metaAllBusy || trackAllBusy || trackPruneBusy) && (
             <div className="studio-stop-row">
               {metaAllBusy ? (
                 <button
@@ -2185,6 +2432,17 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                   }}
                 >
                   {t("tools.stopTracks")}
+                </button>
+              ) : null}
+              {trackPruneBusy ? (
+                <button
+                  type="button"
+                  className="btn secondary sm"
+                  onClick={() => {
+                    stopTrackPrune.current = true;
+                  }}
+                >
+                  {t("tools.stopTrackPrune")}
                 </button>
               ) : null}
             </div>

@@ -404,13 +404,27 @@ export const IT: Record<string, string> = {
   "tools.downloadTitle": "Download",
   "tools.dlSaveFolder": "Cartella di salvataggio (sotto Musica)",
   "tools.dlLinkSection": "Link",
-  "tools.dlTypeLabel": "Tipo rilevato",
-  "tools.dlTypeSingle": "Video singolo",
-  "tools.dlTypePlaylist": "Album o playlist",
-  "tools.dlTypeReleases": "Release (più album)",
-  "tools.dlTypeOther": "Altro (download generico)",
-  "tools.dlUrlPh":
-    "es. link watch, playlist ?list=…, oppure @artista/releases",
+  "tools.dlTypeSingle": "Video Singolo",
+  "tools.dlTypePlaylist": "Album o Playlist",
+  "tools.dlTypeReleases": "Release",
+  "tools.dlYtVideoLabel": "Da YT Video",
+  "tools.dlYtMusicLabel": "Da YT Music",
+  "tools.dlYtMusicMode": "Album Artista",
+  "tools.dlYtMusicHelpAria": "Guida Album Artista (YouTube Music)",
+  "tools.dlYtMusicGuide":
+    "Da pagina di visualizzazione degli album di un artista [«browse» nell’URL]",
+  "tools.dlUrlPhYtMusic": "https://music.youtube.com/browse/…",
+  "tools.dlUrlMismatch":
+    "L’URL non corrisponde al tipo selezionato (Video singolo / Album o playlist / Release / Album Artista).\n",
+  "tools.dlModeHelpAria":
+    "Guida: Video Singolo, Album o Playlist, pagina Release",
+  "tools.dlModeGuide":
+    "Video Singolo: video non in playlist convertito in audio [«watch» nell’URL]\n\nAlbum o Playlist: video in una playlist o pagina playlist [«playlist» / «watch» nell’URL]\n\nRelease: pagina Uscite (Releases in inglese) di un artista [«releases» nell’URL]",
+  "tools.dlUrlPhSingle": "https://youtube.com/watch?v=… o youtu.be/…",
+  "tools.dlUrlPhPlaylist":
+    "https://youtube.com/playlist?list=… oppure watch?v=…&list=…",
+  "tools.dlUrlPhReleases":
+    "https://music.youtube.com/…/releases oppure …/channel/…/releases",
   "tools.dlLoadReleases": "Carica elenco release",
   "tools.dlReleasesLoading": "Caricamento release…",
   "tools.dlReleasesEnriching": "Recupero del numero brani per ogni uscita…",
@@ -500,6 +514,19 @@ export const IT: Record<string, string> = {
   "tools.applyLibrary": "Applica a tutta la libreria",
   "tools.progressAlbumMeta": "Metadati album (MB / TheAudioDB / iTunes)",
   "tools.progressTrackMeta": "Metadati brani",
+  "tools.progressTrackMetaPrune": "Voci obsolete in kord-trackinfo",
+  "tools.trackMetaPruneOrphans": "Rimuovi metadati brani assenti",
+  "tools.trackMetaPruneTitle":
+    "Per ogni cartella album, elimina da kord-trackinfo le chiavi senza file audio corrispondente su disco",
+  "tools.trackMetaPruneConfirm":
+    "Scansionare tutti gli album e rimuovere da kord-trackinfo le voci relative a file non più presenti in cartella? I file audio non vengono cancellati.",
+  "tools.trackMetaPruneStart": "Pulizia metadati brani assenti: {{n}} cartelle album.\n",
+  "tools.trackMetaPruneAlbum": "  {{path}}: rimossi {{files}}\n",
+  "tools.trackMetaPruneDone":
+    "Pulizia completata. Album aggiornati: {{a}} · voci rimosse: {{k}}.\n",
+  "tools.trackMetaPruneStop": "Pulizia interrotta.\n",
+  "tools.trackMetaPruneItemErr": "[{{i}}/{{total}}] {{path}}: {{err}}\n",
+  "tools.stopTrackPrune": "Interrompi pulizia",
   "tools.stopAlbums": "Interrompi album",
   "tools.stopTracks": "Interrompi brani",
   "tools.coversTitle": "Copertine",

@@ -784,6 +784,19 @@ export async function saveTrackInfoManual(
   return json as { ok: true; relPath: string; meta: Record<string, unknown> }
 }
 
+export async function pruneOrphanTrackMetaForAlbum(
+  albumPath: string,
+): Promise<{ albumPath: string; removed: string[]; written: boolean }> {
+  const response = await fetch("/api/track-info/prune-orphans", {
+    method: "POST",
+    headers: accountHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ albumPath }),
+  })
+  return unwrap<{ albumPath: string; removed: string[]; written: boolean }>(
+    response,
+  )
+}
+
 export type SanitizeTrackTitlesOneAlbum = {
   changes: { fileName: string; from: string; to: string }[]
   written: boolean

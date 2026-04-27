@@ -42,8 +42,13 @@ type Ctx = {
   setTitleSanBusy: Dispatch<SetStateAction<boolean>>
   genreAutoBusy: boolean
   setGenreAutoBusy: Dispatch<SetStateAction<boolean>>
+  trackPruneBusy: boolean
+  setTrackPruneBusy: Dispatch<SetStateAction<boolean>>
+  trackPruneProg: Prog
+  setTrackPruneProg: Dispatch<SetStateAction<Prog>>
   stopMetaAll: MutableRefObject<boolean>
   stopTrackAll: MutableRefObject<boolean>
+  stopTrackPrune: MutableRefObject<boolean>
   toolsAnyBusy: boolean
 }
 
@@ -64,8 +69,11 @@ export function ToolsActivityProvider({ children }: { children: ReactNode }) {
   const [trackScanProg, setTrackScanProg] = useState<Prog>(null)
   const [titleSanBusy, setTitleSanBusy] = useState(false)
   const [genreAutoBusy, setGenreAutoBusy] = useState(false)
+  const [trackPruneBusy, setTrackPruneBusy] = useState(false)
+  const [trackPruneProg, setTrackPruneProg] = useState<Prog>(null)
   const stopMetaAll = useRef(false)
   const stopTrackAll = useRef(false)
+  const stopTrackPrune = useRef(false)
 
   const toolsAnyBusy = useMemo(
     () =>
@@ -77,7 +85,8 @@ export function ToolsActivityProvider({ children }: { children: ReactNode }) {
       trackMetaBusy ||
       trackAllBusy ||
       titleSanBusy ||
-      genreAutoBusy,
+      genreAutoBusy ||
+      trackPruneBusy,
     [
       dlBusy,
       mkBusy,
@@ -88,6 +97,7 @@ export function ToolsActivityProvider({ children }: { children: ReactNode }) {
       trackAllBusy,
       titleSanBusy,
       genreAutoBusy,
+      trackPruneBusy,
     ],
   )
 
@@ -121,8 +131,13 @@ export function ToolsActivityProvider({ children }: { children: ReactNode }) {
       setTitleSanBusy,
       genreAutoBusy,
       setGenreAutoBusy,
+      trackPruneBusy,
+      setTrackPruneBusy,
+      trackPruneProg,
+      setTrackPruneProg,
       stopMetaAll,
       stopTrackAll,
+      stopTrackPrune,
       toolsAnyBusy,
     }),
     [
@@ -140,6 +155,8 @@ export function ToolsActivityProvider({ children }: { children: ReactNode }) {
       trackScanProg,
       titleSanBusy,
       genreAutoBusy,
+      trackPruneBusy,
+      trackPruneProg,
       toolsAnyBusy,
     ],
   )

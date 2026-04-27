@@ -402,13 +402,27 @@ export const EN: Record<string, string> = {
   "tools.downloadTitle": "Download",
   "tools.dlSaveFolder": "Save folder (under Music)",
   "tools.dlLinkSection": "Link",
-  "tools.dlTypeLabel": "Detected",
   "tools.dlTypeSingle": "Single video",
   "tools.dlTypePlaylist": "Album or playlist",
   "tools.dlTypeReleases": "Releases (pick albums)",
-  "tools.dlTypeOther": "Other (generic download)",
-  "tools.dlUrlPh":
-    "e.g. watch URL, playlist ?list=…, or @artist/releases",
+  "tools.dlYtVideoLabel": "YouTube video",
+  "tools.dlYtMusicLabel": "YouTube Music",
+  "tools.dlYtMusicMode": "Artist albums",
+  "tools.dlYtMusicHelpAria": "Guide: artist albums page (YouTube Music)",
+  "tools.dlYtMusicGuide":
+    "From the artist’s album listing page [“browse” in the URL]",
+  "tools.dlUrlPhYtMusic": "https://music.youtube.com/browse/…",
+  "tools.dlUrlMismatch":
+    "The URL does not match the selected mode (single video / playlist / releases / YouTube Music albums).\n",
+  "tools.dlModeHelpAria":
+    "Guide: single video, album/playlist, artist Releases page",
+  "tools.dlModeGuide":
+    "Single video: a video not in a playlist, saved as audio [“watch” in the URL]\n\nAlbum or playlist: a video that’s in a playlist, or a playlist page [“playlist” / “watch” in the URL]\n\nReleases: an artist’s Releases page [“releases” in the URL]",
+  "tools.dlUrlPhSingle": "https://youtube.com/watch?v=… or youtu.be/…",
+  "tools.dlUrlPhPlaylist":
+    "https://youtube.com/playlist?list=… or watch?v=…&list=…",
+  "tools.dlUrlPhReleases":
+    "https://music.youtube.com/…/releases or …/channel/…/releases",
   "tools.dlLoadReleases": "Load release list",
   "tools.dlReleasesLoading": "Loading releases…",
   "tools.dlReleasesEnriching": "Getting track count for each release…",
@@ -498,6 +512,19 @@ export const EN: Record<string, string> = {
   "tools.applyLibrary": "Apply to entire library",
   "tools.progressAlbumMeta": "Album metadata (MB / TheAudioDB / iTunes)",
   "tools.progressTrackMeta": "Track metadata",
+  "tools.progressTrackMetaPrune": "Stale entries in kord-trackinfo",
+  "tools.trackMetaPruneOrphans": "Remove stale track metadata",
+  "tools.trackMetaPruneTitle":
+    "For each album folder, drop kord-trackinfo keys that do not match an audio file still on disk",
+  "tools.trackMetaPruneConfirm":
+    "Scan every album and remove kord-trackinfo entries for files that are no longer in the folder? Audio files are not deleted.",
+  "tools.trackMetaPruneStart": "Stale track metadata cleanup: {{n}} album folders.\n",
+  "tools.trackMetaPruneAlbum": "  {{path}}: removed {{files}}\n",
+  "tools.trackMetaPruneDone":
+    "Cleanup finished. Albums updated: {{a}} · entries removed: {{k}}.\n",
+  "tools.trackMetaPruneStop": "Cleanup stopped by user.\n",
+  "tools.trackMetaPruneItemErr": "[{{i}}/{{total}}] {{path}}: {{err}}\n",
+  "tools.stopTrackPrune": "Stop cleanup",
   "tools.stopAlbums": "Stop albums",
   "tools.stopTracks": "Stop tracks",
   "tools.coversTitle": "Cover art",

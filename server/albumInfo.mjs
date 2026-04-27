@@ -436,6 +436,41 @@ export function sanitizeLocalTrackTitleDisplay(raw, opts) {
  * @param {string} albumDir percorso assoluto album
  * @param {boolean} dryRun
  */
+/**
+ * Rimuove da kord-trackinfo (o legacy) le chiavi che non corrispondono a file audio presenti in cartella.
+ * @param {string} albumDir percorso assoluto album
+ * @returns {Promise<{ removed: string[]; written: boolean }>}
+ */
+export async function pruneOrphanTrackMetaInAlbumDir(albumDir) {
+  const readPath = pickTrackMetaPath(albumDir)
+  if (!existsSync(readPath)) return { removed: [], written: false }
+  let json = {}
+  try {
+    const raw = await fs.readFile(readPath, "utf8")
+    const j = JSON.parse(raw)
+    if (j && typeof j === "object" && !Array.isArray(j)) json = { ...j }
+  } catch {
+    return { removed: [], written: false }
+  }
+  const entries = await fs.readdir(albumDir, { withFileTypes: true })
+  const audioNames = new Set()
+  for (const e of entries) {
+    if (e.isFile() && AUDIO_RE.test(e.name)) audioNames.add(e.name)
+  }
+  const removed = []
+  const next = { ...json }
+  for (const k of Object.keys(next)) {
+    if (!audioNames.has(k)) {
+      removed.push(k)
+      delete next[k]
+    }
+  }
+  if (removed.length === 0) return { removed: [], written: false }
+  const writePath = path.join(albumDir, FILE_TRACK)
+  await fs.writeFile(writePath, JSON.stringify(next, null, 2), "utf8")
+  return { removed, written: true }
+}
+
 export async function sanitizeTrackTitlesInAlbumDir(albumDir, dryRun) {
   const changes = []
   const entries = await fs.readdir(albumDir, { withFileTypes: true })
