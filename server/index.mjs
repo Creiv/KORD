@@ -147,6 +147,33 @@ function winHideExec() {
   return process.platform === "win32" ? { windowsHide: true } : {}
 }
 
+/** Su Windows `child.kill` non ferma spesso l’albero yt-dlp (python/ffmpeg); usa taskkill /T /F. */
+function forceKillStudioYtdlp(child) {
+  if (!child || child.killed) return
+  if (process.platform === "win32" && child.pid != null) {
+    execFile(
+      "taskkill",
+      ["/PID", String(child.pid), "/T", "/F"],
+      { windowsHide: true },
+      (err) => {
+        if (err && !child.killed) {
+          try {
+            child.kill()
+          } catch {
+            /* ignore */
+          }
+        }
+      },
+    )
+    return
+  }
+  try {
+    child.kill("SIGTERM")
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Estrae JSON da stdout di yt-dlp -J (BOM, warning occasionali in coda al buffer). */
 function parseYtdlpJsonStdout(buf) {
   const s0 = String(buf ?? "").replace(/^\uFEFF/, "")
@@ -350,7 +377,7 @@ function ytdlpOutputTemplate(url) {
     const pl = isProbablyPlaylistUrl(url)
     if (host.includes("music.youtube.com")) {
       if (pl) {
-        return `%(playlist_title)s/${n} - ${YTDLP_NAME}.%(ext)s`
+        return `%(album|playlist_title)s/${n} - ${YTDLP_NAME}.%(ext)s`
       }
       return `%(album)s/${n} - ${YTDLP_NAME}.%(ext)s`
     }
@@ -1001,12 +1028,14 @@ app.post("/api/download-cancel", (req, res) => {
     return sendError(res, 404, "No active download")
   }
   entry.userCancelled = true
-  try {
-    entry.child.kill("SIGTERM")
-  } catch {
-    /* ignore */
-  }
-  if (process.platform !== "win32") {
+  if (process.platform === "win32") {
+    forceKillStudioYtdlp(entry.child)
+  } else {
+    try {
+      entry.child.kill("SIGTERM")
+    } catch {
+      /* ignore */
+    }
     if (entry.killTimer) clearTimeout(entry.killTimer)
     entry.killTimer = setTimeout(() => {
       try {
@@ -1017,6 +1046,23 @@ app.post("/api/download-cancel", (req, res) => {
     }, 4500)
   }
   return sendOk(res, { ok: true })
+})
+
+app.post("/api/download-flat-count", async (req, res) => {
+  if (process.env.ENABLE_YTDLP === "0") {
+    return sendError(res, 403, "Download disabled (ENABLE_YTDLP=0)")
+  }
+  const url = coerceYtdlpUrl(String(req.body?.url ?? ""))
+  if (!/^https?:\/\//i.test(url)) return sendError(res, 400, "Provide a valid http(s) URL")
+  try {
+    const program = resolveYtdlpPath()
+    const { timeoutMs } = releaseEnrichConfig()
+    const count = await ytdlpPlaylistTrackCount(program, url, Math.max(timeoutMs, 60_000))
+    if (count == null) return sendError(res, 502, "Could not resolve item count (yt-dlp)")
+    return sendOk(res, { count })
+  } catch (e) {
+    return sendError(res, 500, String(e?.message ?? e))
+  }
 })
 
 app.post("/api/download", async (req, res) => {
@@ -1046,6 +1092,7 @@ app.post("/api/download", async (req, res) => {
         args[oi + 1] = `${prefix}/${String(args[oi + 1]).replace(/^\//, "")}`
       }
     }
+    if (downloadKind === "download_single") args.push("--no-playlist")
     args.push(url)
     const result = { stdout: "", stderr: "", code: -1 }
     const command = `${program} ${args.map((arg) => (/\s/.test(arg) ? `"${arg}"` : arg)).join(" ")}`
@@ -1084,13 +1131,7 @@ app.post("/api/download", async (req, res) => {
     })
     entry.child = child
     const killYtdlpOnDisconnect = () => {
-      if (!child.killed) {
-        try {
-          child.kill("SIGTERM")
-        } catch {
-          /* ignore */
-        }
-      }
+      forceKillStudioYtdlp(child)
     }
     const onClientGone = () => killYtdlpOnDisconnect()
     req.on("aborted", onClientGone)

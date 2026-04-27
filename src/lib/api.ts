@@ -534,6 +534,20 @@ export async function cancelStudioDownload(downloadId: string): Promise<void> {
   }
 }
 
+export async function fetchDownloadFlatCount(url: string): Promise<number> {
+  const response = await fetch(apiUrl("/api/download-flat-count"), {
+    method: "POST",
+    headers: accountHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ url }),
+  })
+  const data = await unwrap<{ count: number }>(response)
+  const n = data.count
+  if (typeof n !== "number" || !Number.isFinite(n) || n < 0) {
+    throw new Error("Invalid count from server")
+  }
+  return Math.floor(n)
+}
+
 export async function runYtdlpDownload(
   url: string,
   outputDir?: string,

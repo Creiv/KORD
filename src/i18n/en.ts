@@ -458,6 +458,9 @@ export const EN: Record<string, string> = {
   "tools.dlReplaceRemovedDupes":
     "Removed {{n}} previous file(s) (same track title) after the new download.\n",
   "tools.dlReplaceRootTitle": "Pick a subfolder under Music, not the library root.",
+  "tools.dlPlaylistManyConfirm":
+    "This playlist has {{n}} items. Download them all?",
+  "tools.dlPlaylistCountErr": "Could not count playlist items: {{e}}\n",
   "tools.cmdUsed": "Command used",
   "tools.cmdFallback":
     "Default: prefer m4a (AAC), else webm (Opus), else bestaudio — no ffmpeg or metadata post-processing. Optional cookies. playlist_index for lists.",

@@ -460,6 +460,9 @@ export const IT: Record<string, string> = {
   "tools.dlReplaceRemovedDupes":
     "Rimossi {{n}} file vecchi (stesso brano) dopo il nuovo download.\n",
   "tools.dlReplaceRootTitle": "Serve una sottocartella sotto Musica, non la root.",
+  "tools.dlPlaylistManyConfirm":
+    "Questa playlist contiene {{n}} file. Vuoi davvero scaricarli tutti?",
+  "tools.dlPlaylistCountErr": "Impossibile contare le voci: {{e}}\n",
   "tools.cmdUsed": "Comando usato",
   "tools.cmdFallback":
     "Predefinito: si preferisce m4a (AAC), altrimenti webm (Opus), poi bestaudio — senza ffmpeg né post-processi sui metadati. Cookie opzionali; playlist_index sulle playlist.",

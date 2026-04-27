@@ -17,6 +17,7 @@ import {
   getSelectedAccountId,
   linkSharedFromAccount,
   listMusicDirs,
+  fetchDownloadFlatCount,
   runYtdlpDownload,
   cancelStudioDownload,
   applyGenreAutoBatch,
@@ -1042,6 +1043,25 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
           indexBefore,
           dlPath
         );
+      }
+      if (dlUrlMode === "playlist") {
+        try {
+          const cnt = await fetchDownloadFlatCount(url.trim());
+          if (cnt > 35) {
+            if (!window.confirm(t("tools.dlPlaylistManyConfirm", { n: cnt }))) {
+              return;
+            }
+          }
+        } catch (e) {
+          setLog(
+            (x) =>
+              x +
+              t("tools.dlPlaylistCountErr", {
+                e: String((e as Error)?.message || e),
+              })
+          );
+          return;
+        }
       }
       setDlTrackProg(null);
       dlBatchStopRef.current = false;
