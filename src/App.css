@@ -2906,11 +2906,25 @@
   padding-top: 0.15rem;
 }
 
+.tools-dl-dest__actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
 .tools-dl-dest__commit {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
+  flex: 0 1 auto;
+}
+
+.tools-dl-dest__actions-row .tools-dl-dest__replace {
+  margin-left: auto;
+  flex: 0 0 auto;
 }
 
 .tools-dl-dest__picked {
@@ -2926,6 +2940,26 @@
 
 .tools-dl-dest__warn {
   margin: 0;
+}
+
+.tools-dl-dest__replace {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  color: var(--muted-strong);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tools-dl-dest__replace input {
+  flex-shrink: 0;
+}
+
+.tools-dl-dest__replace--off {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .tools-dl-detected {

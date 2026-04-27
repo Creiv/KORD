@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { usePlayer } from "../context/PlayerContext"
 import { useToolsActivity } from "../context/ToolsActivityContext"
+import { useUserState } from "../context/UserStateContext"
 import { useI18n } from "../i18n/useI18n"
 import {
   applyArtwork,
   createMusicSubdir,
+  deleteAudioRelPaths,
   fetchAccounts,
   fetchAlbumInfo,
+  fetchLibraryIndex,
   fetchLibraryIndexForAccount,
   fetchTrackInfo,
   fetchDownloadPreset,
@@ -22,6 +25,11 @@ import type { ArtworkHit, YoutubeReleasesList } from "../lib/api"
 import { fmtDate } from "../lib/metaFormat"
 import { albumFolderFromTrackRelPath } from "../lib/trackPaths"
 import type { LinkSharedAlbumResult, LinkSharedResult } from "../lib/api"
+import {
+  buildFolderReplaceSnapshotForFolder,
+  computePostDownloadRedundantRemovals,
+  type FolderReplaceSnapshot,
+} from "../lib/downloadFolderReplace"
 import { ytdlpLogDetailForUser } from "../lib/ytdlpLogFilter"
 import { classifyYoutubeUrl } from "../lib/youtubeUrl"
 import { formatTrackGenresForDisplay } from "../lib/genres"
@@ -110,6 +118,11 @@ function normalizeTrackInAlbumProgress(
 export function ToolsView({ library, onRefreshLibrary }: P) {
   const p = usePlayer()
   const { t, sortLocale } = useI18n()
+  const {
+    state: userState,
+    stripUserStateForRelPaths,
+    remapUserStateAfterDownloadReplace,
+  } = useUserState()
   const {
     log,
     setLog,
@@ -201,6 +214,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
   const [relPayload, setRelPayload] = useState<YoutubeReleasesList | null>(null)
   const [relSel, setRelSel] = useState<Set<string>>(() => new Set())
   const [relLoadBusy, setRelLoadBusy] = useState(false)
+  const [dlReplaceMode, setDlReplaceMode] = useState(false)
   const [dlTrackProg, setDlTrackProg] = useState<{
     current: number
     total: number
@@ -730,24 +744,38 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
       setLog((x) => x + t("tools.dlPickFolder"))
       return
     }
-    setDlTrackProg(null)
-    const ac = new AbortController()
-    dlAbortRef.current = ac
-    setDlBusy(true)
-    setDlProg(null)
-    setLog((x) =>
-      x +
-      t("tools.dlStart", {
-        path: dlPath || t("tools.dlRootLabel"),
-      }),
-    )
-    runYtdlpDownload(
-      url.trim(),
-      dlPath,
-      (p) => setDlProg({ current: p.current, total: p.total }),
-      ac.signal,
-    )
-      .then((r) => {
+    void (async () => {
+      let indexBefore: LibraryIndex | null = null
+      let replaceSnap: FolderReplaceSnapshot | null = null
+      if (dlReplaceMode && dlPath.trim()) {
+        if (!window.confirm(t("tools.dlReplaceConfirm", { path: dlPath }))) {
+          return
+        }
+        indexBefore = await fetchLibraryIndex()
+        replaceSnap = buildFolderReplaceSnapshotForFolder(
+          userState,
+          indexBefore,
+          dlPath,
+        )
+      }
+      setDlTrackProg(null)
+      const ac = new AbortController()
+      dlAbortRef.current = ac
+      setDlBusy(true)
+      setDlProg(null)
+      setLog((x) =>
+        x +
+        t("tools.dlStart", {
+          path: dlPath || t("tools.dlRootLabel"),
+        }),
+      )
+      try {
+        const r = await runYtdlpDownload(
+          url.trim(),
+          dlPath,
+          (p) => setDlProg({ current: p.current, total: p.total }),
+          ac.signal,
+        )
         if (r.progress && r.progress.total > 0) {
           setDlProg({ current: r.progress.current, total: r.progress.total })
         }
@@ -760,25 +788,65 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
               : t("tools.dlResultErr", { code: r.code }) +
                 (detail ? t("tools.dlErrDetail", { detail }) : "")),
         )
-        onRefreshLibrary()
-      })
-      .catch((e) => {
+        await onRefreshLibrary()
+        if (replaceSnap && indexBefore) {
+          await runReplaceAfterDownload(indexBefore, replaceSnap)
+        }
+      } catch (e) {
         if (isAbortError(e)) {
           setLog((x) => x + t("tools.dlCancelled"))
-          onRefreshLibrary()
+          await onRefreshLibrary()
         } else {
-          setLog((x) => x + t("tools.dlFail", { e: String((e as Error)?.message || e) }))
+          setLog((x) =>
+            x + t("tools.dlFail", { e: String((e as Error)?.message || e) }),
+          )
         }
-      })
-      .finally(() => {
+      } finally {
         dlAbortRef.current = null
         setDlBusy(false)
-      })
+      }
+    })()
   }
 
   const cancelDownload = () => {
     dlAbortRef.current?.abort()
   }
+
+  const runReplaceAfterDownload = useCallback(
+    async (indexBefore: LibraryIndex, replaceSnap: FolderReplaceSnapshot) => {
+      let toDelete: string[] = []
+      try {
+        const indexAfter = await fetchLibraryIndex()
+        toDelete = computePostDownloadRedundantRemovals(
+          indexBefore,
+          indexAfter,
+          dlPath,
+        ).toDelete
+        if (toDelete.length > 0) {
+          await deleteAudioRelPaths(toDelete)
+          setLog(
+            (x) => x + t("tools.dlReplaceRemovedDupes", { n: toDelete.length }) + "\n",
+          )
+          await onRefreshLibrary()
+        }
+        const indexFinal = await fetchLibraryIndex()
+        stripUserStateForRelPaths(toDelete)
+        remapUserStateAfterDownloadReplace(replaceSnap, indexFinal, dlPath)
+      } catch (e) {
+        setLog((x) =>
+          x + t("tools.sharedErr", { e: String((e as Error)?.message || e) }),
+        )
+      }
+    },
+    [
+      dlPath,
+      onRefreshLibrary,
+      setLog,
+      stripUserStateForRelPaths,
+      remapUserStateAfterDownloadReplace,
+      t,
+    ],
+  )
 
   const loadReleasesCatalog = () => {
     if (!url.trim()) return
@@ -822,17 +890,30 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
       return
     }
     const multiRelease = list.length > 1
-    setDlBusy(true)
-    setDlTrackProg(multiRelease ? { current: 0, total: 0 } : null)
-    setDlProg({ current: 1, total: list.length })
-    const rootLabel = dlPath || t("tools.dlRootLabel")
-    setLog(
-      (x) =>
-        x +
-        t("tools.dlStart", { path: rootLabel }) +
-        ` — ${list.length} album(s)\n`,
-    )
     void (async () => {
+      let indexBefore: LibraryIndex | null = null
+      let replaceSnap: FolderReplaceSnapshot | null = null
+      if (dlReplaceMode && dlPath.trim()) {
+        if (!window.confirm(t("tools.dlReplaceConfirm", { path: dlPath }))) {
+          return
+        }
+        indexBefore = await fetchLibraryIndex()
+        replaceSnap = buildFolderReplaceSnapshotForFolder(
+          userState,
+          indexBefore,
+          dlPath,
+        )
+      }
+      setDlBusy(true)
+      setDlTrackProg(multiRelease ? { current: 0, total: 0 } : null)
+      setDlProg({ current: 1, total: list.length })
+      const rootLabel = dlPath || t("tools.dlRootLabel")
+      setLog(
+        (x) =>
+          x +
+          t("tools.dlStart", { path: rootLabel }) +
+          ` — ${list.length} album(s)\n`,
+      )
       let userAborted = false
       for (let i = 0; i < list.length; i += 1) {
         const item = list[i]!
@@ -874,8 +955,11 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
         setDlProg({ current: list.length, total: list.length })
       }
       if (multiRelease) setDlTrackProg(null)
+      await onRefreshLibrary()
+      if (replaceSnap && indexBefore) {
+        await runReplaceAfterDownload(indexBefore, replaceSnap)
+      }
       setDlBusy(false)
-      onRefreshLibrary()
     })()
   }
 
@@ -1166,26 +1250,48 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
               <p className="subtle sm tools-dl-dest__label">
                 {t("tools.dlPathActions")}
               </p>
-              <div className="tools-dl-dest__commit">
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => {
-                    if (dlList) commitDlDest(dlList.path || "")
-                  }}
-                  disabled={!dlList}
-                  title={t("tools.useThisFolderTitle")}
+              <div className="tools-dl-dest__actions-row">
+                <div className="tools-dl-dest__commit">
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => {
+                      if (dlList) commitDlDest(dlList.path || "")
+                    }}
+                    disabled={!dlList}
+                    title={t("tools.useThisFolderTitle")}
+                  >
+                    {t("tools.useThisFolder")}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    onClick={() => commitDlDest("")}
+                    title={t("tools.musicRootTitle")}
+                  >
+                    {t("tools.musicRootBtn")}
+                  </button>
+                </div>
+                <label
+                  className={`tools-dl-dest__replace${
+                    !dlPath.trim() ? " tools-dl-dest__replace--off" : ""
+                  }`}
+                  title={
+                    !dlPath.trim()
+                      ? t("tools.dlReplaceRootTitle")
+                      : t("tools.dlReplaceHint")
+                  }
                 >
-                  {t("tools.useThisFolder")}
-                </button>
-                <button
-                  type="button"
-                  className="btn secondary"
-                  onClick={() => commitDlDest("")}
-                  title={t("tools.musicRootTitle")}
-                >
-                  {t("tools.musicRootBtn")}
-                </button>
+                  <input
+                    type="checkbox"
+                    checked={dlReplaceMode}
+                    disabled={!dlDestPicked || !dlPath.trim()}
+                    onChange={(e) => {
+                      setDlReplaceMode(e.target.checked)
+                    }}
+                  />
+                  <span>{t("tools.dlReplaceFolder")}</span>
+                </label>
               </div>
             </div>
             {dlDestPicked ? (

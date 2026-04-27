@@ -16,6 +16,11 @@ import { randomUUID } from "../lib/randomUUID";
 import { bumpTrackExclusionEpoch, setShuffleExclusionSnapshot } from "../lib/randomExclusions";
 import { normalizeShuffleAlbumKeysWithIndex } from "../lib/shuffleExclusionKeys";
 import {
+  applyRemapToUserState,
+  applyStripToUserStateForPathsOnly,
+  type FolderReplaceSnapshot,
+} from "../lib/downloadFolderReplace";
+import {
   APP_LOCALES,
   THEME_MODES,
   type AppLocale,
@@ -250,6 +255,12 @@ type UserStateContextValue = {
   toggleShuffleExcludedTrack: (relPath: string) => void;
   setShuffleTracksExcludedBulk: (relPaths: readonly string[], exclude: boolean) => void;
   rehydrateShuffleExclusionsFromIndex: (index: LibraryIndex) => void;
+  stripUserStateForRelPaths: (deletedRelPaths: string[]) => void;
+  remapUserStateAfterDownloadReplace: (
+    snapshot: FolderReplaceSnapshot,
+    indexAfter: LibraryIndex,
+    folderRelPrefix: string
+  ) => void;
 };
 
 const UserStateContext = createContext<UserStateContextValue | null>(null);
@@ -453,6 +464,31 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
           if (a === b) return prev;
           return { ...prev, shuffleExcludedAlbumIds: next };
         },
+        { immediate: true }
+      );
+    },
+    [commit]
+  );
+
+  const stripUserStateForRelPaths = useCallback(
+    (deletedRelPaths: string[]) => {
+      commit(
+        (prev) => applyStripToUserStateForPathsOnly(prev, deletedRelPaths),
+        { immediate: true }
+      );
+    },
+    [commit]
+  );
+
+  const remapUserStateAfterDownloadReplace = useCallback(
+    (
+      snapshot: FolderReplaceSnapshot,
+      indexAfter: LibraryIndex,
+      folderRelPrefix: string
+    ) => {
+      commit(
+        (prev) =>
+          applyRemapToUserState(prev, snapshot, indexAfter, folderRelPrefix),
         { immediate: true }
       );
     },
@@ -727,6 +763,8 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       toggleShuffleExcludedTrack,
       setShuffleTracksExcludedBulk,
       rehydrateShuffleExclusionsFromIndex,
+      stripUserStateForRelPaths,
+      remapUserStateAfterDownloadReplace,
     }),
     [
       addTrackToPlaylist,
@@ -738,6 +776,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       incrementTrackPlayCount,
       pushRecent,
       rehydrateShuffleExclusionsFromIndex,
+      remapUserStateAfterDownloadReplace,
       rehydrateTrackListsFromLibrary,
       ready,
       removeTrackFromPlaylist,
@@ -751,6 +790,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       toggleFavorite,
       toggleShuffleExcludedAlbum,
       toggleShuffleExcludedTrack,
+      stripUserStateForRelPaths,
       updateSettings,
     ]
   );

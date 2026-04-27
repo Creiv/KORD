@@ -907,6 +907,67 @@ app.post("/api/fs/mkdir", async (req, res) => {
   }
 })
 
+app.post("/api/fs/clear-dl-dest", async (req, res) => {
+  const root = musicRootFromReq(req)
+  const relPath = safeRelSeg(String(req.body?.path ?? ""))
+  if (relPath == null) return sendError(res, 400, "Invalid path")
+  if (String(req.body?.path ?? "").trim() === "" || !relPath) {
+    return sendError(res, 400, "Use a subfolder under Music, not the library root")
+  }
+  try {
+    const full = path.join(root, relPath.replaceAll("/", path.sep))
+    if (!underRoot(full, root) || !existsSync(full))
+      return sendError(res, 400, "Path is outside the library or does not exist")
+    const st = statSync(full)
+    if (!st.isDirectory()) return sendError(res, 400, "Not a directory")
+    const deleted = []
+    const baseRel = relPath.replaceAll(path.sep, "/")
+    const walk = async (dir, relFromRoot) => {
+      const entries = await fs.readdir(dir, { withFileTypes: true })
+      for (const e of entries) {
+        if (e.name.startsWith(".")) continue
+        const p = path.join(dir, e.name)
+        const rel = relFromRoot ? `${relFromRoot}/${e.name}` : e.name
+        const relNorm = rel.replaceAll(path.sep, "/")
+        if (e.isDirectory()) {
+          if (e.name === "kord" || e.name === "node_modules") continue
+          await walk(p, relNorm)
+        } else if (e.isFile() && isAudioFile(e.name)) {
+          await fs.unlink(p)
+          deleted.push(relNorm)
+        }
+      }
+    }
+    await walk(full, baseRel)
+    return sendOk(res, { deleted })
+  } catch (error) {
+    return sendError(res, 500, String(error?.message || error))
+  }
+})
+
+app.post("/api/fs/delete-audio-relpaths", async (req, res) => {
+  const root = musicRootFromReq(req)
+  const list = Array.isArray(req.body?.relPaths) ? req.body.relPaths : []
+  const deleted = []
+  try {
+    for (const item of list) {
+      const rel = safeRelSeg(String(item))
+      if (rel == null || !String(rel).trim()) continue
+      const full = path.join(root, rel.replaceAll("/", path.sep))
+      if (!underRoot(full, root) || !existsSync(full)) continue
+      const st0 = statSync(full)
+      if (!st0.isFile()) continue
+      const base = path.basename(full)
+      if (!isAudioFile(base)) continue
+      await fs.unlink(full)
+      deleted.push(rel.replaceAll(path.sep, "/"))
+    }
+    return sendOk(res, { deleted })
+  } catch (error) {
+    return sendError(res, 500, String(error?.message || error))
+  }
+})
+
 app.get("/api/artwork/search", async (req, res) => {
   const q = String(req.query.q || req.query.term || "").trim()
   const artist = String(req.query.artist || "").trim()

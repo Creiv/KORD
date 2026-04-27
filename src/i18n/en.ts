@@ -412,6 +412,14 @@ export const EN: Record<string, string> = {
   "tools.dlNewSubLabel": "New subfolder here",
   "tools.dlEmptyFolders": "No subfolders. Create one above or pick Music root.",
   "tools.dlPathActions": "Use as download destination",
+  "tools.dlReplaceFolder": "Replace files",
+  "tools.dlReplaceHint":
+    "Same track = same normalized file name (no extension, no leading track number, normalized spaces/dashes, some trailing suffixes like “official video” removed). Different titles are never merged. Duplicates are removed only if at least one path is new compared to before the download and several files share the same stem: one new file is kept (first in sort order) and the rest are deleted. If yt-dlp overwrites the same path, nothing extra is removed.",
+  "tools.dlReplaceConfirm":
+    "The download will run first. Then KORD will look at files in “{{path}}” and remove older duplicates for the same track (by title), and move favorites, shuffle blocks and play counts to the files kept. Continue?\n\nEXPERIMENTAL FEATURE",
+  "tools.dlReplaceRemovedDupes":
+    "Removed {{n}} previous file(s) (same track title) after the new download.\n",
+  "tools.dlReplaceRootTitle": "Pick a subfolder under Music, not the library root.",
   "tools.cmdUsed": "Command used",
   "tools.cmdFallback":
     'Default: prefer m4a (AAC), else webm (Opus), else bestaudio — no ffmpeg. KORD_YTDLP_LOSSLESS=1 for FLAC. Optional cookies. playlist_index for lists.',

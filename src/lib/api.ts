@@ -492,6 +492,28 @@ export async function listMusicDirs(path: string): Promise<FsList> {
   return unwrap<FsList>(response)
 }
 
+export async function clearDownloadDestAudioFiles(
+  relPath: string,
+): Promise<{ deleted: string[] }> {
+  const response = await fetch("/api/fs/clear-dl-dest", {
+    method: "POST",
+    headers: accountHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ path: relPath }),
+  })
+  return unwrap<{ deleted: string[] }>(response)
+}
+
+export async function deleteAudioRelPaths(
+  relPaths: string[],
+): Promise<{ deleted: string[] }> {
+  const response = await fetch("/api/fs/delete-audio-relpaths", {
+    method: "POST",
+    headers: accountHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ relPaths }),
+  })
+  return unwrap<{ deleted: string[] }>(response)
+}
+
 export type ArtworkHit = {
   name: string
   artist: string

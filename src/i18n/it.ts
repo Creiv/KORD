@@ -414,6 +414,14 @@ export const IT: Record<string, string> = {
   "tools.dlNewSubLabel": "Nuova sottocartella qui",
   "tools.dlEmptyFolders": "Nessuna sottocartella. Creane una sopra o scegli la radice Musica.",
   "tools.dlPathActions": "Destinazione download",
+  "tools.dlReplaceFolder": "Sostituisci file",
+  "tools.dlReplaceHint":
+    "Stesso brano = stesso «nome file» dopo normalizzazione (no estensione, no numero traccia iniziale, spazi/trattini uniformati, rimossi alcuni suffissi tra parentesi tipo video ufficiale). Se i titoli restano diversi, non vengono uniti. Rimozione duplicati solo se almeno un percorso è nuovo rispetto a prima del download e più file hanno lo stesso stem: si tiene il primo file nuovo in ordine alfabetico e si eliminano gli altri. Se yt-dlp riscrive lo stesso file, non c’è duplicato da togliere.",
+  "tools.dlReplaceConfirm":
+    "Prima parte il download. Poi, in «{{path}}», KORD confronta i file, elimina le versioni duplicate per lo stesso brano (titolo simile) e sposta preferiti, esclusioni random e conteggi sui file che restano. Continuare?\n\nFUNZIONALITÀ SPERIMENTALE",
+  "tools.dlReplaceRemovedDupes":
+    "Rimossi {{n}} file vecchi (stesso brano) dopo il nuovo download.\n",
+  "tools.dlReplaceRootTitle": "Serve una sottocartella sotto Musica, non la root.",
   "tools.cmdUsed": "Comando usato",
   "tools.cmdFallback":
     'Predefinito: si preferisce m4a (AAC), altrimenti webm (Opus), poi bestaudio — senza ffmpeg. LOSSLESS=1 per FLAC. Cookie opzionali; playlist_index sulle playlist.',
