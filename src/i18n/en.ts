@@ -47,6 +47,11 @@ export const EN: Record<string, string> = {
   "trackMeta.fieldGenreNewPlaceholder": "New genre…",
   "trackMeta.fieldGenreAdd": "Add",
   "trackMeta.fieldGenreRemoveAria": "Remove {{g}}",
+  "trackMeta.deleteFile": "Delete file",
+  "trackMeta.deleteConfirm":
+    "Delete this audio file from disk? This cannot be undone.",
+  "trackMeta.deleting": "Deleting…",
+  "trackMeta.deleteFailed": "The file was not removed (missing or not audio).",
   "albumMeta.editButton": "Edit album",
   "albumMeta.editEyebrow": "kord-albuminfo",
   "albumMeta.editHeading": "Edit album data",
@@ -56,6 +61,10 @@ export const EN: Record<string, string> = {
   "albumMeta.fieldReleaseDate": "Release date",
   "albumMeta.fieldLabel": "Label",
   "albumMeta.fieldCountry": "Country",
+  "albumMeta.deleteAlbum": "Delete all tracks in this album",
+  "albumMeta.deleteConfirm":
+    "Delete all {{n}} audio file(s) in this folder from disk? The folder and non-audio files stay; this cannot be undone.",
+  "albumMeta.deleteFailed": "No audio files were removed.",
   "trackRow.editMetaTitle": "Edit track metadata",
   "trackRow.editMetaAria": "Edit track metadata",
   "trackRow.removeQueueTitle": "Remove from queue",
@@ -67,6 +76,7 @@ export const EN: Record<string, string> = {
   "trackRow.favTitle": "Favorite",
   "trackRow.favAria": "Favorite",
   "trackRow.playCount": "Plays: {{n}}",
+  "trackRow.duration": "Duration: {{d}}",
   "trackRow.excludeTitle": "Exclude from smart shuffle",
   "trackRow.excludeLockedByAlbumTitle":
     "Album excluded from shuffle: turn off album exclusion to change individual tracks",
@@ -220,6 +230,7 @@ export const EN: Record<string, string> = {
   "collection.empty": "Nothing here yet.",
   "collection.favoritesTitle": "Favorites",
   "collection.favoritesEyebrow": "Personal collection",
+  "collection.playFavorites": "Play favorites",
   "collection.recentTitle": "Recently played",
   "collection.recentEyebrow": "History",
   "settings.libraryEyebrow": "Library",
@@ -513,6 +524,24 @@ export const EN: Record<string, string> = {
   "tools.trackScanLine": "[track {{i}}/{{total}}] {{path}}\n",
   "tools.trackScanItemErr": "[{{i}}/{{total}}] {{path}}: {{err}}\n",
   "tools.trackScanDone": "Track metadata scan finished.\n",
+  "tools.genreAutoGroup": "Genres (whole library)",
+  "tools.genreAutoHint":
+    "Suggests one genre per track that has none in kord-trackinfo: first from the same album (majority among tracks that already have a genre), then from the same artist. Online “scan all tracks” still fetches from Apple, Deezer, etc.",
+  "tools.genreAutoPreview": "Preview genre suggestions",
+  "tools.genreAutoApply": "Write suggested genres",
+  "tools.genreAutoNoIndex": "Library index not loaded; refresh and try again.\n",
+  "tools.genreAutoPreviewEmpty":
+    "No genre suggestions: every track already has a genre, or there is no other tagged track on the same album or artist to copy from.\n",
+  "tools.genreAutoPreviewHead": "Genre suggestions ({{n}} tracks):\n",
+  "tools.genreAutoLine": "  {{path}} → {{genre}} ({{source}})\n",
+  "tools.genreAutoSourceAlbum": "album",
+  "tools.genreAutoSourceArtist": "artist",
+  "tools.genreAutoMore": "  … +{{n}} more lines\n",
+  "tools.genreAutoApplyConfirm":
+    "Write suggested genres to kord-trackinfo for {{n}} file(s)? Existing title and date are kept.",
+  "tools.genreAutoApplyDone": "Genre infer finished. Files updated: {{n}}.\n",
+  "tools.genreAutoApplyErr": "  Error — {{path}}: {{err}}\n",
+  "tools.genreAutoProgress": "Writing genres",
   "tools.sanitizePickAlbum":
     "Choose an album (Album and search fields menu) for preview or apply on that album.\n",
   "tools.sanitizeHeadPreviewLib":

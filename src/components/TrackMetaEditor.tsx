@@ -8,8 +8,10 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { saveTrackInfoManual } from "../lib/api";
+import { deleteAudioRelPaths, saveTrackInfoManual } from "../lib/api";
 import { useI18n } from "../i18n/useI18n";
+import { usePlayer } from "../context/PlayerContext";
+import { useUserState } from "../context/UserStateContext";
 import {
   parseTrackGenres,
   serializeTrackGenres,
@@ -80,7 +82,10 @@ function TrackMetaEditorModal({
   const [genres, setGenres] = useState<string[]>([]);
   const [newGenre, setNewGenre] = useState("");
   const [busy, setBusy] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const p = usePlayer();
+  const { stripUserStateForRelPaths } = useUserState();
 
   useEffect(() => {
     if (!track) return;
@@ -130,6 +135,28 @@ function TrackMetaEditorModal({
     },
     [track, title, releaseDate, genres, onClose, onSaved],
   );
+
+  const runDelete = useCallback(async () => {
+    if (!track) return;
+    if (!window.confirm(t("trackMeta.deleteConfirm"))) return;
+    setDeleteBusy(true);
+    setErr(null);
+    try {
+      const { deleted } = await deleteAudioRelPaths([track.relPath]);
+      if (!deleted.length) {
+        setErr(t("trackMeta.deleteFailed"));
+        return;
+      }
+      for (const rel of deleted) p.removeFromQueueByRelPath(rel);
+      stripUserStateForRelPaths(deleted);
+      await Promise.resolve(onSaved());
+      onClose();
+    } catch (er: unknown) {
+      setErr(er instanceof Error ? er.message : String(er));
+    } finally {
+      setDeleteBusy(false);
+    }
+  }, [onClose, onSaved, p, stripUserStateForRelPaths, t, track]);
 
   if (!track) return null;
 
@@ -245,10 +272,21 @@ function TrackMetaEditorModal({
           <p className="subtle sm">{t("trackMeta.editHint")}</p>
           {err ? <p className="subtle sm warnline">{err}</p> : null}
           <div className="meta-edit-actions">
+            <button
+              type="button"
+              className="ghost-btn danger"
+              disabled={busy || deleteBusy}
+              onClick={() => {
+                void runDelete();
+              }}
+            >
+              {deleteBusy ? t("trackMeta.deleting") : t("trackMeta.deleteFile")}
+            </button>
+            <span className="meta-edit-actions__spacer" aria-hidden />
             <button type="button" className="ghost-btn" onClick={onClose}>
               {t("trackMeta.editCancel")}
             </button>
-            <button type="submit" className="btn" disabled={busy}>
+            <button type="submit" className="btn" disabled={busy || deleteBusy}>
               {busy ? t("trackMeta.editSaving") : t("trackMeta.editSave")}
             </button>
           </div>

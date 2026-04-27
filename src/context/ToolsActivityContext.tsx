@@ -40,6 +40,8 @@ type Ctx = {
   setTrackScanProg: Dispatch<SetStateAction<Prog>>
   titleSanBusy: boolean
   setTitleSanBusy: Dispatch<SetStateAction<boolean>>
+  genreAutoBusy: boolean
+  setGenreAutoBusy: Dispatch<SetStateAction<boolean>>
   stopMetaAll: MutableRefObject<boolean>
   stopTrackAll: MutableRefObject<boolean>
   toolsAnyBusy: boolean
@@ -61,6 +63,7 @@ export function ToolsActivityProvider({ children }: { children: ReactNode }) {
   const [trackAllBusy, setTrackAllBusy] = useState(false)
   const [trackScanProg, setTrackScanProg] = useState<Prog>(null)
   const [titleSanBusy, setTitleSanBusy] = useState(false)
+  const [genreAutoBusy, setGenreAutoBusy] = useState(false)
   const stopMetaAll = useRef(false)
   const stopTrackAll = useRef(false)
 
@@ -73,7 +76,8 @@ export function ToolsActivityProvider({ children }: { children: ReactNode }) {
       metaAllBusy ||
       trackMetaBusy ||
       trackAllBusy ||
-      titleSanBusy,
+      titleSanBusy ||
+      genreAutoBusy,
     [
       dlBusy,
       mkBusy,
@@ -83,6 +87,7 @@ export function ToolsActivityProvider({ children }: { children: ReactNode }) {
       trackMetaBusy,
       trackAllBusy,
       titleSanBusy,
+      genreAutoBusy,
     ],
   )
 
@@ -114,6 +119,8 @@ export function ToolsActivityProvider({ children }: { children: ReactNode }) {
       setTrackScanProg,
       titleSanBusy,
       setTitleSanBusy,
+      genreAutoBusy,
+      setGenreAutoBusy,
       stopMetaAll,
       stopTrackAll,
       toolsAnyBusy,
@@ -132,6 +139,7 @@ export function ToolsActivityProvider({ children }: { children: ReactNode }) {
       trackAllBusy,
       trackScanProg,
       titleSanBusy,
+      genreAutoBusy,
       toolsAnyBusy,
     ],
   )

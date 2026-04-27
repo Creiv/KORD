@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { usePlayer } from "../context/PlayerContext"
 import { useToolsActivity } from "../context/ToolsActivityContext"
 import { useUserState } from "../context/UserStateContext"
@@ -19,6 +25,7 @@ import {
   listMusicDirs,
   runYtdlpDownload,
   sanitizeTrackTitles,
+  saveTrackInfoManual,
   searchArtwork,
 } from "../lib/api"
 import type { ArtworkHit, YoutubeReleasesList } from "../lib/api"
@@ -33,10 +40,12 @@ import {
 import { ytdlpLogDetailForUser } from "../lib/ytdlpLogFilter"
 import { classifyYoutubeUrl } from "../lib/youtubeUrl"
 import { formatTrackGenresForDisplay } from "../lib/genres"
+import { computeGenreAutoAssignments } from "../lib/genreAutoAssign"
 import type { LibArtist, LibTrack, LibraryIndex, LibraryResponse } from "../types"
 
 type P = {
   library: LibraryResponse | null
+  libraryIndex: LibraryIndex | null
   onRefreshLibrary: () => void
 }
 
@@ -115,7 +124,11 @@ function normalizeTrackInAlbumProgress(
   }
 }
 
-export function ToolsView({ library, onRefreshLibrary }: P) {
+export function ToolsView({
+  library,
+  libraryIndex,
+  onRefreshLibrary,
+}: P) {
   const p = usePlayer()
   const { t, sortLocale } = useI18n()
   const {
@@ -150,9 +163,15 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
     setTrackScanProg,
     titleSanBusy,
     setTitleSanBusy,
+    genreAutoBusy,
+    setGenreAutoBusy,
     stopMetaAll,
     stopTrackAll,
   } = useToolsActivity()
+  const [genreAutoProg, setGenreAutoProg] = useState<{
+    current: number
+    total: number
+  } | null>(null)
   const [preset, setPreset] = useState<string | null>(null)
   const [url, setUrl] = useState("")
   const [dlList, setDlList] = useState<
@@ -665,6 +684,82 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
     setMetaLog((s) => s + t("tools.trackScanDone"))
     onRefreshLibrary()
   }
+
+  const runGenreAutoPreview = useCallback(() => {
+    if (!libraryIndex) {
+      setMetaLog((s) => s + t("tools.genreAutoNoIndex"))
+      return
+    }
+    const list = computeGenreAutoAssignments(libraryIndex)
+    if (list.length === 0) {
+      setMetaLog((s) => s + t("tools.genreAutoPreviewEmpty"))
+      return
+    }
+    const maxLines = 150
+    const lines = list.slice(0, maxLines).map((row) =>
+      t("tools.genreAutoLine", {
+        path: row.relPath,
+        genre: row.genreSerialized,
+        source:
+          row.source === "album"
+            ? t("tools.genreAutoSourceAlbum")
+            : t("tools.genreAutoSourceArtist"),
+      }),
+    )
+    let tail = ""
+    if (list.length > maxLines) {
+      tail = t("tools.genreAutoMore", { n: list.length - maxLines })
+    }
+    setMetaLog(
+      (s) =>
+        s +
+        t("tools.genreAutoPreviewHead", { n: list.length }) +
+        lines.join("") +
+        tail,
+    )
+  }, [libraryIndex, setMetaLog, t])
+
+  const runGenreAutoApply = useCallback(async () => {
+    if (!libraryIndex) {
+      setMetaLog((s) => s + t("tools.genreAutoNoIndex"))
+      return
+    }
+    const list = computeGenreAutoAssignments(libraryIndex)
+    if (list.length === 0) {
+      setMetaLog((s) => s + t("tools.genreAutoPreviewEmpty"))
+      return
+    }
+    if (!window.confirm(t("tools.genreAutoApplyConfirm", { n: list.length }))) return
+    setGenreAutoBusy(true)
+    setGenreAutoProg(null)
+    let ok = 0
+    try {
+      for (let i = 0; i < list.length; i += 1) {
+        const row = list[i]!
+        setGenreAutoProg({ current: i + 1, total: list.length })
+        try {
+          await saveTrackInfoManual(row.relPath, { genre: row.genreSerialized })
+          ok += 1
+        } catch (e) {
+          setMetaLog((s) =>
+            s +
+            t("tools.genreAutoApplyErr", {
+              path: row.relPath,
+              err: String((e as Error)?.message || e),
+            }),
+          )
+        }
+        if (i < list.length - 1) {
+          await new Promise((r) => setTimeout(r, 40))
+        }
+      }
+      setMetaLog((s) => s + t("tools.genreAutoApplyDone", { n: ok }))
+      onRefreshLibrary()
+    } finally {
+      setGenreAutoProg(null)
+      setGenreAutoBusy(false)
+    }
+  }, [libraryIndex, onRefreshLibrary, setMetaLog, t])
 
   const runSanitizeTitles = async (scope: "album" | "all", dryRun: boolean) => {
     if (scope === "album" && !metaAlbumPath.trim()) {
@@ -1668,7 +1763,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
                   type="button"
                   className="btn"
                   onClick={runMetaScanAll}
-                  disabled={metaAllBusy || !library}
+                  disabled={metaAllBusy || !library || genreAutoBusy}
                   title={t("tools.scanAlbumsTitle")}
                 >
                   {metaAllBusy ? t("tools.scanning") : t("tools.scanAlbumsAuto")}
@@ -1682,7 +1777,7 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
                   type="button"
                   className="btn secondary sm"
                   onClick={fetchCurrentTrackMeta}
-                  disabled={!p.current || trackMetaBusy}
+                  disabled={!p.current || trackMetaBusy || genreAutoBusy}
                 >
                   {trackMetaBusy ? "…" : t("tools.currentTrackMeta")}
                 </button>
@@ -1690,9 +1785,35 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
                   type="button"
                   className="btn sm"
                   onClick={runTrackScanAll}
-                  disabled={!library || trackAllBusy}
+                  disabled={!library || trackAllBusy || genreAutoBusy}
                 >
                   {trackAllBusy ? t("tools.scanning") : t("tools.scanAllTracks")}
+                </button>
+              </div>
+            </div>
+            <div className="studio-action-group">
+              <span className="studio-action-group-label">
+                {t("tools.genreAutoGroup")}
+              </span>
+              <p className="subtle sm studio-hint-line">{t("tools.genreAutoHint")}</p>
+              <div className="studio-action-row">
+                <button
+                  type="button"
+                  className="btn secondary sm"
+                  disabled={!libraryIndex || genreAutoBusy}
+                  onClick={runGenreAutoPreview}
+                >
+                  {genreAutoBusy ? "…" : t("tools.genreAutoPreview")}
+                </button>
+                <button
+                  type="button"
+                  className="btn sm"
+                  disabled={!libraryIndex || genreAutoBusy}
+                  onClick={() => {
+                    void runGenreAutoApply()
+                  }}
+                >
+                  {genreAutoBusy ? t("tools.scanning") : t("tools.genreAutoApply")}
                 </button>
               </div>
             </div>
@@ -1780,6 +1901,30 @@ export function ToolsView({ library, onRefreshLibrary }: P) {
                       Math.min(
                         100,
                         (trackScanProg.current / trackScanProg.total) * 100,
+                      ),
+                    )}%`,
+                  }}
+                />
+              </div>
+            </div>
+          ) : null}
+          {genreAutoBusy && genreAutoProg && genreAutoProg.total > 0 ? (
+            <div className="dl-progress-wrap">
+              <div className="dl-progress-top">
+                <span>{t("tools.genreAutoProgress")}</span>
+                <span>
+                  {genreAutoProg.current}/{genreAutoProg.total}
+                </span>
+              </div>
+              <div className="dl-progress-rail">
+                <div
+                  className="dl-progress-fill"
+                  style={{
+                    width: `${Math.max(
+                      2,
+                      Math.min(
+                        100,
+                        (genreAutoProg.current / genreAutoProg.total) * 100,
                       ),
                     )}%`,
                   }}

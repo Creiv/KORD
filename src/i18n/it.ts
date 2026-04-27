@@ -48,6 +48,11 @@ export const IT: Record<string, string> = {
   "trackMeta.fieldGenreNewPlaceholder": "Genere nuovo…",
   "trackMeta.fieldGenreAdd": "Aggiungi",
   "trackMeta.fieldGenreRemoveAria": "Rimuovi {{g}}",
+  "trackMeta.deleteFile": "Elimina file",
+  "trackMeta.deleteConfirm":
+    "Eliminare dal disco questo file audio? L'operazione non è reversibile.",
+  "trackMeta.deleting": "Eliminazione…",
+  "trackMeta.deleteFailed": "Il file non è stato eliminato (inesistente o non è audio).",
   "albumMeta.editButton": "Modifica album",
   "albumMeta.editEyebrow": "kord-albuminfo",
   "albumMeta.editHeading": "Modifica dati album",
@@ -57,6 +62,10 @@ export const IT: Record<string, string> = {
   "albumMeta.fieldReleaseDate": "Data uscita",
   "albumMeta.fieldLabel": "Etichetta",
   "albumMeta.fieldCountry": "Paese",
+  "albumMeta.deleteAlbum": "Elimina tutti i brani dell'album",
+  "albumMeta.deleteConfirm":
+    "Eliminare dal disco {{n}} file audio in questa cartella? Le cartelle e i file non audio restano; l'operazione non è reversibile.",
+  "albumMeta.deleteFailed": "Nessun file audio è stato eliminato.",
   "trackRow.editMetaTitle": "Modifica metadati brano",
   "trackRow.editMetaAria": "Modifica metadati brano",
   "trackRow.removeQueueTitle": "Rimuovi dalla coda",
@@ -68,6 +77,7 @@ export const IT: Record<string, string> = {
   "trackRow.favTitle": "Preferito",
   "trackRow.favAria": "Preferito",
   "trackRow.playCount": "Ascolti: {{n}}",
+  "trackRow.duration": "Durata: {{d}}",
   "trackRow.excludeTitle": "Escludi da random",
   "trackRow.excludeLockedByAlbumTitle":
     "Album escluso dalla random: togli il blocco dall’album per modificare i singoli brani",
@@ -224,6 +234,7 @@ export const IT: Record<string, string> = {
   "collection.empty": "Nessun elemento disponibile.",
   "collection.favoritesTitle": "Preferiti",
   "collection.favoritesEyebrow": "Raccolta personale",
+  "collection.playFavorites": "Riproduci preferiti",
   "collection.recentTitle": "Ascolti recenti",
   "collection.recentEyebrow": "Cronologia",
   "settings.libraryEyebrow": "Libreria",
@@ -516,6 +527,24 @@ export const IT: Record<string, string> = {
   "tools.trackScanLine": "[brano {{i}}/{{total}}] {{path}}\n",
   "tools.trackScanItemErr": "[{{i}}/{{total}}] {{path}}: {{err}}\n",
   "tools.trackScanDone": "Fine scansione metadati brani.\n",
+  "tools.genreAutoGroup": "Generi (tutta la libreria)",
+  "tools.genreAutoHint":
+    "Propone un genere per ogni brano senza genere in kord-trackinfo: prima maggioranza nello stesso album, poi nello stesso artista. La scansione online dei brani continua a usare Apple, Deezer, ecc.",
+  "tools.genreAutoPreview": "Anteprima suggerimenti generi",
+  "tools.genreAutoApply": "Scrivi generi suggeriti",
+  "tools.genreAutoNoIndex": "Indice libreria non disponibile; aggiorna e riprova.\n",
+  "tools.genreAutoPreviewEmpty":
+    "Nessun suggerimento: tutti i brani hanno già un genere, oppure non c’è un altro brano con genere nello stesso album o artista.\n",
+  "tools.genreAutoPreviewHead": "Suggerimenti generi ({{n}} brani):\n",
+  "tools.genreAutoLine": "  {{path}} → {{genre}} ({{source}})\n",
+  "tools.genreAutoSourceAlbum": "album",
+  "tools.genreAutoSourceArtist": "artista",
+  "tools.genreAutoMore": "  … altre {{n}} righe\n",
+  "tools.genreAutoApplyConfirm":
+    "Scrivere i generi suggeriti in kord-trackinfo per {{n}} file? Titolo e data restano invariati.",
+  "tools.genreAutoApplyDone": "Inferenza generi completata. File aggiornati: {{n}}.\n",
+  "tools.genreAutoApplyErr": "  Errore — {{path}}: {{err}}\n",
+  "tools.genreAutoProgress": "Scrittura generi",
   "tools.sanitizePickAlbum":
     "Scegli un album (menu «Album e campi di ricerca») per l’anteprima o l’applicazione sull’album.\n",
   "tools.sanitizeHeadPreviewLib":

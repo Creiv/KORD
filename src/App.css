@@ -556,6 +556,10 @@
   justify-content: flex-end;
 }
 
+.btn--collection-play {
+  flex-shrink: 0;
+}
+
 .surface-card--toolbar-only .section-head--page-toolbar {
   margin-bottom: 0;
 }
@@ -1202,6 +1206,19 @@
   color: color-mix(in srgb, var(--text) 78%, var(--muted) 22%);
   background: color-mix(in srgb, var(--surface2) 55%, var(--surface3) 45%);
   border: 1px solid color-mix(in srgb, var(--border) 65%, transparent 35%);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28em;
+}
+
+.statistics-rank-row__dur {
+  font-weight: 600;
+  opacity: 0.92;
+}
+
+.statistics-rank-row__dur-sep {
+  opacity: 0.6;
+  font-weight: 500;
 }
 
 .statistics-overview-grid {
@@ -1831,6 +1848,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.track-row__duration {
+  flex: 0 0 auto;
+  font-size: 0.76rem;
+  font-weight: 500;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--text) 40%, var(--muted) 60%);
+  font-variant-numeric: tabular-nums;
 }
 
 .track-row__plays {
@@ -3868,4 +3894,10 @@
   gap: 0.5rem;
   justify-content: flex-end;
   margin-top: 0.25rem;
+  align-items: center;
+}
+
+.meta-edit-actions__spacer {
+  flex: 1 1 0.5rem;
+  min-width: 0.5rem;
 }

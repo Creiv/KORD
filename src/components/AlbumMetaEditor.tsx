@@ -7,8 +7,10 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { saveAlbumInfoManual } from "../lib/api";
+import { deleteAudioRelPaths, saveAlbumInfoManual } from "../lib/api";
 import { useI18n } from "../i18n/useI18n";
+import { usePlayer } from "../context/PlayerContext";
+import { useUserState } from "../context/UserStateContext";
 import type { LibraryAlbumIndex } from "../types";
 
 const AlbumMetaEditContext = createContext<(album: LibraryAlbumIndex) => void>(
@@ -43,7 +45,10 @@ function AlbumMetaEditorModal({
   const [label, setLabel] = useState("");
   const [country, setCountry] = useState("");
   const [busy, setBusy] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const p = usePlayer();
+  const { stripUserStateForRelPaths } = useUserState();
 
   useEffect(() => {
     if (!album) return;
@@ -79,6 +84,34 @@ function AlbumMetaEditorModal({
     },
     [album, country, label, onClose, onSaved, releaseDate, title],
   );
+
+  const runDelete = useCallback(async () => {
+    if (!album || !album.tracks.length) return;
+    if (
+      !window.confirm(
+        t("albumMeta.deleteConfirm", { n: String(album.tracks.length) })
+      )
+    ) {
+      return;
+    }
+    setDeleteBusy(true);
+    setErr(null);
+    try {
+      const { deleted } = await deleteAudioRelPaths([...album.tracks]);
+      if (!deleted.length) {
+        setErr(t("albumMeta.deleteFailed"));
+        return;
+      }
+      for (const rel of deleted) p.removeFromQueueByRelPath(rel);
+      stripUserStateForRelPaths(deleted);
+      await Promise.resolve(onSaved());
+      onClose();
+    } catch (error: unknown) {
+      setErr(error instanceof Error ? error.message : String(error));
+    } finally {
+      setDeleteBusy(false);
+    }
+  }, [album, onClose, onSaved, p, stripUserStateForRelPaths, t]);
 
   if (!album) return null;
 
@@ -146,10 +179,25 @@ function AlbumMetaEditorModal({
           <p className="subtle sm">{t("albumMeta.editHint")}</p>
           {err ? <p className="subtle sm warnline">{err}</p> : null}
           <div className="meta-edit-actions">
+            <button
+              type="button"
+              className="ghost-btn danger"
+              disabled={busy || deleteBusy || !album.tracks.length}
+              onClick={() => {
+                void runDelete();
+              }}
+            >
+              {deleteBusy ? t("trackMeta.deleting") : t("albumMeta.deleteAlbum")}
+            </button>
+            <span className="meta-edit-actions__spacer" aria-hidden />
             <button type="button" className="ghost-btn" onClick={onClose}>
               {t("trackMeta.editCancel")}
             </button>
-            <button type="submit" className="btn" disabled={busy || album.loose}>
+            <button
+              type="submit"
+              className="btn"
+              disabled={busy || deleteBusy || album.loose}
+            >
               {busy ? t("trackMeta.editSaving") : t("trackMeta.editSave")}
             </button>
           </div>

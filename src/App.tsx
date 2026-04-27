@@ -194,6 +194,11 @@ function formatDuration(seconds: number) {
   return `${mins}:${String(secs).padStart(2, "0")}`;
 }
 
+function formatDurationMs(ms: number | null | undefined): string | null {
+  if (ms == null || !Number.isFinite(ms) || ms <= 0) return null;
+  return formatDuration(ms / 1000);
+}
+
 function clientLegacyLibrary(
   index: LibraryIndex | null
 ): LibraryResponse | null {
@@ -327,6 +332,7 @@ function TrackListRow({
   const inQ = p.isTrackInQueue(track.relPath);
   const fav = user.isFavorite(track.relPath);
   const playCount = user.getTrackPlayCount(track.relPath);
+  const durationStr = formatDurationMs(track.meta?.durationMs);
   const infoLine =
     metaRight ||
     trackInfoBadges(track, {
@@ -345,6 +351,14 @@ function TrackListRow({
         <span className="track-row__title-row">
           <span className="track-row__title-lead">
             <span className="track-row__title">{track.title}</span>
+            {durationStr ? (
+              <span
+                className="track-row__duration"
+                aria-label={t("trackRow.duration", { d: durationStr })}
+              >
+                {durationStr}
+              </span>
+            ) : null}
             <span
               className="track-row__plays"
               aria-label={t("trackRow.playCount", { n: playCount })}
@@ -2604,10 +2618,14 @@ function TrackCollectionView({
   title,
   eyebrow,
   tracks,
+  playAllLabel,
+  onPlayAll,
 }: {
   title: string;
   eyebrow: string;
   tracks: EnrichedTrack[];
+  playAllLabel?: string;
+  onPlayAll?: () => void;
 }) {
   const p = usePlayer();
   const { t } = useI18n();
@@ -2619,6 +2637,15 @@ function TrackCollectionView({
             <p className="eyebrow">{eyebrow}</p>
             <h2>{title}</h2>
           </div>
+          {playAllLabel && onPlayAll && tracks.length > 0 ? (
+            <button
+              type="button"
+              className="btn btn--collection-play"
+              onClick={onPlayAll}
+            >
+              {playAllLabel}
+            </button>
+          ) : null}
         </div>
       </section>
       <section className="surface-card">
@@ -2787,7 +2814,9 @@ function StatisticsView({
             </p>
           ) : (
             <ol className="statistics-rank-list">
-              {data.topTracks.map((row, i) => (
+              {data.topTracks.map((row, i) => {
+                const dur = formatDurationMs(row.tr.meta?.durationMs);
+                return (
                 <li key={row.tr.relPath}>
                   <button
                     type="button"
@@ -2812,11 +2841,25 @@ function StatisticsView({
                       </div>
                     </div>
                     <div className="statistics-rank-row__plays">
+                      {dur ? (
+                        <>
+                          <span
+                            className="statistics-rank-row__dur"
+                            aria-label={t("trackRow.duration", { d: dur })}
+                          >
+                            {dur}
+                          </span>
+                          <span className="statistics-rank-row__dur-sep" aria-hidden>
+                            ·
+                          </span>
+                        </>
+                      ) : null}
                       {t("trackRow.playCount", { n: row.n })}
                     </div>
                   </button>
                 </li>
-              ))}
+                );
+              })}
             </ol>
           )}
         </section>
@@ -4038,7 +4081,11 @@ function Shell() {
       case "studio":
         return (
           <div className="view-stack">
-            <ToolsView library={legacyLibrary} onRefreshLibrary={refresh} />
+            <ToolsView
+              library={legacyLibrary}
+              libraryIndex={index}
+              onRefreshLibrary={refresh}
+            />
           </div>
         );
       case "queue":
@@ -4065,6 +4112,15 @@ function Shell() {
             title={t("collection.favoritesTitle")}
             eyebrow={t("collection.favoritesEyebrow")}
             tracks={favoriteTracks}
+            playAllLabel={t("collection.playFavorites")}
+            onPlayAll={
+              favoriteTracks.length
+                ? () => {
+                    const list = favoriteTracks;
+                    p.playTrack(list[0]!, list, 0);
+                  }
+                : undefined
+            }
           />
         );
       case "recent":
