@@ -1129,7 +1129,7 @@ kbd {
 
 @media (max-width: 560px) {
   :root {
-    --bar-h: 158px;
+    --bar-h: 128px;
   }
 
   .dirlist,
@@ -1141,7 +1141,7 @@ kbd {
 
 @media (min-width: 561px) and (max-width: 900px) {
   :root {
-    --bar-h: 132px;
+    --bar-h: 118px;
   }
 }
 

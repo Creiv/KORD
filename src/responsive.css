@@ -62,11 +62,14 @@ body,
 @media (max-width: 900px) {
   .topbar-nav {
     scroll-snap-type: x proximity;
-    padding-block: 0.15rem;
+    padding-block: 0.1rem 0.55rem;
+  }
+
+  .topbar-nav__col {
+    scroll-snap-align: start;
   }
 
   .topbar-nav__btn {
-    scroll-snap-align: start;
     min-height: 36px;
   }
 
@@ -97,10 +100,10 @@ body,
 /* --- “Phablet” + menu mobile (barra inferiore) --- */
 @media (max-width: 768px) {
   :root {
-    --bar-h: 138px;
+    --bar-h: 120px;
     /* Spazio sotto: player fisso + barra sezioni (3.5rem) */
     --content-pad-bottom: calc(
-      env(safe-area-inset-bottom, 0px) + 1.2rem + var(--bar-h) + 0.85rem + 3.5rem
+      env(safe-area-inset-bottom, 0px) + 0.9rem + var(--bar-h) + 0.7rem + 3.5rem
     );
   }
 
@@ -132,8 +135,12 @@ body,
     box-sizing: border-box;
   }
 
-  .tools-dl-dest__dirlist {
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 7.5rem), 1fr));
+  .tools-dl-dest__pathbar {
+    flex-wrap: wrap;
+  }
+
+  .tools-dl-dest__pathbar .tools-dl-dest__crumbs {
+    flex: 1 1 12rem;
   }
 
   .tools-dl-releases__toolbar {
@@ -190,6 +197,19 @@ body,
     min-height: 44px;
   }
 
+  .library-filter-panel__row--split {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .library-filter-group .segmented--joined {
+    width: 100%;
+  }
+
+  .library-filter-group .segmented--joined button {
+    min-height: 44px;
+  }
+
   .hero-card,
   .stats-grid {
     min-width: 0;
@@ -207,13 +227,27 @@ body,
     width: min(100%, 100vw - 1.5rem);
     max-height: 85dvh;
   }
+
+  .library-search-hero.surface-card {
+    padding: 0.7rem 0.85rem 0.8rem;
+  }
+
+  .library-filter-panel {
+    margin-bottom: 0.8rem;
+    padding: 0.55rem 0.75rem 0.65rem;
+  }
+
+  .library-filter-panel--tight {
+    margin-bottom: 0.7rem;
+    padding: 0.5rem 0.7rem 0.55rem;
+  }
 }
 
 /* --- Telefono (layout compatto) --- */
 @media (max-width: 560px) {
   :root {
     /* Allineato a index.css: spazio sotto al dock su telefono */
-    --bar-h: 158px;
+    --bar-h: 128px;
   }
 
   .topbar2__end .account-badge {
@@ -342,8 +376,14 @@ body,
   }
 
   .topbar-nav__btn {
-    padding: 0.24rem 0.4rem;
-    font-size: 0.7rem;
+    min-width: 0;
+    min-height: 2.35rem;
+    padding: 0.32rem;
+  }
+
+  .topbar-nav__ic {
+    width: 1.32rem;
+    height: 1.32rem;
   }
 }
 

@@ -1,14 +1,8 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
-import { usePlayer } from "../context/PlayerContext"
-import { useToolsActivity } from "../context/ToolsActivityContext"
-import { useUserState } from "../context/UserStateContext"
-import { useI18n } from "../i18n/useI18n"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePlayer } from "../context/PlayerContext";
+import { useToolsActivity } from "../context/ToolsActivityContext";
+import { useUserState } from "../context/UserStateContext";
+import { useI18n } from "../i18n/useI18n";
 import {
   applyArtwork,
   createMusicSubdir,
@@ -27,108 +21,154 @@ import {
   sanitizeTrackTitles,
   saveTrackInfoManual,
   searchArtwork,
-} from "../lib/api"
-import type { ArtworkHit, YoutubeReleasesList } from "../lib/api"
-import { fmtDate } from "../lib/metaFormat"
-import { albumFolderFromTrackRelPath } from "../lib/trackPaths"
-import type { LinkSharedAlbumResult, LinkSharedResult } from "../lib/api"
+} from "../lib/api";
+import type { ArtworkHit, YoutubeReleasesList } from "../lib/api";
+import { fmtDate } from "../lib/metaFormat";
+import { albumFolderFromTrackRelPath } from "../lib/trackPaths";
+import type { LinkSharedAlbumResult, LinkSharedResult } from "../lib/api";
 import {
   buildFolderReplaceSnapshotForFolder,
   computePostDownloadRedundantRemovals,
   type FolderReplaceSnapshot,
-} from "../lib/downloadFolderReplace"
-import { ytdlpLogDetailForUser } from "../lib/ytdlpLogFilter"
-import { classifyYoutubeUrl } from "../lib/youtubeUrl"
-import { formatTrackGenresForDisplay } from "../lib/genres"
-import { computeGenreAutoAssignments } from "../lib/genreAutoAssign"
-import type { LibArtist, LibTrack, LibraryIndex, LibraryResponse } from "../types"
+} from "../lib/downloadFolderReplace";
+import { ytdlpLogDetailForUser } from "../lib/ytdlpLogFilter";
+import { classifyYoutubeUrl } from "../lib/youtubeUrl";
+import { formatTrackGenresForDisplay } from "../lib/genres";
+import { computeGenreAutoAssignments } from "../lib/genreAutoAssign";
+import type {
+  LibArtist,
+  LibTrack,
+  LibraryIndex,
+  LibraryResponse,
+} from "../types";
+import {
+  UiChevronRight,
+  UiDownload,
+  UiGraphicEq,
+  UiImage,
+  UiLink,
+  UiNote,
+} from "./KordUiIcons";
 
 type P = {
-  library: LibraryResponse | null
-  libraryIndex: LibraryIndex | null
-  onRefreshLibrary: () => void
-}
+  library: LibraryResponse | null;
+  libraryIndex: LibraryIndex | null;
+  onRefreshLibrary: () => void;
+};
 
 function sourceLabel(s: string | undefined): string {
-  if (s === "itunes") return "iTunes"
-  if (s === "deezer") return "Deezer"
-  if (s === "musicbrainz") return "MusicBrainz"
-  if (s === "theaudiodb") return "TheAudioDB"
-  if (s === "coverart") return "CAA / MB"
-  return s || "—"
+  if (s === "itunes") return "iTunes";
+  if (s === "deezer") return "Deezer";
+  if (s === "musicbrainz") return "MusicBrainz";
+  if (s === "theaudiodb") return "TheAudioDB";
+  if (s === "coverart") return "CAA / MB";
+  return s || "—";
 }
 
 function extLinkLabel(url: string, openWord: string): string {
   try {
-    const h = new URL(url).hostname
-    if (h.includes("apple.com")) return "iTunes / Apple"
-    if (h.includes("deezer.com")) return "Deezer"
-    if (h.includes("musicbrainz.org")) return "MusicBrainz"
-    return h.replace("www.", "") || openWord
+    const h = new URL(url).hostname;
+    if (h.includes("apple.com")) return "iTunes / Apple";
+    if (h.includes("deezer.com")) return "Deezer";
+    if (h.includes("musicbrainz.org")) return "MusicBrainz";
+    return h.replace("www.", "") || openWord;
   } catch {
-    return openWord
+    return openWord;
   }
 }
 
-function findLibTrack(library: LibraryResponse, relPath: string): LibTrack | null {
+function findLibTrack(
+  library: LibraryResponse,
+  relPath: string
+): LibTrack | null {
   for (const a of library.artists) {
     for (const al of a.albums) {
       for (const t of al.tracks) {
-        if (t.relPath === relPath) return t
+        if (t.relPath === relPath) return t;
       }
     }
   }
-  return null
+  return null;
 }
 
-const K_DL_OK = "kord-dl-committed"
-const W_DL_OK = "wpp-dl-committed"
-const K_DL_OUT = "kord-dl-out"
-const W_DL_OUT = "wpp-dl-out"
-const K_COVER_ALB = "kord-cover-album"
-const W_COVER_ALB = "wpp-cover-album"
+const K_DL_OK = "kord-dl-committed";
+const W_DL_OK = "wpp-dl-committed";
+const K_DL_OUT = "kord-dl-out";
+const W_DL_OUT = "wpp-dl-out";
+const K_COVER_ALB = "kord-cover-album";
+const W_COVER_ALB = "wpp-cover-album";
 
-const SHARED_ALL_ALBUMS = "__kord_all_albums__"
+const SHARED_ALL_ALBUMS = "__kord_all_albums__";
 
 function normalizeDlProgress(
-  p: { current: number; total: number } | null,
+  p: { current: number; total: number } | null
 ): { cur: number; tot: number; pct: number } | null {
-  if (!p) return null
-  const tot = Math.max(1, Math.floor(Number(p.total) || 1))
-  const cur = Math.min(tot, Math.max(0, Math.floor(Number(p.current) || 0)))
-  return { cur, tot, pct: Math.max(3, Math.min(100, (cur / tot) * 100)) }
+  if (!p) return null;
+  const tot = Math.max(1, Math.floor(Number(p.total) || 1));
+  const cur = Math.min(tot, Math.max(0, Math.floor(Number(p.current) || 0)));
+  return { cur, tot, pct: Math.max(3, Math.min(100, (cur / tot) * 100)) };
 }
 
 /** Brani nel singolo album (release batch); se total non noto ancora, pct leggera fissa. */
 function normalizeTrackInAlbumProgress(
-  p: { current: number; total: number } | null,
+  p: { current: number; total: number } | null
 ): { cur: number; tot: number; pct: number; hasTotal: boolean } | null {
-  if (!p) return null
-  const tot = Math.floor(Number(p.total) || 0)
-  const cur = Math.max(0, Math.floor(Number(p.current) || 0))
+  if (!p) return null;
+  const tot = Math.floor(Number(p.total) || 0);
+  const cur = Math.max(0, Math.floor(Number(p.current) || 0));
   if (tot <= 0) {
-    return { cur, tot: 0, pct: 10, hasTotal: false }
+    return { cur, tot: 0, pct: 10, hasTotal: false };
   }
   return {
     cur: Math.min(tot, cur),
     tot,
     hasTotal: true,
     pct: Math.max(3, Math.min(100, (cur / tot) * 100)),
-  }
+  };
 }
 
-export function ToolsView({
-  library,
-  libraryIndex,
-  onRefreshLibrary,
-}: P) {
-  const p = usePlayer()
-  const { t, sortLocale } = useI18n()
+function DlDestFolderGlyph({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      aria-hidden
+    >
+      <path
+        d="M4.25 5.5h5.1l1.1 1.1h8.3c.6 0 1.1.45 1.1 1v9.15c0 .6-.5 1.1-1.1 1.1H4.25c-.6 0-1.1-.5-1.1-1.1V6.6c0-.6.5-1.1 1.1-1.1Z"
+        fill="currentColor"
+        opacity="0.9"
+      />
+    </svg>
+  );
+}
+
+function DlDestUpIcon() {
+  return (
+    <svg
+      className="tools-dl-dest__up-ic"
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M12 5.5L6.5 11H10v5.5h4V11h3.4L12 5.5z" />
+    </svg>
+  );
+}
+
+export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
+  const p = usePlayer();
+  const { t, sortLocale } = useI18n();
   const {
     state: userState,
     stripUserStateForRelPaths,
     remapUserStateAfterDownloadReplace,
-  } = useUserState()
+  } = useUserState();
   const {
     log,
     setLog,
@@ -160,276 +200,290 @@ export function ToolsView({
     setGenreAutoBusy,
     stopMetaAll,
     stopTrackAll,
-  } = useToolsActivity()
+  } = useToolsActivity();
   const [genreAutoProg, setGenreAutoProg] = useState<{
-    current: number
-    total: number
-  } | null>(null)
-  const [preset, setPreset] = useState<string | null>(null)
-  const [url, setUrl] = useState("")
-  const [dlList, setDlList] = useState<
-    | {
-        path: string
-        parent: string
-        dirs: { name: string; relPath: string }[]
-        musicRoot: string
-      }
-    | null
-  >(null)
+    current: number;
+    total: number;
+  } | null>(null);
+  const [preset, setPreset] = useState<string | null>(null);
+  const [url, setUrl] = useState("");
+  const [dlList, setDlList] = useState<{
+    path: string;
+    parent: string;
+    dirs: { name: string; relPath: string }[];
+    musicRoot: string;
+  } | null>(null);
   const [dlPath, setDlPath] = useState(() => {
     try {
       if (
         sessionStorage.getItem(K_DL_OK) === "1" ||
         sessionStorage.getItem(W_DL_OK) === "1"
       ) {
-        return sessionStorage.getItem(K_DL_OUT) ?? sessionStorage.getItem(W_DL_OUT) ?? ""
+        return (
+          sessionStorage.getItem(K_DL_OUT) ??
+          sessionStorage.getItem(W_DL_OUT) ??
+          ""
+        );
       }
     } catch {
       /* ignore */
     }
-    return ""
-  })
+    return "";
+  });
   const [dlDestPicked, setDlDestPicked] = useState(() => {
     try {
       return (
         sessionStorage.getItem(K_DL_OK) === "1" ||
         sessionStorage.getItem(W_DL_OK) === "1"
-      )
+      );
     } catch {
-      return false
+      return false;
     }
-  })
+  });
   const [sharedAccounts, setSharedAccounts] = useState<
     { id: string; name: string; musicRoot: string }[]
-  >([])
-  const [sharedLockedByEnv, setSharedLockedByEnv] = useState(false)
-  const [localSessionAccount, setLocalSessionAccount] = useState<string | null>(() =>
-    getSelectedAccountId(),
-  )
-  const [sharedSourceId, setSharedSourceId] = useState("")
-  const [sharedIndex, setSharedIndex] = useState<LibraryIndex | null>(null)
-  const [sharedLoadBusy, setSharedLoadBusy] = useState(false)
-  const [sharedLinkBusy, setSharedLinkBusy] = useState(false)
-  const [sharedArtistId, setSharedArtistId] = useState("")
-  const [sharedAlbumRel, setSharedAlbumRel] = useState("")
-  const [sharedMsg, setSharedMsg] = useState<string | null>(null)
-  const [sharedErr, setSharedErr] = useState<string | null>(null)
-  const [artArt, setArtArt] = useState("")
-  const [artAlb, setArtAlb] = useState("")
-  const [artRes, setArtRes] = useState<ArtworkHit[]>([])
-  const [newDirName, setNewDirName] = useState("")
-  const [metaArtistName, setMetaArtistName] = useState("")
-  const [metaAlbumPath, setMetaAlbumPath] = useState("")
-  const [metaArt, setMetaArt] = useState("")
-  const [metaAlb, setMetaAlb] = useState("")
-  const [coverPickArtist, setCoverPickArtist] = useState("")
-  const [relPayload, setRelPayload] = useState<YoutubeReleasesList | null>(null)
-  const [relStreamTotal, setRelStreamTotal] = useState<number | null>(null)
-  const [relStreamComplete, setRelStreamComplete] = useState(false)
-  const [relSel, setRelSel] = useState<Set<string>>(() => new Set())
-  const [relLoadBusy, setRelLoadBusy] = useState(false)
-  const relAborter = useRef<AbortController | null>(null)
-  const relLogTotalRef = useRef(0)
-  const relLogUploaderRef = useRef("")
-  const [dlReplaceMode, setDlReplaceMode] = useState(false)
+  >([]);
+  const [sharedLockedByEnv, setSharedLockedByEnv] = useState(false);
+  const [localSessionAccount, setLocalSessionAccount] = useState<string | null>(
+    () => getSelectedAccountId()
+  );
+  const [sharedSourceId, setSharedSourceId] = useState("");
+  const [sharedIndex, setSharedIndex] = useState<LibraryIndex | null>(null);
+  const [sharedLoadBusy, setSharedLoadBusy] = useState(false);
+  const [sharedLinkBusy, setSharedLinkBusy] = useState(false);
+  const [sharedArtistId, setSharedArtistId] = useState("");
+  const [sharedAlbumRel, setSharedAlbumRel] = useState("");
+  const [sharedMsg, setSharedMsg] = useState<string | null>(null);
+  const [sharedErr, setSharedErr] = useState<string | null>(null);
+  const [artArt, setArtArt] = useState("");
+  const [artAlb, setArtAlb] = useState("");
+  const [artRes, setArtRes] = useState<ArtworkHit[]>([]);
+  const [newDirName, setNewDirName] = useState("");
+  const [metaArtistName, setMetaArtistName] = useState("");
+  const [metaAlbumPath, setMetaAlbumPath] = useState("");
+  const [metaArt, setMetaArt] = useState("");
+  const [metaAlb, setMetaAlb] = useState("");
+  const [coverPickArtist, setCoverPickArtist] = useState("");
+  const [relPayload, setRelPayload] = useState<YoutubeReleasesList | null>(
+    null
+  );
+  const [relStreamTotal, setRelStreamTotal] = useState<number | null>(null);
+  const [relStreamComplete, setRelStreamComplete] = useState(false);
+  const [relSel, setRelSel] = useState<Set<string>>(() => new Set());
+  const [relLoadBusy, setRelLoadBusy] = useState(false);
+  const relAborter = useRef<AbortController | null>(null);
+  const relLogTotalRef = useRef(0);
+  const relLogUploaderRef = useRef("");
+  const [dlReplaceMode, setDlReplaceMode] = useState(false);
   const [dlTrackProg, setDlTrackProg] = useState<{
-    current: number
-    total: number
-  } | null>(null)
+    current: number;
+    total: number;
+  } | null>(null);
   const [albumForCover, setAlbumForCover] = useState(() => {
     try {
       return (
         sessionStorage.getItem(K_COVER_ALB) ||
         sessionStorage.getItem(W_COVER_ALB) ||
         ""
-      )
+      );
     } catch {
-      return ""
+      return "";
     }
-  })
+  });
 
   const loadPreset = useCallback(() => {
     fetchDownloadPreset()
       .then((d) => {
-        setPreset(d.found && d.text ? d.text : null)
-        if (d.exampleUrl) setUrl(d.exampleUrl)
+        setPreset(d.found && d.text ? d.text : null);
+        if (d.exampleUrl) setUrl(d.exampleUrl);
       })
-      .catch((e) => setLog((x) => x + t("tools.logCmdErr", { e })))
-  }, [t])
+      .catch((e) => setLog((x) => x + t("tools.logCmdErr", { e })));
+  }, [t]);
 
   useEffect(() => {
-    loadPreset()
-  }, [loadPreset])
+    loadPreset();
+  }, [loadPreset]);
 
-  const loadDlFs = useCallback((path: string) => {
-    listMusicDirs(path)
-      .then(setDlList)
-      .catch((e) => setLog((x) => x + t("tools.logFolderErr", { e })))
-  }, [t])
+  const loadDlFs = useCallback(
+    (path: string) => {
+      listMusicDirs(path)
+        .then(setDlList)
+        .catch((e) => setLog((x) => x + t("tools.logFolderErr", { e })));
+    },
+    [t]
+  );
 
   useEffect(() => {
-    if (!library || !metaAlbumPath) return
+    if (!library || !metaAlbumPath) return;
     for (const a of library.artists) {
       for (const al of a.albums) {
-        const rp = al.relPath || `${a.name}/${al.name}`
+        const rp = al.relPath || `${a.name}/${al.name}`;
         if (rp === metaAlbumPath) {
-          setMetaArtistName(a.name)
-          return
+          setMetaArtistName(a.name);
+          return;
         }
       }
     }
-  }, [library, metaAlbumPath])
+  }, [library, metaAlbumPath]);
 
   useEffect(() => {
-    if (!library || !albumForCover) return
+    if (!library || !albumForCover) return;
     for (const a of library.artists) {
       for (const al of a.albums) {
-        const rp = al.relPath || `${a.name}/${al.name}`
+        const rp = al.relPath || `${a.name}/${al.name}`;
         if (rp === albumForCover) {
-          setCoverPickArtist(a.name)
-          return
+          setCoverPickArtist(a.name);
+          return;
         }
       }
     }
-  }, [library, albumForCover])
+  }, [library, albumForCover]);
 
   useEffect(() => {
-    if (classifyYoutubeUrl(url) === "releases") return
-    setRelPayload(null)
-    setRelStreamTotal(null)
-    setRelStreamComplete(false)
-    setRelSel(new Set())
-  }, [url])
+    if (classifyYoutubeUrl(url) === "releases") return;
+    setRelPayload(null);
+    setRelStreamTotal(null);
+    setRelStreamComplete(false);
+    setRelSel(new Set());
+  }, [url]);
 
   useEffect(() => {
-    loadDlFs("")
-  }, [loadDlFs])
+    loadDlFs("");
+  }, [loadDlFs]);
 
   useEffect(
     () => () => {
-      relAborter.current?.abort()
+      relAborter.current?.abort();
     },
-    [],
-  )
+    []
+  );
 
   const commitDlDest = (path: string) => {
-    setDlPath(path)
-    setDlDestPicked(true)
+    setDlPath(path);
+    setDlDestPicked(true);
     try {
-      sessionStorage.setItem(K_DL_OK, "1")
-      sessionStorage.setItem(K_DL_OUT, path)
+      sessionStorage.setItem(K_DL_OK, "1");
+      sessionStorage.setItem(K_DL_OUT, path);
     } catch {
       /* ignore */
     }
-  }
+  };
 
   useEffect(() => {
     try {
       if (albumForCover) {
-        sessionStorage.setItem(K_COVER_ALB, albumForCover)
+        sessionStorage.setItem(K_COVER_ALB, albumForCover);
       } else {
-        sessionStorage.removeItem(K_COVER_ALB)
-        sessionStorage.removeItem(W_COVER_ALB)
+        sessionStorage.removeItem(K_COVER_ALB);
+        sessionStorage.removeItem(W_COVER_ALB);
       }
     } catch {
       /* ignore */
     }
-  }, [albumForCover])
+  }, [albumForCover]);
 
   useEffect(() => {
     fetchAccounts()
       .then((a) => {
-        setSharedAccounts(a.accounts)
-        setSharedLockedByEnv(a.lockedByEnv)
+        setSharedAccounts(a.accounts);
+        setSharedLockedByEnv(a.lockedByEnv);
       })
-      .catch(() => {})
-  }, [])
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
-    const h = () => setLocalSessionAccount(getSelectedAccountId())
-    window.addEventListener("kord-account-session-changed", h)
-    return () => window.removeEventListener("kord-account-session-changed", h)
-  }, [])
+    const h = () => setLocalSessionAccount(getSelectedAccountId());
+    window.addEventListener("kord-account-session-changed", h);
+    return () => window.removeEventListener("kord-account-session-changed", h);
+  }, []);
 
   const libraryArtistsSorted = useMemo((): LibArtist[] => {
-    if (!library) return []
+    if (!library) return [];
     return [...library.artists].sort((a, b) =>
-      a.name.localeCompare(b.name, sortLocale, { sensitivity: "base" }),
-    )
-  }, [library, sortLocale])
+      a.name.localeCompare(b.name, sortLocale, { sensitivity: "base" })
+    );
+  }, [library, sortLocale]);
 
   const metaAlbumsForPick = useMemo(() => {
-    if (!library || !metaArtistName) return [] as { relPath: string; name: string }[]
-    const ar = library.artists.find((x) => x.name === metaArtistName)
-    if (!ar) return []
+    if (!library || !metaArtistName)
+      return [] as { relPath: string; name: string }[];
+    const ar = library.artists.find((x) => x.name === metaArtistName);
+    if (!ar) return [];
     return ar.albums
       .filter((al) => al.id !== "__loose__")
       .map((al) => ({
         relPath: al.relPath || `${ar.name}/${al.name}`,
         name: al.name,
       }))
-      .sort((a, b) => a.name.localeCompare(b.name, sortLocale, { numeric: true }))
-  }, [library, metaArtistName, sortLocale])
+      .sort((a, b) =>
+        a.name.localeCompare(b.name, sortLocale, { numeric: true })
+      );
+  }, [library, metaArtistName, sortLocale]);
 
   const coverAlbumsForPick = useMemo(() => {
-    if (!library || !coverPickArtist) return [] as { relPath: string; name: string }[]
-    const ar = library.artists.find((x) => x.name === coverPickArtist)
-    if (!ar) return []
+    if (!library || !coverPickArtist)
+      return [] as { relPath: string; name: string }[];
+    const ar = library.artists.find((x) => x.name === coverPickArtist);
+    if (!ar) return [];
     return ar.albums
       .filter((al) => al.id !== "__loose__")
       .map((al) => ({
         relPath: al.relPath || `${ar.name}/${al.name}`,
         name: al.name,
       }))
-      .sort((a, b) => a.name.localeCompare(b.name, sortLocale, { numeric: true }))
-  }, [library, coverPickArtist, sortLocale])
+      .sort((a, b) =>
+        a.name.localeCompare(b.name, sortLocale, { numeric: true })
+      );
+  }, [library, coverPickArtist, sortLocale]);
 
-  const dlKind = useMemo(() => classifyYoutubeUrl(url), [url])
+  const dlKind = useMemo(() => classifyYoutubeUrl(url), [url]);
 
   const otherSharedAccounts = useMemo(
     () => sharedAccounts.filter((a) => a.id !== (localSessionAccount || "")),
-    [sharedAccounts, localSessionAccount],
-  )
+    [sharedAccounts, localSessionAccount]
+  );
 
   const sharedAlbumsForArtist = useMemo(() => {
-    if (!sharedIndex || !sharedArtistId) return []
-    return sharedIndex.albums.filter((a) => a.artistId === sharedArtistId && !a.loose)
-  }, [sharedIndex, sharedArtistId])
+    if (!sharedIndex || !sharedArtistId) return [];
+    return sharedIndex.albums.filter(
+      (a) => a.artistId === sharedArtistId && !a.loose
+    );
+  }, [sharedIndex, sharedArtistId]);
 
   const loadSharedCatalog = useCallback(() => {
-    if (!sharedSourceId) return
-    setSharedLoadBusy(true)
-    setSharedErr(null)
-    setSharedMsg(null)
-    setSharedIndex(null)
-    setSharedArtistId("")
-    setSharedAlbumRel("")
+    if (!sharedSourceId) return;
+    setSharedLoadBusy(true);
+    setSharedErr(null);
+    setSharedMsg(null);
+    setSharedIndex(null);
+    setSharedArtistId("");
+    setSharedAlbumRel("");
     fetchLibraryIndexForAccount(sharedSourceId)
       .then((ix) => {
-        setSharedIndex(ix)
+        setSharedIndex(ix);
       })
       .catch((e) => {
         setSharedErr(
-          t("tools.sharedErr", { e: String((e as Error)?.message || e) }),
-        )
-        setSharedIndex(null)
+          t("tools.sharedErr", { e: String((e as Error)?.message || e) })
+        );
+        setSharedIndex(null);
       })
-      .finally(() => setSharedLoadBusy(false))
-  }, [sharedSourceId, t])
+      .finally(() => setSharedLoadBusy(false));
+  }, [sharedSourceId, t]);
 
   const doLinkSharedAlbum = useCallback(() => {
-    if (!sharedSourceId || !sharedArtistId || !sharedAlbumRel) return
-    setSharedLinkBusy(true)
-    setSharedErr(null)
-    setSharedMsg(null)
-    const scope = sharedAlbumRel === SHARED_ALL_ALBUMS ? "artist" : "album"
-    const rel = scope === "artist" ? sharedArtistId : sharedAlbumRel
+    if (!sharedSourceId || !sharedArtistId || !sharedAlbumRel) return;
+    setSharedLinkBusy(true);
+    setSharedErr(null);
+    setSharedMsg(null);
+    const scope = sharedAlbumRel === SHARED_ALL_ALBUMS ? "artist" : "album";
+    const rel = scope === "artist" ? sharedArtistId : sharedAlbumRel;
     linkSharedFromAccount(sharedSourceId, rel, scope)
       .then((r: LinkSharedResult) => {
         if ("scope" in r && r.scope === "artist") {
           const extra = r.errors?.length
             ? t("tools.sharedLinkArtistErrors", { n: r.errors.length })
-            : ""
+            : "";
           setSharedMsg(
             t("tools.sharedLinkOkArtist", {
               albums: r.albums.length,
@@ -439,176 +493,181 @@ export function ToolsView({
             }) +
               (r.errors?.length
                 ? ` ${r.errors.map((e) => e.relPath).join(", ")}`
-                : ""),
-          )
+                : "")
+          );
         } else {
-          const al = r as LinkSharedAlbumResult
+          const al = r as LinkSharedAlbumResult;
           setSharedMsg(
             t("tools.sharedLinkOk", {
               linked: al.linked,
               skipped: al.skipped,
               path: al.destRelPath,
-            }),
-          )
+            })
+          );
         }
-        onRefreshLibrary()
+        onRefreshLibrary();
       })
       .catch((e) => {
         setSharedErr(
-          t("tools.sharedErr", { e: String((e as Error)?.message || e) }),
-        )
+          t("tools.sharedErr", { e: String((e as Error)?.message || e) })
+        );
       })
-      .finally(() => setSharedLinkBusy(false))
-  }, [onRefreshLibrary, sharedAlbumRel, sharedArtistId, sharedSourceId, t])
+      .finally(() => setSharedLinkBusy(false));
+  }, [onRefreshLibrary, sharedAlbumRel, sharedArtistId, sharedSourceId, t]);
 
   const useCurrentForArt = () => {
     if (p.current) {
-      setArtArt(p.current.artist)
-      setArtAlb(p.current.album)
-      setCoverPickArtist(p.current.artist)
-      const folder = albumFolderFromTrackRelPath(p.current.relPath)
+      setArtArt(p.current.artist);
+      setArtAlb(p.current.album);
+      setCoverPickArtist(p.current.artist);
+      const folder = albumFolderFromTrackRelPath(p.current.relPath);
       if (folder) {
-        setAlbumForCover(folder)
+        setAlbumForCover(folder);
       }
     }
-  }
+  };
 
   const setCoverDestFromCurrentTrack = () => {
     if (!p.current?.relPath) {
-      setLog((x) => x + t("tools.logNoTrackPath"))
-      return
+      setLog((x) => x + t("tools.logNoTrackPath"));
+      return;
     }
-    const folder = albumFolderFromTrackRelPath(p.current.relPath)
+    const folder = albumFolderFromTrackRelPath(p.current.relPath);
     if (!folder) {
-      setLog((x) => x + t("tools.logNoAlbumFolder"))
-      return
+      setLog((x) => x + t("tools.logNoAlbumFolder"));
+      return;
     }
-    setCoverPickArtist(p.current.artist)
-    setAlbumForCover(folder)
-    setLog((x) => x + t("tools.logCoverDest", { path: folder }))
-  }
+    setCoverPickArtist(p.current.artist);
+    setAlbumForCover(folder);
+    setLog((x) => x + t("tools.logCoverDest", { path: folder }));
+  };
 
   const doCreateFolder = () => {
-    const n = newDirName.trim()
-    if (n.length < 1 || !dlList) return
-    setMkBusy(true)
+    const n = newDirName.trim();
+    if (n.length < 1 || !dlList) return;
+    setMkBusy(true);
     createMusicSubdir(dlList.path || "", n)
       .then(({ relPath }) => {
-        setLog((x) => x + t("tools.logNewFolder", { path: relPath }))
-        setNewDirName("")
-        const parent = relPath.split("/").slice(0, -1).join("/")
-        loadDlFs(parent)
+        setLog((x) => x + t("tools.logNewFolder", { path: relPath }));
+        setNewDirName("");
+        const parent = relPath.split("/").slice(0, -1).join("/");
+        loadDlFs(parent);
       })
       .catch((e) => setLog((x) => x + t("tools.logFolderErr", { e })))
-      .finally(() => setMkBusy(false))
-  }
+      .finally(() => setMkBusy(false));
+  };
 
   const setMetaFromCurrent = () => {
     if (!p.current?.relPath) {
-      setMetaLog(t("tools.metaNoTrack"))
-      return
+      setMetaLog(t("tools.metaNoTrack"));
+      return;
     }
-    setMetaArt(p.current.artist)
-    setMetaAlb(p.current.album)
-    setMetaArtistName(p.current.artist)
-    const folder = albumFolderFromTrackRelPath(p.current.relPath)
+    setMetaArt(p.current.artist);
+    setMetaAlb(p.current.album);
+    setMetaArtistName(p.current.artist);
+    const folder = albumFolderFromTrackRelPath(p.current.relPath);
     if (folder) {
-      setMetaAlbumPath(folder)
-      setMetaLog(t("tools.metaFromTrackOk"))
+      setMetaAlbumPath(folder);
+      setMetaLog(t("tools.metaFromTrackOk"));
     } else {
-      setMetaLog(t("tools.metaNoFolder"))
+      setMetaLog(t("tools.metaNoFolder"));
     }
-  }
+  };
 
   const fetchOneAlbumMeta = () => {
     if (!metaAlbumPath.trim()) {
-      setMetaLog(t("tools.metaPickAlbum"))
-      return
+      setMetaLog(t("tools.metaPickAlbum"));
+      return;
     }
-    setMetaBusy(true)
+    setMetaBusy(true);
     fetchAlbumInfo(metaAlbumPath.trim(), metaArt.trim(), metaAlb.trim())
       .then((r) => {
-        const d = r.meta?.date
-        setMetaLog((s) =>
-          s + t("tools.metaOkLine", { path: r.albumPath, date: fmtDate(d) }),
-        )
-        onRefreshLibrary()
+        const d = r.meta?.date;
+        setMetaLog(
+          (s) =>
+            s + t("tools.metaOkLine", { path: r.albumPath, date: fmtDate(d) })
+        );
+        onRefreshLibrary();
       })
       .catch((e) => setMetaLog((s) => s + t("tools.metaErr", { e })))
-      .finally(() => setMetaBusy(false))
-  }
+      .finally(() => setMetaBusy(false));
+  };
 
   const runMetaScanAll = async () => {
-    if (!library) return
-    stopMetaAll.current = false
-    setMetaAllBusy(true)
-    setMetaScanProg(null)
-    const list: { path: string; artist: string; album: string }[] = []
+    if (!library) return;
+    stopMetaAll.current = false;
+    setMetaAllBusy(true);
+    setMetaScanProg(null);
+    const list: { path: string; artist: string; album: string }[] = [];
     for (const a of library.artists) {
       for (const al of a.albums) {
-        if (al.id === "__loose__") continue
-        list.push({ path: `${a.name}/${al.name}`, artist: a.name, album: al.name })
+        if (al.id === "__loose__") continue;
+        list.push({
+          path: `${a.name}/${al.name}`,
+          artist: a.name,
+          album: al.name,
+        });
       }
     }
     const toFetch = list.filter((row) => {
-      const ar = library.artists.find((x) => x.name === row.artist)
-      const al = ar?.albums.find((x) => x.name === row.album)
-      return !al?.hasAlbumMeta
-    })
-    const skipped = list.length - toFetch.length
+      const ar = library.artists.find((x) => x.name === row.artist);
+      const al = ar?.albums.find((x) => x.name === row.album);
+      return !al?.hasAlbumMeta;
+    });
+    const skipped = list.length - toFetch.length;
     setMetaLog(
       (s) =>
         s +
         t("tools.metaScanStart", {
           fetch: toFetch.length,
-          skip:
-            skipped > 0 ? t("tools.metaScanSkip", { n: skipped }) : "",
-        }),
-    )
+          skip: skipped > 0 ? t("tools.metaScanSkip", { n: skipped }) : "",
+        })
+    );
     if (toFetch.length === 0) {
-      setMetaAllBusy(false)
-      setMetaLog((s) => s + t("tools.metaNoAlbums"))
-      return
+      setMetaAllBusy(false);
+      setMetaLog((s) => s + t("tools.metaNoAlbums"));
+      return;
     }
     for (let i = 0; i < toFetch.length; i += 1) {
       if (stopMetaAll.current) {
-        setMetaLog((s) => s + t("tools.metaUserStop"))
-        setMetaScanProg(null)
-        setMetaAllBusy(false)
-        onRefreshLibrary()
-        return
+        setMetaLog((s) => s + t("tools.metaUserStop"));
+        setMetaScanProg(null);
+        setMetaAllBusy(false);
+        onRefreshLibrary();
+        return;
       }
-      const row = toFetch[i]!
-      setMetaScanProg({ current: i + 1, total: toFetch.length })
+      const row = toFetch[i]!;
+      setMetaScanProg({ current: i + 1, total: toFetch.length });
       try {
-        await fetchAlbumInfo(row.path, row.artist, row.album)
+        await fetchAlbumInfo(row.path, row.artist, row.album);
       } catch (e) {
-        setMetaLog((s) =>
-          s +
-          t("tools.metaScanItemErr", {
-            i: i + 1,
-            total: toFetch.length,
-            path: row.path,
-            err: String((e as Error)?.message || e),
-          }),
-        )
+        setMetaLog(
+          (s) =>
+            s +
+            t("tools.metaScanItemErr", {
+              i: i + 1,
+              total: toFetch.length,
+              path: row.path,
+              err: String((e as Error)?.message || e),
+            })
+        );
       }
       if (i < toFetch.length - 1) {
-        await new Promise((r) => setTimeout(r, 1100))
+        await new Promise((r) => setTimeout(r, 1100));
       }
     }
-    setMetaScanProg(null)
-    setMetaAllBusy(false)
-    setMetaLog((s) => s + t("tools.metaScanDone"))
-    onRefreshLibrary()
-  }
+    setMetaScanProg(null);
+    setMetaAllBusy(false);
+    setMetaLog((s) => s + t("tools.metaScanDone"));
+    onRefreshLibrary();
+  };
 
   const fetchCurrentTrackMeta = () => {
     if (!p.current?.relPath) {
-      setMetaLog((s) => s + t("tools.metaNoTrack"))
-      return
+      setMetaLog((s) => s + t("tools.metaNoTrack"));
+      return;
     }
-    setTrackMetaBusy(true)
+    setTrackMetaBusy(true);
     fetchTrackInfo(p.current.relPath)
       .then((r) => {
         setMetaLog(
@@ -617,91 +676,92 @@ export function ToolsView({
             t("tools.metaTrackOk", {
               title: p.current?.title ?? "",
               date: fmtDate(r.meta.releaseDate),
-              genre: formatTrackGenresForDisplay(r.meta.genre) || t("common.emDash"),
-            }),
-        )
-        onRefreshLibrary()
+              genre:
+                formatTrackGenresForDisplay(r.meta.genre) || t("common.emDash"),
+            })
+        );
+        onRefreshLibrary();
       })
       .catch((e) => setMetaLog((s) => s + t("tools.metaTrackErr", { e })))
-      .finally(() => setTrackMetaBusy(false))
-  }
+      .finally(() => setTrackMetaBusy(false));
+  };
 
   const runTrackScanAll = async () => {
-    if (!library) return
-    stopTrackAll.current = false
-    setTrackAllBusy(true)
-    setTrackScanProg(null)
-    const rels: string[] = []
+    if (!library) return;
+    stopTrackAll.current = false;
+    setTrackAllBusy(true);
+    setTrackScanProg(null);
+    const rels: string[] = [];
     for (const a of library.artists) {
       for (const al of a.albums) {
-        for (const t of al.tracks) rels.push(t.relPath)
+        for (const t of al.tracks) rels.push(t.relPath);
       }
     }
     const toFetch = rels.filter((rel) => {
-      const tr = findLibTrack(library, rel)
-      const m = tr?.meta
-      if (!m) return true
-      return !(formatTrackGenresForDisplay(m.genre) || m.releaseDate)
-    })
-    const skippedT = rels.length - toFetch.length
+      const tr = findLibTrack(library, rel);
+      const m = tr?.meta;
+      if (!m) return true;
+      return !(formatTrackGenresForDisplay(m.genre) || m.releaseDate);
+    });
+    const skippedT = rels.length - toFetch.length;
     setMetaLog(
       (s) =>
         s +
         t("tools.trackScanStart", {
           fetch: toFetch.length,
-          skip:
-            skippedT > 0 ? t("tools.trackScanSkip", { n: skippedT }) : "",
-        }),
-    )
+          skip: skippedT > 0 ? t("tools.trackScanSkip", { n: skippedT }) : "",
+        })
+    );
     if (toFetch.length === 0) {
-      setTrackAllBusy(false)
-      setMetaLog((s) => s + t("tools.trackNoUpdate"))
-      return
+      setTrackAllBusy(false);
+      setMetaLog((s) => s + t("tools.trackNoUpdate"));
+      return;
     }
     for (let i = 0; i < toFetch.length; i += 1) {
       if (stopTrackAll.current) {
-        setMetaLog((s) => s + t("tools.trackScanStop"))
-        setTrackScanProg(null)
-        setTrackAllBusy(false)
-        onRefreshLibrary()
-        return
+        setMetaLog((s) => s + t("tools.trackScanStop"));
+        setTrackScanProg(null);
+        setTrackAllBusy(false);
+        onRefreshLibrary();
+        return;
       }
-      const rel = toFetch[i]!
-      setTrackScanProg({ current: i + 1, total: toFetch.length })
+      const rel = toFetch[i]!;
+      setTrackScanProg({ current: i + 1, total: toFetch.length });
       try {
-        await fetchTrackInfo(rel)
+        await fetchTrackInfo(rel);
       } catch (e) {
-        setMetaLog((s) =>
-          s +
-          t("tools.trackScanItemErr", {
-            i: i + 1,
-            total: toFetch.length,
-            path: rel,
-            err: String((e as Error)?.message || e),
-          }),
-        )
+        setMetaLog(
+          (s) =>
+            s +
+            t("tools.trackScanItemErr", {
+              i: i + 1,
+              total: toFetch.length,
+              path: rel,
+              err: String((e as Error)?.message || e),
+            })
+        );
       }
       if (i < toFetch.length - 1) {
-        await new Promise((r) => setTimeout(r, 350))
+        await new Promise((r) => setTimeout(r, 350));
       }
     }
-    setTrackScanProg(null)
-    setTrackAllBusy(false)
-    setMetaLog((s) => s + t("tools.trackScanDone"))
-    onRefreshLibrary()
-  }
+    setTrackScanProg(null);
+    setTrackAllBusy(false);
+    setMetaLog((s) => s + t("tools.trackScanDone"));
+    onRefreshLibrary();
+  };
 
   const runGenreAutoPreview = useCallback(() => {
     if (!libraryIndex) {
-      setMetaLog((s) => s + t("tools.genreAutoNoIndex"))
-      return
+      setMetaLog((s) => s + t("tools.genreAutoNoIndex"));
+      return;
     }
-    const list = computeGenreAutoAssignments(libraryIndex)
+    const list = computeGenreAutoAssignments(libraryIndex);
     if (list.length === 0) {
-      setMetaLog((s) => s + t("tools.genreAutoPreviewEmpty"))
-      return
+      setMetaLog((s) => s + t("tools.genreAutoPreviewEmpty"));
+      return;
     }
-    const maxLines = 150
+    const maxLines = 150;
     const lines = list.slice(0, maxLines).map((row) =>
       t("tools.genreAutoLine", {
         path: row.relPath,
@@ -710,74 +770,76 @@ export function ToolsView({
           row.source === "album"
             ? t("tools.genreAutoSourceAlbum")
             : t("tools.genreAutoSourceArtist"),
-      }),
-    )
-    let tail = ""
+      })
+    );
+    let tail = "";
     if (list.length > maxLines) {
-      tail = t("tools.genreAutoMore", { n: list.length - maxLines })
+      tail = t("tools.genreAutoMore", { n: list.length - maxLines });
     }
     setMetaLog(
       (s) =>
         s +
         t("tools.genreAutoPreviewHead", { n: list.length }) +
         lines.join("") +
-        tail,
-    )
-  }, [libraryIndex, setMetaLog, t])
+        tail
+    );
+  }, [libraryIndex, setMetaLog, t]);
 
   const runGenreAutoApply = useCallback(async () => {
     if (!libraryIndex) {
-      setMetaLog((s) => s + t("tools.genreAutoNoIndex"))
-      return
+      setMetaLog((s) => s + t("tools.genreAutoNoIndex"));
+      return;
     }
-    const list = computeGenreAutoAssignments(libraryIndex)
+    const list = computeGenreAutoAssignments(libraryIndex);
     if (list.length === 0) {
-      setMetaLog((s) => s + t("tools.genreAutoPreviewEmpty"))
-      return
+      setMetaLog((s) => s + t("tools.genreAutoPreviewEmpty"));
+      return;
     }
-    if (!window.confirm(t("tools.genreAutoApplyConfirm", { n: list.length }))) return
-    setGenreAutoBusy(true)
-    setGenreAutoProg(null)
-    let ok = 0
+    if (!window.confirm(t("tools.genreAutoApplyConfirm", { n: list.length })))
+      return;
+    setGenreAutoBusy(true);
+    setGenreAutoProg(null);
+    let ok = 0;
     try {
       for (let i = 0; i < list.length; i += 1) {
-        const row = list[i]!
-        setGenreAutoProg({ current: i + 1, total: list.length })
+        const row = list[i]!;
+        setGenreAutoProg({ current: i + 1, total: list.length });
         try {
-          await saveTrackInfoManual(row.relPath, { genre: row.genreSerialized })
-          ok += 1
+          await saveTrackInfoManual(row.relPath, {
+            genre: row.genreSerialized,
+          });
+          ok += 1;
         } catch (e) {
-          setMetaLog((s) =>
-            s +
-            t("tools.genreAutoApplyErr", {
-              path: row.relPath,
-              err: String((e as Error)?.message || e),
-            }),
-          )
+          setMetaLog(
+            (s) =>
+              s +
+              t("tools.genreAutoApplyErr", {
+                path: row.relPath,
+                err: String((e as Error)?.message || e),
+              })
+          );
         }
         if (i < list.length - 1) {
-          await new Promise((r) => setTimeout(r, 40))
+          await new Promise((r) => setTimeout(r, 40));
         }
       }
-      setMetaLog((s) => s + t("tools.genreAutoApplyDone", { n: ok }))
-      onRefreshLibrary()
+      setMetaLog((s) => s + t("tools.genreAutoApplyDone", { n: ok }));
+      onRefreshLibrary();
     } finally {
-      setGenreAutoProg(null)
-      setGenreAutoBusy(false)
+      setGenreAutoProg(null);
+      setGenreAutoBusy(false);
     }
-  }, [libraryIndex, onRefreshLibrary, setMetaLog, t])
+  }, [libraryIndex, onRefreshLibrary, setMetaLog, t]);
 
   const runSanitizeTitles = async (scope: "album" | "all", dryRun: boolean) => {
     if (scope === "album" && !metaAlbumPath.trim()) {
-      setMetaLog(
-        (s) => s + t("tools.sanitizePickAlbum"),
-      )
-      return
+      setMetaLog((s) => s + t("tools.sanitizePickAlbum"));
+      return;
     }
-    setTitleSanBusy(true)
+    setTitleSanBusy(true);
     try {
       if (scope === "all") {
-        const rAll = await sanitizeTrackTitles({ scope: "all", dryRun })
+        const rAll = await sanitizeTrackTitles({ scope: "all", dryRun });
         setMetaLog((s) => {
           const head = dryRun
             ? t("tools.sanitizeHeadPreviewLib", {
@@ -787,143 +849,147 @@ export function ToolsView({
             : t("tools.sanitizeHeadApplyLib", {
                 a: rAll.albumsScanned,
                 c: rAll.changes.length,
-              })
+              });
           if (rAll.changes.length === 0) {
-            return s + head + t("tools.sanitizeNoFixLib")
+            return s + head + t("tools.sanitizeNoFixLib");
           }
-          const lines: string[] = [s + head]
-          const show = rAll.changes.slice(0, 100)
+          const lines: string[] = [s + head];
+          const show = rAll.changes.slice(0, 100);
           for (const c of show) {
             lines.push(
-              `  ${c.albumRel} / ${c.fileName}: “${c.from}” → “${c.to}”`,
-            )
+              `  ${c.albumRel} / ${c.fileName}: “${c.from}” → “${c.to}”`
+            );
           }
           if (rAll.changes.length > 100) {
             lines.push(
-              "  " + t("tools.sanitizeMore", { n: rAll.changes.length - 100 }),
-            )
+              "  " + t("tools.sanitizeMore", { n: rAll.changes.length - 100 })
+            );
           }
-          lines.push("")
-          return lines.join("\n")
-        })
+          lines.push("");
+          return lines.join("\n");
+        });
       } else {
         const r1 = await sanitizeTrackTitles({
           scope: "album",
           albumPath: metaAlbumPath.trim(),
           dryRun,
-        })
+        });
         setMetaLog((s) => {
           const head = dryRun
             ? t("tools.sanitizeHeadPreviewAlb", { path: r1.albumPath })
-            : t("tools.sanitizeHeadApplyAlb", { path: r1.albumPath })
+            : t("tools.sanitizeHeadApplyAlb", { path: r1.albumPath });
           if (r1.changes.length === 0) {
-            return s + head + t("tools.sanitizeNoFixAlb")
+            return s + head + t("tools.sanitizeNoFixAlb");
           }
-          let acc = s + head
+          let acc = s + head;
           for (const c of r1.changes) {
-            acc += `  ${c.fileName}: “${c.from}” → “${c.to}”\n`
+            acc += `  ${c.fileName}: “${c.from}” → “${c.to}”\n`;
           }
-          if (!dryRun) acc += t("tools.sanitizeRefreshHint")
-          return acc
-        })
+          if (!dryRun) acc += t("tools.sanitizeRefreshHint");
+          return acc;
+        });
       }
-      if (!dryRun) onRefreshLibrary()
+      if (!dryRun) onRefreshLibrary();
     } catch (e) {
-      setMetaLog((s) => s + t("tools.sanitizeErr", { e: String(e) }))
+      setMetaLog((s) => s + t("tools.sanitizeErr", { e: String(e) }));
     } finally {
-      setTitleSanBusy(false)
+      setTitleSanBusy(false);
     }
-  }
+  };
 
   const runDl = () => {
-    if (!url.trim()) return
+    if (!url.trim()) return;
     if (dlKind === "releases") {
-      setLog((x) => x + t("tools.dlNeedLoadReleases"))
-      return
+      setLog((x) => x + t("tools.dlNeedLoadReleases"));
+      return;
     }
     if (!dlDestPicked) {
-      setLog((x) => x + t("tools.dlPickFolder"))
-      return
+      setLog((x) => x + t("tools.dlPickFolder"));
+      return;
     }
     void (async () => {
-      let indexBefore: LibraryIndex | null = null
-      let replaceSnap: FolderReplaceSnapshot | null = null
+      let indexBefore: LibraryIndex | null = null;
+      let replaceSnap: FolderReplaceSnapshot | null = null;
       if (dlReplaceMode && dlPath.trim()) {
         if (!window.confirm(t("tools.dlReplaceConfirm", { path: dlPath }))) {
-          return
+          return;
         }
-        indexBefore = await fetchLibraryIndex()
+        indexBefore = await fetchLibraryIndex();
         replaceSnap = buildFolderReplaceSnapshotForFolder(
           userState,
           indexBefore,
-          dlPath,
-        )
+          dlPath
+        );
       }
-      setDlTrackProg(null)
-      setDlBusy(true)
-      setDlProg(null)
-      setLog((x) =>
-        x +
-        t("tools.dlStart", {
-          path: dlPath || t("tools.dlRootLabel"),
-        }),
-      )
+      setDlTrackProg(null);
+      setDlBusy(true);
+      setDlProg(null);
+      setLog(
+        (x) =>
+          x +
+          t("tools.dlStart", {
+            path: dlPath || t("tools.dlRootLabel"),
+          })
+      );
       try {
-        const r = await runYtdlpDownload(
-          url.trim(),
-          dlPath,
-          (p) => setDlProg({ current: p.current, total: p.total }),
-        )
+        const r = await runYtdlpDownload(url.trim(), dlPath, (p) =>
+          setDlProg({ current: p.current, total: p.total })
+        );
         if (r.progress && r.progress.total > 0) {
-          setDlProg({ current: r.progress.current, total: r.progress.total })
+          setDlProg({ current: r.progress.current, total: r.progress.total });
         }
-        const detail = ytdlpLogDetailForUser(r)
+        const detail = ytdlpLogDetailForUser(r);
         setLog(
           (x) =>
             x +
             (r.ok
               ? t("tools.dlResultOk")
               : t("tools.dlResultErr", { code: r.code }) +
-                (detail ? t("tools.dlErrDetail", { detail }) : "")),
-        )
-        await onRefreshLibrary()
+                (detail ? t("tools.dlErrDetail", { detail }) : ""))
+        );
+        await onRefreshLibrary();
         if (replaceSnap && indexBefore) {
-          await runReplaceAfterDownload(indexBefore, replaceSnap)
+          await runReplaceAfterDownload(indexBefore, replaceSnap);
         }
       } catch (e) {
-        setLog((x) =>
-          x + t("tools.dlFail", { e: String((e as Error)?.message || e) }),
-        )
+        setLog(
+          (x) =>
+            x + t("tools.dlFail", { e: String((e as Error)?.message || e) })
+        );
       } finally {
-        setDlBusy(false)
+        setDlBusy(false);
       }
-    })()
-  }
+    })();
+  };
 
   const runReplaceAfterDownload = useCallback(
     async (indexBefore: LibraryIndex, replaceSnap: FolderReplaceSnapshot) => {
-      let toDelete: string[] = []
+      let toDelete: string[] = [];
       try {
-        const indexAfter = await fetchLibraryIndex()
+        const indexAfter = await fetchLibraryIndex();
         toDelete = computePostDownloadRedundantRemovals(
           indexBefore,
           indexAfter,
-          dlPath,
-        ).toDelete
+          dlPath
+        ).toDelete;
         if (toDelete.length > 0) {
-          await deleteAudioRelPaths(toDelete)
+          await deleteAudioRelPaths(toDelete);
           setLog(
-            (x) => x + t("tools.dlReplaceRemovedDupes", { n: toDelete.length }) + "\n",
-          )
-          await onRefreshLibrary()
+            (x) =>
+              x +
+              t("tools.dlReplaceRemovedDupes", { n: toDelete.length }) +
+              "\n"
+          );
+          await onRefreshLibrary();
         }
-        const indexFinal = await fetchLibraryIndex()
-        stripUserStateForRelPaths(toDelete)
-        remapUserStateAfterDownloadReplace(replaceSnap, indexFinal, dlPath)
+        const indexFinal = await fetchLibraryIndex();
+        stripUserStateForRelPaths(toDelete);
+        remapUserStateAfterDownloadReplace(replaceSnap, indexFinal, dlPath);
       } catch (e) {
-        setLog((x) =>
-          x + t("tools.sharedErr", { e: String((e as Error)?.message || e) }),
-        )
+        setLog(
+          (x) =>
+            x + t("tools.sharedErr", { e: String((e as Error)?.message || e) })
+        );
       }
     },
     [
@@ -933,208 +999,228 @@ export function ToolsView({
       stripUserStateForRelPaths,
       remapUserStateAfterDownloadReplace,
       t,
-    ],
-  )
+    ]
+  );
 
   const loadReleasesCatalog = () => {
-    if (!url.trim()) return
+    if (!url.trim()) return;
     if (!dlDestPicked) {
-      setLog((x) => x + t("tools.dlPickFolder"))
-      return
+      setLog((x) => x + t("tools.dlPickFolder"));
+      return;
     }
-    relAborter.current?.abort()
-    relAborter.current = new AbortController()
-    const signal = relAborter.current.signal
-    setRelLoadBusy(true)
-    setRelStreamComplete(false)
-    setRelStreamTotal(null)
-    setRelPayload(null)
-    setRelSel(new Set())
+    relAborter.current?.abort();
+    relAborter.current = new AbortController();
+    const signal = relAborter.current.signal;
+    setRelLoadBusy(true);
+    setRelStreamComplete(false);
+    setRelStreamTotal(null);
+    setRelPayload(null);
+    setRelSel(new Set());
     void streamYoutubeReleasesList(
       url.trim(),
       {
         onMeta: (m) => {
-          relLogTotalRef.current = m.total
-          relLogUploaderRef.current = m.uploader
-          setRelStreamTotal(m.total)
+          relLogTotalRef.current = m.total;
+          relLogUploaderRef.current = m.uploader;
+          setRelStreamTotal(m.total);
           setRelPayload({
             listTitle: m.listTitle,
             uploader: m.uploader,
             channelUrl: m.channelUrl,
             entries: [],
-          })
+          });
         },
         onEntry: (e) => {
           setRelPayload((p) =>
-            p ? { ...p, entries: [...p.entries, e] } : null,
-          )
-          setRelSel((prev) => new Set([...prev, e.id]))
+            p ? { ...p, entries: [...p.entries, e] } : null
+          );
+          setRelSel((prev) => new Set([...prev, e.id]));
         },
         onDone: () => {
-          setRelStreamComplete(true)
-          setRelLoadBusy(false)
-          const n = relLogTotalRef.current
-          const u = relLogUploaderRef.current
+          setRelStreamComplete(true);
+          setRelLoadBusy(false);
+          const n = relLogTotalRef.current;
+          const u = relLogUploaderRef.current;
           setLog(
             (x) =>
               x +
               t("tools.dlReleasesListTitle") +
               `: ${n}` +
               (u ? ` — ${t("tools.dlReleasesUploader", { name: u })}` : "") +
-              "\n",
-          )
+              "\n"
+          );
         },
       },
-      signal,
-    )
-      .catch((e) => {
-        if (String((e as Error)?.name) === "AbortError") {
-          setRelLoadBusy(false)
-          return
-        }
-        setLog(
-          (x) =>
-            x + t("tools.sharedErr", { e: String((e as Error)?.message || e) }),
-        )
-        setRelLoadBusy(false)
-        setRelPayload(null)
-        setRelStreamTotal(null)
-        setRelStreamComplete(false)
-      })
-  }
+      signal
+    ).catch((e) => {
+      if (String((e as Error)?.name) === "AbortError") {
+        setRelLoadBusy(false);
+        return;
+      }
+      setLog(
+        (x) =>
+          x + t("tools.sharedErr", { e: String((e as Error)?.message || e) })
+      );
+      setRelLoadBusy(false);
+      setRelPayload(null);
+      setRelStreamTotal(null);
+      setRelStreamComplete(false);
+    });
+  };
 
   const runReleasesDl = () => {
     if (!relPayload || !dlDestPicked) {
-      if (!dlDestPicked) setLog((x) => x + t("tools.dlPickFolder"))
-      return
+      if (!dlDestPicked) setLog((x) => x + t("tools.dlPickFolder"));
+      return;
     }
     if (!relStreamComplete) {
-      setLog((x) => x + t("tools.dlReleasesWaitEnrich") + "\n")
-      return
+      setLog((x) => x + t("tools.dlReleasesWaitEnrich") + "\n");
+      return;
     }
-    const list = relPayload.entries.filter((e) => relSel.has(e.id))
+    const list = relPayload.entries.filter((e) => relSel.has(e.id));
     if (list.length === 0) {
-      setLog((x) => x + t("tools.dlNeedSelection"))
-      return
+      setLog((x) => x + t("tools.dlNeedSelection"));
+      return;
     }
-    const multiRelease = list.length > 1
+    const multiRelease = list.length > 1;
     void (async () => {
-      let indexBefore: LibraryIndex | null = null
-      let replaceSnap: FolderReplaceSnapshot | null = null
+      let indexBefore: LibraryIndex | null = null;
+      let replaceSnap: FolderReplaceSnapshot | null = null;
       if (dlReplaceMode && dlPath.trim()) {
         if (!window.confirm(t("tools.dlReplaceConfirm", { path: dlPath }))) {
-          return
+          return;
         }
-        indexBefore = await fetchLibraryIndex()
+        indexBefore = await fetchLibraryIndex();
         replaceSnap = buildFolderReplaceSnapshotForFolder(
           userState,
           indexBefore,
-          dlPath,
-        )
+          dlPath
+        );
       }
-      setDlBusy(true)
-      setDlTrackProg(multiRelease ? { current: 0, total: 0 } : null)
-      setDlProg({ current: 1, total: list.length })
-      const rootLabel = dlPath || t("tools.dlRootLabel")
+      setDlBusy(true);
+      setDlTrackProg(multiRelease ? { current: 0, total: 0 } : null);
+      setDlProg({ current: 1, total: list.length });
+      const rootLabel = dlPath || t("tools.dlRootLabel");
       setLog(
         (x) =>
           x +
           t("tools.dlStart", { path: rootLabel }) +
-          ` — ${list.length} album(s)\n`,
-      )
+          ` — ${list.length} album(s)\n`
+      );
       for (let i = 0; i < list.length; i += 1) {
-        const item = list[i]!
-        setDlProg({ current: i + 1, total: list.length })
-        if (multiRelease) setDlTrackProg({ current: 0, total: 0 })
-        setLog((x) => x + t("tools.dlBatchLine", { i: i + 1, n: list.length, title: item.title }))
+        const item = list[i]!;
+        setDlProg({ current: i + 1, total: list.length });
+        if (multiRelease) setDlTrackProg({ current: 0, total: 0 });
+        setLog(
+          (x) =>
+            x +
+            t("tools.dlBatchLine", {
+              i: i + 1,
+              n: list.length,
+              title: item.title,
+            })
+        );
         try {
           const r = await runYtdlpDownload(
             item.url,
             dlPath,
             multiRelease
               ? (p) => setDlTrackProg({ current: p.current, total: p.total })
-              : undefined,
-          )
-          const detail = ytdlpLogDetailForUser(r)
+              : undefined
+          );
+          const detail = ytdlpLogDetailForUser(r);
           setLog(
             (x) =>
               x +
               (r.ok
                 ? t("tools.dlResultOk")
                 : t("tools.dlResultErr", { code: r.code }) +
-                  (detail ? t("tools.dlErrDetail", { detail }) : "")),
-          )
+                  (detail ? t("tools.dlErrDetail", { detail }) : ""))
+          );
         } catch (e) {
-          setLog((x) => x + t("tools.dlFail", { e: String((e as Error)?.message || e) }))
+          setLog(
+            (x) =>
+              x + t("tools.dlFail", { e: String((e as Error)?.message || e) })
+          );
         }
       }
-      setDlProg({ current: list.length, total: list.length })
-      if (multiRelease) setDlTrackProg(null)
-      await onRefreshLibrary()
+      setDlProg({ current: list.length, total: list.length });
+      if (multiRelease) setDlTrackProg(null);
+      await onRefreshLibrary();
       if (replaceSnap && indexBefore) {
-        await runReplaceAfterDownload(indexBefore, replaceSnap)
+        await runReplaceAfterDownload(indexBefore, replaceSnap);
       }
-      setDlBusy(false)
-    })()
-  }
+      setDlBusy(false);
+    })();
+  };
 
   const toggleRelEntry = (id: string) => {
     setRelSel((prev) => {
-      const n = new Set(prev)
-      if (n.has(id)) n.delete(id)
-      else n.add(id)
-      return n
-    })
-  }
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  };
 
   const relTypeLabel = () => {
-    if (dlKind === "single") return t("tools.dlTypeSingle")
-    if (dlKind === "playlist") return t("tools.dlTypePlaylist")
-    if (dlKind === "releases") return t("tools.dlTypeReleases")
-    return t("tools.dlTypeOther")
-  }
+    if (dlKind === "single") return t("tools.dlTypeSingle");
+    if (dlKind === "playlist") return t("tools.dlTypePlaylist");
+    if (dlKind === "releases") return t("tools.dlTypeReleases");
+    return t("tools.dlTypeOther");
+  };
 
-  const dlProgNorm = normalizeDlProgress(dlProg)
-  const dlTrackNorm = normalizeTrackInAlbumProgress(dlTrackProg)
+  const dlProgNorm = normalizeDlProgress(dlProg);
+  const dlTrackNorm = normalizeTrackInAlbumProgress(dlTrackProg);
   const showReleaseMultiTrackBar =
     dlKind === "releases" &&
     dlProgNorm != null &&
     dlProgNorm.tot > 1 &&
-    (dlBusy || dlTrackProg != null)
+    (dlBusy || dlTrackProg != null);
 
   const doArtSearch = () => {
-    const a = artArt.trim()
-    const b = artAlb.trim()
-    if (a.length < 1 && b.length < 1) return
-    setArtBusy(true)
+    const a = artArt.trim();
+    const b = artAlb.trim();
+    if (a.length < 1 && b.length < 1) return;
+    setArtBusy(true);
     searchArtwork(a || b ? { artist: a, album: b } : { q: `${a} ${b}`.trim() })
       .then(setArtRes)
       .catch(() => setArtRes([]))
-      .finally(() => setArtBusy(false))
-  }
+      .finally(() => setArtBusy(false));
+  };
 
   const applyCover = (imageUrl: string) => {
     if (!albumForCover) {
-      setLog((x) => x + t("tools.coverPickDest"))
-      return
+      setLog((x) => x + t("tools.coverPickDest"));
+      return;
     }
-    setArtBusy(true)
+    setArtBusy(true);
     applyArtwork(albumForCover, imageUrl)
       .then(() => {
-        setLog((x) => x + t("tools.coverSaved", { path: albumForCover }))
-        onRefreshLibrary()
+        setLog((x) => x + t("tools.coverSaved", { path: albumForCover }));
+        onRefreshLibrary();
       })
       .catch((e) => setLog((x) => x + t("tools.coverErr", { e })))
-      .finally(() => setArtBusy(false))
-  }
+      .finally(() => setArtBusy(false));
+  };
 
   return (
     <div className="tools tool-studio-layout">
-      <section className="studio-hero surface-card" aria-labelledby="studio-hero-title">
-        <p className="eyebrow">{t("tools.studioHeroEyebrow")}</p>
-        <h2 id="studio-hero-title" className="studio-hero__title">
-          {t("tools.studioHeroTitle")}
-        </h2>
+      <section
+        className="studio-hero surface-card"
+        aria-labelledby="studio-hero-title"
+      >
+        <div className="studio-hero__lead">
+          <span className="section-head__icon-wrap" aria-hidden>
+            <UiGraphicEq className="section-head__ic" />
+          </span>
+          <div className="studio-hero__text">
+            <p className="eyebrow">{t("tools.studioHeroEyebrow")}</p>
+            <h2 id="studio-hero-title" className="studio-hero__title">
+              {t("tools.studioHeroTitle")}
+            </h2>
+          </div>
+        </div>
       </section>
 
       {sharedAccounts.length >= 2 ? (
@@ -1142,9 +1228,14 @@ export function ToolsView({
           className="tool-block glass tools-shared-lib"
           aria-labelledby="tools-shared-title"
         >
-          <header className="studio-head">
-            <p className="eyebrow">{t("tools.sharedEyebrow")}</p>
-            <h3 id="tools-shared-title">{t("tools.sharedTitle")}</h3>
+          <header className="studio-head studio-head--with-ic">
+            <span className="section-head__icon-wrap studio-head__ic-slot" aria-hidden>
+              <UiLink className="section-head__ic" />
+            </span>
+            <div className="studio-head__text">
+              <p className="eyebrow">{t("tools.sharedEyebrow")}</p>
+              <h3 id="tools-shared-title">{t("tools.sharedTitle")}</h3>
+            </div>
           </header>
 
           <div className="studio-panel tools-shared-browse">
@@ -1163,12 +1254,12 @@ export function ToolsView({
                     className="select"
                     value={sharedSourceId}
                     onChange={(e) => {
-                      setSharedSourceId(e.target.value)
-                      setSharedIndex(null)
-                      setSharedArtistId("")
-                      setSharedAlbumRel("")
-                      setSharedMsg(null)
-                      setSharedErr(null)
+                      setSharedSourceId(e.target.value);
+                      setSharedIndex(null);
+                      setSharedArtistId("");
+                      setSharedAlbumRel("");
+                      setSharedMsg(null);
+                      setSharedErr(null);
                     }}
                     aria-label={t("tools.sharedPickSource")}
                   >
@@ -1193,7 +1284,10 @@ export function ToolsView({
                 {sharedIndex ? (
                   <div className="tools-shared-browse-picks">
                     <div>
-                      <label className="subtle sm block-label" htmlFor="shared-artist-sel">
+                      <label
+                        className="subtle sm block-label"
+                        htmlFor="shared-artist-sel"
+                      >
                         {t("tools.sharedPickArtist")}
                       </label>
                       <select
@@ -1201,12 +1295,14 @@ export function ToolsView({
                         className="select"
                         value={sharedArtistId}
                         onChange={(e) => {
-                          const v = e.target.value
-                          setSharedArtistId(v)
-                          setSharedAlbumRel(v ? SHARED_ALL_ALBUMS : "")
+                          const v = e.target.value;
+                          setSharedArtistId(v);
+                          setSharedAlbumRel(v ? SHARED_ALL_ALBUMS : "");
                         }}
                       >
-                        <option value="">{t("tools.sharedPickPlaceholder")}</option>
+                        <option value="">
+                          {t("tools.sharedPickPlaceholder")}
+                        </option>
                         {sharedIndex.artists.map((ar) => (
                           <option key={ar.id} value={ar.id}>
                             {ar.name}
@@ -1215,7 +1311,10 @@ export function ToolsView({
                       </select>
                     </div>
                     <div>
-                      <label className="subtle sm block-label" htmlFor="shared-album-sel">
+                      <label
+                        className="subtle sm block-label"
+                        htmlFor="shared-album-sel"
+                      >
                         {t("tools.sharedPickAlbum")}
                       </label>
                       <select
@@ -1226,10 +1325,14 @@ export function ToolsView({
                         disabled={!sharedArtistId}
                       >
                         {!sharedArtistId ? (
-                          <option value="">{t("tools.sharedAlbumNeedArtist")}</option>
+                          <option value="">
+                            {t("tools.sharedAlbumNeedArtist")}
+                          </option>
                         ) : (
                           <>
-                            <option value={SHARED_ALL_ALBUMS}>{t("tools.sharedAllAlbums")}</option>
+                            <option value={SHARED_ALL_ALBUMS}>
+                              {t("tools.sharedAllAlbums")}
+                            </option>
                             {sharedAlbumsForArtist.map((al) => (
                               <option key={al.relPath} value={al.relPath}>
                                 {al.name} · {al.trackCount}
@@ -1243,7 +1346,9 @@ export function ToolsView({
                       type="button"
                       className="btn"
                       onClick={doLinkSharedAlbum}
-                      disabled={sharedLinkBusy || !sharedArtistId || !sharedAlbumRel}
+                      disabled={
+                        sharedLinkBusy || !sharedArtistId || !sharedAlbumRel
+                      }
                     >
                       {sharedLinkBusy
                         ? t("tools.sharedLinking")
@@ -1254,14 +1359,19 @@ export function ToolsView({
               </>
             )}
             {sharedMsg ? <p className="subtle sm">{sharedMsg}</p> : null}
-            {sharedErr ? <p className="subtle sm warnline">{sharedErr}</p> : null}
+            {sharedErr ? (
+              <p className="subtle sm warnline">{sharedErr}</p>
+            ) : null}
           </div>
         </section>
       ) : null}
 
       <section className="tool-block glass tools-download">
-        <header className="studio-head">
-          <h3>{t("tools.downloadTitle")}</h3>
+        <header className="studio-head studio-head--with-ic">
+          <span className="section-head__icon-wrap studio-head__ic-slot" aria-hidden>
+            <UiDownload className="section-head__ic" />
+          </span>
+          <h3 className="studio-head__h3-solo">{t("tools.downloadTitle")}</h3>
         </header>
 
         <details className="studio-details" open={false}>
@@ -1273,52 +1383,74 @@ export function ToolsView({
 
         <div className="studio-panel tools-dl-dest">
           <h4 className="studio-panel-title">{t("tools.dlSaveFolder")}</h4>
-          <div className="tools-dl-dest__layout">
-            <div className="tools-dl-dest__nav">
-              <p className="subtle sm tools-dl-dest__label">
+          <p className="subtle sm tools-dl-dest__lead">
+            {t("tools.dlDestLead")}
+          </p>
+          <div className="tools-dl-dest__shell">
+            <div className="tools-dl-dest__pathheader">
+              <p className="tools-dl-dest__label" id="tools-dl-dest-where">
                 {t("tools.dlPathLabel")}
               </p>
-              <div className="breadcrumbs tools-dl-dest__crumbs">
-                <button type="button" className="crumb" onClick={() => loadDlFs("")}>
-                  {dlList?.musicRoot?.split("/").pop() || t("tools.musicRoot")}
-                </button>
-                {(dlList?.path || "")
-                  .split("/")
-                  .filter(Boolean)
-                  .map((seg, i, arr) => {
-                    const pth = arr.slice(0, i + 1).join("/")
-                    return (
-                      <span key={pth}>
-                        <span className="sep">/</span>
-                        <button
-                          type="button"
-                          className="crumb"
-                          onClick={() => loadDlFs(pth)}
-                        >
-                          {seg}
-                        </button>
-                      </span>
-                    )
-                  })}
-              </div>
-              {dlList?.path ? (
+              <div className="tools-dl-dest__pathbar">
                 <button
                   type="button"
-                  className="btn secondary sm tools-dl-dest__up"
-                  onClick={() => loadDlFs(dlList.parent || "")}
+                  className="tools-dl-dest__up-icon"
+                  onClick={() => {
+                    if (dlList) loadDlFs(dlList.parent || "");
+                  }}
+                  disabled={!dlList?.path}
+                  title={t("tools.up")}
+                  aria-label={t("tools.upFolderAria")}
                 >
-                  {t("tools.up")}
+                  <DlDestUpIcon />
                 </button>
-              ) : null}
-              <p className="subtle sm tools-dl-dest__label tools-dl-dest__subsep">
-                {t("tools.dlSubfolders")}
-              </p>
+                <nav
+                  className="breadcrumbs tools-dl-dest__crumbs"
+                  aria-labelledby="tools-dl-dest-where"
+                >
+                  <button
+                    type="button"
+                    className="crumb"
+                    onClick={() => loadDlFs("")}
+                  >
+                    {dlList?.musicRoot?.split("/").pop() ||
+                      t("tools.musicRoot")}
+                  </button>
+                  {(dlList?.path || "")
+                    .split("/")
+                    .filter(Boolean)
+                    .map((seg, i, arr) => {
+                      const pth = arr.slice(0, i + 1).join("/");
+                      return (
+                        <span className="tools-dl-dest__bc" key={pth}>
+                          <span className="tools-dl-dest__bc-sep" aria-hidden>
+                            <UiChevronRight className="tools-dl-dest__bc-ic" />
+                          </span>
+                          <button
+                            type="button"
+                            className="crumb"
+                            onClick={() => loadDlFs(pth)}
+                          >
+                            {seg}
+                          </button>
+                        </span>
+                      );
+                    })}
+                </nav>
+              </div>
+            </div>
+
+            <div
+              className="tools-dl-dest__browser"
+              role="group"
+              aria-label={t("tools.dlSubfolders")}
+            >
               {dlList && dlList.dirs.length === 0 ? (
                 <p className="subtle sm tools-dl-dest__empty">
                   {t("tools.dlEmptyFolders")}
                 </p>
               ) : null}
-              <ul className="dirlist tools-dl-dest__dirlist">
+              <ul className="tools-dl-dest__dirlist">
                 {dlList?.dirs.map((d) => (
                   <li key={d.relPath}>
                     <button
@@ -1326,14 +1458,21 @@ export function ToolsView({
                       className="tools-dl-dest__dirbtn"
                       onClick={() => loadDlFs(d.relPath)}
                     >
-                      {d.name}
+                      <DlDestFolderGlyph className="tools-dl-dest__dir-ic" />
+                      <span className="tools-dl-dest__dir-name">{d.name}</span>
                     </button>
                   </li>
                 ))}
               </ul>
             </div>
-            <div className="tools-dl-dest__create">
-              <p className="subtle sm tools-dl-dest__label">{t("tools.dlNewSubLabel")}</p>
+
+            <div
+              className="tools-dl-dest__create"
+              aria-label={t("tools.dlNewSubLabel")}
+            >
+              <p className="tools-dl-dest__label tools-dl-dest__label--inline">
+                {t("tools.dlNewSubLabel")}
+              </p>
               <div className="tools-dl-dest__newrow">
                 <input
                   type="text"
@@ -1345,8 +1484,8 @@ export function ToolsView({
                   onChange={(e) => setNewDirName(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && newDirName.trim() && dlList) {
-                      e.preventDefault()
-                      doCreateFolder()
+                      e.preventDefault();
+                      doCreateFolder();
                     }
                   }}
                   aria-label={t("tools.newFolderAria")}
@@ -1361,17 +1500,21 @@ export function ToolsView({
                 </button>
               </div>
             </div>
+
             <div className="tools-dl-dest__actions">
-              <p className="subtle sm tools-dl-dest__label">
+              <p className="tools-dl-dest__label" id="tools-dl-dest-confirm">
                 {t("tools.dlPathActions")}
               </p>
               <div className="tools-dl-dest__actions-row">
-                <div className="tools-dl-dest__commit">
+                <div
+                  className="tools-dl-dest__commit"
+                  aria-labelledby="tools-dl-dest-confirm"
+                >
                   <button
                     type="button"
                     className="btn"
                     onClick={() => {
-                      if (dlList) commitDlDest(dlList.path || "")
+                      if (dlList) commitDlDest(dlList.path || "");
                     }}
                     disabled={!dlList}
                     title={t("tools.useThisFolderTitle")}
@@ -1402,7 +1545,7 @@ export function ToolsView({
                     checked={dlReplaceMode}
                     disabled={!dlDestPicked || !dlPath.trim()}
                     onChange={(e) => {
-                      setDlReplaceMode(e.target.checked)
+                      setDlReplaceMode(e.target.checked);
                     }}
                   />
                   <span>{t("tools.dlReplaceFolder")}</span>
@@ -1424,7 +1567,9 @@ export function ToolsView({
         <div className="studio-panel">
           <h4 className="studio-panel-title">{t("tools.dlLinkSection")}</h4>
           <p className="subtle sm tools-dl-detected">
-            <span className="tools-dl-detected__label">{t("tools.dlTypeLabel")}:</span>{" "}
+            <span className="tools-dl-detected__label">
+              {t("tools.dlTypeLabel")}:
+            </span>{" "}
             <strong>{relTypeLabel()}</strong>
           </p>
           <input
@@ -1443,8 +1588,10 @@ export function ToolsView({
                     {relPayload.listTitle
                       ? relPayload.listTitle
                       : relPayload.uploader
-                        ? t("tools.dlReleasesUploader", { name: relPayload.uploader })
-                        : null}
+                      ? t("tools.dlReleasesUploader", {
+                          name: relPayload.uploader,
+                        })
+                      : null}
                   </p>
                   <div className="tools-dl-releases__toolbar">
                     <button
@@ -1477,14 +1624,19 @@ export function ToolsView({
                             checked={relSel.has(e.id)}
                             onChange={() => toggleRelEntry(e.id)}
                           />
-                          <span className="tools-dl-releases__title" title={e.url}>
+                          <span
+                            className="tools-dl-releases__title"
+                            title={e.url}
+                          >
                             {e.title}
                           </span>
                           <span
                             className="tools-dl-releases__trackcount"
                             aria-label={
                               e.trackCount != null
-                                ? t("tools.dlTrackCountAria", { n: e.trackCount })
+                                ? t("tools.dlTrackCountAria", {
+                                    n: e.trackCount,
+                                  })
                                 : undefined
                             }
                           >
@@ -1500,7 +1652,7 @@ export function ToolsView({
                           {
                             length: Math.max(
                               0,
-                              relStreamTotal - relPayload.entries.length,
+                              relStreamTotal - relPayload.entries.length
                             ),
                           },
                           (_, sk) => (
@@ -1518,12 +1670,15 @@ export function ToolsView({
                                 <div className="tools-dl-releases__skeleton-bar tools-dl-releases__skeleton-bcount" />
                               </div>
                             </li>
-                          ),
+                          )
                         )
                       : null}
                   </ul>
                   {relPayload && !relStreamComplete ? (
-                    <p className="subtle sm tools-dl-releases__enrich" role="status">
+                    <p
+                      className="subtle sm tools-dl-releases__enrich"
+                      role="status"
+                    >
                       {t("tools.dlReleasesEnriching")}
                     </p>
                   ) : null}
@@ -1601,23 +1756,22 @@ export function ToolsView({
                               })
                             : t("tools.inProgress")
                           : dlProgNorm
-                            ? t("tools.dlProgressCount", {
-                                cur: dlProgNorm.cur,
-                                tot: dlProgNorm.tot,
-                              })
-                            : t("common.emDash")}
+                          ? t("tools.dlProgressCount", {
+                              cur: dlProgNorm.cur,
+                              tot: dlProgNorm.tot,
+                            })
+                          : t("common.emDash")}
                       </span>
                     </div>
                     <div className="dl-progress-rail">
                       <div
                         className="dl-progress-fill"
                         style={{
-                          width:
-                            dlProgNorm
-                              ? `${dlProgNorm.pct}%`
-                              : dlBusy
-                                ? "18%"
-                                : "0%",
+                          width: dlProgNorm
+                            ? `${dlProgNorm.pct}%`
+                            : dlBusy
+                            ? "18%"
+                            : "0%",
                         }}
                       />
                     </div>
@@ -1657,23 +1811,22 @@ export function ToolsView({
                             })
                           : t("tools.inProgress")
                         : dlProgNorm
-                          ? t("tools.dlProgressCount", {
-                              cur: dlProgNorm.cur,
-                              tot: dlProgNorm.tot,
-                            })
-                          : t("common.emDash")}
+                        ? t("tools.dlProgressCount", {
+                            cur: dlProgNorm.cur,
+                            tot: dlProgNorm.tot,
+                          })
+                        : t("common.emDash")}
                     </span>
                   </div>
                   <div className="dl-progress-rail">
                     <div
                       className="dl-progress-fill"
                       style={{
-                        width:
-                          dlProgNorm
-                            ? `${dlProgNorm.pct}%`
-                            : dlBusy
-                              ? "18%"
-                              : "0%",
+                        width: dlProgNorm
+                          ? `${dlProgNorm.pct}%`
+                          : dlBusy
+                          ? "18%"
+                          : "0%",
                       }}
                     />
                   </div>
@@ -1698,15 +1851,21 @@ export function ToolsView({
       </section>
 
       <section className="tool-block glass tools-meta">
-        <header className="studio-head">
-          <h3>{t("tools.metaTitle")}</h3>
+        <header className="studio-head studio-head--with-ic">
+          <span className="section-head__icon-wrap studio-head__ic-slot" aria-hidden>
+            <UiNote className="section-head__ic" />
+          </span>
+          <h3 className="studio-head__h3-solo">{t("tools.metaTitle")}</h3>
         </header>
 
         <div className="studio-panel">
           <h4 className="studio-panel-title">{t("tools.metaAlbumPanel")}</h4>
           <div className="tools-shared-browse-picks tools-studio-pair-picks">
             <div>
-              <label className="subtle sm block-label" htmlFor="meta-artist-sel">
+              <label
+                className="subtle sm block-label"
+                htmlFor="meta-artist-sel"
+              >
                 {t("tools.sharedPickArtist")}
               </label>
               <select
@@ -1714,9 +1873,9 @@ export function ToolsView({
                 className="select"
                 value={metaArtistName}
                 onChange={(e) => {
-                  const v = e.target.value
-                  setMetaArtistName(v)
-                  setMetaAlbumPath("")
+                  const v = e.target.value;
+                  setMetaArtistName(v);
+                  setMetaAlbumPath("");
                 }}
                 aria-label={t("tools.sharedPickArtist")}
               >
@@ -1737,12 +1896,12 @@ export function ToolsView({
                 className="select"
                 value={metaAlbumPath}
                 onChange={(e) => {
-                  const v = e.target.value
-                  setMetaAlbumPath(v)
-                  const o = metaAlbumsForPick.find((x) => x.relPath === v)
+                  const v = e.target.value;
+                  setMetaAlbumPath(v);
+                  const o = metaAlbumsForPick.find((x) => x.relPath === v);
                   if (o) {
-                    setMetaArt(metaArtistName)
-                    setMetaAlb(o.name)
+                    setMetaArt(metaArtistName);
+                    setMetaAlb(o.name);
                   }
                 }}
                 disabled={!metaArtistName}
@@ -1790,7 +1949,9 @@ export function ToolsView({
           <h4 className="studio-panel-title">{t("tools.actions")}</h4>
           <div className="studio-action-groups">
             <div className="studio-action-group">
-              <span className="studio-action-group-label">{t("tools.selectedAlbum")}</span>
+              <span className="studio-action-group-label">
+                {t("tools.selectedAlbum")}
+              </span>
               <div className="studio-action-row">
                 <button
                   type="button"
@@ -1806,12 +1967,16 @@ export function ToolsView({
                   onClick={fetchOneAlbumMeta}
                   disabled={metaBusy || !metaAlbumPath}
                 >
-                  {metaBusy ? t("tools.fetchingMeta") : t("tools.updateAlbumMeta")}
+                  {metaBusy
+                    ? t("tools.fetchingMeta")
+                    : t("tools.updateAlbumMeta")}
                 </button>
               </div>
             </div>
             <div>
-              <span className="studio-action-group-label">{t("tools.allAlbums")}</span>
+              <span className="studio-action-group-label">
+                {t("tools.allAlbums")}
+              </span>
               <div className="studio-action-row">
                 <button
                   type="button"
@@ -1820,12 +1985,16 @@ export function ToolsView({
                   disabled={metaAllBusy || !library || genreAutoBusy}
                   title={t("tools.scanAlbumsTitle")}
                 >
-                  {metaAllBusy ? t("tools.scanning") : t("tools.scanAlbumsAuto")}
+                  {metaAllBusy
+                    ? t("tools.scanning")
+                    : t("tools.scanAlbumsAuto")}
                 </button>
               </div>
             </div>
             <div className="studio-action-group">
-              <span className="studio-action-group-label">{t("tools.tracks")}</span>
+              <span className="studio-action-group-label">
+                {t("tools.tracks")}
+              </span>
               <div className="studio-action-row">
                 <button
                   type="button"
@@ -1841,7 +2010,9 @@ export function ToolsView({
                   onClick={runTrackScanAll}
                   disabled={!library || trackAllBusy || genreAutoBusy}
                 >
-                  {trackAllBusy ? t("tools.scanning") : t("tools.scanAllTracks")}
+                  {trackAllBusy
+                    ? t("tools.scanning")
+                    : t("tools.scanAllTracks")}
                 </button>
               </div>
             </div>
@@ -1849,7 +2020,9 @@ export function ToolsView({
               <span className="studio-action-group-label">
                 {t("tools.genreAutoGroup")}
               </span>
-              <p className="subtle sm studio-hint-line">{t("tools.genreAutoHint")}</p>
+              <p className="subtle sm studio-hint-line">
+                {t("tools.genreAutoHint")}
+              </p>
               <div className="studio-action-row">
                 <button
                   type="button"
@@ -1864,15 +2037,19 @@ export function ToolsView({
                   className="btn sm"
                   disabled={!libraryIndex || genreAutoBusy}
                   onClick={() => {
-                    void runGenreAutoApply()
+                    void runGenreAutoApply();
                   }}
                 >
-                  {genreAutoBusy ? t("tools.scanning") : t("tools.genreAutoApply")}
+                  {genreAutoBusy
+                    ? t("tools.scanning")
+                    : t("tools.genreAutoApply")}
                 </button>
               </div>
             </div>
             <div className="studio-action-group">
-              <span className="studio-action-group-label">{t("tools.displayedTitles")}</span>
+              <span className="studio-action-group-label">
+                {t("tools.displayedTitles")}
+              </span>
               <p className="subtle sm studio-hint-line">
                 {t("tools.titleHint")}
               </p>
@@ -1930,8 +2107,8 @@ export function ToolsView({
                       2,
                       Math.min(
                         100,
-                        (metaScanProg.current / metaScanProg.total) * 100,
-                      ),
+                        (metaScanProg.current / metaScanProg.total) * 100
+                      )
                     )}%`,
                   }}
                 />
@@ -1954,8 +2131,8 @@ export function ToolsView({
                       2,
                       Math.min(
                         100,
-                        (trackScanProg.current / trackScanProg.total) * 100,
-                      ),
+                        (trackScanProg.current / trackScanProg.total) * 100
+                      )
                     )}%`,
                   }}
                 />
@@ -1978,8 +2155,8 @@ export function ToolsView({
                       2,
                       Math.min(
                         100,
-                        (genreAutoProg.current / genreAutoProg.total) * 100,
-                      ),
+                        (genreAutoProg.current / genreAutoProg.total) * 100
+                      )
                     )}%`,
                   }}
                 />
@@ -1993,7 +2170,7 @@ export function ToolsView({
                   type="button"
                   className="btn secondary sm"
                   onClick={() => {
-                    stopMetaAll.current = true
+                    stopMetaAll.current = true;
                   }}
                 >
                   {t("tools.stopAlbums")}
@@ -2004,7 +2181,7 @@ export function ToolsView({
                   type="button"
                   className="btn secondary sm"
                   onClick={() => {
-                    stopTrackAll.current = true
+                    stopTrackAll.current = true;
                   }}
                 >
                   {t("tools.stopTracks")}
@@ -2022,22 +2199,32 @@ export function ToolsView({
             onChange={(e) => setMetaLog(e.target.value)}
             rows={3}
           />
-          <button type="button" className="linkbtn" onClick={() => setMetaLog("")}>
+          <button
+            type="button"
+            className="linkbtn"
+            onClick={() => setMetaLog("")}
+          >
             {t("tools.clear")}
           </button>
         </div>
       </section>
 
       <section className="tool-block glass tools-art">
-        <header className="studio-head">
-          <h3>{t("tools.coversTitle")}</h3>
+        <header className="studio-head studio-head--with-ic">
+          <span className="section-head__icon-wrap studio-head__ic-slot" aria-hidden>
+            <UiImage className="section-head__ic" />
+          </span>
+          <h3 className="studio-head__h3-solo">{t("tools.coversTitle")}</h3>
         </header>
 
         <div className="studio-panel">
           <h4 className="studio-panel-title">{t("tools.coversSave")}</h4>
           <div className="tools-shared-browse-picks tools-studio-pair-picks">
             <div>
-              <label className="subtle sm block-label" htmlFor="cover-artist-sel">
+              <label
+                className="subtle sm block-label"
+                htmlFor="cover-artist-sel"
+              >
                 {t("tools.sharedPickArtist")}
               </label>
               <select
@@ -2045,8 +2232,8 @@ export function ToolsView({
                 className="select"
                 value={coverPickArtist}
                 onChange={(e) => {
-                  setCoverPickArtist(e.target.value)
-                  setAlbumForCover("")
+                  setCoverPickArtist(e.target.value);
+                  setAlbumForCover("");
                 }}
                 aria-label={t("tools.sharedPickArtist")}
               >
@@ -2059,7 +2246,10 @@ export function ToolsView({
               </select>
             </div>
             <div>
-              <label className="subtle sm block-label" htmlFor="cover-album-sel">
+              <label
+                className="subtle sm block-label"
+                htmlFor="cover-album-sel"
+              >
                 {t("tools.sharedPickAlbum")}
               </label>
               <select
@@ -2119,10 +2309,19 @@ export function ToolsView({
             />
           </div>
           <div className="studio-inline-actions studio-inline-actions--spaced">
-            <button type="button" className="btn secondary sm" onClick={useCurrentForArt}>
+            <button
+              type="button"
+              className="btn secondary sm"
+              onClick={useCurrentForArt}
+            >
               {t("tools.fillFromPlayback")}
             </button>
-            <button type="button" className="btn" onClick={doArtSearch} disabled={artBusy}>
+            <button
+              type="button"
+              className="btn"
+              onClick={doArtSearch}
+              disabled={artBusy}
+            >
               {artBusy ? t("tools.searching") : t("tools.searchCovers")}
             </button>
           </div>
@@ -2133,7 +2332,9 @@ export function ToolsView({
             <div key={i + a.artwork} className="artcard2">
               <div className="artcard2-img">
                 <img src={a.artwork} alt="" loading="lazy" />
-                {a.source ? <span className="art-src">{sourceLabel(a.source)}</span> : null}
+                {a.source ? (
+                  <span className="art-src">{sourceLabel(a.source)}</span>
+                ) : null}
               </div>
               <div className="artcap2">
                 <strong>{a.artist}</strong>
@@ -2141,7 +2342,12 @@ export function ToolsView({
                 {a.name}
               </div>
               <div className="art-actions">
-                <a className="extlink" href={a.url} target="_blank" rel="noreferrer">
+                <a
+                  className="extlink"
+                  href={a.url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   {extLinkLabel(a.url, t("common.open"))}
                 </a>
                 <button
@@ -2156,10 +2362,14 @@ export function ToolsView({
             </div>
           ))}
         </div>
-        {artRes.length === 0 && !artBusy && (artArt.length > 0 || artAlb.length > 0) ? (
-          <p className="subtle sm studio-panel-gap">{t("tools.noCoverResults")}</p>
+        {artRes.length === 0 &&
+        !artBusy &&
+        (artArt.length > 0 || artAlb.length > 0) ? (
+          <p className="subtle sm studio-panel-gap">
+            {t("tools.noCoverResults")}
+          </p>
         ) : null}
       </section>
     </div>
-  )
+  );
 }

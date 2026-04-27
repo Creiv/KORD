@@ -17,6 +17,7 @@ import {
   serializeTrackGenres,
 } from "../lib/genres";
 import type { EnrichedTrack } from "../types";
+import { UiClose } from "./KordUiIcons";
 
 const TrackMetaEditContext = createContext<(track: EnrichedTrack) => void>(
   () => {},
@@ -215,7 +216,7 @@ function TrackMetaEditorModal({
                     onClick={() => removeGenre(i)}
                     aria-label={t("trackMeta.fieldGenreRemoveAria", { g })}
                   >
-                    ×
+                    <UiClose className="meta-edit-genre-chip__x-ic" />
                   </button>
                 </span>
               ))}

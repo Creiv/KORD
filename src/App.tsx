@@ -3,6 +3,7 @@ import {
   useCallback,
   useDeferredValue,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -12,6 +13,7 @@ import type {
   ChangeEvent,
   MouseEvent as ReactMouseEvent,
   ReactNode,
+  RefObject,
 } from "react";
 import { PlayerProvider, usePlayer } from "./context/PlayerContext";
 import {
@@ -43,6 +45,37 @@ import { buildGenreCoverPreviewMap } from "./lib/genreCovers";
 import { parseTrackGenres, trackBelongsToGenreKey } from "./lib/genres";
 import { fmtDate, trackInfoBadges } from "./lib/metaFormat";
 import { ExcludeShuffleIcon } from "./components/ExcludeShuffleIcon";
+import {
+  KordNavIcon,
+  UiAdd,
+  UiAlbumIcon,
+  UiAutorenew,
+  UiBarChart,
+  UiBuild,
+  UiClose,
+  UiDateRange,
+  UiFavorite,
+  UiHistory,
+  UiNavDisc,
+  UiNavList,
+  UiPerson,
+  UiStyle,
+  UiSortByAlpha,
+  UiViewModule,
+  UiKeyboardArrowDown,
+  UiKeyboardArrowUp,
+  UiMusicNote,
+  UiPause,
+  UiPlayArrow,
+  UiPlayCircle,
+  UiQueueMusic,
+  UiRepeat,
+  UiSearch,
+  UiShuffle,
+  UiSkipNext,
+  UiSkipPrevious,
+} from "./components/KordUiIcons";
+import { SectionHeadLead } from "./components/SectionHeadLead";
 import {
   AlbumMetaEditProvider,
   useOpenAlbumMetaEdit,
@@ -161,8 +194,8 @@ function useAppRoute() {
         merged.section && merged.section !== "playlists"
           ? null
           : next.playlist !== undefined
-            ? next.playlist
-            : route.playlist;
+          ? next.playlist
+          : route.playlist;
       window.history.pushState({}, "", buildHref(merged));
       setRoute(merged);
     });
@@ -267,10 +300,12 @@ function TrackFileMetaChip({ meta }: { meta?: TrackMeta | null }) {
   const isOn = !parseTrackGenres(meta?.genre).length && !meta?.releaseDate;
   return (
     <span
-      className={`lib-meta-chip${isOn ? " lib-meta-chip--on" : ""}`}
+      className={`lib-meta-chip lib-meta-chip--ico${
+        isOn ? " lib-meta-chip--on" : ""
+      }`}
       title={isOn ? t("trackMeta.gapOnTitle") : t("trackMeta.gapOffTitle")}
     >
-      ♪
+      <UiMusicNote className="lib-meta-chip__ico" />
     </span>
   );
 }
@@ -280,7 +315,7 @@ function TrackRowArt({ relPath }: { relPath: string }) {
   if (failed) {
     return (
       <div className="track-row__art track-row__art--fallback" aria-hidden>
-        ♪
+        <UiMusicNote className="track-row__art-fallback-ic" />
       </div>
     );
   }
@@ -389,8 +424,11 @@ function TrackListRow({
             title={t("trackRow.addQueueTitle")}
             aria-label={t("trackRow.addQueueAria")}
           >
-            <span className="track-row__ic-glyph" aria-hidden>
-              ＋
+            <span
+              className="track-row__ic-glyph track-row__ic-glyph--svg"
+              aria-hidden
+            >
+              <UiAdd />
             </span>
           </button>
         )}
@@ -402,8 +440,11 @@ function TrackListRow({
           aria-pressed={fav}
           aria-label={t("trackRow.favAria")}
         >
-          <span className="track-row__ic-glyph" aria-hidden>
-            ♥
+          <span
+            className="track-row__ic-glyph track-row__ic-glyph--svg"
+            aria-hidden
+          >
+            <UiFavorite />
           </span>
         </button>
         <button
@@ -498,14 +539,17 @@ function LibraryArtistMetaChips({ artist }: { artist: LibraryArtistIndex }) {
         A{nA > 0 ? nA : ""}
       </span>
       <span
-        className={`lib-meta-chip${nS > 0 ? " lib-meta-chip--on" : ""}`}
+        className={`lib-meta-chip lib-meta-chip--ico${
+          nS > 0 ? " lib-meta-chip--on" : ""
+        }`}
         title={
           nS > 0
             ? t("library.tracksNoMetaChip", { n: nS })
             : t("library.tracksAllMetaChip")
         }
       >
-        ♪{nS > 0 ? nS : ""}
+        <UiMusicNote className="lib-meta-chip__ico" />
+        {nS > 0 ? nS : ""}
       </span>
     </div>
   );
@@ -528,14 +572,17 @@ function LibraryAlbumMetaChips({
     return (
       <div className={wrap} aria-label={t("library.metaFileStatusAria")}>
         <span
-          className={`lib-meta-chip${n > 0 ? " lib-meta-chip--on" : ""}`}
+          className={`lib-meta-chip lib-meta-chip--ico${
+            n > 0 ? " lib-meta-chip--on" : ""
+          }`}
           title={
             n > 0
               ? t("library.looseTracksChip", { n })
               : t("library.looseTracksOkChip")
           }
         >
-          ♪{n > 0 ? n : ""}
+          <UiMusicNote className="lib-meta-chip__ico" />
+          {n > 0 ? n : ""}
         </span>
       </div>
     );
@@ -554,14 +601,17 @@ function LibraryAlbumMetaChips({
         A
       </span>
       <span
-        className={`lib-meta-chip${missTr ? " lib-meta-chip--on" : ""}`}
+        className={`lib-meta-chip lib-meta-chip--ico${
+          missTr ? " lib-meta-chip--on" : ""
+        }`}
         title={
           missTr
             ? t("library.tracksPartialMeta", { n: nT })
             : t("library.tracksAllHaveMeta")
         }
       >
-        ♪{missTr ? nT : ""}
+        <UiMusicNote className="lib-meta-chip__ico" />
+        {missTr ? nT : ""}
       </span>
     </div>
   );
@@ -618,14 +668,17 @@ function LibraryGenreMetaChips({
         A{nA > 0 ? nA : ""}
       </span>
       <span
-        className={`lib-meta-chip${nS > 0 ? " lib-meta-chip--on" : ""}`}
+        className={`lib-meta-chip lib-meta-chip--ico${
+          nS > 0 ? " lib-meta-chip--on" : ""
+        }`}
         title={
           nS > 0
             ? t("library.tracksNoMetaChip", { n: nS })
             : t("library.tracksAllMetaChip")
         }
       >
-        ♪{nS > 0 ? nS : ""}
+        <UiMusicNote className="lib-meta-chip__ico" />
+        {nS > 0 ? nS : ""}
       </span>
     </div>
   );
@@ -705,7 +758,7 @@ function LibraryGenreFavoriteChips({
       aria-label={t("library.favoritesAria")}
     >
       <span
-        className={`lib-meta-chip lib-meta-chip--fav${
+        className={`lib-meta-chip lib-meta-chip--fav lib-meta-chip--ico${
           n > 0 ? " lib-meta-chip--on" : ""
         }`}
         title={
@@ -716,7 +769,8 @@ function LibraryGenreFavoriteChips({
             : t("library.noFavArtist")
         }
       >
-        ♥{n > 0 ? n : ""}
+        <UiFavorite className="lib-meta-chip__ico" />
+        {n > 0 ? n : ""}
       </span>
     </div>
   );
@@ -803,7 +857,7 @@ function LibraryArtistFavoriteChips({
       aria-label={t("library.favoritesAria")}
     >
       <span
-        className={`lib-meta-chip lib-meta-chip--fav${
+        className={`lib-meta-chip lib-meta-chip--fav lib-meta-chip--ico${
           n > 0 ? " lib-meta-chip--on" : ""
         }`}
         title={
@@ -814,7 +868,8 @@ function LibraryArtistFavoriteChips({
             : t("library.noFavArtist")
         }
       >
-        ♥{n > 0 ? n : ""}
+        <UiFavorite className="lib-meta-chip__ico" />
+        {n > 0 ? n : ""}
       </span>
     </div>
   );
@@ -840,7 +895,7 @@ function LibraryAlbumFavoriteChips({
   return (
     <div className={wrap} aria-label={t("library.favoritesAria")}>
       <span
-        className={`lib-meta-chip lib-meta-chip--fav${
+        className={`lib-meta-chip lib-meta-chip--fav lib-meta-chip--ico${
           n > 0 ? " lib-meta-chip--on" : ""
         }`}
         title={
@@ -851,7 +906,8 @@ function LibraryAlbumFavoriteChips({
             : t("library.noFavAlbum")
         }
       >
-        ♥{n > 0 ? n : ""}
+        <UiFavorite className="lib-meta-chip__ico" />
+        {n > 0 ? n : ""}
       </span>
     </div>
   );
@@ -1042,8 +1098,11 @@ function DashboardView({
 }) {
   const { t } = useI18n();
   const user = useUserState();
-  const { ref: updatedAlbumsGridRef, cols: updatedGridCols, maxItems: updatedAlbumsMax } =
-    useDashboardUpdatedAlbumsGrid();
+  const {
+    ref: updatedAlbumsGridRef,
+    cols: updatedGridCols,
+    maxItems: updatedAlbumsMax,
+  } = useDashboardUpdatedAlbumsGrid();
   const favoriteTracksSorted = useMemo(
     () =>
       [...(dashboard?.favoriteTracks || [])].sort(
@@ -1105,10 +1164,11 @@ function DashboardView({
       <section className="dashboard-grid">
         <section className="surface-card">
           <div className="section-head section-head--page-toolbar">
-            <div>
-              <p className="eyebrow">{t("dashboard.favoritesEyebrow")}</p>
-              <h2>{t("dashboard.favoritesHeading")}</h2>
-            </div>
+            <SectionHeadLead
+              eyebrow={t("dashboard.favoritesEyebrow")}
+              title={t("dashboard.favoritesHeading")}
+              icon={<UiFavorite className="section-head__ic" />}
+            />
             <button
               type="button"
               className="text-btn"
@@ -1134,10 +1194,11 @@ function DashboardView({
 
         <section className="surface-card">
           <div className="section-head section-head--page-toolbar">
-            <div>
-              <p className="eyebrow">{t("dashboard.updatedEyebrow")}</p>
-              <h2>{t("dashboard.updatedHeading")}</h2>
-            </div>
+            <SectionHeadLead
+              eyebrow={t("dashboard.updatedEyebrow")}
+              title={t("dashboard.updatedHeading")}
+              icon={<UiAutorenew className="section-head__ic" />}
+            />
             <button
               type="button"
               className="text-btn"
@@ -1156,38 +1217,39 @@ function DashboardView({
             {dashboard.recentlyUpdatedAlbums
               .slice(0, updatedAlbumsMax)
               .map((album) => (
-              <button
-                type="button"
-                key={album.id}
-                className="album-card"
-                onClick={() => onOpenAlbum(album.artistId, album.name)}
-              >
-                <AlbumCover album={album} compact />
-                <div className="album-card__text">
-                  <div className="album-card__title">{album.name}</div>
-                  <div className="album-card__meta">
-                    {album.artist}
-                    {album.releaseDate
-                      ? ` · ${fmtDate(album.releaseDate)}`
-                      : ""}
+                <button
+                  type="button"
+                  key={album.id}
+                  className="album-card"
+                  onClick={() => onOpenAlbum(album.artistId, album.name)}
+                >
+                  <AlbumCover album={album} compact />
+                  <div className="album-card__text">
+                    <div className="album-card__title">{album.name}</div>
+                    <div className="album-card__meta">
+                      {album.artist}
+                      {album.releaseDate
+                        ? ` · ${fmtDate(album.releaseDate)}`
+                        : ""}
+                    </div>
+                    <div className="lib-badge-cluster lib-badge-cluster--card-foot">
+                      <LibraryAlbumMetaChips album={album} />
+                      <LibraryAlbumFavoriteChips album={album} />
+                      <LibraryAlbumExcludeChips album={album} />
+                    </div>
                   </div>
-                  <div className="lib-badge-cluster lib-badge-cluster--card-foot">
-                    <LibraryAlbumMetaChips album={album} />
-                    <LibraryAlbumFavoriteChips album={album} />
-                    <LibraryAlbumExcludeChips album={album} />
-                  </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              ))}
           </div>
         </section>
 
         <section className="surface-card">
           <div className="section-head section-head--page-toolbar">
-            <div>
-              <p className="eyebrow">{t("dashboard.sessionEyebrow")}</p>
-              <h2>{t("dashboard.sessionHeading")}</h2>
-            </div>
+            <SectionHeadLead
+              eyebrow={t("dashboard.sessionEyebrow")}
+              title={t("dashboard.sessionHeading")}
+              icon={<UiPlayCircle className="section-head__ic" />}
+            />
             <button
               type="button"
               className="text-btn"
@@ -1213,10 +1275,11 @@ function DashboardView({
 
         <section className="surface-card">
           <div className="section-head section-head--page-toolbar">
-            <div>
-              <p className="eyebrow">{t("dashboard.qualityEyebrow")}</p>
-              <h2>{t("dashboard.qualityHeading")}</h2>
-            </div>
+            <SectionHeadLead
+              eyebrow={t("dashboard.qualityEyebrow")}
+              title={t("dashboard.qualityHeading")}
+              icon={<UiBuild className="section-head__ic" />}
+            />
             <button
               type="button"
               className="text-btn"
@@ -1254,6 +1317,31 @@ function ListenView({
   const p = usePlayer();
   const user = useUserState();
   const { t } = useI18n();
+  const openTrackMetaEdit = useOpenTrackMetaEdit();
+  useSyncExternalStore(
+    subscribeTrackExclusionEpoch,
+    getTrackExclusionEpoch,
+    getTrackExclusionEpoch
+  );
+  const cur = p.current;
+  const exAlbums = getExcludedAlbums();
+  const albumShuffleExcluded = cur
+    ? isTrackAlbumShuffleExcluded(cur, exAlbums)
+    : false;
+  const trackShuffleExcluded = cur
+    ? getExcludedTracks().has(cur.relPath)
+    : false;
+  const shuffleExcluded = albumShuffleExcluded || trackShuffleExcluded;
+  const playCount = cur ? user.getTrackPlayCount(cur.relPath) : 0;
+  const listenDurationStr = cur
+    ? formatDurationMs(cur.meta?.durationMs)
+    : null;
+  const listenInfoLine = cur
+    ? trackInfoBadges(cur, {
+        track: t("badges.track"),
+        album: t("badges.album"),
+      }).join(" · ") || t("common.emDash")
+    : "";
   const runRandomIntelligent = () => {
     const eligible = eligibleTracksForIntelligentRandom(
       index,
@@ -1292,41 +1380,104 @@ function ListenView({
                 className="listen-stage__art listen-stage__art--empty"
                 aria-hidden
               >
-                ♪
+                <UiMusicNote className="listen-stage__empty-ic" />
               </div>
             )}
             <div className="listen-stage__text">
-              <p className="eyebrow">{t("listen.currentEyebrow")}</p>
-              <div className="listen-stage__title-row">
-                <h1 className="listen-stage__title">
-                  {p.current?.title || t("listen.noTrack")}
-                </h1>
-                {p.current ? (
-                  <button
-                    type="button"
-                    className={`listen-stage__fav ${
-                      user.isFavorite(p.current.relPath) ? "is-on" : ""
-                    }`}
-                    onClick={() => {
-                      const tr = p.current;
-                      if (!tr) return;
-                      user.toggleFavorite(tr.relPath);
-                    }}
-                    title={t("trackRow.favTitle")}
-                    aria-pressed={
-                      p.current ? user.isFavorite(p.current.relPath) : false
-                    }
-                    aria-label={t("trackRow.favAria")}
-                  >
-                    <span aria-hidden>♥</span>
-                  </button>
+              <div className="listen-stage__eyebrow-row">
+                <p className="eyebrow">{t("listen.currentEyebrow")}</p>
+                {cur ? (
+                  <div className="listen-stage__eyebrow-actions">
+                    <button
+                      type="button"
+                      className={`listen-stage__fav ${
+                        user.isFavorite(cur.relPath) ? "is-on" : ""
+                      }`}
+                      onClick={() => {
+                        user.toggleFavorite(cur.relPath);
+                      }}
+                      title={t("trackRow.favTitle")}
+                      aria-pressed={user.isFavorite(cur.relPath)}
+                      aria-label={t("trackRow.favAria")}
+                    >
+                      <span className="listen-stage__fav-ic" aria-hidden>
+                        <UiFavorite />
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="track-row__ic track-row__ic--meta"
+                      onClick={() => openTrackMetaEdit(cur)}
+                      title={t("trackRow.editMetaTitle")}
+                      aria-label={t("trackRow.editMetaAria")}
+                    >
+                      <span className="track-row__ic-glyph track-row__ic-glyph--svg">
+                        <TrackMetaEditGlyph />
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`track-row__ic track-row__ic--exclude ${
+                        shuffleExcluded ? "is-on" : ""
+                      }`}
+                      disabled={albumShuffleExcluded}
+                      title={
+                        albumShuffleExcluded
+                          ? t("trackRow.excludeLockedByAlbumTitle")
+                          : t("trackRow.excludeTitle")
+                      }
+                      onClick={() => {
+                        if (albumShuffleExcluded) return;
+                        user.toggleShuffleExcludedTrack(cur.relPath);
+                      }}
+                      aria-pressed={shuffleExcluded}
+                      aria-label={
+                        albumShuffleExcluded
+                          ? t("trackRow.excludeLockedByAlbumAria")
+                          : t("trackRow.excludeTitle")
+                      }
+                    >
+                      <span
+                        className="track-row__ic-glyph track-row__ic-glyph--svg"
+                        aria-hidden
+                      >
+                        <ExcludeShuffleIcon />
+                      </span>
+                    </button>
+                  </div>
                 ) : null}
               </div>
-              <p className="listen-stage__sub">
-                {p.current
-                  ? `${p.current.artist} · ${p.current.album}`
-                  : t("listen.openLibraryHint")}
-              </p>
+              <h1 className="listen-stage__title">
+                {p.current?.title || t("listen.noTrack")}
+              </h1>
+              {cur ? (
+                <p className="listen-stage__sub listen-stage__sub--with-stats">
+                  <span className="listen-stage__sub-lead">
+                    {cur.artist} · {cur.album}
+                    {listenDurationStr ? ` · ${listenDurationStr}` : ""}
+                  </span>
+                  <span className="listen-stage__sub-sep" aria-hidden>
+                    {" "}
+                    ·{" "}
+                  </span>
+                  <span
+                    className="track-row__plays listen-stage__sub-plays"
+                    aria-label={t("trackRow.playCount", { n: playCount })}
+                  >
+                    ({playCount})
+                  </span>
+                  <TrackFileMetaChip meta={cur.meta} />
+                </p>
+              ) : (
+                <p className="listen-stage__sub">{t("listen.openLibraryHint")}</p>
+              )}
+              {cur ? (
+                <div className="listen-stage__detail">
+                  <p className="track-row__badges listen-stage__meta-badges">
+                    {listenInfoLine}
+                  </p>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -1338,10 +1489,11 @@ function ListenView({
       <section className="dashboard-grid">
         <section className="surface-card">
           <div className="section-head section-head--page-toolbar">
-            <div>
-              <p className="eyebrow">{t("listen.queueEyebrow")}</p>
-              <h2>{t("listen.queueHeading")}</h2>
-            </div>
+            <SectionHeadLead
+              eyebrow={t("listen.queueEyebrow")}
+              title={t("listen.queueHeading")}
+              icon={<UiNavList className="section-head__ic" />}
+            />
             <button
               type="button"
               className="text-btn"
@@ -1380,10 +1532,11 @@ function ListenView({
 
         <section className="surface-card">
           <div className="section-head section-head--page-toolbar">
-            <div>
-              <p className="eyebrow">{t("listen.recentEyebrow")}</p>
-              <h2>{t("listen.recentHeading")}</h2>
-            </div>
+            <SectionHeadLead
+              eyebrow={t("listen.recentEyebrow")}
+              title={t("listen.recentHeading")}
+              icon={<UiHistory className="section-head__ic" />}
+            />
             <button
               type="button"
               className="text-btn"
@@ -1418,6 +1571,12 @@ function LibraryView({
   libraryHomeTick,
   onOpenArtist,
   onOpenAlbum,
+  search,
+  onSearchChange,
+  searchInputRef,
+  onSearchFocus,
+  showSearchBar,
+  onSearchBarClose,
 }: {
   index: LibraryIndex;
   route: RouteState;
@@ -1425,6 +1584,12 @@ function LibraryView({
   libraryHomeTick: number;
   onOpenArtist: (artist: string) => void;
   onOpenAlbum: (artist: string, album: string) => void;
+  search: string;
+  onSearchChange: (value: string) => void;
+  searchInputRef: RefObject<HTMLInputElement | null>;
+  onSearchFocus: () => void;
+  showSearchBar: boolean;
+  onSearchBarClose: () => void;
 }) {
   const p = usePlayer();
   const user = useUserState();
@@ -1793,44 +1958,87 @@ function LibraryView({
     p.playTrack(shuffled[0], shuffled, 0, { preserveQueueOrder: true });
   };
 
+  const renderLibrarySearchHero = () => (
+    <section className="surface-card library-search-hero">
+      <div className="library-search-bar" role="search">
+        <p className="eyebrow library-search-bar__eyebrow">
+          {t("library.searchEyebrow")}
+        </p>
+        <p className="library-search-bar__title">
+          {t("library.searchHeading", {
+            q: search.trim() || "—",
+          })}
+        </p>
+        <div className="library-search-bar__field">
+          <label className="library-search-bar__input-wrap">
+            <span className="sr-only">{t("topbar.searchAria")}</span>
+            <input
+              ref={searchInputRef}
+              id="library-search-input"
+              className="ghost-input ghost-input--search"
+              type="search"
+              name="library-search"
+              placeholder={t("topbar.searchPlaceholder")}
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              onFocus={onSearchFocus}
+              autoComplete="off"
+              role="searchbox"
+              aria-label={t("topbar.searchAria")}
+            />
+          </label>
+          <button
+            type="button"
+            className="text-btn library-search-bar__dismiss"
+            onClick={onSearchBarClose}
+            title={t("topbar.closeSearch")}
+            aria-label={t("topbar.closeSearch")}
+          >
+            <span className="library-search-bar__dismiss-ic" aria-hidden>
+              <UiClose />
+            </span>
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+
   if (normalizedQuery && searchResults) {
     return (
-      <div className="view-stack library-view">
-        <section className="surface-card surface-card--toolbar-only">
-          <div className="section-head section-head--page-toolbar">
-            <div>
-              <p className="eyebrow">{t("library.searchEyebrow")}</p>
-              <h2>{t("library.searchHeading", { q: query })}</h2>
-            </div>
-            <div className="section-head__tools">
-              <div
-                className="segmented"
-                role="group"
-                aria-label={t("library.filterResultsAria")}
-              >
-                {(["all", "artists", "albums", "tracks"] as const).map(
-                  (item) => (
-                    <button
-                      type="button"
-                      key={item}
-                      className={mode === item ? "is-on" : ""}
-                      onClick={() => setMode(item)}
-                    >
-                      {item === "all"
-                        ? t("library.filterAll")
-                        : item === "artists"
-                        ? t("library.filterArtists")
-                        : item === "albums"
-                        ? t("library.filterAlbums")
-                        : t("library.filterTracks")}
-                    </button>
-                  )
-                )}
-              </div>
+      <div className="view-stack library-view library-view--search-results">
+        {showSearchBar ? renderLibrarySearchHero() : null}
+        <section className="surface-card library-search-results-card">
+          <div className="library-filter-panel">
+            <span className="library-filter-panel__eyebrow">
+              {t("library.filterBarSearch")}
+            </span>
+            <div
+              className="segmented segmented--filter"
+              role="group"
+              aria-label={t("library.filterResultsAria")}
+            >
+              {(
+                [
+                  { id: "all" as const, labelKey: "library.filterAll", Ic: UiViewModule },
+                  { id: "artists" as const, labelKey: "library.filterArtists", Ic: UiPerson },
+                  { id: "albums" as const, labelKey: "library.filterAlbums", Ic: UiAlbumIcon },
+                  { id: "tracks" as const, labelKey: "library.filterTracks", Ic: UiMusicNote },
+                ] as const
+              ).map(({ id, labelKey, Ic }) => (
+                <button
+                  type="button"
+                  key={id}
+                  className={mode === id ? "is-on" : ""}
+                  onClick={() => setMode(id)}
+                >
+                  <span className="segmented__btn-inner">
+                    <Ic className="segmented__ic" aria-hidden />
+                    <span>{t(labelKey)}</span>
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
-        </section>
-        <section className="surface-card">
           {(mode === "all" || mode === "artists") && (
             <div className="subsection">
               <h3>{t("library.subArtists")}</h3>
@@ -1941,10 +2149,14 @@ function LibraryView({
                     </button>
                     <button
                       type="button"
-                      className="ghost-btn"
+                      className="ghost-btn ghost-btn--icon-only"
                       onClick={() => openAlbumMetaEdit(album)}
+                      title={t("albumMeta.editButton")}
+                      aria-label={t("albumMeta.editButton")}
                     >
-                      {t("albumMeta.editButton")}
+                      <span className="ghost-btn__meta-ic" aria-hidden>
+                        <TrackMetaEditGlyph />
+                      </span>
                     </button>
                     <button
                       type="button"
@@ -1975,12 +2187,11 @@ function LibraryView({
 
         <section className="surface-card">
           <div className="section-head section-head--page-toolbar">
-            <div>
-              <p className="eyebrow">{t("library.tracklistEyebrow")}</p>
-              <h2>
-                {t("library.tracklistHeading", { n: albumTracks.length })}
-              </h2>
-            </div>
+            <SectionHeadLead
+              eyebrow={t("library.tracklistEyebrow")}
+              title={t("library.tracklistHeading", { n: albumTracks.length })}
+              icon={<UiMusicNote className="section-head__ic" />}
+            />
           </div>
           <div className="list-stack">
             {albumTracks.map((track, trIndex) => (
@@ -2031,43 +2242,53 @@ function LibraryView({
                   {t("library.playArtistShuffle")}
                 </button>
               </div>
-              <div
-                className="segmented"
-                role="group"
-                aria-label={t("library.artistAlbumsSortAria")}
-              >
-                <button
-                  type="button"
-                  className={artistAlbumSort === "date" ? "is-on" : ""}
-                  onClick={() =>
-                    user.updateSettings({ artistAlbumSort: "date" })
-                  }
-                >
-                  {t("library.sortDate")}
-                </button>
-                <button
-                  type="button"
-                  className={artistAlbumSort === "name" ? "is-on" : ""}
-                  onClick={() =>
-                    user.updateSettings({ artistAlbumSort: "name" })
-                  }
-                >
-                  {t("library.sortName")}
-                </button>
-                <button
-                  type="button"
-                  className={artistAlbumSort === "plays" ? "is-on" : ""}
-                  onClick={() =>
-                    user.updateSettings({ artistAlbumSort: "plays" })
-                  }
-                >
-                  {t("library.sortByPlays")}
-                </button>
-              </div>
             </div>
           </div>
         </section>
         <section className="surface-card">
+          <div className="library-filter-panel">
+            <span className="library-filter-panel__eyebrow">
+              {t("library.filterBarSort")}
+            </span>
+            <div
+              className="segmented segmented--joined"
+              role="group"
+              aria-label={t("library.artistAlbumsSortAria")}
+            >
+              <button
+                type="button"
+                className={artistAlbumSort === "date" ? "is-on" : ""}
+                onClick={() => user.updateSettings({ artistAlbumSort: "date" })}
+              >
+                <span className="segmented__btn-inner">
+                  <UiDateRange className="segmented__ic" aria-hidden />
+                  <span>{t("library.sortDate")}</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                className={artistAlbumSort === "name" ? "is-on" : ""}
+                onClick={() => user.updateSettings({ artistAlbumSort: "name" })}
+              >
+                <span className="segmented__btn-inner">
+                  <UiSortByAlpha className="segmented__ic" aria-hidden />
+                  <span>{t("library.sortName")}</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                className={artistAlbumSort === "plays" ? "is-on" : ""}
+                onClick={() =>
+                  user.updateSettings({ artistAlbumSort: "plays" })
+                }
+              >
+                <span className="segmented__btn-inner">
+                  <UiBarChart className="segmented__ic" aria-hidden />
+                  <span>{t("library.sortByPlays")}</span>
+                </span>
+              </button>
+            </div>
+          </div>
           <div className="album-grid album-grid--artist">
             {artistAlbums.map((item) => (
               <button
@@ -2099,6 +2320,9 @@ function LibraryView({
 
   return (
     <div className="view-stack library-view">
+      {!route.artist && !route.album && showSearchBar
+        ? renderLibrarySearchHero()
+        : null}
       <section className="surface-card surface-card--toolbar-only">
         <div className="section-head section-head--page-toolbar">
           {selectedGenreKey ? (
@@ -2122,14 +2346,15 @@ function LibraryView({
               </div>
             </div>
           ) : (
-            <div>
-              <p className="eyebrow">{t("library.overviewEyebrow")}</p>
-              <h2>
-                {libBrowse === "artists"
+            <SectionHeadLead
+              eyebrow={t("library.overviewEyebrow")}
+              title={
+                libBrowse === "artists"
                   ? t("library.tabArtists")
-                  : t("library.tabGenres")}
-              </h2>
-            </div>
+                  : t("library.tabGenres")
+              }
+              icon={<UiNavDisc className="section-head__ic" />}
+            />
           )}
           <div className="section-head__tools">
             <div className="hero-card__actions">
@@ -2172,17 +2397,31 @@ function LibraryView({
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      </section>
+      <section className="surface-card">
+        {selectedGenreKey ? (
+          <div className="library-filter-panel library-filter-panel--tight">
+            <span className="library-filter-panel__eyebrow">
+              {t("library.filterBarSort")}
+            </span>
             <div
-              className="segmented"
+              className="segmented segmented--joined"
               role="group"
               aria-label={t("library.sortOverviewAria")}
             >
               <button
                 type="button"
                 className={libOverviewSort === "name" ? "is-on" : ""}
-                onClick={() => user.updateSettings({ libOverviewSort: "name" })}
+                onClick={() =>
+                  user.updateSettings({ libOverviewSort: "name" })
+                }
               >
-                {t("library.sortByName")}
+                <span className="segmented__btn-inner">
+                  <UiSortByAlpha className="segmented__ic" aria-hidden />
+                  <span>{t("library.sortByName")}</span>
+                </span>
               </button>
               <button
                 type="button"
@@ -2191,43 +2430,91 @@ function LibraryView({
                   user.updateSettings({ libOverviewSort: "plays" })
                 }
               >
-                {t("library.sortByPlays")}
+                <span className="segmented__btn-inner">
+                  <UiBarChart className="segmented__ic" aria-hidden />
+                  <span>{t("library.sortByPlays")}</span>
+                </span>
               </button>
             </div>
           </div>
-        </div>
-      </section>
-      <section className="surface-card">
-        {!selectedGenreKey ? (
-          <div className="library-content-head">
-            <div
-              className="segmented segmented--joined"
-              role="group"
-              aria-label={t("library.browseByArtistGenreAria")}
-            >
-              <button
-                type="button"
-                className={libBrowse === "artists" ? "is-on" : ""}
-                onClick={() => {
-                  user.updateSettings({ libBrowse: "artists" });
-                  setSelectedGenreKey(null);
-                }}
-              >
-                {t("library.tabArtists")}
-              </button>
-              <button
-                type="button"
-                className={libBrowse === "genres" ? "is-on" : ""}
-                onClick={() => {
-                  user.updateSettings({ libBrowse: "genres" });
-                  setSelectedGenreKey(null);
-                }}
-              >
-                {t("library.tabGenres")}
-              </button>
+        ) : (
+          <div className="library-filter-panel">
+            <div className="library-filter-panel__row library-filter-panel__row--split">
+              <div className="library-filter-group">
+                <span className="library-filter-panel__eyebrow">
+                  {t("library.filterBarBrowse")}
+                </span>
+                <div
+                  className="segmented segmented--joined"
+                  role="group"
+                  aria-label={t("library.browseByArtistGenreAria")}
+                >
+                  <button
+                    type="button"
+                    className={libBrowse === "artists" ? "is-on" : ""}
+                    onClick={() => {
+                      user.updateSettings({ libBrowse: "artists" });
+                      setSelectedGenreKey(null);
+                    }}
+                  >
+                    <span className="segmented__btn-inner">
+                      <UiPerson className="segmented__ic" aria-hidden />
+                      <span>{t("library.tabArtists")}</span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={libBrowse === "genres" ? "is-on" : ""}
+                    onClick={() => {
+                      user.updateSettings({ libBrowse: "genres" });
+                      setSelectedGenreKey(null);
+                    }}
+                  >
+                    <span className="segmented__btn-inner">
+                      <UiStyle className="segmented__ic" aria-hidden />
+                      <span>{t("library.tabGenres")}</span>
+                    </span>
+                  </button>
+                </div>
+              </div>
+              <div className="library-filter-group">
+                <span className="library-filter-panel__eyebrow">
+                  {t("library.filterBarSort")}
+                </span>
+                <div
+                  className="segmented segmented--joined"
+                  role="group"
+                  aria-label={t("library.sortOverviewAria")}
+                >
+                  <button
+                    type="button"
+                    className={libOverviewSort === "name" ? "is-on" : ""}
+                    onClick={() =>
+                      user.updateSettings({ libOverviewSort: "name" })
+                    }
+                  >
+                    <span className="segmented__btn-inner">
+                      <UiSortByAlpha className="segmented__ic" aria-hidden />
+                      <span>{t("library.sortByName")}</span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={libOverviewSort === "plays" ? "is-on" : ""}
+                    onClick={() =>
+                      user.updateSettings({ libOverviewSort: "plays" })
+                    }
+                  >
+                    <span className="segmented__btn-inner">
+                      <UiBarChart className="segmented__ic" aria-hidden />
+                      <span>{t("library.sortByPlays")}</span>
+                    </span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        ) : null}
+        )}
         {selectedGenreKey ? (
           <>
             <div className="section-head section-head--page-toolbar">
@@ -2324,10 +2611,11 @@ function QueueViewNew({
     <div className="view-stack">
       <section className="surface-card surface-card--toolbar-only">
         <div className="section-head section-head--page-toolbar">
-          <div>
-            <p className="eyebrow">{t("queue.eyebrow")}</p>
-            <h2>{t("queue.heading", { n: p.queue.length })}</h2>
-          </div>
+          <SectionHeadLead
+            eyebrow={t("queue.eyebrow")}
+            title={t("queue.heading", { n: p.queue.length })}
+            icon={<UiNavList className="section-head__ic" />}
+          />
           <div className="section-head__tools">
             <div className="hero-card__actions queue-hero-actions">
               <input
@@ -2381,8 +2669,11 @@ function QueueViewNew({
                       title={t("queue.moveUpTitle")}
                       aria-label={t("queue.moveUpAria")}
                     >
-                      <span className="track-row__ic-glyph" aria-hidden>
-                        ↑
+                      <span
+                        className="track-row__ic-glyph track-row__ic-glyph--svg"
+                        aria-hidden
+                      >
+                        <UiKeyboardArrowUp />
                       </span>
                     </button>
                     <button
@@ -2397,8 +2688,11 @@ function QueueViewNew({
                       title={t("queue.moveDownTitle")}
                       aria-label={t("queue.moveDownAria")}
                     >
-                      <span className="track-row__ic-glyph" aria-hidden>
-                        ↓
+                      <span
+                        className="track-row__ic-glyph track-row__ic-glyph--svg"
+                        aria-hidden
+                      >
+                        <UiKeyboardArrowDown />
                       </span>
                     </button>
                   </>
@@ -2442,10 +2736,11 @@ function PlaylistsViewNew({
     <div className="view-stack playlists-page">
       <section className="surface-card surface-card--toolbar-only">
         <div className="section-head section-head--page-toolbar">
-          <div>
-            <p className="eyebrow">{t("playlists.eyebrow")}</p>
-            <h2>{t("playlists.heading")}</h2>
-          </div>
+          <SectionHeadLead
+            eyebrow={t("playlists.eyebrow")}
+            title={t("playlists.heading")}
+            icon={<UiQueueMusic className="section-head__ic" />}
+          />
           <div className="section-head__tools">
             <div className="hero-card__actions queue-hero-actions">
               <input
@@ -2532,10 +2827,11 @@ function PlaylistsViewNew({
             <>
               <section className="surface-card surface-card--toolbar-only">
                 <div className="section-head section-head--page-toolbar">
-                  <div>
-                    <p className="eyebrow">{t("playlists.detailEyebrow")}</p>
-                    <h2>{activePlaylist.name}</h2>
-                  </div>
+                  <SectionHeadLead
+                    eyebrow={t("playlists.detailEyebrow")}
+                    title={activePlaylist.name}
+                    icon={<UiQueueMusic className="section-head__ic" />}
+                  />
                   <div className="section-head__tools">
                     <input
                       className="ghost-input compact playlist-rename-input"
@@ -2585,8 +2881,11 @@ function PlaylistsViewNew({
                                 )
                               }
                             >
-                              <span className="track-row__ic-glyph" aria-hidden>
-                                ×
+                              <span
+                                className="track-row__ic-glyph track-row__ic-glyph--svg"
+                                aria-hidden
+                              >
+                                <UiClose />
                               </span>
                             </button>
                           }
@@ -2614,12 +2913,14 @@ function TrackCollectionView({
   tracks,
   playAllLabel,
   onPlayAll,
+  leadIcon,
 }: {
   title: string;
   eyebrow: string;
   tracks: EnrichedTrack[];
   playAllLabel?: string;
   onPlayAll?: () => void;
+  leadIcon?: ReactNode;
 }) {
   const p = usePlayer();
   const { t } = useI18n();
@@ -2627,10 +2928,7 @@ function TrackCollectionView({
     <div className="view-stack">
       <section className="surface-card surface-card--toolbar-only">
         <div className="section-head section-head--page-toolbar">
-          <div>
-            <p className="eyebrow">{eyebrow}</p>
-            <h2>{title}</h2>
-          </div>
+          <SectionHeadLead eyebrow={eyebrow} title={title} icon={leadIcon} />
           {playAllLabel && onPlayAll && tracks.length > 0 ? (
             <button
               type="button"
@@ -2790,10 +3088,11 @@ function StatisticsView({
     <div className="view-stack statistics-page">
       <section className="surface-card surface-card--toolbar-only">
         <div className="section-head section-head--page-toolbar">
-          <div>
-            <p className="eyebrow">{t("statistics.pageEyebrow")}</p>
-            <h2>{t("statistics.pageTitle")}</h2>
-          </div>
+          <SectionHeadLead
+            eyebrow={t("statistics.pageEyebrow")}
+            title={t("statistics.pageTitle")}
+            icon={<UiBarChart className="section-head__ic" />}
+          />
         </div>
       </section>
 
@@ -2811,47 +3110,50 @@ function StatisticsView({
               {data.topTracks.map((row, i) => {
                 const dur = formatDurationMs(row.tr.meta?.durationMs);
                 return (
-                <li key={row.tr.relPath}>
-                  <button
-                    type="button"
-                    className="statistics-rank-row"
-                    aria-label={t("statistics.openInLibraryAria", {
-                      label: row.tr.title,
-                    })}
-                    onClick={() => openTrackInLibrary(row.tr)}
-                  >
-                    <span className="statistics-rank-row__pos">{i + 1}</span>
-                    <img
-                      className="statistics-rank-row__art"
-                      src={coverUrlForTrackRelPath(row.tr.relPath)}
-                      alt=""
-                    />
-                    <div className="statistics-rank-row__text">
-                      <div className="statistics-rank-row__title">
-                        {row.tr.title}
+                  <li key={row.tr.relPath}>
+                    <button
+                      type="button"
+                      className="statistics-rank-row"
+                      aria-label={t("statistics.openInLibraryAria", {
+                        label: row.tr.title,
+                      })}
+                      onClick={() => openTrackInLibrary(row.tr)}
+                    >
+                      <span className="statistics-rank-row__pos">{i + 1}</span>
+                      <img
+                        className="statistics-rank-row__art"
+                        src={coverUrlForTrackRelPath(row.tr.relPath)}
+                        alt=""
+                      />
+                      <div className="statistics-rank-row__text">
+                        <div className="statistics-rank-row__title">
+                          {row.tr.title}
+                        </div>
+                        <div className="statistics-rank-row__meta">
+                          {row.tr.artist} — {row.tr.album}
+                        </div>
                       </div>
-                      <div className="statistics-rank-row__meta">
-                        {row.tr.artist} — {row.tr.album}
+                      <div className="statistics-rank-row__plays">
+                        {dur ? (
+                          <>
+                            <span
+                              className="statistics-rank-row__dur"
+                              aria-label={t("trackRow.duration", { d: dur })}
+                            >
+                              {dur}
+                            </span>
+                            <span
+                              className="statistics-rank-row__dur-sep"
+                              aria-hidden
+                            >
+                              ·
+                            </span>
+                          </>
+                        ) : null}
+                        {t("trackRow.playCount", { n: row.n })}
                       </div>
-                    </div>
-                    <div className="statistics-rank-row__plays">
-                      {dur ? (
-                        <>
-                          <span
-                            className="statistics-rank-row__dur"
-                            aria-label={t("trackRow.duration", { d: dur })}
-                          >
-                            {dur}
-                          </span>
-                          <span className="statistics-rank-row__dur-sep" aria-hidden>
-                            ·
-                          </span>
-                        </>
-                      ) : null}
-                      {t("trackRow.playCount", { n: row.n })}
-                    </div>
-                  </button>
-                </li>
+                    </button>
+                  </li>
                 );
               })}
             </ol>
@@ -3088,7 +3390,9 @@ function SettingsView({
   const [initialListenOnLan, setInitialListenOnLan] = useState<boolean | null>(
     null
   );
-  const [activityLog, setActivityLog] = useState<ActivityLogEntry[] | null>(null);
+  const [activityLog, setActivityLog] = useState<ActivityLogEntry[] | null>(
+    null
+  );
   const [activityLogErr, setActivityLogErr] = useState<string | null>(null);
   const [activityLogBusy, setActivityLogBusy] = useState(false);
   const [backupBusy, setBackupBusy] = useState(false);
@@ -3135,9 +3439,7 @@ function SettingsView({
     setActivityLogErr(null);
     setActivityLogBusy(true);
     fetchActivityLog(500)
-      .then((d) =>
-        setActivityLog(Array.isArray(d.entries) ? d.entries : []),
-      )
+      .then((d) => setActivityLog(Array.isArray(d.entries) ? d.entries : []))
       .catch((e: unknown) =>
         setActivityLogErr(e instanceof Error ? e.message : String(e))
       )
@@ -3548,7 +3850,9 @@ function SettingsView({
           </div>
           {backupErr ? <p className="subtle sm warnline">{backupErr}</p> : null}
           {backupOk ? <p className="subtle sm">{backupOk}</p> : null}
-          {restoreErr ? <p className="subtle sm warnline">{restoreErr}</p> : null}
+          {restoreErr ? (
+            <p className="subtle sm warnline">{restoreErr}</p>
+          ) : null}
           {restoreOk ? <p className="subtle sm">{restoreOk}</p> : null}
         </section>
       )}
@@ -3702,7 +4006,9 @@ function PlayerDock({
                     alt=""
                   />
                 ) : (
-                  <div className="player-bar2__art fallback">♪</div>
+                  <div className="player-bar2__art fallback">
+                    <UiMusicNote className="player-bar2__art-fallback-ic" />
+                  </div>
                 )}
               </div>
               <div className="player-bar2__meta">
@@ -3758,7 +4064,12 @@ function PlayerDock({
                 aria-pressed={user.isFavorite(cur.relPath)}
                 aria-label={t("trackRow.favAria")}
               >
-                <span aria-hidden>♥</span>
+                <span
+                  className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
+                  aria-hidden
+                >
+                  <UiFavorite />
+                </span>
               </button>
             ) : null}
             <div className="player-bar2__controls">
@@ -3769,8 +4080,11 @@ function PlayerDock({
                 title={t("player.shuffleTitle")}
                 aria-pressed={p.shuffle}
               >
-                <span className="player-bar2__ic-glyph" aria-hidden>
-                  ⇄
+                <span
+                  className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
+                  aria-hidden
+                >
+                  <UiShuffle />
                 </span>
               </button>
               <button
@@ -3779,8 +4093,11 @@ function PlayerDock({
                 onClick={() => p.prev()}
                 title={t("player.prevTitle")}
               >
-                <span className="player-bar2__ic-glyph" aria-hidden>
-                  ⏮
+                <span
+                  className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
+                  aria-hidden
+                >
+                  <UiSkipPrevious />
                 </span>
               </button>
               <button
@@ -3791,8 +4108,11 @@ function PlayerDock({
                   p.isPlaying ? t("player.pauseTitle") : t("player.playTitle")
                 }
               >
-                <span className="player-bar2__ic-glyph" aria-hidden>
-                  {p.isPlaying ? "⏸" : "▶"}
+                <span
+                  className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
+                  aria-hidden
+                >
+                  {p.isPlaying ? <UiPause /> : <UiPlayArrow />}
                 </span>
               </button>
               <button
@@ -3801,8 +4121,11 @@ function PlayerDock({
                 onClick={() => p.next()}
                 title={t("player.nextTitle")}
               >
-                <span className="player-bar2__ic-glyph" aria-hidden>
-                  ⏭
+                <span
+                  className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
+                  aria-hidden
+                >
+                  <UiSkipNext />
                 </span>
               </button>
               <button
@@ -3827,8 +4150,11 @@ function PlayerDock({
                     : t("player.repeatOne")
                 }
               >
-                <span className="player-bar2__ic-glyph" aria-hidden>
-                  ↻
+                <span
+                  className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
+                  aria-hidden
+                >
+                  <UiRepeat />
                 </span>
               </button>
             </div>
@@ -3913,11 +4239,14 @@ function Shell() {
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
+  const [librarySearchBarOpen, setLibrarySearchBarOpen] = useState(false);
   const [libraryHomeTick, setLibraryHomeTick] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const prevSectionForSearchRef = useRef<AppSection | null>(null);
+  const syncTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [syncTapAnim, setSyncTapAnim] = useState(false);
 
   const refresh = useCallback(() => {
     setLoading(true);
@@ -3930,6 +4259,23 @@ function Shell() {
       .catch((err: unknown) => setError(String(err)))
       .finally(() => setLoading(false));
   }, []);
+
+  const onSyncButtonClick = useCallback(() => {
+    setSyncTapAnim(true);
+    if (syncTapTimerRef.current) clearTimeout(syncTapTimerRef.current);
+    syncTapTimerRef.current = setTimeout(() => {
+      setSyncTapAnim(false);
+      syncTapTimerRef.current = null;
+    }, 500);
+    void refresh();
+  }, [refresh]);
+
+  useEffect(
+    () => () => {
+      if (syncTapTimerRef.current) clearTimeout(syncTapTimerRef.current);
+    },
+    []
+  );
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -3953,7 +4299,10 @@ function Shell() {
   useEffect(() => {
     const prev = prevSectionForSearchRef.current;
     if (prev === "libreria" && route.section !== "libreria") {
-      const id = window.requestAnimationFrame(() => setSearch(""));
+      const id = window.requestAnimationFrame(() => {
+        setSearch("");
+        setLibrarySearchBarOpen(false);
+      });
       prevSectionForSearchRef.current = route.section;
       return () => window.cancelAnimationFrame(id);
     }
@@ -3966,6 +4315,36 @@ function Shell() {
     }
   }, [navigate, route.section]);
 
+  const openLibrarySearch = useCallback(() => {
+    setLibrarySearchBarOpen(true);
+    ensureLibrarySectionForSearch();
+  }, [ensureLibrarySectionForSearch]);
+
+  const closeLibrarySearch = useCallback(() => {
+    setSearch("");
+    setLibrarySearchBarOpen(false);
+  }, []);
+
+  const toggleLibrarySearchBar = useCallback(() => {
+    if (librarySearchBarOpen) {
+      closeLibrarySearch();
+    } else {
+      openLibrarySearch();
+    }
+  }, [librarySearchBarOpen, closeLibrarySearch, openLibrarySearch]);
+
+  useLayoutEffect(() => {
+    if (!librarySearchBarOpen || route.section !== "libreria") return;
+    const id = window.requestAnimationFrame(() => {
+      const el = searchInputRef.current;
+      if (el) {
+        el.focus();
+        el.select();
+      }
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [librarySearchBarOpen, route.section]);
+
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
@@ -3976,9 +4355,7 @@ function Shell() {
 
       if (event.ctrlKey && event.key.toLowerCase() === "k" && !event.altKey) {
         event.preventDefault();
-        ensureLibrarySectionForSearch();
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
+        openLibrarySearch();
         return;
       }
 
@@ -3986,9 +4363,7 @@ function Shell() {
 
       if (event.key === "/" && !event.altKey) {
         event.preventDefault();
-        ensureLibrarySectionForSearch();
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
+        openLibrarySearch();
         return;
       }
 
@@ -4002,7 +4377,7 @@ function Shell() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [p, navigate, ensureLibrarySectionForSearch]);
+  }, [p, navigate, openLibrarySearch]);
 
   const legacyLibrary = useMemo(() => clientLegacyLibrary(index), [index]);
   const favoriteTracks = useMemo(() => {
@@ -4074,6 +4449,12 @@ function Shell() {
             route={route}
             query={deferredSearch}
             libraryHomeTick={libraryHomeTick}
+            search={search}
+            onSearchChange={setSearch}
+            searchInputRef={searchInputRef}
+            onSearchFocus={ensureLibrarySectionForSearch}
+            showSearchBar={librarySearchBarOpen}
+            onSearchBarClose={closeLibrarySearch}
             onOpenArtist={(artist) =>
               navigate({
                 section: "libreria",
@@ -4119,6 +4500,7 @@ function Shell() {
           <TrackCollectionView
             title={t("collection.favoritesTitle")}
             eyebrow={t("collection.favoritesEyebrow")}
+            leadIcon={<UiFavorite className="section-head__ic" />}
             tracks={favoriteTracks}
             playAllLabel={t("collection.playFavorites")}
             onPlayAll={
@@ -4136,6 +4518,7 @@ function Shell() {
           <TrackCollectionView
             title={t("collection.recentTitle")}
             eyebrow={t("collection.recentEyebrow")}
+            leadIcon={<UiHistory className="section-head__ic" />}
             tracks={user.state.recent}
           />
         );
@@ -4182,77 +4565,73 @@ function Shell() {
                     <KordWordmarkSvg className="kord-wordmark-svg kord-wordmark-svg--topbar" />
                   </div>
                   {!isMobileLayout ? (
-                    <nav className="topbar-nav" aria-label={t("topbar.navAria")}>
-                      <div className="topbar-nav__group">
+                    <nav
+                      className="topbar-nav"
+                      aria-label={t("topbar.navAria")}
+                    >
+                      <div className="topbar-nav__group topbar-nav__group--core">
                         {NAV_DEF.filter((item) => item.group === "core").map(
                           (item) => (
-                            <button
-                              type="button"
+                            <div
+                              className="topbar-nav__col"
                               key={item.id}
-                              className={`topbar-nav__btn ${
-                                route.section === item.id ? "is-active" : ""
-                              }`}
-                              onClick={() => {
-                                if (item.id === "libreria") {
-                                  setSearch("");
-                                  setLibraryHomeTick((n) => n + 1);
-                                }
-                                navigate({ section: item.id });
-                              }}
                             >
-                              {t(item.labelKey)}
-                            </button>
+                              <button
+                                type="button"
+                                className={`topbar-nav__btn ${
+                                  route.section === item.id ? "is-active" : ""
+                                }`}
+                                aria-label={t(item.labelKey)}
+                                onClick={() => {
+                                  if (item.id === "libreria") {
+                                    setSearch("");
+                                    setLibraryHomeTick((n) => n + 1);
+                                  }
+                                  navigate({ section: item.id });
+                                }}
+                              >
+                                <span className="topbar-nav__ic" aria-hidden>
+                                  <KordNavIcon section={item.id} />
+                                </span>
+                              </button>
+                              <span className="topbar-nav__tip" aria-hidden>
+                                {t(item.labelKey)}
+                              </span>
+                            </div>
                           )
                         )}
                       </div>
                       <span className="topbar-nav__sep" aria-hidden />
-                      <div className="topbar-nav__group">
+                      <div className="topbar-nav__group topbar-nav__group--secondary">
                         {NAV_DEF.filter(
                           (item) => item.group === "secondary"
                         ).map((item) => (
-                          <button
-                            type="button"
+                          <div
+                            className="topbar-nav__col"
                             key={item.id}
-                            className={`topbar-nav__btn ${
-                              route.section === item.id ? "is-active" : ""
-                            }`}
-                            onClick={() => navigate({ section: item.id })}
                           >
-                            {t(item.labelKey)}
-                          </button>
+                            <button
+                              type="button"
+                              className={`topbar-nav__btn ${
+                                route.section === item.id ? "is-active" : ""
+                              }`}
+                              aria-label={t(item.labelKey)}
+                              onClick={() => navigate({ section: item.id })}
+                            >
+                              <span className="topbar-nav__ic" aria-hidden>
+                                <KordNavIcon section={item.id} />
+                              </span>
+                            </button>
+                            <span className="topbar-nav__tip" aria-hidden>
+                              {t(item.labelKey)}
+                            </span>
+                          </div>
                         ))}
                       </div>
                     </nav>
                   ) : null}
                 </div>
                 <div className="topbar2__end">
-                  {index ? (
-                    <p className="topbar2__kpi">
-                      {t("topbar.kpi", {
-                        art: index.stats.artistCount,
-                        alb: index.stats.albumCount,
-                        state: user.saving
-                          ? t("topbar.saving")
-                          : t("topbar.saved"),
-                      })}
-                    </p>
-                  ) : null}
-                  <label className="topbar2__search">
-                    <span className="sr-only">{t("topbar.searchAria")}</span>
-                    <input
-                      ref={searchInputRef}
-                      className="ghost-input ghost-input--search ghost-input--topbar"
-                      type="search"
-                      name="library-search"
-                      placeholder={t("topbar.searchPlaceholder")}
-                      value={search}
-                      onChange={(event) => setSearch(event.target.value)}
-                      onFocus={ensureLibrarySectionForSearch}
-                      autoComplete="off"
-                      role="searchbox"
-                      aria-label={t("topbar.searchAria")}
-                    />
-                  </label>
                   <div className="topbar2__refresh-wrap">
                     {toolsActivity.toolsAnyBusy ? (
                       <span
@@ -4263,13 +4642,53 @@ function Shell() {
                     ) : null}
                     <button
                       type="button"
-                      className="ghost-btn ghost-btn--toolbar"
-                      onClick={refresh}
+                      className={[
+                        "ghost-btn ghost-btn--toolbar topbar2__sync-btn",
+                        loading ? "is-loading" : "",
+                        syncTapAnim ? "is-tap" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      onClick={onSyncButtonClick}
+                      disabled={loading}
                       title={t("topbar.refreshTitle")}
+                      aria-label={t("topbar.sync")}
+                      aria-busy={loading}
                     >
-                      {t("topbar.refresh")}
+                      <span className="topbar2__sync-ic" aria-hidden>
+                        <UiAutorenew />
+                      </span>
                     </button>
                   </div>
+                  <button
+                    type="button"
+                    className={[
+                      "ghost-btn ghost-btn--toolbar topbar2__search-btn",
+                      librarySearchBarOpen ? "is-on" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    onClick={toggleLibrarySearchBar}
+                    title={
+                      librarySearchBarOpen
+                        ? t("topbar.closeSearch")
+                        : t("topbar.openSearch")
+                    }
+                    aria-label={
+                      librarySearchBarOpen
+                        ? t("topbar.closeSearch")
+                        : t("topbar.openSearch")
+                    }
+                    aria-controls={
+                      route.section === "libreria"
+                        ? "library-search-input"
+                        : undefined
+                    }
+                  >
+                    <span className="topbar2__search-btn-ic" aria-hidden>
+                      <UiSearch />
+                    </span>
+                  </button>
                   {isMobileLayout ? (
                     <button
                       type="button"
