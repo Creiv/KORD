@@ -50,6 +50,7 @@ import multer from "multer"
 import { streamKordBackupZip, restoreKordFromZipBuffer } from "./backupKord.mjs"
 
 const PORT = Number(process.env.PORT) || 3001
+/** Opzionale: FLAC più pesante, richiede ffmpeg. */
 const YTDLP_ARGS_LOSSLESS = [
   "-x",
   "--audio-format",
@@ -57,13 +58,21 @@ const YTDLP_ARGS_LOSSLESS = [
   "--embed-thumbnail",
   "--add-metadata",
 ]
+/** Preferenza m4a (AAC), poi webm (Opus), poi qualunque bestaudio — niente ffmpeg. */
 const YTDLP_ARGS_NATIVE = [
   "-f",
   "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio",
   "--add-metadata",
 ]
+
 function ytdlpArgsBase() {
-  return process.env.KORD_YTDLP_LOSSLESS === "1" ? YTDLP_ARGS_LOSSLESS : YTDLP_ARGS_NATIVE
+  if (process.env.KORD_YTDLP_LOSSLESS === "1") return YTDLP_ARGS_LOSSLESS
+  return YTDLP_ARGS_NATIVE
+}
+
+function ytdlpCookieArgs() {
+  const cookies = String(process.env.KORD_YTDLP_COOKIES || "").trim()
+  return cookies ? ["--cookies", cookies] : []
 }
 
 function isProbablyPlaylistUrl(url) {
@@ -80,37 +89,44 @@ function isProbablyPlaylistUrl(url) {
 
 const YTDLP_NAME = "%(track,title)s"
 
+/** playlist_index per URL da playlist; altrimenti NA su singolo video. */
+function ytdlpTrackIndexFragment(url) {
+  return isProbablyPlaylistUrl(url) ? "%(playlist_index)02d" : "%(autonumber)02d"
+}
+
 function ytdlpOutputTemplate(url) {
+  const n = ytdlpTrackIndexFragment(url)
   try {
     const u = new URL(url)
     const host = u.hostname.replace(/^www\./, "")
     if (host.endsWith("bandcamp.com")) {
-      return `%(album)s/%(autonumber)02d - ${YTDLP_NAME}.%(ext)s`
+      return `%(album)s/${n} - ${YTDLP_NAME}.%(ext)s`
     }
     const pl = isProbablyPlaylistUrl(url)
     if (host.includes("music.youtube.com")) {
       if (pl) {
-        return `%(playlist_title)s/%(autonumber)02d - ${YTDLP_NAME}.%(ext)s`
+        return `%(playlist_title)s/${n} - ${YTDLP_NAME}.%(ext)s`
       }
-      return `%(album)s/%(autonumber)02d - ${YTDLP_NAME}.%(ext)s`
+      return `%(album)s/${n} - ${YTDLP_NAME}.%(ext)s`
     }
     if (pl) {
-      return `%(playlist_title)s/%(autonumber)02d - ${YTDLP_NAME}.%(ext)s`
+      return `%(playlist_title)s/${n} - ${YTDLP_NAME}.%(ext)s`
     }
   } catch {
     /* ignore */
   }
-  return `%(title)s/%(autonumber)02d - ${YTDLP_NAME}.%(ext)s`
+  return `%(title)s/${n} - ${YTDLP_NAME}.%(ext)s`
 }
 
 function ytdlpCmdDisplay() {
   const bin = resolveYtdlpPath()
   const base = ytdlpArgsBase()
-  const note =
-    process.env.KORD_YTDLP_LOSSLESS === "1"
-      ? " (FLAC, richiede ffmpeg)"
-      : " (audio nativo, senza ffmpeg)"
-  return `${bin} ${[...base, "-o", `%(folder)s/%(autonumber)02d - ${YTDLP_NAME}.%(ext)s`]
+  const cook = ytdlpCookieArgs()
+  const lossy = process.env.KORD_YTDLP_LOSSLESS === "1"
+  const note = lossy
+    ? " (KORD_YTDLP_LOSSLESS: -x + FLAC, richiede ffmpeg)"
+    : " (predefinito: prefer m4a → webm → bestaudio; niente ffmpeg; LOSSLESS=1 per FLAC)"
+  return `${bin} ${[...base, ...cook, "-o", `%(folder)s/%(autonumber)02d - ${YTDLP_NAME}.%(ext)s`]
     .map((a) => (/\s/.test(a) ? `"${a}"` : a))
     .join(" ")} + URL${note} — folder = …, nome file = track|title`
 }
@@ -543,8 +559,9 @@ app.get("/api/download-preset", async (_req, res) => {
       program: resolveYtdlpPath(),
       args: [
         ...ytdlpArgsBase(),
+        ...ytdlpCookieArgs(),
         "-o",
-        "%(playlist_title)s/%(autonumber)02d - %(title)s.%(ext)s",
+        "%(playlist_title)s/%(playlist_index)02d - %(title)s.%(ext)s",
       ],
       exampleUrl: null,
     })
@@ -562,7 +579,7 @@ app.post("/api/download", async (req, res) => {
     const outputDirForLog = safeRelSeg(String(req.body?.outputDir || ""))
     const program = resolveYtdlpPath()
     const outTmpl = ytdlpOutputTemplate(url)
-    const args = [...ytdlpArgsBase(), "-o", outTmpl]
+    const args = [...ytdlpArgsBase(), ...ytdlpCookieArgs(), "-o", outTmpl]
     const outputDir = outputDirForLog
     if (outputDir != null && outputDir.length > 0) {
       const oi = args.findIndex((arg) => arg === "-o" || arg === "--output")

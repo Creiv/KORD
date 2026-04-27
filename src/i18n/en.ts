@@ -380,7 +380,7 @@ export const EN: Record<string, string> = {
   "tools.downloadTitle": "Download",
   "tools.cmdUsed": "Command used",
   "tools.cmdFallback":
-    'yt-dlp -f bestaudio[ext=m4a]/… --add-metadata -o "…" + URL (native audio, no ffmpeg)',
+    'Default: prefer m4a (AAC), else webm (Opus), else bestaudio — no ffmpeg. KORD_YTDLP_LOSSLESS=1 for FLAC. Optional cookies. playlist_index for lists.',
   "tools.destination": "Destination",
   "tools.musicRoot": "Music",
   "tools.up": "← Up",
