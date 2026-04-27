@@ -56,6 +56,20 @@ class FakeResizeObserver {
 
 beforeAll(() => {
   if (typeof window !== "undefined") {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      configurable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    })
     vi.stubGlobal("AudioContext", FakeAudioContext)
     vi.stubGlobal("ResizeObserver", FakeResizeObserver)
     vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => window.setTimeout(() => cb(16), 16))

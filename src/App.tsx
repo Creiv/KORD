@@ -37,6 +37,7 @@ import {
 } from "./lib/api";
 import type { Account, AccountsResponse, ActivityLogEntry } from "./lib/api";
 import { useDashboardUpdatedAlbumsGrid } from "./hooks/useDashboardUpdatedAlbumsGrid";
+import { useMatchMedia } from "./hooks/useMatchMedia";
 import { buildRandomArtistCoverMap } from "./lib/artistCover";
 import { buildGenreCoverPreviewMap } from "./lib/genreCovers";
 import { parseTrackGenres, trackBelongsToGenreKey } from "./lib/genres";
@@ -69,6 +70,7 @@ import {
   APP_LOCALES,
   type AppLocale,
   type DashboardPayload,
+  type AppSection,
   type EnrichedTrack,
   type LibraryAlbumIndex,
   type LibraryArtistIndex,
@@ -79,28 +81,18 @@ import {
   type UserPlaylist,
 } from "./types";
 import "./App.css";
-
-type Section =
-  | "dashboard"
-  | "ascolta"
-  | "libreria"
-  | "studio"
-  | "queue"
-  | "playlists"
-  | "favorites"
-  | "recent"
-  | "settings"
-  | "statistics";
+import "./responsive.css";
+import { MobileBottomNav } from "./components/MobileBottomNav";
 
 type RouteState = {
-  section: Section;
+  section: AppSection;
   artist: string | null;
   album: string | null;
   playlist: string | null;
 };
 
 const NAV_DEF: {
-  id: Section;
+  id: AppSection;
   labelKey: string;
   group: "core" | "secondary";
 }[] = [
@@ -120,7 +112,7 @@ function parseRoute(): RouteState {
   const params = new URLSearchParams(window.location.search);
   const section = window.location.pathname
     .replace(/^\/+/, "")
-    .split("/")[0] as Section;
+    .split("/")[0] as AppSection;
   return {
     section: NAV_DEF.some((item) => item.id === section)
       ? section
@@ -153,7 +145,7 @@ function useAppRoute() {
       const merged: RouteState = {
         ...route,
         ...next,
-        section: (next.section ?? route.section) as Section,
+        section: (next.section ?? route.section) as AppSection,
       };
       if (next.section && next.section !== "libreria") {
         merged.artist = null;
@@ -1045,7 +1037,7 @@ function DashboardView({
   dashboard: DashboardPayload | null;
   index: LibraryIndex | null;
   onOpenAlbum: (artist: string, album: string) => void;
-  onOpenSection: (section: Section) => void;
+  onOpenSection: (section: AppSection) => void;
   onPlayTrack: (track: EnrichedTrack) => void;
 }) {
   const { t } = useI18n();
@@ -1257,7 +1249,7 @@ function ListenView({
 }: {
   dashboard: DashboardPayload | null;
   index: LibraryIndex;
-  onOpenSection: (section: Section) => void;
+  onOpenSection: (section: AppSection) => void;
 }) {
   const p = usePlayer();
   const user = useUserState();
@@ -3072,7 +3064,7 @@ function AccountBadge({ onOpenSettings }: { onOpenSettings: () => void }) {
 function SettingsView({
   onOpenSection,
 }: {
-  onOpenSection: (section: Section) => void;
+  onOpenSection: (section: AppSection) => void;
 }) {
   const user = useUserState();
   const { t, locale, setLocale } = useI18n();
@@ -3909,6 +3901,7 @@ function PlayerDock({
 function Shell() {
   const { route, navigate } = useAppRoute();
   const p = usePlayer();
+  const isMobileLayout = useMatchMedia("(max-width: 768px)");
   const user = useUserState();
   const { t } = useI18n();
   const toolsActivity = useToolsActivity();
@@ -3920,7 +3913,7 @@ function Shell() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const prevSectionForSearchRef = useRef<Section | null>(null);
+  const prevSectionForSearchRef = useRef<AppSection | null>(null);
 
   const refresh = useCallback(() => {
     setLoading(true);
@@ -4031,6 +4024,17 @@ function Shell() {
       a.localeCompare(b, undefined, { sensitivity: "base" })
     );
   }, [index]);
+
+  const goAppSection = useCallback(
+    (section: AppSection) => {
+      if (section === "libreria") {
+        setSearch("");
+        setLibraryHomeTick((n) => n + 1);
+      }
+      navigate({ section });
+    },
+    [navigate]
+  );
 
   const currentView = (() => {
     if (loading && !index)
@@ -4173,33 +4177,35 @@ function Shell() {
                   <div className="topbar2__brand">
                     <KordWordmarkSvg className="kord-wordmark-svg kord-wordmark-svg--topbar" />
                   </div>
-                  <nav className="topbar-nav" aria-label={t("topbar.navAria")}>
-                    <div className="topbar-nav__group">
-                      {NAV_DEF.filter((item) => item.group === "core").map(
-                        (item) => (
-                          <button
-                            type="button"
-                            key={item.id}
-                            className={`topbar-nav__btn ${
-                              route.section === item.id ? "is-active" : ""
-                            }`}
-                            onClick={() => {
-                              if (item.id === "libreria") {
-                                setSearch("");
-                                setLibraryHomeTick((n) => n + 1);
-                              }
-                              navigate({ section: item.id });
-                            }}
-                          >
-                            {t(item.labelKey)}
-                          </button>
-                        )
-                      )}
-                    </div>
-                    <span className="topbar-nav__sep" aria-hidden />
-                    <div className="topbar-nav__group">
-                      {NAV_DEF.filter((item) => item.group === "secondary").map(
-                        (item) => (
+                  {!isMobileLayout ? (
+                    <nav className="topbar-nav" aria-label={t("topbar.navAria")}>
+                      <div className="topbar-nav__group">
+                        {NAV_DEF.filter((item) => item.group === "core").map(
+                          (item) => (
+                            <button
+                              type="button"
+                              key={item.id}
+                              className={`topbar-nav__btn ${
+                                route.section === item.id ? "is-active" : ""
+                              }`}
+                              onClick={() => {
+                                if (item.id === "libreria") {
+                                  setSearch("");
+                                  setLibraryHomeTick((n) => n + 1);
+                                }
+                                navigate({ section: item.id });
+                              }}
+                            >
+                              {t(item.labelKey)}
+                            </button>
+                          )
+                        )}
+                      </div>
+                      <span className="topbar-nav__sep" aria-hidden />
+                      <div className="topbar-nav__group">
+                        {NAV_DEF.filter(
+                          (item) => item.group === "secondary"
+                        ).map((item) => (
                           <button
                             type="button"
                             key={item.id}
@@ -4210,10 +4216,10 @@ function Shell() {
                           >
                             {t(item.labelKey)}
                           </button>
-                        )
-                      )}
-                    </div>
-                  </nav>
+                        ))}
+                      </div>
+                    </nav>
+                  ) : null}
                 </div>
                 <div className="topbar2__end">
                   {index ? (
@@ -4260,6 +4266,35 @@ function Shell() {
                       {t("topbar.refresh")}
                     </button>
                   </div>
+                  {isMobileLayout ? (
+                    <button
+                      type="button"
+                      className="ghost-btn ghost-btn--toolbar topbar2__settings-btn"
+                      onClick={() => navigate({ section: "settings" })}
+                      title={t("topbar.settingsTitle")}
+                      aria-label={t("topbar.settingsTitle")}
+                    >
+                      <svg
+                        className="topbar2__settings-glyph"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        aria-hidden
+                      >
+                        <path
+                          d="M12 15a3 3 0 100-6 3 3 0 000 6z"
+                          stroke="currentColor"
+                          strokeWidth="1.75"
+                        />
+                        <path
+                          d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  ) : null}
                   <AccountBadge
                     onOpenSettings={() => navigate({ section: "settings" })}
                   />
@@ -4288,6 +4323,9 @@ function Shell() {
               navigate({ section: "libreria", artist, album })
             }
           />
+          {isMobileLayout ? (
+            <MobileBottomNav active={route.section} onSelect={goAppSection} />
+          ) : null}
         </div>
       </AlbumMetaEditProvider>
     </TrackMetaEditProvider>

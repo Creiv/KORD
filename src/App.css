@@ -157,6 +157,21 @@
   margin-left: auto;
 }
 
+.topbar2__settings-btn {
+  padding: 0.28rem 0.45rem;
+  min-width: 40px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.topbar2__settings-glyph {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex-shrink: 0;
+}
+
 .account-badge {
   display: inline-grid;
   width: 34px;

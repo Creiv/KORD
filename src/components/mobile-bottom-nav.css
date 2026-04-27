@@ -1,0 +1,236 @@
+/* Barra + foglio "Altro" — montata solo sotto 768px (vedi useMatchMedia in App) */
+
+.mobile-bottom-nav {
+  display: flex;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 35;
+  box-sizing: border-box;
+  padding: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  min-height: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+  background: color-mix(in srgb, var(--topbar-bg) 96%, black);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(16px);
+}
+
+.mobile-bottom-nav__inner {
+  display: flex;
+  width: 100%;
+  min-height: 3.5rem;
+  max-width: 32rem;
+  margin-inline: auto;
+  align-items: stretch;
+  justify-content: space-around;
+  gap: 0.15rem;
+  padding: 0.2rem 0.35rem 0;
+  box-sizing: border-box;
+}
+
+.mobile-bottom-nav__item {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.12rem;
+  padding: 0.28rem 0.15rem 0.35rem;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: color 0.16s ease, background 0.16s ease;
+}
+
+.mobile-bottom-nav__item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.mobile-bottom-nav__item.is-active {
+  color: var(--text);
+  background: color-mix(
+    in srgb,
+    var(--nav-active-cool) 100%,
+    transparent
+  );
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--border-strong) 40%, transparent);
+}
+
+.mobile-bottom-nav__ic {
+  width: 1.4rem;
+  height: 1.4rem;
+  flex-shrink: 0;
+  display: block;
+  opacity: 0.9;
+}
+
+.mobile-bottom-nav__item.is-active .mobile-bottom-nav__ic {
+  color: var(--accent2);
+  opacity: 1;
+}
+
+.mobile-bottom-nav__item:not(.is-active):hover,
+.mobile-bottom-nav__item:not(.is-active):focus-visible {
+  color: var(--muted-strong);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.mobile-bottom-nav__item:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.mobile-bottom-nav__label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+/* Foglio "Altro" */
+.mobile-nav-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--bg) 38%, rgba(0, 0, 0, 0.55));
+  animation: mobile-nav-backdrop 0.22s ease;
+}
+
+.mobile-nav-sheet[hidden] {
+  display: none;
+}
+
+.mobile-nav-sheet__panel {
+  width: 100%;
+  max-width: 32rem;
+  max-height: min(72dvh, 520px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 20px 20px 0 0;
+  background: var(--surface-elev-a);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  padding: 0.5rem 0.6rem
+    max(0.75rem, env(safe-area-inset-bottom, 0px));
+  box-shadow: var(--shadow-elev-2);
+  animation: mobile-nav-panel 0.24s ease;
+}
+
+.mobile-nav-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+  padding: 0.35rem 0.2rem 0.5rem;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--border) 80%, transparent);
+}
+
+.mobile-nav-sheet__title {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent2);
+}
+
+.mobile-nav-sheet__close {
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.mobile-nav-sheet__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  list-style: none;
+  margin: 0;
+  padding: 0.2rem 0 0;
+}
+
+.mobile-nav-sheet__link {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: var(--radius-md);
+  text-align: left;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: 650;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.mobile-nav-sheet__link.is-active {
+  background: color-mix(
+    in srgb,
+    var(--accent) 10%,
+    var(--surface3) 90%
+  );
+  color: var(--accent2);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--border-strong) 50%, transparent);
+}
+
+.mobile-nav-sheet__link:hover,
+.mobile-nav-sheet__link:focus-visible {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mobile-nav-sheet__link:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 0;
+}
+
+@keyframes mobile-nav-backdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes mobile-nav-panel {
+  from {
+    transform: translateY(1rem);
+    opacity: 0.9;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

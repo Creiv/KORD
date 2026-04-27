@@ -1,0 +1,360 @@
+/**
+ * KORD — layer responsive (dopo App.css).
+ * Breakpoint di riferimento: 1024 tablet · 768 mobile-stretta · 480 phone · 360 min.
+ */
+
+/* --- Base: niente scroll orizzontale accidentale --- */
+html {
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+}
+
+body,
+#root {
+  overflow-x: clip;
+  max-width: 100vw;
+}
+
+.app-shell,
+.main-shell {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.content-shell {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* --- Tablet e sotto: respiro e touch --- */
+@media (max-width: 1024px) {
+  .surface-card,
+  .hero-card,
+  .listen-stage,
+  .album-hero {
+    padding: 1rem 1.05rem;
+  }
+
+  .album-grid {
+    grid-template-columns: repeat(
+      auto-fill,
+      minmax(min(100%, 200px), 1fr)
+    );
+  }
+
+  .album-grid.compact {
+    grid-template-columns: repeat(
+      auto-fill,
+      minmax(min(100%, 176px), 1fr)
+    );
+  }
+
+  .artist-grid,
+  .album-grid--artist {
+    grid-template-columns: repeat(
+      auto-fill,
+      minmax(min(100%, 160px), 1fr)
+    );
+  }
+}
+
+/* --- Nav in alto: scroll orizzontale confortevole / snap --- */
+@media (max-width: 900px) {
+  .topbar-nav {
+    scroll-snap-type: x proximity;
+    padding-block: 0.15rem;
+  }
+
+  .topbar-nav__btn {
+    scroll-snap-align: start;
+    min-height: 36px;
+  }
+
+  .content-shell {
+    padding-inline: max(0.75rem, env(safe-area-inset-left))
+      max(0.75rem, env(safe-area-inset-right));
+  }
+
+  .inline-banner {
+    margin-left: max(0.75rem, env(safe-area-inset-left));
+    margin-right: max(0.75rem, env(safe-area-inset-right));
+  }
+
+  .player-dock2 {
+    padding-inline: max(0.45rem, env(safe-area-inset-left))
+      max(0.45rem, env(safe-area-inset-right));
+  }
+
+  .player-bar2 {
+    margin-inline-end: 0;
+  }
+
+  .statistics-rank-row {
+    min-width: 0;
+  }
+}
+
+/* --- “Phablet” + menu mobile (barra inferiore) --- */
+@media (max-width: 768px) {
+  :root {
+    --bar-h: 138px;
+    /* Spazio sotto: player fisso + barra sezioni (3.5rem) */
+    --content-pad-bottom: calc(
+      env(safe-area-inset-bottom, 0px) + 1.2rem + var(--bar-h) + 0.85rem + 3.5rem
+    );
+  }
+
+  .tools.tool-studio-layout {
+    gap: 0.75rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .tools .tool-block,
+  .tools .studio-hero {
+    padding: 0.95rem 1rem 1rem;
+  }
+
+  .tools .studio-head h3 {
+    font-size: 1.05rem;
+    line-height: 1.25;
+    word-break: break-word;
+  }
+
+  .tools .studio-panel {
+    min-width: 0;
+  }
+
+  .tools .codebox,
+  .tools textarea.log,
+  .tools .log {
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .tools-dl-dest__dirlist {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 7.5rem), 1fr));
+  }
+
+  .tools-dl-releases__toolbar {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .tool-studio-layout .studio-inline-actions {
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .tool-studio-layout .studio-inline-actions .btn {
+    min-height: 42px;
+  }
+
+  .settings-page .account-row {
+    grid-template-columns: 1fr;
+    gap: 0.55rem;
+  }
+
+  .settings-page .account-row .btn.secondary {
+    width: 100%;
+    justify-self: stretch;
+    min-height: 44px;
+  }
+
+  .player-dock2 {
+    bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: 0;
+  }
+
+  .topbar-nav__btn,
+  .track-row__ic,
+  .track-row__in-coda,
+  .ghost-btn--toolbar,
+  .player-bar2__ic {
+    touch-action: manipulation;
+  }
+
+  .library-content-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .library-content-head .segmented--joined {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .library-content-head .segmented--joined button {
+    flex: 1 1 50%;
+    min-height: 44px;
+  }
+
+  .hero-card,
+  .stats-grid {
+    min-width: 0;
+  }
+
+  .artgrid2,
+  .tools-art .artgrid2 {
+    grid-template-columns: repeat(
+      auto-fill,
+      minmax(min(100%, 150px), 1fr)
+    );
+  }
+
+  .meta-edit-dialog {
+    width: min(100%, 100vw - 1.5rem);
+    max-height: 85dvh;
+  }
+}
+
+/* --- Telefono (layout compatto) --- */
+@media (max-width: 560px) {
+  :root {
+    /* Allineato a index.css: spazio sotto al dock su telefono */
+    --bar-h: 158px;
+  }
+
+  .topbar2__end .account-badge {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+  }
+
+  .ghost-btn--toolbar,
+  .ghost-input--topbar {
+    min-height: 40px;
+  }
+
+  .player-dock2 {
+    padding-inline: max(0.35rem, env(safe-area-inset-left))
+      max(0.35rem, env(safe-area-inset-right));
+  }
+
+  .player-bar2 {
+    padding: 0.5rem 0.6rem 0.55rem;
+    border-radius: var(--radius-lg);
+  }
+
+  .surface-card,
+  .hero-card,
+  .listen-stage {
+    border-radius: var(--radius-lg);
+    padding: 0.8rem 0.9rem;
+  }
+
+  .album-grid,
+  .album-grid.compact {
+    grid-template-columns: repeat(
+      auto-fill,
+      minmax(min(100%, 142px), 1fr)
+    );
+    gap: 0.65rem;
+  }
+
+  .artist-grid,
+  .album-grid--artist {
+    grid-template-columns: repeat(
+      auto-fill,
+      minmax(min(100%, 132px), 1fr)
+    );
+  }
+
+  .library-view .artist-grid > .artist-card,
+  .library-view .album-grid--artist > .album-card {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .library-view .artist-card__cover,
+  .library-view .artist-card__badge {
+    width: min(168px, 100%);
+  }
+
+  /* Dashboard: card “aggiornati” senza min-width 200px che forza scroll */
+  .album-grid.compact.dashboard-updated-albums > .album-card {
+    min-width: 0;
+    min-height: 0;
+    max-width: 100%;
+  }
+
+  .studio-action-row {
+    flex-wrap: wrap;
+  }
+
+  .studio-action-row .btn {
+    min-width: 0;
+  }
+
+  .activity-log-td-clip {
+    max-width: 100%;
+  }
+}
+
+/* --- Track row: seconda riga per le azioni (evita overflow) --- */
+@media (max-width: 520px) {
+  .track-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    padding: 0.55rem 0.7rem;
+    gap: 0.4rem 0.5rem;
+  }
+
+  .track-row__art {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+  }
+
+  .track-row__main {
+    flex: 1 1 calc(100% - 48px);
+    min-width: 0;
+    text-align: left;
+  }
+
+  .track-row__actions {
+    flex: 1 1 100%;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.2rem 0.35rem;
+    min-height: 0;
+  }
+
+  .track-row__ic,
+  .track-row__in-coda {
+    min-width: 40px;
+    min-height: 40px;
+  }
+}
+
+/* --- Schermi molto stretti --- */
+@media (max-width: 400px) {
+  .section-head h2,
+  .section-head--page-toolbar h2,
+  .studio-hero__title {
+    font-size: 1.1rem;
+    line-height: 1.25;
+  }
+
+  .topbar-nav__btn {
+    padding: 0.24rem 0.4rem;
+    font-size: 0.7rem;
+  }
+}
+
+/* --- Landscape su telefono: meno altezza player bar --- */
+@media (max-height: 480px) and (max-width: 900px) {
+  :root {
+    --bar-h: 108px;
+  }
+
+  .player-bar2__ic--play {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

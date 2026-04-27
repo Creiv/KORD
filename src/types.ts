@@ -194,6 +194,19 @@ export type DashboardPayload = {
   qualityAlerts: DashboardAlert[];
 };
 
+/** Sezioni route principali (URL / shell). */
+export type AppSection =
+  | "dashboard"
+  | "ascolta"
+  | "libreria"
+  | "studio"
+  | "queue"
+  | "playlists"
+  | "favorites"
+  | "recent"
+  | "settings"
+  | "statistics";
+
 export type AppTab =
   | "library"
   | "favorites"
