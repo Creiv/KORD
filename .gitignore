@@ -24,6 +24,9 @@ coverage
 server/music-root.config.json
 server/accounts/
 
+# KORD activity log (local paths, URLs — never commit)
+kord-activity.log.jsonl
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
