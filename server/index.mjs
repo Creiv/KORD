@@ -3,7 +3,8 @@ import cors from "cors"
 import path from "path"
 import fs from "fs/promises"
 import { existsSync, statSync } from "fs"
-import { spawn } from "child_process"
+import { spawn, execFile, execFileSync } from "child_process"
+import { promisify } from "util"
 import { fileURLToPath } from "url"
 import { aggregateArtworkSearch } from "./artworkSearch.mjs"
 import {
@@ -49,6 +50,8 @@ import {
 import multer from "multer"
 import { streamKordBackupZip, restoreKordFromZipBuffer } from "./backupKord.mjs"
 
+const execFileAsync = promisify(execFile)
+
 const PORT = Number(process.env.PORT) || 3001
 /** Opzionale: FLAC più pesante, richiede ffmpeg. */
 const YTDLP_ARGS_LOSSLESS = [
@@ -73,6 +76,48 @@ function ytdlpArgsBase() {
 function ytdlpCookieArgs() {
   const cookies = String(process.env.KORD_YTDLP_COOKIES || "").trim()
   return cookies ? ["--cookies", cookies] : []
+}
+
+async function ytdlpPlaylistTrackCount(program, playlistUrl) {
+  const args = [
+    "-J",
+    "--flat-playlist",
+    "--no-download",
+    "--no-warnings",
+    ...ytdlpCookieArgs(),
+    playlistUrl,
+  ]
+  try {
+    const { stdout } = await execFileAsync(program, args, {
+      maxBuffer: 16 * 1024 * 1024,
+      encoding: "utf8",
+      env: { ...process.env, FORCE_COLOR: "0" },
+    })
+    const j = JSON.parse(String(stdout))
+    if (typeof j.playlist_count === "number" && j.playlist_count >= 0) {
+      return j.playlist_count
+    }
+    if (Array.isArray(j.entries)) return j.entries.length
+    return null
+  } catch {
+    return null
+  }
+}
+
+async function enrichReleaseEntriesWithTrackCounts(program, items) {
+  const size = 4
+  const out = []
+  for (let i = 0; i < items.length; i += size) {
+    const chunk = items.slice(i, i + size)
+    const part = await Promise.all(
+      chunk.map(async (item) => {
+        const trackCount = await ytdlpPlaylistTrackCount(program, item.url)
+        return { ...item, trackCount }
+      }),
+    )
+    out.push(...part)
+  }
+  return out
 }
 
 function isProbablyPlaylistUrl(url) {
@@ -550,6 +595,106 @@ app.get("/api/track-stat", (req, res) => {
   }
 })
 
+function isYoutubeReleasesTabUrl(value) {
+  try {
+    const u = new URL(String(value).trim())
+    const h = u.hostname.replace(/^www\./, "").toLowerCase()
+    if (!h.endsWith("youtube.com") && !h.endsWith("music.youtube.com")) {
+      return false
+    }
+    return u.pathname.includes("/releases")
+  } catch {
+    return false
+  }
+}
+
+app.post("/api/youtube-releases-list", async (req, res) => {
+  if (process.env.ENABLE_YTDLP === "0") {
+    return sendError(res, 403, "Download disabled (ENABLE_YTDLP=0)")
+  }
+  const url = String(req.body?.url || "").trim()
+  if (!/^https?:\/\//i.test(url)) {
+    return sendError(res, 400, "Invalid URL")
+  }
+  if (!isYoutubeReleasesTabUrl(url)) {
+    return sendError(
+      res,
+      400,
+      "URL must be a YouTube channel releases page (e.g. …/releases).",
+    )
+  }
+  const program = resolveYtdlpPath()
+  const args = [
+    "-J",
+    "--flat-playlist",
+    "--no-download",
+    "--no-warnings",
+    ...ytdlpCookieArgs(),
+    url,
+  ]
+  try {
+    const jsonText = execFileSync(program, args, {
+      maxBuffer: 32 * 1024 * 1024,
+      encoding: "utf8",
+      env: { ...process.env, FORCE_COLOR: "0" },
+    })
+    const data = JSON.parse(String(jsonText))
+    const raw = Array.isArray(data.entries) ? data.entries : []
+    const entries = []
+    for (const e of raw) {
+      const id = String(e.id ?? "").trim()
+      const title = String(e.title ?? "").trim()
+      const link =
+        e.url != null
+          ? String(e.url)
+          : e.webpage_url != null
+            ? String(e.webpage_url)
+            : ""
+      if (id && title && link && /^https?:\/\//i.test(link)) {
+        entries.push({ id, title, url: link })
+      }
+    }
+    if (!entries.length) {
+      return sendError(
+        res,
+        400,
+        "No releases in list (or yt-dlp could not expand this page).",
+      )
+    }
+    const entriesWithCounts = await enrichReleaseEntriesWithTrackCounts(
+      program,
+      entries,
+    )
+    return sendOk(res, {
+      listTitle: String(data.title ?? "").trim(),
+      uploader: String(
+        data.uploader ?? data.channel ?? data.uploader_id ?? "",
+      ).trim(),
+      channelUrl: String(
+        data.channel_url ?? data.uploader_url ?? "",
+      ).trim(),
+      entries: entriesWithCounts,
+    })
+  } catch (error) {
+    let err = String(error?.message ?? error)
+    if (error && typeof error === "object") {
+      if ("stderr" in error && error.stderr) {
+        const s = error.stderr
+        err = Buffer.isBuffer(s) ? s.toString("utf8") : String(s)
+      } else if ("stdout" in error && error.stdout) {
+        const s = error.stdout
+        err = Buffer.isBuffer(s) ? s.toString("utf8") : String(s)
+      }
+    }
+    err = err.trim() || "yt-dlp failed"
+    return sendError(
+      res,
+      500,
+      err.length > 800 ? `${err.slice(0, 797)}…` : err,
+    )
+  }
+})
+
 app.get("/api/download-preset", async (_req, res) => {
   try {
     return sendOk(res, {
@@ -617,6 +762,22 @@ app.post("/api/download", async (req, res) => {
       cwd: root,
       env: { ...process.env, FORCE_COLOR: "0" },
     })
+    const killYtdlpOnDisconnect = () => {
+      if (!child.killed) {
+        try {
+          child.kill("SIGTERM")
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    const onClientGone = () => killYtdlpOnDisconnect()
+    req.on("aborted", onClientGone)
+    res.on("close", onClientGone)
+    const removeDisconnectListeners = () => {
+      req.removeListener("aborted", onClientGone)
+      res.removeListener("close", onClientGone)
+    }
     child.stdout.setEncoding("utf8")
     child.stderr.setEncoding("utf8")
     child.stdout.on("data", (chunk) => {
@@ -628,6 +789,7 @@ app.post("/api/download", async (req, res) => {
       emitProgressIfNew()
     })
     child.on("close", (code) => {
+      removeDisconnectListeners()
       result.code = code ?? -1
       if (result.code === 0) {
         const folder =
@@ -646,39 +808,44 @@ app.post("/api/download", async (req, res) => {
       const progress =
         extractLastItemProgress(combined) ?? lastProgressEmitted
       finish(() => {
-        res.write(
-          `${JSON.stringify({
-            type: "done",
-            ok: result.code === 0,
-            stdout: result.stdout,
-            stderr: result.stderr,
-            code: result.code,
-            progress,
-            musicRoot: root,
-            command,
-          })}\n`,
-        )
-        res.end()
+        if (!res.writableEnded) {
+          res.write(
+            `${JSON.stringify({
+              type: "done",
+              ok: result.code === 0,
+              stdout: result.stdout,
+              stderr: result.stderr,
+              code: result.code,
+              progress,
+              musicRoot: root,
+              command,
+            })}\n`,
+          )
+          res.end()
+        }
       })
     })
     child.on("error", (error) => {
+      removeDisconnectListeners()
       result.code = -1
       result.stderr += `\n${error.message}`
       finish(() => {
-        res.write(
-          `${JSON.stringify({
-            type: "done",
-            ok: false,
-            stdout: result.stdout,
-            stderr: result.stderr,
-            code: result.code,
-            progress: lastProgressEmitted,
-            error: error.message,
-            musicRoot: root,
-            command,
-          })}\n`,
-        )
-        res.end()
+        if (!res.writableEnded) {
+          res.write(
+            `${JSON.stringify({
+              type: "done",
+              ok: false,
+              stdout: result.stdout,
+              stderr: result.stderr,
+              code: result.code,
+              progress: lastProgressEmitted,
+              error: error.message,
+              musicRoot: root,
+              command,
+            })}\n`,
+          )
+          res.end()
+        }
       })
     })
   } catch (error) {

@@ -355,6 +355,31 @@ export async function fetchDownloadPreset(): Promise<PresetYtdlp> {
   return unwrap<PresetYtdlp>(response)
 }
 
+export type YoutubeReleaseEntry = {
+  id: string
+  title: string
+  url: string
+  trackCount: number | null
+}
+
+export type YoutubeReleasesList = {
+  listTitle: string
+  uploader: string
+  channelUrl: string
+  entries: YoutubeReleaseEntry[]
+}
+
+export async function fetchYoutubeReleasesList(
+  url: string,
+): Promise<YoutubeReleasesList> {
+  const response = await fetch(apiUrl("/api/youtube-releases-list"), {
+    method: "POST",
+    headers: accountHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ url }),
+  })
+  return unwrap<YoutubeReleasesList>(response)
+}
+
 export type DownloadRes = {
   ok: boolean
   stdout: string
@@ -385,9 +410,11 @@ export async function runYtdlpDownload(
   url: string,
   outputDir?: string,
   onProgress?: (p: { current: number; total: number }) => void,
+  signal?: AbortSignal,
 ): Promise<DownloadRes> {
   const response = await fetch("/api/download", {
     method: "POST",
+    signal,
     headers: accountHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       url,
