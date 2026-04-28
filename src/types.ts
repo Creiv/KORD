@@ -25,6 +25,12 @@ export type AlbumMeta = {
   label: string | null;
   country: string | null;
   musicbrainzReleaseId: string | null;
+  expectedTrackCount?: number | null;
+  expectedTracks?: {
+    disc?: number;
+    position?: number | null;
+    title: string;
+  }[] | null;
 };
 
 export type LibAlbum = {
@@ -141,6 +147,10 @@ export type LibraryAlbumIndex = {
   label: string | null;
   country: string | null;
   musicbrainzReleaseId: string | null;
+  expectedTrackCount: number | null;
+  expectedTracks:
+    | { disc?: number; position?: number | null; title: string }[]
+    | null;
   hasCover: boolean;
   hasAlbumMeta: boolean;
   hasTrackMeta: boolean;

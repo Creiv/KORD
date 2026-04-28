@@ -62,6 +62,8 @@ const libraryIndex: LibraryIndex = {
       label: "Label",
       country: "IT",
       musicbrainzReleaseId: null,
+      expectedTrackCount: null,
+      expectedTracks: null,
       hasCover: false,
       hasAlbumMeta: true,
       hasTrackMeta: true,

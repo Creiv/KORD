@@ -30,6 +30,8 @@ const baseIndex = (): LibraryIndex => ({
       label: null,
       country: null,
       musicbrainzReleaseId: null,
+      expectedTrackCount: null,
+      expectedTracks: null,
       hasCover: true,
       hasAlbumMeta: false,
       hasTrackMeta: false,

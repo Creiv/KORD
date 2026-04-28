@@ -176,7 +176,6 @@ function AlbumMetaEditorModal({
               autoComplete="off"
             />
           </label>
-          <p className="subtle sm">{t("albumMeta.editHint")}</p>
           {err ? <p className="subtle sm warnline">{err}</p> : null}
           <div className="meta-edit-actions">
             <button

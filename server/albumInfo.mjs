@@ -132,12 +132,43 @@ export async function loadAlbumJsonMetaFromDir(albumDir) {
     const raw = await fs.readFile(p, "utf8")
     const j = JSON.parse(raw)
     if (!j || typeof j !== "object") return null
+    let expectedTracks = null
+    let expectedTrackCount = null
+    if (Array.isArray(j.expectedTracks)) {
+      expectedTracks = j.expectedTracks
+        .map((row) => {
+          const title =
+            row && row.title != null ? String(row.title).trim() : ""
+          if (!title) return null
+          return {
+            disc: Number.isFinite(Number(row.disc)) ? Number(row.disc) : 1,
+            position: Number.isFinite(Number(row.position))
+              ? Number(row.position)
+              : null,
+            title,
+          }
+        })
+        .filter(Boolean)
+      expectedTrackCount =
+        typeof j.expectedTrackCount === "number" && j.expectedTrackCount > 0
+          ? j.expectedTrackCount
+          : expectedTracks.length > 0
+            ? expectedTracks.length
+            : null
+    } else if (
+      typeof j.expectedTrackCount === "number" &&
+      j.expectedTrackCount > 0
+    ) {
+      expectedTrackCount = j.expectedTrackCount
+    }
     return {
       title: j.title || j.name || null,
       releaseDate: j.date || j.releaseDate || null,
       label: j.label || null,
       country: j.country || null,
       musicbrainzReleaseId: j.musicbrainzReleaseId || null,
+      expectedTrackCount,
+      expectedTracks,
     }
   } catch {
     return null
@@ -550,6 +581,53 @@ export async function sanitizeTrackTitlesFullLibrary(musicRoot, dryRun) {
   return { changes, albumsScanned: rels.length, dryRun }
 }
 
+function extractMusicBrainzReleaseTracks(info) {
+  const list = []
+  const media = Array.isArray(info?.media) ? info.media : []
+  for (const medium of media) {
+    const disc = Number.isFinite(Number(medium.position)) ? Number(medium.position) : 1
+    const tracks = Array.isArray(medium.tracks) ? medium.tracks : []
+    for (const tr of tracks) {
+      const raw =
+        tr.title ||
+        (tr.recording && typeof tr.recording === "object" ? tr.recording.title : null)
+      const title = raw != null ? String(raw).trim() : ""
+      if (!title) continue
+      const pos = Number.isFinite(Number(tr.position)) ? Number(tr.position) : list.length + 1
+      list.push({ disc, position: pos, title })
+    }
+  }
+  return list
+}
+
+function musicBrainzMediaTrackTotal(info) {
+  const media = Array.isArray(info?.media) ? info.media : []
+  let n = 0
+  for (const m of media) {
+    const c = m["track-count"]
+    if (Number.isFinite(Number(c))) n += Number(c)
+  }
+  return n > 0 ? n : null
+}
+
+async function fetchMusicBrainzReleaseJson(relId) {
+  const infoUrl = `https://musicbrainz.org/ws/2/release/${relId}?inc=labels+artist-credits+recordings&fmt=json`
+  let r1 = await fetch(infoUrl, { headers: { "User-Agent": MB_UA } })
+  for (let t = 0; t < 2 && (r1.status === 503 || r1.status === 429); t += 1) {
+    await sleep(2200)
+    r1 = await fetch(infoUrl, { headers: { "User-Agent": MB_UA } })
+  }
+  if (!r1.ok) return null
+  return r1.json()
+}
+
+function mbReleaseHasTracklist(info) {
+  const tr = extractMusicBrainzReleaseTracks(info)
+  if (tr.length > 0) return true
+  const mc = musicBrainzMediaTrackTotal(info)
+  return mc != null && mc > 0
+}
+
 export async function fetchReleaseMetadataMusicBrainz(artist, album) {
   const a = String(artist || "").trim()
   const b = String(album || "").trim()
@@ -562,7 +640,7 @@ export async function fetchReleaseMetadataMusicBrainz(artist, album) {
         : `release:"${a}"`
   const searchUrl = `https://musicbrainz.org/ws/2/release/?query=${encodeURIComponent(
     q,
-  )}&fmt=json&limit=5`
+  )}&fmt=json&limit=10`
   let r0 = await fetch(searchUrl, { headers: { "User-Agent": MB_UA } })
   for (let t = 0; t < 2 && (r0.status === 503 || r0.status === 429); t += 1) {
     await sleep(2200)
@@ -572,44 +650,100 @@ export async function fetchReleaseMetadataMusicBrainz(artist, album) {
     return { error: `MusicBrainz search ${r0.status}` }
   }
   const j0 = await r0.json()
-  const rel = (j0.releases || [])[0]
-  if (!rel || !rel.id) {
+  const candidates = (j0.releases || []).filter((x) => x && x.id)
+  const rel0 = candidates[0]
+  if (!rel0) {
     return { error: "No release found" }
   }
+
   await sleep(1000)
-  const infoUrl = `https://musicbrainz.org/ws/2/release/${rel.id}?inc=labels&fmt=json`
-  let r1 = await fetch(infoUrl, { headers: { "User-Agent": MB_UA } })
-  for (let t = 0; t < 2 && (r1.status === 503 || r1.status === 429); t += 1) {
-    await sleep(2200)
-    r1 = await fetch(infoUrl, { headers: { "User-Agent": MB_UA } })
+  let chosenRel = rel0
+  let metaFallback = null
+  let metaFallbackRel = rel0
+  let info = null
+  for (let i = 0; i < candidates.length && i < 8; i += 1) {
+    const rel = candidates[i]
+    if (i > 0) await sleep(1100)
+    const parsed = await fetchMusicBrainzReleaseJson(rel.id)
+    if (!parsed) continue
+    if (!metaFallback) {
+      metaFallback = parsed
+      metaFallbackRel = rel
+    }
+    if (mbReleaseHasTracklist(parsed)) {
+      chosenRel = rel
+      info = parsed
+      break
+    }
   }
-  if (!r1.ok) {
+
+  info = info || metaFallback
+  chosenRel = info === metaFallback ? metaFallbackRel : chosenRel
+
+  if (!info) {
     return {
       ok: true,
       source: "musicbrainz",
-      musicbrainzReleaseId: rel.id,
-      title: rel.title,
-      date: rel.date || null,
-      country: rel.country || null,
+      musicbrainzReleaseId: chosenRel.id,
+      title: chosenRel.title,
+      date: chosenRel.date || null,
+      country: chosenRel.country || null,
       label: null,
     }
   }
-  const info = await r1.json()
+
   const labelInfo = info["label-info"]?.[0]
   const labelName =
     (labelInfo && labelInfo.label && labelInfo.label.name) || null
+  const expectedTracks = extractMusicBrainzReleaseTracks(info)
+  const fromMediaCount = musicBrainzMediaTrackTotal(info)
+  const expectedTrackCount =
+    expectedTracks.length > 0 ? expectedTracks.length : fromMediaCount
   return {
     ok: true,
     source: "musicbrainz",
-    musicbrainzReleaseId: rel.id,
-    title: info.title || rel.title,
-    date: info.date || rel.date || null,
-    country: info.country || rel.country || null,
+    musicbrainzReleaseId: chosenRel.id,
+    title: info.title || chosenRel.title,
+    date: info.date || chosenRel.date || null,
+    country: info.country || chosenRel.country || null,
     label: labelName,
+    ...(expectedTracks.length > 0 ? { expectedTracks } : {}),
+    ...(expectedTrackCount != null ? { expectedTrackCount } : {}),
   }
 }
 
 const THEAUDIODB_KEY = () => process.env.THEAUDIODB_API_KEY || "2"
+
+async function attachExpectedTracksTheAudioDb(payload, pick, tryUrl, key) {
+  const idAlbum = pick?.idAlbum
+  if (idAlbum == null) return
+  const uTr = `https://www.theaudiodb.com/api/v1/json/${key}/track.php?m=${encodeURIComponent(
+    String(idAlbum),
+  )}`
+  const jTr = await tryUrl(uTr)
+  if (jTr.error || jTr.track == null) return
+  const rawT = Array.isArray(jTr.track) ? jTr.track : [jTr.track]
+  const sorted = [...rawT].sort(
+    (a, b) =>
+      Number(a.intTrackNumber || 0) - Number(b.intTrackNumber || 0),
+  )
+  const expectedTracks = sorted
+    .map((t, idx) => {
+      const title = String(t.strTrack || "").trim()
+      if (!title) return null
+      return {
+        disc: Number.isFinite(Number(t.intCD)) ? Number(t.intCD) : 1,
+        position: Number.isFinite(Number(t.intTrackNumber))
+          ? Number(t.intTrackNumber)
+          : idx + 1,
+        title,
+      }
+    })
+    .filter(Boolean)
+  if (expectedTracks.length < 1) return
+  payload.expectedTracks = expectedTracks
+  payload.expectedTrackCount = expectedTracks.length
+}
 
 function theAudioDbAlbumToPayload(pick, al) {
   const y = pick.intYearReleased
@@ -672,10 +806,46 @@ export async function fetchReleaseMetadataTheAudioDB(artist, album) {
       .sort((a, b) => b.sc - a.sc)
     const best = scored[0]
     if (!best || best.sc < 1) return { error: "No results" }
-    return theAudioDbAlbumToPayload(best.x, al)
+    const payload = theAudioDbAlbumToPayload(best.x, al)
+    await attachExpectedTracksTheAudioDb(payload, best.x, tryUrl, key)
+    return payload
   }
   if (rows.length < 1) return { error: "No results" }
-  return theAudioDbAlbumToPayload(rows[0], al)
+  const payload = theAudioDbAlbumToPayload(rows[0], al)
+  await attachExpectedTracksTheAudioDb(payload, rows[0], tryUrl, key)
+  return payload
+}
+
+async function attachExpectedTracksItunes(payload, pick, country) {
+  const cid = pick.collectionId
+  if (!Number.isFinite(Number(cid))) return
+  const lookupUrl = `https://itunes.apple.com/lookup?id=${cid}&entity=song&limit=500&country=${country}`
+  let lr = await fetch(lookupUrl, { headers: ITUNES_HEADERS })
+  for (let t = 0; t < 2 && (lr.status === 503 || lr.status === 429); t += 1) {
+    await sleep(1200)
+    lr = await fetch(lookupUrl, { headers: ITUNES_HEADERS })
+  }
+  if (!lr.ok) return
+  const lj = await lr.json()
+  const results = Array.isArray(lj.results) ? lj.results : []
+  const songs = results.filter(
+    (x) =>
+      x &&
+      (x.wrapperType === "track" || x.kind === "song") &&
+      x.trackName,
+  )
+  const expectedTracks = songs
+    .map((x, idx) => ({
+      disc: Number.isFinite(Number(x.discNumber)) ? Number(x.discNumber) : 1,
+      position: Number.isFinite(Number(x.trackNumber))
+        ? Number(x.trackNumber)
+        : idx + 1,
+      title: String(x.trackName || "").trim(),
+    }))
+    .filter((x) => x.title)
+  if (expectedTracks.length < 1) return
+  payload.expectedTracks = expectedTracks
+  payload.expectedTrackCount = expectedTracks.length
 }
 
 export async function fetchReleaseMetadataItunesAlbum(artist, album) {
@@ -723,7 +893,7 @@ export async function fetchReleaseMetadataItunesAlbum(artist, album) {
     const rd = pick.releaseDate
     const date =
       typeof rd === "string" && rd.length >= 10 ? rd.slice(0, 10) : null
-    return {
+    const payload = {
       ok: true,
       source: "itunes",
       musicbrainzReleaseId: null,
@@ -732,8 +902,48 @@ export async function fetchReleaseMetadataItunesAlbum(artist, album) {
       country: null,
       label: null,
     }
+    await attachExpectedTracksItunes(payload, pick, country)
+    return payload
   }
   return { error: lastErr }
+}
+
+async function enrichMbPayloadWithFallbackTracklists(mb, artist, album) {
+  const hasTitles =
+    Array.isArray(mb.expectedTracks) && mb.expectedTracks.length > 0
+  if (hasTitles) return mb
+
+  await sleep(350)
+  const adb = await fetchReleaseMetadataTheAudioDB(artist, album)
+  let tracks =
+    adb.ok &&
+    Array.isArray(adb.expectedTracks) &&
+    adb.expectedTracks.length > 0
+      ? adb.expectedTracks
+      : null
+
+  if (!tracks) {
+    await sleep(250)
+    const it = await fetchReleaseMetadataItunesAlbum(artist, album)
+    if (
+      it.ok &&
+      Array.isArray(it.expectedTracks) &&
+      it.expectedTracks.length > 0
+    )
+      tracks = it.expectedTracks
+  }
+
+  if (!tracks?.length) return mb
+
+  const prevCount =
+    typeof mb.expectedTrackCount === "number" && mb.expectedTrackCount > 0
+      ? mb.expectedTrackCount
+      : null
+  return {
+    ...mb,
+    expectedTracks: tracks,
+    expectedTrackCount: prevCount ?? tracks.length,
+  }
 }
 
 /**
@@ -741,7 +951,7 @@ export async function fetchReleaseMetadataItunesAlbum(artist, album) {
  */
 export async function fetchReleaseMetadata(artist, album) {
   const mb = await fetchReleaseMetadataMusicBrainz(artist, album)
-  if (mb.ok) return mb
+  if (mb.ok) return enrichMbPayloadWithFallbackTracklists(mb, artist, album)
   await sleep(400)
   const adb = await fetchReleaseMetadataTheAudioDB(artist, album)
   if (adb.ok) return adb

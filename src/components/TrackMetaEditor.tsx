@@ -266,11 +266,7 @@ function TrackMetaEditorModal({
                 {t("trackMeta.fieldGenreAdd")}
               </button>
             </div>
-            <span className="subtle sm meta-edit-field-hint">
-              {t("trackMeta.fieldGenreHint")}
-            </span>
           </div>
-          <p className="subtle sm">{t("trackMeta.editHint")}</p>
           {err ? <p className="subtle sm warnline">{err}</p> : null}
           <div className="meta-edit-actions">
             <button

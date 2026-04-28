@@ -83,4 +83,22 @@ describe("computeGenreAutoAssignments", () => {
     expect(one!.genreSerialized).toBe("Jazz")
     expect(one!.source).toBe("artist")
   })
+
+  it("scope all assigns album winner to every track in album", () => {
+    const index: LibraryIndex = {
+      musicRoot: "/m",
+      artists: [],
+      albums: [],
+      tracks: [
+        tr("A/Alb/01.mp3", "A", "Alb", "al1", "Rock"),
+        tr("A/Alb/02.mp3", "A", "Alb", "al1", "Rock"),
+        tr("A/Alb/03.mp3", "A", "Alb", "al1", null),
+      ],
+      stats: emptyStats,
+    }
+    const r = computeGenreAutoAssignments(index, { scope: "all" })
+    expect(r).toHaveLength(3)
+    expect(new Set(r.map((x) => x.genreSerialized))).toEqual(new Set(["Rock"]))
+    expect(r.every((x) => x.source === "album")).toBe(true)
+  })
 })

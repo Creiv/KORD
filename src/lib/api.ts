@@ -758,6 +758,8 @@ export type FetchedAlbumMeta = {
   country: string | null
   label: string | null
   fetchedAt?: string
+  expectedTrackCount?: number
+  expectedTracks?: { disc?: number; position?: number | null; title: string }[]
 }
 
 export type AlbumMetaSavePatch = {

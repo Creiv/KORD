@@ -43,13 +43,9 @@ export const EN: Record<string, string> = {
   "trackMeta.editCancel": "Cancel",
   "trackMeta.editSave": "Save",
   "trackMeta.editSaving": "Saving…",
-  "trackMeta.editHint":
-    "Saved next to the audio files (kord-trackinfo.json). Empty fields clear that value.",
   "trackMeta.fieldTitle": "Title (display)",
   "trackMeta.fieldReleaseDate": "Release date",
   "trackMeta.fieldGenre": "Genres",
-  "trackMeta.fieldGenreHint":
-    "Multiple genres are stored in kord-trackinfo; slashes (e.g. hip hop/rap) are split automatically when saving or fetching.",
   "trackMeta.fieldGenrePick": "Add from library",
   "trackMeta.fieldGenrePickPlaceholder": "Select a genre from your library…",
   "trackMeta.fieldGenreNewPlaceholder": "New genre…",
@@ -63,13 +59,11 @@ export const EN: Record<string, string> = {
   "albumMeta.editButton": "Edit album",
   "albumMeta.editEyebrow": "kord-albuminfo",
   "albumMeta.editHeading": "Edit album data",
-  "albumMeta.editHint":
-    "Saved next to the audio files (kord-albuminfo.json). The name changes only in KORD; the folder is not renamed.",
   "albumMeta.fieldTitle": "Album name",
   "albumMeta.fieldReleaseDate": "Release date",
   "albumMeta.fieldLabel": "Label",
   "albumMeta.fieldCountry": "Country",
-  "albumMeta.deleteAlbum": "Delete all tracks in this album",
+  "albumMeta.deleteAlbum": "Delete all tracks",
   "albumMeta.deleteConfirm":
     "Delete all {{n}} audio file(s) in this folder from disk? The folder and non-audio files stay; this cannot be undone.",
   "albumMeta.deleteFailed": "No audio files were removed.",
@@ -426,7 +420,8 @@ export const EN: Record<string, string> = {
   "tools.dlLoadReleases": "Load release list",
   "tools.dlReleasesLoading": "Loading releases…",
   "tools.dlReleasesEnriching": "Getting track count for each release…",
-  "tools.dlReleasesWaitEnrich": "Please wait until every row has finished loading (track counts).",
+  "tools.dlReleasesWaitEnrich":
+    "Please wait until every row has finished loading (track counts).",
   "tools.dlReleasesListTitle": "Albums",
   "tools.dlTrackCount": "{{n}} tracks",
   "tools.dlTrackCountUnknown": "—",
@@ -435,7 +430,8 @@ export const EN: Record<string, string> = {
   "tools.dlSelectAll": "Select all",
   "tools.dlSelectNone": "Select none",
   "tools.dlDownloadSelected": "Download selected",
-  "tools.dlNeedLoadReleases": "Load the release list with the button above, then select albums.\n",
+  "tools.dlNeedLoadReleases":
+    "Load the release list with the button above, then select albums.\n",
   "tools.dlNeedSelection": "Select at least one album.\n",
   "tools.dlBatchLine": "[{{i}}/{{n}}] {{title}}…\n",
   "tools.dlReleasesCleared": "— Release list reset (link changed)\n",
@@ -444,7 +440,8 @@ export const EN: Record<string, string> = {
   "tools.dlProgressTracksInAlbum": "Tracks (this album)",
   "tools.dlProgressTrackWait": "Resolving track list…",
   "tools.dlPathLabel": "Current folder",
-  "tools.dlDestLead": "Open folders from the list (arrow: parent). Then press “Use this folder” to set the download destination. New subfolders are created in the current location.",
+  "tools.dlDestLead":
+    "Open folders from the list (arrow: parent). Then press “Use this folder” to set the download destination. New subfolders are created in the current location.",
   "tools.dlSubfolders": "Subfolders",
   "tools.upFolderAria": "Up one level",
   "tools.dlNewSubLabel": "New subfolder here",
@@ -457,7 +454,8 @@ export const EN: Record<string, string> = {
     "The download will run first. Then KORD will look at files in “{{path}}” and remove older duplicates for the same track (by title), and move favorites, shuffle blocks and play counts to the files kept. Continue?\n\nEXPERIMENTAL FEATURE",
   "tools.dlReplaceRemovedDupes":
     "Removed {{n}} previous file(s) (same track title) after the new download.\n",
-  "tools.dlReplaceRootTitle": "Pick a subfolder under Music, not the library root.",
+  "tools.dlReplaceRootTitle":
+    "Pick a subfolder under Music, not the library root.",
   "tools.dlPlaylistManyConfirm":
     "This playlist has {{n}} items. Download them all?",
   "tools.dlPlaylistCountErr": "Could not count playlist items: {{e}}\n",
@@ -487,6 +485,14 @@ export const EN: Record<string, string> = {
   "tools.logLabel": "Log",
   "tools.clear": "Clear",
   "tools.metaTitle": "Metadata",
+  "tools.metaEssentials": "Essentials",
+  "tools.metaOptional": "Optional",
+  "tools.metaFillFromPlayback": "Fill from playback",
+  "tools.metaAlbumSectionLabel": "Album",
+  "tools.metaBtnSelectedAlbum": "Selected album",
+  "tools.metaBtnScanAuto": "Automatic scan",
+  "tools.metaOptionalGenres": "Genres",
+  "tools.metaOptionalTitles": "Titles",
   "tools.metaAlbumPanel": "Album and search fields",
   "tools.metaAlbumAria": "Album for metadata",
   "tools.pickAlbum": "Choose album…",
@@ -504,8 +510,21 @@ export const EN: Record<string, string> = {
   "tools.scanAlbumsTitle":
     "Skip albums with kord-albuminfo.json; delay between requests (MusicBrainz rate limit)",
   "tools.tracks": "Tracks",
-  "tools.currentTrackMeta": "Current track metadata",
+  "tools.currentTrackMeta": "Playing track metadata",
   "tools.scanAllTracks": "Scan all tracks",
+  "tools.scanChoiceAlbumTitle": "Automatic album scan",
+  "tools.scanChoiceAlbumHint":
+    "Fetch metadata only for folders still missing kord-albuminfo.json, or rescan every album (refreshes existing metadata).",
+  "tools.scanChoiceTrackTitle": "Scan all tracks",
+  "tools.scanChoiceTrackHint":
+    "Fetch metadata only for tracks missing genre or release date in kord-trackinfo.json, or rescan every audio file.",
+  "tools.scanChoiceMissingOnly": "Missing only",
+  "tools.scanChoiceRescanAll": "Rescan all",
+  "tools.scanChoiceCancel": "Cancel",
+  "tools.metaScanRescanAllBanner":
+    "Mode: full album rescan (includes folders that already have kord-albuminfo).\n",
+  "tools.trackScanRescanAllBanner":
+    "Mode: full track rescan (every audio file).\n",
   "tools.displayedTitles": "Displayed titles (from file names)",
   "tools.titleHint":
     "Cleans display titles (string heuristics): removes […], leading 01- / 1. , round parens whose text looks promotional (official, original, remaster, version, video, live, clean, 4K…), keeps (feat. / with …), then “- Topic” and redundant “Artist -” at start/end from the library folder. No network, no new deps.",
@@ -521,7 +540,8 @@ export const EN: Record<string, string> = {
     "For each album folder, drop kord-trackinfo keys that do not match an audio file still on disk",
   "tools.trackMetaPruneConfirm":
     "Scan every album and remove kord-trackinfo entries for files that are no longer in the folder? Audio files are not deleted.",
-  "tools.trackMetaPruneStart": "Stale track metadata cleanup: {{n}} album folders.\n",
+  "tools.trackMetaPruneStart":
+    "Stale track metadata cleanup: {{n}} album folders.\n",
   "tools.trackMetaPruneAlbum": "  {{path}}: removed {{files}}\n",
   "tools.trackMetaPruneDone":
     "Cleanup finished. Albums updated: {{a}} · entries removed: {{k}}.\n",
@@ -572,7 +592,18 @@ export const EN: Record<string, string> = {
     "Suggests one genre per track that has none in kord-trackinfo: first from the same album (majority among tracks that already have a genre), then from the same artist. Online “scan all tracks” still fetches from Apple, Deezer, etc.",
   "tools.genreAutoPreview": "Preview genre suggestions",
   "tools.genreAutoApply": "Write suggested genres",
-  "tools.genreAutoNoIndex": "Library index not loaded; refresh and try again.\n",
+  "tools.genreApplyScopeTitle": "Write suggested genres",
+  "tools.genreApplyScopeHint":
+    "Update kord-trackinfo only for tracks that still lack a genre, or re-infer and write for every track that receives a suggestion (overwrites existing genres where applicable).",
+  "tools.genreApplyScopeMissing": "Missing only",
+  "tools.genreApplyScopeAll": "All (overwrite)",
+  "tools.genreApplyConfirmEyebrow": "Confirm write",
+  "tools.genreApplyConfirmFilesLabel": "files",
+  "tools.genreApplyConfirmDetail":
+    "Suggested genres will be written to kord-trackinfo for as many tracks as shown above. Existing track title and release date fields are left unchanged.",
+  "tools.genreApplyConfirmWrite": "Write genres",
+  "tools.genreAutoNoIndex":
+    "Library index not loaded; refresh and try again.\n",
   "tools.genreAutoPreviewEmpty":
     "No genre suggestions: every track already has a genre, or there is no other tagged track on the same album or artist to copy from.\n",
   "tools.genreAutoPreviewHead": "Genre suggestions ({{n}} tracks):\n",

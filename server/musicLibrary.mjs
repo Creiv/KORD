@@ -3,6 +3,7 @@ import { existsSync, statSync } from "fs"
 import { stat as statAsync } from "fs/promises"
 import path from "path"
 import { loadAlbumJsonMetaFromDir, loadTrackJsonMetaMapFromDir } from "./albumInfo.mjs"
+import { reorderTracksByAlbumExpectedRelease } from "./albumExpectedOrder.mjs"
 import { parseTrackGenres } from "./genres.mjs"
 
 const AUDIO = /\.(mp3|flac|m4a|ogg|opus|wav|aac|webm)$/i
@@ -160,14 +161,27 @@ async function readAlbumTracks(artistName, albumFolderName, albumDir, albumMeta)
       }),
     )
   }
-  tracks.sort((a, b) => {
+  const compareAlbumTracksDefault = (a, b) => {
     const ta = a.meta?.trackNumber ?? null
     const tb = b.meta?.trackNumber ?? null
     if (ta != null && tb != null && ta !== tb) return ta - tb
     if (ta != null && tb == null) return -1
     if (ta == null && tb != null) return 1
     return cmpByDateThenName(a, b)
-  })
+  }
+  tracks.sort(compareAlbumTracksDefault)
+
+  const reordered = reorderTracksByAlbumExpectedRelease(
+    tracks,
+    albumMeta?.expectedTracks,
+    artistName,
+    compareAlbumTracksDefault,
+  )
+  if (reordered) {
+    tracks.length = 0
+    tracks.push(...reordered)
+  }
+
   return tracks
 }
 
@@ -240,6 +254,15 @@ export async function buildLibraryIndex(musicRoot) {
         label: albumMeta?.label || null,
         country: albumMeta?.country || null,
         musicbrainzReleaseId: albumMeta?.musicbrainzReleaseId || null,
+        expectedTrackCount:
+          typeof albumMeta?.expectedTrackCount === "number"
+            ? albumMeta.expectedTrackCount
+            : Array.isArray(albumMeta?.expectedTracks)
+              ? albumMeta.expectedTracks.length
+              : null,
+        expectedTracks: Array.isArray(albumMeta?.expectedTracks)
+          ? albumMeta.expectedTracks
+          : null,
         hasCover: Boolean(coverRelPath),
         hasAlbumMeta: Boolean(albumMeta),
         hasTrackMeta: albumTracks.some(trackHasFileMeta),
@@ -269,6 +292,8 @@ export async function buildLibraryIndex(musicRoot) {
         label: null,
         country: null,
         musicbrainzReleaseId: null,
+        expectedTrackCount: null,
+        expectedTracks: null,
         hasCover: false,
         hasAlbumMeta: false,
         hasTrackMeta: false,

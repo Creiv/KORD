@@ -76,6 +76,7 @@ import {
   UiSkipPrevious,
 } from "./components/KordUiIcons";
 import { SectionHeadLead } from "./components/SectionHeadLead";
+import { AlbumTracklistExpectedMeta } from "./components/AlbumTracklistExpectedMeta";
 import {
   AlbumMetaEditProvider,
   useOpenAlbumMetaEdit,
@@ -619,6 +620,34 @@ function LibraryAlbumMetaChips({
 
 function albumExclusionKey(album: LibraryAlbumIndex) {
   return album.id;
+}
+
+function albumHasExpectedReleaseMeta(album: LibraryAlbumIndex): boolean {
+  return (
+    (typeof album.expectedTrackCount === "number" &&
+      album.expectedTrackCount > 0) ||
+    (Array.isArray(album.expectedTracks) && album.expectedTracks.length > 0)
+  );
+}
+
+function AlbumCardTracksMetaLine({ album }: { album: LibraryAlbumIndex }) {
+  const { t } = useI18n();
+  return (
+    <div className="album-card__meta album-card__tracks-meta">
+      <UiQueueMusic
+        className={
+          albumHasExpectedReleaseMeta(album)
+            ? "album-tracklist-expected__ic"
+            : "album-tracklist-expected__ic album-tracklist-expected__ic--dim"
+        }
+        aria-hidden
+      />
+      <span>
+        {t("library.tracklistHeading", { n: album.trackCount })}
+        {album.releaseDate ? ` · ${fmtDate(album.releaseDate)}` : ""}
+      </span>
+    </div>
+  );
 }
 
 function tracksInGenreByKey(
@@ -1232,6 +1261,7 @@ function DashboardView({
                         ? ` · ${fmtDate(album.releaseDate)}`
                         : ""}
                     </div>
+                    <AlbumCardTracksMetaLine album={album} />
                     <div className="lib-badge-cluster lib-badge-cluster--card-foot">
                       <LibraryAlbumMetaChips album={album} />
                       <LibraryAlbumFavoriteChips album={album} />
@@ -2071,6 +2101,7 @@ function LibraryView({
                     <div className="album-card__text">
                       <div className="album-card__title">{item.name}</div>
                       <div className="album-card__meta">{item.artist}</div>
+                      <AlbumCardTracksMetaLine album={item} />
                       <div className="lib-badge-cluster lib-badge-cluster--card-foot">
                         <LibraryAlbumMetaChips album={item} />
                         <LibraryAlbumFavoriteChips album={item} />
@@ -2186,12 +2217,20 @@ function LibraryView({
         </section>
 
         <section className="surface-card">
-          <div className="section-head section-head--page-toolbar">
-            <SectionHeadLead
-              eyebrow={t("library.tracklistEyebrow")}
-              title={t("library.tracklistHeading", { n: albumTracks.length })}
-              icon={<UiMusicNote className="section-head__ic" />}
-            />
+          <div className="section-head section-head--page-toolbar section-head--album-tracklist-head">
+            <div className="section-head__album-tracklist-row">
+              <SectionHeadLead
+                eyebrow={t("library.tracklistEyebrow")}
+                title={t("library.tracklistHeading", {
+                  n: albumTracks.length,
+                })}
+                icon={<UiMusicNote className="section-head__ic" />}
+              />
+              <AlbumTracklistExpectedMeta
+                album={album}
+                presentCount={albumTracks.length}
+              />
+            </div>
           </div>
           <div className="list-stack">
             {albumTracks.map((track, trIndex) => (
@@ -2300,10 +2339,7 @@ function LibraryView({
                 <AlbumCover album={item} compact />
                 <div className="album-card__text">
                   <div className="album-card__title">{item.name}</div>
-                  <div className="album-card__meta">
-                    {t("library.tracklistHeading", { n: item.trackCount })}
-                    {item.releaseDate ? ` · ${fmtDate(item.releaseDate)}` : ""}
-                  </div>
+                  <AlbumCardTracksMetaLine album={item} />
                   <div className="lib-badge-cluster lib-badge-cluster--card-foot">
                     <LibraryAlbumMetaChips album={item} />
                     <LibraryAlbumFavoriteChips album={item} />

@@ -59,14 +59,18 @@ function pickWinner(
   return best
 }
 
+export type GenreAutoScope = "missing" | "all"
+
 /**
- * Propone un genere per ogni brano **senza** genere in kord-trackinfo:
- * 1) maggioranza tra i brani dello stesso album che hanno già un genere;
- * 2) maggioranza tra i brani dello stesso artista (libreria) che hanno genere.
+ * Propone un genere da copiare per maggioranza da album poi artista:
+ * - **missing**: solo brani ancora senza genere parsabile in kord-trackinfo;
+ * - **all**: stesso inferenza ma applicata a tutti i brani dell’album / gruppo artista (sovrascrive il genere).
  */
 export function computeGenreAutoAssignments(
   index: LibraryIndex,
+  opts?: { scope?: GenreAutoScope },
 ): GenreAutoAssignment[] {
+  const scope = opts?.scope ?? "missing"
   const global = buildGlobalGenreSupport(index)
   const out: GenreAutoAssignment[] = []
   const albumAssigned = new Set<string>()
@@ -85,14 +89,17 @@ export function computeGenreAutoAssignments(
   for (const tracks of byAlbum.values()) {
     const tagged = tracks.filter((t) => hasParsedGenre(t.meta?.genre))
     const empty = tracks.filter((t) => !hasParsedGenre(t.meta?.genre))
-    if (!tagged.length || !empty.length) continue
+    if (!tagged.length) continue
+    if (scope === "missing" && !empty.length) continue
     const counts = new Map<string, VoteRow>()
     for (const t of tagged) addGenreTokensToCounts(t.meta?.genre, counts)
     const winner = pickWinner(counts, global)
     if (!winner) continue
     const genreSerialized = serializeTrackGenres([winner.label])
     if (!genreSerialized) continue
-    for (const t of empty) {
+    const targets = scope === "all" ? tracks : empty
+    if (!targets.length) continue
+    for (const t of targets) {
       out.push({
         relPath: t.relPath,
         genreSerialized,
@@ -119,14 +126,16 @@ export function computeGenreAutoAssignments(
       (t) =>
         !hasParsedGenre(t.meta?.genre) && !albumAssigned.has(t.relPath),
     )
-    if (!tagged.length || !empty.length) continue
+    const rest = tracks.filter((t) => !albumAssigned.has(t.relPath))
+    const targets = scope === "all" ? rest : empty
+    if (!tagged.length || !targets.length) continue
     const counts = new Map<string, VoteRow>()
     for (const t of tagged) addGenreTokensToCounts(t.meta?.genre, counts)
     const winner = pickWinner(counts, global)
     if (!winner) continue
     const genreSerialized = serializeTrackGenres([winner.label])
     if (!genreSerialized) continue
-    for (const t of empty) {
+    for (const t of targets) {
       out.push({
         relPath: t.relPath,
         genreSerialized,

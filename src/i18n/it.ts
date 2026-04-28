@@ -44,13 +44,9 @@ export const IT: Record<string, string> = {
   "trackMeta.editCancel": "Annulla",
   "trackMeta.editSave": "Salva",
   "trackMeta.editSaving": "Salvo…",
-  "trackMeta.editHint":
-    "Salvati accanto ai file (kord-trackinfo.json). Campo vuoto = valore cancellato.",
   "trackMeta.fieldTitle": "Titolo (visualizzato)",
   "trackMeta.fieldReleaseDate": "Data uscita",
   "trackMeta.fieldGenre": "Generi",
-  "trackMeta.fieldGenreHint":
-    "Supporto a più generi in kord-trackinfo; le barre (es. hip hop/rap) vengono spezzate automaticamente in salva e fetch.",
   "trackMeta.fieldGenrePick": "Aggiungi da libreria",
   "trackMeta.fieldGenrePickPlaceholder": "Scegli un genere già usato…",
   "trackMeta.fieldGenreNewPlaceholder": "Genere nuovo…",
@@ -60,17 +56,16 @@ export const IT: Record<string, string> = {
   "trackMeta.deleteConfirm":
     "Eliminare dal disco questo file audio? L'operazione non è reversibile.",
   "trackMeta.deleting": "Eliminazione…",
-  "trackMeta.deleteFailed": "Il file non è stato eliminato (inesistente o non è audio).",
+  "trackMeta.deleteFailed":
+    "Il file non è stato eliminato (inesistente o non è audio).",
   "albumMeta.editButton": "Modifica album",
   "albumMeta.editEyebrow": "kord-albuminfo",
   "albumMeta.editHeading": "Modifica dati album",
-  "albumMeta.editHint":
-    "Salvati accanto ai file (kord-albuminfo.json). Il nome cambia solo in KORD, non rinomina la cartella.",
   "albumMeta.fieldTitle": "Nome album",
   "albumMeta.fieldReleaseDate": "Data uscita",
   "albumMeta.fieldLabel": "Etichetta",
   "albumMeta.fieldCountry": "Paese",
-  "albumMeta.deleteAlbum": "Elimina tutti i brani dell'album",
+  "albumMeta.deleteAlbum": "Elimina tutti i brani",
   "albumMeta.deleteConfirm":
     "Eliminare dal disco {{n}} file audio in questa cartella? Le cartelle e i file non audio restano; l'operazione non è reversibile.",
   "albumMeta.deleteFailed": "Nessun file audio è stato eliminato.",
@@ -189,7 +184,8 @@ export const IT: Record<string, string> = {
   "library.playGenreShuffle": "Random genere",
   "library.genreRandomExcludeTitle":
     "Escludi o ripristina tutti i brani di questo genere dalla random intelligente",
-  "library.genreRandomExcludeAria": "Esclusione random su tutti i brani del genere",
+  "library.genreRandomExcludeAria":
+    "Esclusione random su tutti i brani del genere",
   "library.randomExcludeBtn": "Esclusione random",
   "library.tracklistEyebrow": "Tracklist",
   "library.tracklistHeading": "{{n}} brani",
@@ -288,7 +284,8 @@ export const IT: Record<string, string> = {
   "settings.restoreRunning": "Ripristino in corso…",
   "settings.restoreSuccess":
     "Ripristino completato. Ricarica la pagina per applicare lo stato e le impostazioni.",
-  "settings.restoreErrNotZip": "Seleziona un file .zip prodotto dal backup Kord.",
+  "settings.restoreErrNotZip":
+    "Seleziona un file .zip prodotto dal backup Kord.",
   "settings.activityLogEmpty": "Nessuna attività registrata finora.",
   "settings.activityLogReload": "Aggiorna",
   "settings.activityLogColTime": "Quando",
@@ -396,8 +393,10 @@ export const IT: Record<string, string> = {
   "tools.sharedPickAlbum": "Album",
   "tools.sharedAddToMine": "Aggiungi alla mia libreria",
   "tools.sharedLinking": "Collegamento…",
-  "tools.sharedLinkOk": "Collegati {{linked}} file (saltati {{skipped}}) in `{{path}}`",
-  "tools.sharedNoOtherAccount": "Serve almeno un altro profilo oltre a quello attuale. Aggiungilo dalle impostazioni.",
+  "tools.sharedLinkOk":
+    "Collegati {{linked}} file (saltati {{skipped}}) in `{{path}}`",
+  "tools.sharedNoOtherAccount":
+    "Serve almeno un altro profilo oltre a quello attuale. Aggiungilo dalle impostazioni.",
   "tools.sharedEnvLock":
     "MUSIC_ROOT è fissata dall’ambiente: tutti i profili usano la stessa cartella; la sincronia tra account non applica (nessuna cartella distinta in cui creare i link).",
   "tools.sharedErr": "Errore: {{e}}",
@@ -428,7 +427,8 @@ export const IT: Record<string, string> = {
   "tools.dlLoadReleases": "Carica elenco release",
   "tools.dlReleasesLoading": "Caricamento release…",
   "tools.dlReleasesEnriching": "Recupero del numero brani per ogni uscita…",
-  "tools.dlReleasesWaitEnrich": "Attendi che finisca il caricamento (conteggi brani) prima di avviare lo scaricamento.",
+  "tools.dlReleasesWaitEnrich":
+    "Attendi che finisca il caricamento (conteggi brani) prima di avviare lo scaricamento.",
   "tools.dlReleasesListTitle": "Album",
   "tools.dlTrackCount": "{{n}} brani",
   "tools.dlTrackCountUnknown": "—",
@@ -437,7 +437,8 @@ export const IT: Record<string, string> = {
   "tools.dlSelectAll": "Seleziona tutti",
   "tools.dlSelectNone": "Nessuno",
   "tools.dlDownloadSelected": "Scarica selezionati",
-  "tools.dlNeedLoadReleases": "Carica prima l’elenco con il pulsante sopra, poi scegli gli album.\n",
+  "tools.dlNeedLoadReleases":
+    "Carica prima l’elenco con il pulsante sopra, poi scegli gli album.\n",
   "tools.dlNeedSelection": "Seleziona almeno un album.\n",
   "tools.dlBatchLine": "[{{i}}/{{n}}] {{title}}…\n",
   "tools.dlReleasesCleared": "— Elenco release azzerato (link cambiato)\n",
@@ -446,11 +447,13 @@ export const IT: Record<string, string> = {
   "tools.dlProgressTracksInAlbum": "Brani (album attuale)",
   "tools.dlProgressTrackWait": "Rilevamento brani…",
   "tools.dlPathLabel": "Cartella attuale",
-  "tools.dlDestLead": "Apri le cartelle dall’elenco (freccia: cartella superiore), poi premi «Usa questa cartella» per fissare la destinazione. Le cartelle nuove restano sotto il percorso attuale.",
+  "tools.dlDestLead":
+    "Apri le cartelle dall’elenco (freccia: cartella superiore), poi premi «Usa questa cartella» per fissare la destinazione. Le cartelle nuove restano sotto il percorso attuale.",
   "tools.dlSubfolders": "Sottocartelle",
   "tools.upFolderAria": "Cartella superiore",
   "tools.dlNewSubLabel": "Nuova sottocartella qui",
-  "tools.dlEmptyFolders": "Nessuna sottocartella. Creane una sopra o scegli la radice Musica.",
+  "tools.dlEmptyFolders":
+    "Nessuna sottocartella. Creane una sopra o scegli la radice Musica.",
   "tools.dlPathActions": "Destinazione download",
   "tools.dlReplaceFolder": "Sostituisci file",
   "tools.dlReplaceHint":
@@ -459,7 +462,8 @@ export const IT: Record<string, string> = {
     "Prima parte il download. Poi, in «{{path}}», KORD confronta i file, elimina le versioni duplicate per lo stesso brano (titolo simile) e sposta preferiti, esclusioni random e conteggi sui file che restano. Continuare?\n\nFUNZIONALITÀ SPERIMENTALE",
   "tools.dlReplaceRemovedDupes":
     "Rimossi {{n}} file vecchi (stesso brano) dopo il nuovo download.\n",
-  "tools.dlReplaceRootTitle": "Serve una sottocartella sotto Musica, non la root.",
+  "tools.dlReplaceRootTitle":
+    "Serve una sottocartella sotto Musica, non la root.",
   "tools.dlPlaylistManyConfirm":
     "Questa playlist contiene {{n}} file. Vuoi davvero scaricarli tutti?",
   "tools.dlPlaylistCountErr": "Impossibile contare le voci: {{e}}\n",
@@ -489,6 +493,14 @@ export const IT: Record<string, string> = {
   "tools.logLabel": "Log",
   "tools.clear": "Pulisci",
   "tools.metaTitle": "Metadati",
+  "tools.metaEssentials": "Essenziali",
+  "tools.metaOptional": "Opzionali",
+  "tools.metaFillFromPlayback": "Compila da riproduzione",
+  "tools.metaAlbumSectionLabel": "Album",
+  "tools.metaBtnSelectedAlbum": "Album selezionato",
+  "tools.metaBtnScanAuto": "Scansione automatica",
+  "tools.metaOptionalGenres": "Generi",
+  "tools.metaOptionalTitles": "Titoli",
   "tools.metaAlbumPanel": "Album e campi di ricerca",
   "tools.metaAlbumAria": "Album per metadati",
   "tools.pickAlbum": "Scegli album…",
@@ -506,8 +518,21 @@ export const IT: Record<string, string> = {
   "tools.scanAlbumsTitle":
     "Salta album con kord-albuminfo.json; ritardo tra le richieste (rate limit MusicBrainz)",
   "tools.tracks": "Brani",
-  "tools.currentTrackMeta": "Metadati brano attuale",
+  "tools.currentTrackMeta": "Metadati brano in riproduzione",
   "tools.scanAllTracks": "Scansione tutti i brani",
+  "tools.scanChoiceAlbumTitle": "Scansione automatica album",
+  "tools.scanChoiceAlbumHint":
+    "Scarica i metadati solo per le cartelle senza kord-albuminfo.json, oppure ri-scansiona tutti gli album (aggiorna anche chi ha già il file).",
+  "tools.scanChoiceTrackTitle": "Scansione tutti i brani",
+  "tools.scanChoiceTrackHint":
+    "Scarica i metadati solo per i brani senza genere o data in kord-trackinfo.json, oppure ri-scansiona tutti i file audio.",
+  "tools.scanChoiceMissingOnly": "Solo mancanti",
+  "tools.scanChoiceRescanAll": "Ri-scansiona tutti",
+  "tools.scanChoiceCancel": "Annulla",
+  "tools.metaScanRescanAllBanner":
+    "Modalità: ri-scansione completa degli album (incluse le cartelle con kord-albuminfo già presente).\n",
+  "tools.trackScanRescanAllBanner":
+    "Modalità: ri-scansione completa di tutti i brani.\n",
   "tools.displayedTitles": "Titoli mostrati (da nome file)",
   "tools.titleHint":
     "Pulisce i titoli (solo testo): toglie […], prefissi 01- / 1. , parentesi ( ) con parole promo (official, original, remaster, version, video, live, clean, 4K…), senza rimuovere (feat. / with …), poi - Topic e prefisso/suffisso «Artista -» dalla cartella.",
@@ -523,7 +548,8 @@ export const IT: Record<string, string> = {
     "Per ogni cartella album, elimina da kord-trackinfo le chiavi senza file audio corrispondente su disco",
   "tools.trackMetaPruneConfirm":
     "Scansionare tutti gli album e rimuovere da kord-trackinfo le voci relative a file non più presenti in cartella? I file audio non vengono cancellati.",
-  "tools.trackMetaPruneStart": "Pulizia metadati brani assenti: {{n}} cartelle album.\n",
+  "tools.trackMetaPruneStart":
+    "Pulizia metadati brani assenti: {{n}} cartelle album.\n",
   "tools.trackMetaPruneAlbum": "  {{path}}: rimossi {{files}}\n",
   "tools.trackMetaPruneDone":
     "Pulizia completata. Album aggiornati: {{a}} · voci rimosse: {{k}}.\n",
@@ -575,7 +601,18 @@ export const IT: Record<string, string> = {
     "Propone un genere per ogni brano senza genere in kord-trackinfo: prima maggioranza nello stesso album, poi nello stesso artista. La scansione online dei brani continua a usare Apple, Deezer, ecc.",
   "tools.genreAutoPreview": "Anteprima suggerimenti generi",
   "tools.genreAutoApply": "Scrivi generi suggeriti",
-  "tools.genreAutoNoIndex": "Indice libreria non disponibile; aggiorna e riprova.\n",
+  "tools.genreApplyScopeTitle": "Scrivi generi suggeriti",
+  "tools.genreApplyScopeHint":
+    "Aggiorna kord-trackinfo solo per i brani ancora senza genere, oppure ricalcola e scrivi per tutti i brani per cui si ottiene un’inferenza (sovrascrive il genere già presente dove previsto).",
+  "tools.genreApplyScopeMissing": "Solo mancanti",
+  "tools.genreApplyScopeAll": "Tutti (sovrascrivi)",
+  "tools.genreApplyConfirmEyebrow": "Conferma scrittura",
+  "tools.genreApplyConfirmFilesLabel": "file",
+  "tools.genreApplyConfirmDetail":
+    "I generi suggeriti verranno scritti in kord-trackinfo per altrettanti brani come nel numero sopra; titolo e data dei brani restano invariati dove già impostati.",
+  "tools.genreApplyConfirmWrite": "Scrivi",
+  "tools.genreAutoNoIndex":
+    "Indice libreria non disponibile; aggiorna e riprova.\n",
   "tools.genreAutoPreviewEmpty":
     "Nessun suggerimento: tutti i brani hanno già un genere, oppure non c’è un altro brano con genere nello stesso album o artista.\n",
   "tools.genreAutoPreviewHead": "Suggerimenti generi ({{n}} brani):\n",
@@ -585,7 +622,8 @@ export const IT: Record<string, string> = {
   "tools.genreAutoMore": "  … altre {{n}} righe\n",
   "tools.genreAutoApplyConfirm":
     "Scrivere i generi suggeriti in kord-trackinfo per {{n}} file? Titolo e data restano invariati.",
-  "tools.genreAutoApplyDone": "Inferenza generi completata. File aggiornati: {{n}}.\n",
+  "tools.genreAutoApplyDone":
+    "Inferenza generi completata. File aggiornati: {{n}}.\n",
   "tools.genreAutoApplyErr": "  Errore — {{path}}: {{err}}\n",
   "tools.genreAutoProgress": "Scrittura generi",
   "tools.sanitizePickAlbum":
