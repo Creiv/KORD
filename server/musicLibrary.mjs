@@ -5,6 +5,7 @@ import path from "path"
 import { loadAlbumJsonMetaFromDir, loadTrackJsonMetaMapFromDir } from "./albumInfo.mjs"
 import { reorderTracksByAlbumExpectedRelease } from "./albumExpectedOrder.mjs"
 import { parseTrackGenres } from "./genres.mjs"
+import { normalizeTrackMoodsList } from "./trackMoods.mjs"
 
 const AUDIO = /\.(mp3|flac|m4a|ogg|opus|wav|aac|webm)$/i
 const EXCLUDE = new Set([
@@ -100,6 +101,10 @@ function trackFromFile({
       mtime: numOrNull(st.mtimeMs),
       releaseDate: trackMeta?.releaseDate || null,
       genre: trackMeta?.genre || null,
+      moods: normalizeTrackMoodsList(
+        trackMeta?.moods,
+        trackMeta?.mood,
+      ),
       durationMs: numOrNull(trackMeta?.durationMs),
       trackNumber: numOrNull(
         trackMeta?.trackNumber || (trackNumberGuess ? Number(trackNumberGuess[0]) : null),

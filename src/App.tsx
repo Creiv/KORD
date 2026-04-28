@@ -11,6 +11,7 @@ import {
 } from "react";
 import type {
   ChangeEvent,
+  CSSProperties,
   MouseEvent as ReactMouseEvent,
   ReactNode,
   RefObject,
@@ -43,6 +44,12 @@ import { useMatchMedia } from "./hooks/useMatchMedia";
 import { buildRandomArtistCoverMap } from "./lib/artistCover";
 import { buildGenreCoverPreviewMap } from "./lib/genreCovers";
 import { parseTrackGenres, trackBelongsToGenreKey } from "./lib/genres";
+import {
+  parseTrackMoods,
+  TRACK_MOOD_COLORS,
+  TRACK_MOOD_IDS,
+  type TrackMoodId,
+} from "./lib/trackMoods";
 import { fmtDate, trackInfoBadges } from "./lib/metaFormat";
 import { ExcludeShuffleIcon } from "./components/ExcludeShuffleIcon";
 import {
@@ -55,6 +62,7 @@ import {
   UiClose,
   UiDateRange,
   UiFavorite,
+  UiPalette,
   UiHistory,
   UiNavDisc,
   UiNavList,
@@ -88,6 +96,7 @@ import {
 } from "./components/TrackMetaEditor";
 import { KordWordmarkSvg } from "./components/KordWordmarkSvg";
 import { ThemePicker } from "./components/ThemePicker";
+import { TrackMoodGlyph } from "./components/TrackMoodGlyph";
 import { ToolsView } from "./components/ToolsView";
 import { Visualizer } from "./components/Visualizer";
 import { useI18n } from "./i18n/useI18n";
@@ -298,16 +307,50 @@ function playlistToEnrichedList(
 
 function TrackFileMetaChip({ meta }: { meta?: TrackMeta | null }) {
   const { t } = useI18n();
-  const isOn = !parseTrackGenres(meta?.genre).length && !meta?.releaseDate;
+  const gapWarn =
+    !parseTrackGenres(meta?.genre).length && !meta?.releaseDate;
+  const moods = parseTrackMoods(meta ?? undefined);
+  const moodSummaryTitle =
+    moods.length > 0
+      ? t("trackMeta.moodOnTitle", {
+          labels: moods
+            .map((id) => t(`trackMeta.mood.${id}`))
+            .join(", "),
+        })
+      : t("trackMeta.moodOffTitle");
   return (
-    <span
-      className={`lib-meta-chip lib-meta-chip--ico${
-        isOn ? " lib-meta-chip--on" : ""
-      }`}
-      title={isOn ? t("trackMeta.gapOnTitle") : t("trackMeta.gapOffTitle")}
-    >
-      <UiMusicNote className="lib-meta-chip__ico" />
-    </span>
+    <>
+      <span
+        className={`lib-meta-chip lib-meta-chip--ico${
+          gapWarn ? " lib-meta-chip--on" : ""
+        }`}
+        title={
+          gapWarn ? t("trackMeta.gapOnTitle") : t("trackMeta.gapOffTitle")
+        }
+      >
+        <UiMusicNote className="lib-meta-chip__ico" />
+      </span>
+      <span className="track-meta-moods-cluster" title={moodSummaryTitle}>
+        {moods.length === 0 ? (
+          <span className="lib-meta-chip lib-meta-chip--ico lib-meta-chip--mood-off">
+            <TrackMoodGlyph mood={null} className="track-meta-mood-chip__glyph" />
+          </span>
+        ) : (
+          moods.map((id) => (
+            <span
+              key={id}
+              className="lib-meta-chip lib-meta-chip--ico lib-meta-chip--mood-tag"
+              style={
+                { ["--mood-c"]: TRACK_MOOD_COLORS[id] } as CSSProperties
+              }
+              title={t(`trackMeta.mood.${id}`)}
+            >
+              <TrackMoodGlyph mood={id} className="track-meta-mood-chip__glyph" />
+            </span>
+          ))
+        )}
+      </span>
+    </>
   );
 }
 
@@ -336,6 +379,7 @@ function TrackListRow({
   onPlay,
   metaRight,
   extraActions,
+  showTrackBadgeRow = false,
 }: {
   track: EnrichedTrack;
   /** If omitted, row is active when it matches the current track (`relPath`). Queue uses explicit index. */
@@ -343,6 +387,8 @@ function TrackListRow({
   onPlay: () => void;
   metaRight?: string;
   extraActions?: ReactNode;
+  /** Terza riga (badge traccia/disco…): solo nella lista brani dell’album. */
+  showTrackBadgeRow?: boolean;
 }) {
   const p = usePlayer();
   const user = useUserState();
@@ -399,7 +445,9 @@ function TrackListRow({
         <span className="track-row__meta">
           {track.artist} · {track.album}
         </span>
-        <span className="track-row__badges">{infoLine}</span>
+        {showTrackBadgeRow ? (
+          <span className="track-row__badges">{infoLine}</span>
+        ) : null}
       </button>
       <div className="track-row__actions">
         {inQ ? (
@@ -1639,12 +1687,16 @@ function LibraryView({
     getTrackExclusionEpoch
   );
   const [selectedGenreKey, setSelectedGenreKey] = useState<string | null>(null);
+  const [moodFilterIds, setMoodFilterIds] = useState<TrackMoodId[]>([]);
+  const [moodMatchMode, setMoodMatchMode] = useState<"any" | "all">("any");
   const normalizedQuery = query.trim().toLowerCase();
 
   useEffect(() => {
     if (libraryHomeTick < 1) return;
     startTransition(() => {
       setSelectedGenreKey(null);
+      setMoodFilterIds([]);
+      setMoodMatchMode("any");
       setMode("all");
     });
   }, [libraryHomeTick]);
@@ -1904,6 +1956,63 @@ function LibraryView({
     user.state.trackPlayCounts,
   ]);
 
+  const moodOccurrenceCountById = useMemo(() => {
+    const m = new Map<TrackMoodId, number>();
+    for (const id of TRACK_MOOD_IDS) m.set(id, 0);
+    for (const t of index.tracks) {
+      for (const mid of parseTrackMoods(t.meta ?? undefined)) {
+        m.set(mid, (m.get(mid) ?? 0) + 1);
+      }
+    }
+    return m;
+  }, [index.tracks]);
+
+  const tracksMatchingMoodFilter = useMemo(() => {
+    if (moodFilterIds.length === 0) return [] as LibraryTrackIndex[];
+    const need = new Set(moodFilterIds);
+    return index.tracks.filter((t) => {
+      const moods = parseTrackMoods(t.meta ?? undefined);
+      if (moodMatchMode === "any") {
+        return moods.some((mid) => need.has(mid));
+      }
+      return moodFilterIds.every((mid) => moods.includes(mid));
+    });
+  }, [index.tracks, moodFilterIds, moodMatchMode]);
+
+  const sortedMoodTracks = useMemo(() => {
+    const base = [...tracksMatchingMoodFilter];
+    base.sort(
+      (a, b) =>
+        a.artist.localeCompare(b.artist, sortLocale, { numeric: true }) ||
+        a.album.localeCompare(b.album, sortLocale, { numeric: true }) ||
+        a.title.localeCompare(b.title, sortLocale, { numeric: true }),
+    );
+    return base;
+  }, [tracksMatchingMoodFilter, sortLocale]);
+
+  const moodShuffleEligible = useMemo(() => {
+    if (moodFilterIds.length === 0) return [] as LibraryTrackIndex[];
+    const ex = getExcludedTracks();
+    return tracksMatchingMoodFilter.filter(
+      (tr) =>
+        !ex.has(tr.relPath) && !isTrackAlbumShuffleExcluded(tr, excludedAlbums),
+    );
+  }, [
+    moodFilterIds.length,
+    tracksMatchingMoodFilter,
+    excludedAlbums,
+    trackExclusionEpoch,
+  ]);
+
+  const moodToolbarBulkAllExcluded = useMemo(() => {
+    if (!tracksMatchingMoodFilter.length) return false;
+    const exT = getExcludedTracks();
+    const exA = getExcludedAlbums();
+    return tracksMatchingMoodFilter.every(
+      (tr) => exT.has(tr.relPath) || isTrackAlbumShuffleExcluded(tr, exA),
+    );
+  }, [tracksMatchingMoodFilter, trackExclusionEpoch, excludedAlbums]);
+
   const searchResults = useMemo(() => {
     if (!normalizedQuery) return null;
     const genreOk = (relPath: string) => {
@@ -1973,6 +2082,25 @@ function LibraryView({
       recentRelPaths,
     });
     p.playTrack(shuffled[0], shuffled, 0, { preserveQueueOrder: true });
+  };
+
+  const playMoodShuffle = () => {
+    if (!moodShuffleEligible.length) return;
+    const recentRelPaths = new Set(
+      user.state.recent.slice(0, 48).map((tr) => tr.relPath)
+    );
+    const shuffled = buildSmartRandomQueue(moodShuffleEligible, {
+      currentRelPath: p.current?.relPath,
+      currentArtist: p.current?.artist,
+      recentRelPaths,
+    });
+    p.playTrack(shuffled[0], shuffled, 0, { preserveQueueOrder: true });
+  };
+
+  const playMoodResultsInOrder = () => {
+    if (!sortedMoodTracks.length) return;
+    const list = [...sortedMoodTracks];
+    p.playTrack(list[0], list, 0, { preserveQueueOrder: true });
   };
 
   const playArtistShuffle = () => {
@@ -2237,6 +2365,7 @@ function LibraryView({
               <TrackListRow
                 key={track.relPath}
                 track={track}
+                showTrackBadgeRow
                 onPlay={() => p.playTrack(track, albumTracks, trIndex)}
               />
             ))}
@@ -2387,7 +2516,9 @@ function LibraryView({
               title={
                 libBrowse === "artists"
                   ? t("library.tabArtists")
-                  : t("library.tabGenres")
+                  : libBrowse === "genres"
+                    ? t("library.tabGenres")
+                    : t("library.tabMoods")
               }
               icon={<UiNavDisc className="section-head__ic" />}
             />
@@ -2417,6 +2548,35 @@ function LibraryView({
                       user.setShuffleTracksExcludedBulk(
                         tracksInSelectedGenre.map((tr) => tr.relPath),
                         !genreToolbarBulkAllExcluded
+                      );
+                    }}
+                  >
+                    <ExcludeShuffleIcon className="library-toolbar-exclude-btn__ic" />
+                  </button>
+                </>
+              ) : libBrowse === "moods" && moodFilterIds.length > 0 ? (
+                <>
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    disabled={moodShuffleEligible.length === 0}
+                    onClick={playMoodShuffle}
+                  >
+                    {t("library.playMoodShuffle")}
+                  </button>
+                  <button
+                    type="button"
+                    className={`ghost-btn library-toolbar-exclude-btn ${
+                      moodToolbarBulkAllExcluded ? "is-on" : ""
+                    }`}
+                    disabled={tracksMatchingMoodFilter.length === 0}
+                    title={t("library.genreRandomExcludeTitle")}
+                    aria-label={t("library.genreRandomExcludeAria")}
+                    onClick={() => {
+                      if (!tracksMatchingMoodFilter.length) return;
+                      user.setShuffleTracksExcludedBulk(
+                        tracksMatchingMoodFilter.map((tr) => tr.relPath),
+                        !moodToolbarBulkAllExcluded
                       );
                     }}
                   >
@@ -2473,6 +2633,61 @@ function LibraryView({
               </button>
             </div>
           </div>
+        ) : libBrowse === "moods" ? (
+          <div className="library-filter-panel">
+            <div className="library-filter-group">
+              <span className="library-filter-panel__eyebrow">
+                {t("library.filterBarBrowse")}
+              </span>
+              <div
+                className="segmented segmented--joined"
+                role="group"
+                aria-label={t("library.browseByArtistGenreMoodAria")}
+              >
+                <button
+                  type="button"
+                  className=""
+                  onClick={() => {
+                    user.updateSettings({ libBrowse: "artists" });
+                    setSelectedGenreKey(null);
+                    setMoodFilterIds([]);
+                  }}
+                >
+                  <span className="segmented__btn-inner">
+                    <UiPerson className="segmented__ic" aria-hidden />
+                    <span>{t("library.tabArtists")}</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className=""
+                  onClick={() => {
+                    user.updateSettings({ libBrowse: "genres" });
+                    setSelectedGenreKey(null);
+                    setMoodFilterIds([]);
+                  }}
+                >
+                  <span className="segmented__btn-inner">
+                    <UiStyle className="segmented__ic" aria-hidden />
+                    <span>{t("library.tabGenres")}</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="is-on"
+                  onClick={() => {
+                    user.updateSettings({ libBrowse: "moods" });
+                    setSelectedGenreKey(null);
+                  }}
+                >
+                  <span className="segmented__btn-inner">
+                    <UiPalette className="segmented__ic" aria-hidden />
+                    <span>{t("library.tabMoods")}</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="library-filter-panel">
             <div className="library-filter-panel__row library-filter-panel__row--split">
@@ -2483,14 +2698,17 @@ function LibraryView({
                 <div
                   className="segmented segmented--joined"
                   role="group"
-                  aria-label={t("library.browseByArtistGenreAria")}
+                  aria-label={t("library.browseByArtistGenreMoodAria")}
                 >
                   <button
                     type="button"
-                    className={libBrowse === "artists" ? "is-on" : ""}
+                    className={
+                      user.state.settings.libBrowse === "artists" ? "is-on" : ""
+                    }
                     onClick={() => {
                       user.updateSettings({ libBrowse: "artists" });
                       setSelectedGenreKey(null);
+                      setMoodFilterIds([]);
                     }}
                   >
                     <span className="segmented__btn-inner">
@@ -2500,15 +2718,33 @@ function LibraryView({
                   </button>
                   <button
                     type="button"
-                    className={libBrowse === "genres" ? "is-on" : ""}
+                    className={
+                      user.state.settings.libBrowse === "genres" ? "is-on" : ""
+                    }
                     onClick={() => {
                       user.updateSettings({ libBrowse: "genres" });
                       setSelectedGenreKey(null);
+                      setMoodFilterIds([]);
                     }}
                   >
                     <span className="segmented__btn-inner">
                       <UiStyle className="segmented__ic" aria-hidden />
                       <span>{t("library.tabGenres")}</span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={
+                      user.state.settings.libBrowse === "moods" ? "is-on" : ""
+                    }
+                    onClick={() => {
+                      user.updateSettings({ libBrowse: "moods" });
+                      setSelectedGenreKey(null);
+                    }}
+                  >
+                    <span className="segmented__btn-inner">
+                      <UiPalette className="segmented__ic" aria-hidden />
+                      <span>{t("library.tabMoods")}</span>
                     </span>
                   </button>
                 </div>
@@ -2579,6 +2815,125 @@ function LibraryView({
               ))}
             </div>
           </>
+        ) : libBrowse === "moods" ? (
+          <div className="library-mood-browse">
+            <div className="library-mood-match-row">
+              <span className="library-filter-panel__eyebrow">
+                {t("library.moodMatchEyebrow")}
+              </span>
+              <div
+                className="segmented segmented--joined"
+                role="group"
+                aria-label={t("library.moodMatchAria")}
+              >
+                <button
+                  type="button"
+                  className={moodMatchMode === "any" ? "is-on" : ""}
+                  onClick={() => setMoodMatchMode("any")}
+                >
+                  <span className="segmented__btn-inner">
+                    <span>{t("library.moodMatchAny")}</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={moodMatchMode === "all" ? "is-on" : ""}
+                  onClick={() => setMoodMatchMode("all")}
+                >
+                  <span className="segmented__btn-inner">
+                    <span>{t("library.moodMatchAll")}</span>
+                  </span>
+                </button>
+              </div>
+              {moodFilterIds.length > 0 ? (
+                <button
+                  type="button"
+                  className="text-btn library-mood-clear"
+                  onClick={() => setMoodFilterIds([])}
+                >
+                  {t("library.moodClearFilter")}
+                </button>
+              ) : null}
+            </div>
+            <p className="subtle sm library-mood-explainer">
+              {t("library.moodFilterExplainer")}
+            </p>
+            <div className="library-mood-filter-grid">
+              {TRACK_MOOD_IDS.map((id) => {
+                const count = moodOccurrenceCountById.get(id) ?? 0;
+                const on = moodFilterIds.includes(id);
+                const disabled = count === 0 && !on;
+                return (
+                  <button
+                    type="button"
+                    key={id}
+                    disabled={disabled}
+                    className={`library-mood-filter-btn${on ? " library-mood-filter-btn--on" : ""}`}
+                    style={
+                      { ["--mood-c"]: TRACK_MOOD_COLORS[id] } as CSSProperties
+                    }
+                    aria-pressed={on}
+                    title={t(`trackMeta.mood.${id}`)}
+                    onClick={() => {
+                      if (disabled) return;
+                      setMoodFilterIds((prev) =>
+                        prev.includes(id)
+                          ? prev.filter((x) => x !== id)
+                          : [...prev, id],
+                      );
+                    }}
+                  >
+                    <span className="library-mood-filter-btn__glyph-row">
+                      <TrackMoodGlyph mood={id} />
+                      <span className="library-mood-filter-btn__count">{count}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {moodFilterIds.length === 0 ? (
+              <p className="panel-empty">{t("library.moodPickHint")}</p>
+            ) : sortedMoodTracks.length === 0 ? (
+              <p className="panel-empty">{t("library.moodNoTracks")}</p>
+            ) : (
+              <>
+                <div className="section-head section-head--page-toolbar library-mood-tracklist-head">
+                  <div>
+                    <p className="eyebrow">{t("library.tracklistEyebrow")}</p>
+                    <h2>
+                      {sortedMoodTracks.length}{" "}
+                      {sortedMoodTracks.length === 1
+                        ? t("library.unitTrack")
+                        : t("library.unitTrackPlural")}
+                    </h2>
+                  </div>
+                  <div className="section-head__tools">
+                    <button
+                      type="button"
+                      className="primary-btn"
+                      disabled={sortedMoodTracks.length === 0}
+                      title={t("library.playMoodResultsInOrderTitle")}
+                      aria-label={t("library.playMoodResultsInOrderAria")}
+                      onClick={playMoodResultsInOrder}
+                    >
+                      {t("library.playMoodResultsInOrder")}
+                    </button>
+                  </div>
+                </div>
+                <div className="list-stack">
+                  {sortedMoodTracks.map((track, trIndex) => (
+                    <TrackListRow
+                      key={track.relPath}
+                      track={track}
+                      onPlay={() =>
+                        p.playTrack(track, sortedMoodTracks, trIndex)
+                      }
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         ) : libBrowse === "artists" ? (
           <div className="artist-grid">
             {sortedOverviewArtists.map((item) => (

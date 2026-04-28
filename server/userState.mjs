@@ -75,7 +75,12 @@ const THEME_MODES = new Set([
 function sanitizeSettings(settings) {
   const src = isObj(settings) ? settings : {}
   const loc = src.locale === "it" ? "it" : "en"
-  const libBrowse = src.libBrowse === "genres" ? "genres" : "artists"
+  const libBrowse =
+    src.libBrowse === "genres"
+      ? "genres"
+      : src.libBrowse === "moods"
+        ? "moods"
+        : "artists"
   const libOverviewSort = src.libOverviewSort === "plays" ? "plays" : "name"
   const sas = src.artistAlbumSort
   const artistAlbumSort =

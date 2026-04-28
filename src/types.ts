@@ -6,6 +6,10 @@ export type TrackMeta = {
   mtime: number | null;
   releaseDate: string | null;
   genre: string | null;
+  /** kord-trackinfo: fino a 3 chiavi mood canoniche (es. energy_boost). */
+  moods?: string[] | null;
+  /** Legacy: singolo mood; lettura solo migrazione. */
+  mood?: string | null;
   durationMs: number | null;
   trackNumber: number | null;
   discNumber: number | null;
@@ -85,7 +89,7 @@ export type VizMode = "bars" | "mirror" | "osc" | "signals" | "embers" | "kord";
 export const APP_LOCALES = ["en", "it"] as const;
 export type AppLocale = (typeof APP_LOCALES)[number];
 
-export type LibraryBrowseMode = "artists" | "genres";
+export type LibraryBrowseMode = "artists" | "genres" | "moods";
 export type LibraryOverviewSortMode = "name" | "plays";
 export type ArtistAlbumSortMode = "date" | "name" | "plays";
 

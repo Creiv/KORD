@@ -66,7 +66,11 @@ function normalizeSettings(raw: Partial<UserSettings>): UserSettings {
     ? (raw.locale as AppLocale)
     : "en";
   const libBrowse: UserSettings["libBrowse"] =
-    raw.libBrowse === "genres" ? "genres" : "artists";
+    raw.libBrowse === "genres"
+      ? "genres"
+      : raw.libBrowse === "moods"
+        ? "moods"
+        : "artists";
   const libOverviewSort: UserSettings["libOverviewSort"] =
     raw.libOverviewSort === "plays" ? "plays" : "name";
   const rawAlbumSort = raw.artistAlbumSort;

@@ -298,6 +298,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
   const relLogUploaderRef = useRef("");
   const dlActiveDownloadIdRef = useRef<string | null>(null);
   const dlBatchStopRef = useRef(false);
+  const studioDlRunLatchRef = useRef(false);
   const [dlReplaceMode, setDlReplaceMode] = useState(false);
   const [dlTrackProg, setDlTrackProg] = useState<{
     current: number;
@@ -1089,88 +1090,96 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
       setLog((x) => x + t("tools.dlPickFolder"));
       return;
     }
+    if (studioDlRunLatchRef.current || dlBusy) return;
+    studioDlRunLatchRef.current = true;
     void (async () => {
-      let indexBefore: LibraryIndex | null = null;
-      let replaceSnap: FolderReplaceSnapshot | null = null;
-      if (dlReplaceMode && dlPath.trim()) {
-        if (!window.confirm(t("tools.dlReplaceConfirm", { path: dlPath }))) {
-          return;
+      try {
+        setDlBusy(true);
+        setDlProg(null);
+        let indexBefore: LibraryIndex | null = null;
+        let replaceSnap: FolderReplaceSnapshot | null = null;
+        if (dlReplaceMode && dlPath.trim()) {
+          if (!window.confirm(t("tools.dlReplaceConfirm", { path: dlPath }))) {
+            return;
+          }
+          indexBefore = await fetchLibraryIndex();
+          replaceSnap = buildFolderReplaceSnapshotForFolder(
+            userState,
+            indexBefore,
+            dlPath
+          );
         }
-        indexBefore = await fetchLibraryIndex();
-        replaceSnap = buildFolderReplaceSnapshotForFolder(
-          userState,
-          indexBefore,
-          dlPath
-        );
-      }
-      if (dlUrlMode === "playlist") {
-        try {
-          const cnt = await fetchDownloadFlatCount(url.trim());
-          if (cnt > 35) {
-            if (!window.confirm(t("tools.dlPlaylistManyConfirm", { n: cnt }))) {
-              return;
+        if (dlUrlMode === "playlist") {
+          try {
+            const cnt = await fetchDownloadFlatCount(url.trim());
+            if (cnt > 35) {
+              if (
+                !window.confirm(t("tools.dlPlaylistManyConfirm", { n: cnt }))
+              ) {
+                return;
+              }
             }
+          } catch (e) {
+            setLog(
+              (x) =>
+                x +
+                t("tools.dlPlaylistCountErr", {
+                  e: String((e as Error)?.message || e),
+                })
+            );
+            return;
+          }
+        }
+        setDlTrackProg(null);
+        dlBatchStopRef.current = false;
+        try {
+          const dlId = newStudioDownloadId();
+          dlActiveDownloadIdRef.current = dlId;
+          const studioDlKind: StudioDownloadKind =
+            dlUrlMode === "playlist" ? "download_playlist" : "download_single";
+          setLog(
+            (x) =>
+              x +
+              t("tools.dlStart", {
+                path: dlPath || t("tools.dlRootLabel"),
+              })
+          );
+          const r = await runYtdlpDownload(
+            url.trim(),
+            dlPath,
+            (p) => setDlProg({ current: p.current, total: p.total }),
+            { downloadId: dlId, downloadKind: studioDlKind }
+          );
+          if (r.progress && r.progress.total > 0) {
+            setDlProg({ current: r.progress.current, total: r.progress.total });
+          }
+          if (r.cancelled) setDlProg(null);
+          const detail = ytdlpLogDetailForUser(r);
+          setLog((x) => {
+            if (r.cancelled) return x + t("tools.dlStoppedByUser") + "\n";
+            return (
+              x +
+              (r.ok
+                ? t("tools.dlResultOk")
+                : t("tools.dlResultErr", { code: r.code }) +
+                  (detail ? t("tools.dlErrDetail", { detail }) : ""))
+            );
+          });
+          await onRefreshLibrary();
+          if (replaceSnap && indexBefore) {
+            await runReplaceAfterDownload(indexBefore, replaceSnap);
           }
         } catch (e) {
           setLog(
             (x) =>
-              x +
-              t("tools.dlPlaylistCountErr", {
-                e: String((e as Error)?.message || e),
-              })
+              x + t("tools.dlFail", { e: String((e as Error)?.message || e) })
           );
-          return;
+        } finally {
+          dlActiveDownloadIdRef.current = null;
         }
-      }
-      setDlTrackProg(null);
-      dlBatchStopRef.current = false;
-      setDlBusy(true);
-      setDlProg(null);
-      try {
-        const dlId = newStudioDownloadId();
-        dlActiveDownloadIdRef.current = dlId;
-        const studioDlKind: StudioDownloadKind =
-          dlUrlMode === "playlist" ? "download_playlist" : "download_single";
-        setLog(
-          (x) =>
-            x +
-            t("tools.dlStart", {
-              path: dlPath || t("tools.dlRootLabel"),
-            })
-        );
-        const r = await runYtdlpDownload(
-          url.trim(),
-          dlPath,
-          (p) => setDlProg({ current: p.current, total: p.total }),
-          { downloadId: dlId, downloadKind: studioDlKind }
-        );
-        if (r.progress && r.progress.total > 0) {
-          setDlProg({ current: r.progress.current, total: r.progress.total });
-        }
-        if (r.cancelled) setDlProg(null);
-        const detail = ytdlpLogDetailForUser(r);
-        setLog((x) => {
-          if (r.cancelled) return x + t("tools.dlStoppedByUser") + "\n";
-          return (
-            x +
-            (r.ok
-              ? t("tools.dlResultOk")
-              : t("tools.dlResultErr", { code: r.code }) +
-                (detail ? t("tools.dlErrDetail", { detail }) : ""))
-          );
-        });
-        await onRefreshLibrary();
-        if (replaceSnap && indexBefore) {
-          await runReplaceAfterDownload(indexBefore, replaceSnap);
-        }
-      } catch (e) {
-        setLog(
-          (x) =>
-            x + t("tools.dlFail", { e: String((e as Error)?.message || e) })
-        );
       } finally {
-        dlActiveDownloadIdRef.current = null;
         setDlBusy(false);
+        studioDlRunLatchRef.current = false;
       }
     })();
   };
@@ -1304,98 +1313,106 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
       return;
     }
     const multiRelease = list.length > 1;
+    if (studioDlRunLatchRef.current || dlBusy) return;
+    studioDlRunLatchRef.current = true;
     void (async () => {
-      let indexBefore: LibraryIndex | null = null;
-      let replaceSnap: FolderReplaceSnapshot | null = null;
-      if (dlReplaceMode && dlPath.trim()) {
-        if (!window.confirm(t("tools.dlReplaceConfirm", { path: dlPath }))) {
-          return;
-        }
-        indexBefore = await fetchLibraryIndex();
-        replaceSnap = buildFolderReplaceSnapshotForFolder(
-          userState,
-          indexBefore,
-          dlPath
-        );
-      }
-      setDlBusy(true);
-      dlBatchStopRef.current = false;
-      setDlTrackProg(multiRelease ? { current: 0, total: 0 } : null);
-      setDlProg({ current: 1, total: list.length });
-      const rootLabel = dlPath || t("tools.dlRootLabel");
-      setLog(
-        (x) =>
-          x +
-          t("tools.dlStart", { path: rootLabel }) +
-          ` — ${list.length} album(s)\n`
-      );
-      const studioDlKind: StudioDownloadKind =
-        dlYtSource === "music" ? "download_ytmusic" : "download_releases";
       try {
-        for (let i = 0; i < list.length; i += 1) {
-          if (dlBatchStopRef.current) {
-            setLog((x) => x + t("tools.dlBatchStoppedHint") + "\n");
-            break;
+        setDlBusy(true);
+        dlBatchStopRef.current = false;
+        setDlTrackProg(multiRelease ? { current: 0, total: 0 } : null);
+        setDlProg({ current: 1, total: list.length });
+        let indexBefore: LibraryIndex | null = null;
+        let replaceSnap: FolderReplaceSnapshot | null = null;
+        if (dlReplaceMode && dlPath.trim()) {
+          if (!window.confirm(t("tools.dlReplaceConfirm", { path: dlPath }))) {
+            return;
           }
-          const item = list[i]!;
-          setDlProg({ current: i + 1, total: list.length });
-          if (multiRelease) setDlTrackProg({ current: 0, total: 0 });
-          setLog(
-            (x) =>
-              x +
-              t("tools.dlBatchLine", {
-                i: i + 1,
-                n: list.length,
-                title: item.title,
-              })
+          indexBefore = await fetchLibraryIndex();
+          replaceSnap = buildFolderReplaceSnapshotForFolder(
+            userState,
+            indexBefore,
+            dlPath
           );
-          const dlId = newStudioDownloadId();
-          dlActiveDownloadIdRef.current = dlId;
-          try {
-            const r = await runYtdlpDownload(
-              item.url,
-              dlPath,
-              multiRelease
-                ? (p) => setDlTrackProg({ current: p.current, total: p.total })
-                : undefined,
-              { downloadId: dlId, downloadKind: studioDlKind }
-            );
-            const detail = ytdlpLogDetailForUser(r);
-            if (r.cancelled) {
-              setLog((x) => x + t("tools.dlStoppedByUser") + "\n");
+        }
+        const rootLabel = dlPath || t("tools.dlRootLabel");
+        setLog(
+          (x) =>
+            x +
+            t("tools.dlStart", { path: rootLabel }) +
+            ` — ${list.length} album(s)\n`
+        );
+        const studioDlKind: StudioDownloadKind =
+          dlYtSource === "music" ? "download_ytmusic" : "download_releases";
+        try {
+          for (let i = 0; i < list.length; i += 1) {
+            if (dlBatchStopRef.current) {
+              setLog((x) => x + t("tools.dlBatchStoppedHint") + "\n");
               break;
             }
+            const item = list[i]!;
+            setDlProg({ current: i + 1, total: list.length });
+            if (multiRelease) setDlTrackProg({ current: 0, total: 0 });
             setLog(
               (x) =>
                 x +
-                (r.ok
-                  ? t("tools.dlResultOk")
-                  : t("tools.dlResultErr", { code: r.code }) +
-                    (detail ? t("tools.dlErrDetail", { detail }) : ""))
+                t("tools.dlBatchLine", {
+                  i: i + 1,
+                  n: list.length,
+                  title: item.title,
+                })
             );
-          } catch (e) {
-            setLog(
-              (x) =>
-                x + t("tools.dlFail", { e: String((e as Error)?.message || e) })
-            );
-          } finally {
-            dlActiveDownloadIdRef.current = null;
+            const dlId = newStudioDownloadId();
+            dlActiveDownloadIdRef.current = dlId;
+            try {
+              const r = await runYtdlpDownload(
+                item.url,
+                dlPath,
+                multiRelease
+                  ? (p) =>
+                      setDlTrackProg({ current: p.current, total: p.total })
+                  : undefined,
+                { downloadId: dlId, downloadKind: studioDlKind }
+              );
+              const detail = ytdlpLogDetailForUser(r);
+              if (r.cancelled) {
+                setLog((x) => x + t("tools.dlStoppedByUser") + "\n");
+                break;
+              }
+              setLog(
+                (x) =>
+                  x +
+                  (r.ok
+                    ? t("tools.dlResultOk")
+                    : t("tools.dlResultErr", { code: r.code }) +
+                      (detail ? t("tools.dlErrDetail", { detail }) : ""))
+              );
+            } catch (e) {
+              setLog(
+                (x) =>
+                  x +
+                  t("tools.dlFail", { e: String((e as Error)?.message || e) })
+              );
+            } finally {
+              dlActiveDownloadIdRef.current = null;
+            }
           }
-        }
-        if (!dlBatchStopRef.current) {
-          setDlProg({ current: list.length, total: list.length });
-        } else {
-          setDlProg(null);
-          setDlTrackProg(null);
-        }
-        if (multiRelease && !dlBatchStopRef.current) setDlTrackProg(null);
-        await onRefreshLibrary();
-        if (replaceSnap && indexBefore) {
-          await runReplaceAfterDownload(indexBefore, replaceSnap);
+          if (!dlBatchStopRef.current) {
+            setDlProg({ current: list.length, total: list.length });
+          } else {
+            setDlProg(null);
+            setDlTrackProg(null);
+          }
+          if (multiRelease && !dlBatchStopRef.current) setDlTrackProg(null);
+          await onRefreshLibrary();
+          if (replaceSnap && indexBefore) {
+            await runReplaceAfterDownload(indexBefore, replaceSnap);
+          }
+        } finally {
+          dlActiveDownloadIdRef.current = null;
         }
       } finally {
-        dlActiveDownloadIdRef.current = null;
         setDlBusy(false);
+        studioDlRunLatchRef.current = false;
       }
     })();
   };
@@ -2067,6 +2084,8 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                       className="btn"
                       onClick={runReleasesDl}
                       disabled={
+                        dlBusy ||
+                        relLoadBusy ||
                         !dlDestPicked ||
                         relSel.size === 0 ||
                         !relStreamComplete ||
@@ -2089,7 +2108,12 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                     type="button"
                     className="btn"
                     onClick={runDl}
-                    disabled={!url.trim() || !dlDestPicked || !dlUrlValid}
+                    disabled={
+                      dlBusy ||
+                      !url.trim() ||
+                      !dlDestPicked ||
+                      !dlUrlValid
+                    }
                   >
                     {t("tools.downloadRun")}
                   </button>
@@ -2330,6 +2354,9 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                 <span className="studio-action-group-label">
                   {t("tools.metaAlbumSectionLabel")}
                 </span>
+                <p className="subtle sm studio-meta-essentials-hint">
+                  {t("tools.metaEssentialsAlbumSub")}
+                </p>
                 <div className="studio-action-row studio-meta-equal-btns">
                   <button
                     type="button"
@@ -2358,6 +2385,9 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                 <span className="studio-action-group-label">
                   {t("tools.tracks")}
                 </span>
+                <p className="subtle sm studio-meta-essentials-hint">
+                  {t("tools.metaEssentialsTracksSub")}
+                </p>
                 <div className="studio-action-row studio-meta-equal-btns">
                   <button
                     type="button"

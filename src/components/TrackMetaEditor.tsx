@@ -6,6 +6,7 @@ import {
   useEffect,
   useId,
   useState,
+  type CSSProperties,
   type FormEvent,
 } from "react";
 import { deleteAudioRelPaths, saveTrackInfoManual } from "../lib/api";
@@ -16,6 +17,14 @@ import {
   parseTrackGenres,
   serializeTrackGenres,
 } from "../lib/genres";
+import {
+  MAX_TRACK_MOODS,
+  parseTrackMoods,
+  TRACK_MOOD_COLORS,
+  TRACK_MOOD_IDS,
+  type TrackMoodId,
+} from "../lib/trackMoods";
+import { TrackMoodGlyph } from "./TrackMoodGlyph";
 import type { EnrichedTrack } from "../types";
 import { UiClose } from "./KordUiIcons";
 
@@ -81,6 +90,7 @@ function TrackMetaEditorModal({
   const [title, setTitle] = useState("");
   const [releaseDate, setReleaseDate] = useState("");
   const [genres, setGenres] = useState<string[]>([]);
+  const [moods, setMoods] = useState<TrackMoodId[]>([]);
   const [newGenre, setNewGenre] = useState("");
   const [busy, setBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -95,6 +105,7 @@ function TrackMetaEditorModal({
       setTitle(track.title);
       setReleaseDate(toDateInputValue(m?.releaseDate ?? null));
       setGenres(parseTrackGenres(m?.genre));
+      setMoods(parseTrackMoods(m ?? undefined));
       setNewGenre("");
       setErr(null);
     }, 0);
@@ -114,6 +125,14 @@ function TrackMetaEditorModal({
     setNewGenre("");
   }, [newGenre]);
 
+  const toggleMood = useCallback((id: TrackMoodId) => {
+    setMoods((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= MAX_TRACK_MOODS) return prev;
+      return [...prev, id];
+    });
+  }, []);
+
   const submit = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
@@ -125,6 +144,7 @@ function TrackMetaEditorModal({
           title: title.trim() === "" ? null : title.trim(),
           releaseDate: releaseDate.trim() === "" ? null : releaseDate.trim(),
           genre: serializeTrackGenres(genres),
+          moods: moods.length ? moods : null,
         });
         await Promise.resolve(onSaved());
         onClose();
@@ -134,7 +154,7 @@ function TrackMetaEditorModal({
         setBusy(false);
       }
     },
-    [track, title, releaseDate, genres, onClose, onSaved],
+    [track, title, releaseDate, genres, moods, onClose, onSaved],
   );
 
   const runDelete = useCallback(async () => {
@@ -265,6 +285,31 @@ function TrackMetaEditorModal({
               >
                 {t("trackMeta.fieldGenreAdd")}
               </button>
+            </div>
+          </div>
+          <div className="meta-edit-field">
+            <span>{t("trackMeta.fieldMood")}</span>
+            <p className="subtle sm meta-edit-field-hint">{t("trackMeta.moodMaxHint", { n: MAX_TRACK_MOODS })}</p>
+            <div className="meta-edit-mood-grid" role="group" aria-label={t("trackMeta.fieldMood")}>
+              {TRACK_MOOD_IDS.map((id) => {
+                const on = moods.includes(id);
+                const c = TRACK_MOOD_COLORS[id];
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    className={`meta-edit-mood-btn meta-edit-mood-btn--color${
+                      on ? " meta-edit-mood-btn--on" : ""
+                    }`}
+                    style={{ "--mood-c": c } as CSSProperties}
+                    aria-pressed={on}
+                    title={t(`trackMeta.mood.${id}`)}
+                    onClick={() => toggleMood(id)}
+                  >
+                    <TrackMoodGlyph mood={id} />
+                  </button>
+                );
+              })}
             </div>
           </div>
           {err ? <p className="subtle sm warnline">{err}</p> : null}

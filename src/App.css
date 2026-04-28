@@ -2377,6 +2377,43 @@
   border: 1px solid color-mix(in srgb, var(--warning) 32%, var(--border) 68%);
 }
 
+.track-meta-moods-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  max-width: min(100%, 12rem);
+}
+
+.lib-meta-chip--mood-off {
+  opacity: 0.12;
+  filter: grayscale(0.45);
+  border-color: color-mix(in srgb, var(--border) 62%, transparent 38%) !important;
+  background: color-mix(in srgb, var(--surface2) 98%, var(--muted) 2%) !important;
+  color: color-mix(in srgb, var(--muted) 72%, transparent) !important;
+}
+
+.lib-meta-chip--mood-tag {
+  opacity: 1;
+  color: color-mix(in srgb, var(--mood-c) 88%, var(--text));
+  background: color-mix(in srgb, var(--mood-c) 18%, var(--surface2) 82%);
+  border: 1px solid color-mix(in srgb, var(--mood-c) 42%, var(--border) 58%);
+}
+
+.track-meta-mood-chip__glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.track-meta-mood-chip__glyph svg {
+  width: 0.72rem;
+  height: 0.72rem;
+  display: block;
+}
+
 .lib-meta-chip--fav {
   opacity: 0.28;
 }
@@ -2474,6 +2511,14 @@
 
 .track-row__title-lead .track-row__title {
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-row__meta {
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2764,86 +2809,279 @@
   border-radius: 0 999px 999px 0;
 }
 
+/* Libreria: tab testuali + sottolineatura, niente card / pill piene */
 .library-filter-panel {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  margin-bottom: 1rem;
-  padding: 0.7rem 0.9rem 0.85rem;
-  border-radius: var(--radius-lg);
-  border: 1px solid color-mix(in srgb, var(--border) 88%, var(--accent) 12%);
-  background: linear-gradient(
-    160deg,
-    color-mix(in srgb, var(--surface-elev-a) 68%, var(--bg)),
-    color-mix(in srgb, var(--surface2) 45%, var(--bg))
-  );
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 5%, transparent);
+  gap: 0.4rem;
+  margin: 0 0 1.1rem;
+  padding: 0 0 0.85rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
 }
 
 .library-filter-panel--tight {
-  margin-bottom: 0.9rem;
-  padding: 0.6rem 0.85rem 0.7rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
 }
 
 .library-filter-panel__row--split {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 0.75rem 1.5rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.85rem 2.25rem;
+}
+
+.library-filter-panel__row--split .library-filter-group:last-child {
+  justify-self: end;
+  width: max-content;
+  max-width: 100%;
+}
+
+.library-filter-panel__row--split .library-filter-group:last-child .segmented--joined {
+  justify-content: flex-end;
 }
 
 .library-filter-group {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.28rem;
   min-width: 0;
-  flex: 1 1 12rem;
 }
 
 .library-filter-panel__eyebrow {
   display: block;
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--accent2) 55%, var(--muted-strong) 45%);
-  line-height: 1.2;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--muted);
+  line-height: 1.35;
 }
 
 .library-filter-panel .segmented--joined {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  align-items: stretch;
   gap: 0;
   width: 100%;
   max-width: 100%;
 }
 
 .library-filter-panel .segmented--joined button {
-  flex: 1 1 0;
+  position: relative;
+  flex: 0 0 auto;
   min-width: 0;
   margin: 0;
-  margin-inline-start: -1px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.35rem;
+  border: none;
   border-radius: 0;
-  padding: 0.5rem 0.6rem;
+  background: transparent;
+  padding: 0.52rem 0.72rem;
+  color: color-mix(in srgb, var(--muted) 88%, var(--text) 12%);
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: color 0.16s ease, opacity 0.16s ease;
 }
 
-.library-filter-panel .segmented--joined button:first-of-type {
-  margin-inline-start: 0;
-  border-radius: 999px 0 0 999px;
+.library-filter-panel .segmented--joined button:hover:not(.is-on) {
+  color: var(--muted-strong);
 }
 
-.library-filter-panel .segmented--joined button:last-of-type {
-  border-radius: 0 999px 999px 0;
+.library-filter-panel .segmented--joined button.is-on {
+  color: var(--text);
+  background: transparent;
+  box-shadow: none;
 }
 
-.library-filter-panel
-  .segmented--joined
-  button:not(:first-of-type):not(:last-of-type) {
+.library-filter-panel .segmented--joined button.is-on::after {
+  content: "";
+  position: absolute;
+  left: 0.35rem;
+  right: 0.35rem;
+  bottom: 0;
+  height: 2px;
+  border-radius: 99px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 85%, transparent),
+    color-mix(in srgb, var(--accent2) 85%, transparent)
+  );
+}
+
+.library-filter-panel .segmented--joined button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.library-filter-panel .segmented--joined button:not(.is-on) .segmented__ic {
+  opacity: 0.62;
+}
+
+.library-filter-panel .segmented--joined button.is-on .segmented__ic {
+  opacity: 1;
+  color: color-mix(in srgb, var(--accent2) 75%, var(--accent) 25%);
+}
+
+.library-mood-browse {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.library-mood-match-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 1rem;
+}
+
+.library-mood-match-row .segmented--joined {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0;
+}
+
+.library-mood-match-row .segmented--joined button {
+  position: relative;
+  flex: 0 0 auto;
+  margin: 0;
+  border: none;
   border-radius: 0;
+  background: transparent;
+  padding: 0.45rem 0.75rem;
+  color: color-mix(in srgb, var(--muted) 88%, var(--text) 12%);
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.library-mood-match-row .segmented--joined button.is-on {
+  color: var(--text);
+  background: transparent;
+  box-shadow: none;
+}
+
+.library-mood-match-row .segmented--joined button.is-on::after {
+  content: "";
+  position: absolute;
+  left: 0.38rem;
+  right: 0.38rem;
+  bottom: 0;
+  height: 2px;
+  border-radius: 99px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 85%, transparent),
+    color-mix(in srgb, var(--accent2) 85%, transparent)
+  );
+}
+
+.library-mood-match-row .segmented--joined button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.library-mood-match-row .library-filter-panel__eyebrow {
+  flex: 0 0 auto;
+}
+
+.library-mood-explainer {
+  margin: -0.2rem 0 0;
+  width: 100%;
+  max-width: none;
+  line-height: 1.5;
+}
+
+.library-mood-clear {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+}
+
+.library-mood-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.85rem, 1fr));
+  gap: 0.45rem;
+}
+
+.library-mood-filter-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.45rem 0.52rem;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--border) 62%, transparent);
+  background: color-mix(in srgb, var(--surface2) 88%, transparent);
+  cursor: pointer;
+  line-height: 0;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.library-mood-filter-btn:not(.library-mood-filter-btn--on) .library-mood-filter-btn__glyph-row {
+  color: color-mix(in srgb, var(--muted) 78%, var(--text) 22%);
+}
+
+.library-mood-filter-btn--on .library-mood-filter-btn__glyph-row {
+  color: color-mix(in srgb, var(--mood-c) 90%, var(--text));
+}
+
+.library-mood-filter-btn__glyph-row .library-mood-filter-btn__count {
+  color: inherit;
+}
+
+.library-mood-filter-btn:not(.library-mood-filter-btn--on):hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--border) 78%, transparent);
+  background: color-mix(in srgb, var(--surface3) 76%, transparent);
+}
+
+.library-mood-filter-btn--on {
+  border-color: color-mix(in srgb, var(--mood-c) 58%, var(--border) 42%);
+  background: color-mix(in srgb, var(--mood-c) 16%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mood-c) 22%, transparent);
+}
+
+.library-mood-filter-btn__glyph-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.42rem;
+  width: 100%;
+}
+
+.library-mood-filter-btn__glyph-row > span svg {
+  width: 1.22rem;
+  height: 1.22rem;
+  flex-shrink: 0;
+}
+
+.library-mood-filter-btn .track-meta-mood-chip__glyph {
+  display: inline-flex;
+}
+
+.library-mood-filter-btn__count {
+  font-size: 0.75rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.library-mood-filter-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.library-mood-tracklist-head {
+  padding-top: 0.35rem;
 }
 
 .segmented__btn-inner {
@@ -3593,7 +3831,9 @@
 .tools-dl-dest__lead {
   margin: 0.15rem 0 0.85rem;
   line-height: 1.45;
-  max-width: 64ch;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
 }
 
 .tools-dl-dest__shell {
@@ -4392,10 +4632,21 @@
   color: var(--muted);
 }
 
+.studio-meta-essentials-hint {
+  margin: -0.1rem 0 0.4rem;
+  line-height: 1.45;
+}
+
+.studio-meta-essentials .studio-action-group-label {
+  margin-bottom: 0.2rem;
+}
+
 .studio-hint-line {
   margin: 0 0 0.35rem;
   line-height: 1.45;
-  max-width: 56ch;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
 }
 
 .studio-action-row {
@@ -5251,6 +5502,66 @@
 .meta-edit-genre-custom .ghost-input {
   flex: 1 1 10rem;
   min-width: 0;
+}
+
+.meta-edit-mood-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(2.6rem, 1fr));
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+  max-width: 100%;
+}
+
+.meta-edit-mood-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.35rem;
+  padding: 0.3rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  line-height: 0;
+}
+
+.meta-edit-mood-btn--color {
+  --mood-c: var(--muted);
+}
+
+.meta-edit-mood-btn--color:not(.meta-edit-mood-btn--on) {
+  opacity: 0.3;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, var(--mood-c) 18%);
+  background: color-mix(in srgb, var(--surface2) 97%, var(--muted) 3%);
+  color: color-mix(in srgb, var(--muted) 58%, var(--mood-c) 42%);
+  filter: grayscale(0.55) brightness(0.9);
+  box-shadow: none;
+}
+
+.meta-edit-mood-btn--color:not(.meta-edit-mood-btn--on):hover {
+  opacity: 0.52;
+  border-color: color-mix(in srgb, var(--border) 58%, var(--mood-c) 42%);
+  background: color-mix(in srgb, var(--mood-c) 9%, var(--surface2) 91%);
+  color: color-mix(in srgb, var(--mood-c) 65%, var(--muted) 35%);
+  filter: grayscale(0.22) brightness(0.98);
+}
+
+.meta-edit-mood-btn svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  display: block;
+}
+
+.meta-edit-mood-btn--color.meta-edit-mood-btn--on {
+  opacity: 1;
+  filter: none;
+  border: 1px solid color-mix(in srgb, var(--mood-c) 68%, var(--border) 32%);
+  background: color-mix(in srgb, var(--mood-c) 36%, var(--surface2) 64%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mood-c) 35%, transparent);
+  color: color-mix(in srgb, var(--mood-c) 96%, #000);
+}
+
+.meta-edit-mood-btn--color.meta-edit-mood-btn--on:hover {
+  border-color: color-mix(in srgb, var(--mood-c) 75%, var(--border) 25%);
+  filter: brightness(1.04);
 }
 
 .meta-edit-actions {

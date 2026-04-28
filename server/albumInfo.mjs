@@ -1,4 +1,5 @@
 import fs from "fs/promises"
+import { normalizeTrackMoodsList } from "./trackMoods.mjs"
 import { existsSync } from "fs"
 import path from "path"
 import { normalizeStoredGenreString } from "./genres.mjs"
@@ -189,6 +190,7 @@ export async function loadTrackJsonMetaMapFromDir(albumDir) {
     for (const [k, v] of Object.entries(j)) {
       if (!k || !v || typeof v !== "object") continue
       const t = v.title != null && String(v.title).trim() ? String(v.title).trim() : null
+      const moods = normalizeTrackMoodsList(v.moods, v.mood)
       out[k] = {
         title: t,
         releaseDate: v.releaseDate || v.date || null,
@@ -199,6 +201,7 @@ export async function loadTrackJsonMetaMapFromDir(albumDir) {
         source: v.source || null,
         url: v.url || null,
       }
+      if (moods.length) out[k].moods = moods
     }
     return out
   } catch {
@@ -288,6 +291,26 @@ export async function saveTrackManualMeta(albumDir, fileName, patch) {
     } else {
       const norm = normalizeStoredGenreString(String(g))
       next.genre = norm ? str(norm, 800) : null
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "moods")) {
+    const list =
+      patch.moods == null
+        ? []
+        : normalizeTrackMoodsList(patch.moods, null)
+    delete next.mood
+    if (!list.length) {
+      delete next.moods
+    } else {
+      next.moods = list
+    }
+  } else if (Object.prototype.hasOwnProperty.call(patch, "mood")) {
+    const list = normalizeTrackMoodsList([], patch.mood)
+    delete next.mood
+    if (!list.length) {
+      delete next.moods
+    } else {
+      next.moods = list
     }
   }
   if (Object.prototype.hasOwnProperty.call(patch, "source")) {

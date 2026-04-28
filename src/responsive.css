@@ -198,8 +198,19 @@ body,
   }
 
   .library-filter-panel__row--split {
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: 1fr;
+    gap: 1.05rem;
+  }
+
+  .library-filter-panel__row--split .library-filter-group:first-child {
+    padding-inline-end: 0;
+    margin-inline-end: 0;
+    border-inline-end: none;
+  }
+
+  .library-filter-panel__row--split .library-filter-group:last-child {
+    justify-self: stretch;
+    width: auto;
   }
 
   .library-filter-group .segmented--joined {
@@ -233,13 +244,13 @@ body,
   }
 
   .library-filter-panel {
-    margin-bottom: 0.8rem;
-    padding: 0.55rem 0.75rem 0.65rem;
+    margin-bottom: 0.75rem;
+    padding: 0 0 0.75rem;
   }
 
   .library-filter-panel--tight {
     margin-bottom: 0.7rem;
-    padding: 0.5rem 0.7rem 0.55rem;
+    padding: 0 0 0.65rem;
   }
 }
 

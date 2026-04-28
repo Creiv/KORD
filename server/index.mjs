@@ -1572,6 +1572,8 @@ app.post("/api/track-info/save", async (req, res) => {
       "title",
       "releaseDate",
       "genre",
+      "moods",
+      "mood",
       "durationMs",
       "trackNumber",
       "discNumber",

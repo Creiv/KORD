@@ -842,6 +842,10 @@ export type TrackMetaSavePatch = {
   title?: string | null;
   releaseDate?: string | null;
   genre?: string | null;
+  /** fino a 3 id canonici; `null` o `[]` azzera. */
+  moods?: string[] | null;
+  /** compat salvataggi vecchi */
+  mood?: string | null;
   durationMs?: number | null;
   trackNumber?: number | null;
   discNumber?: number | null;
