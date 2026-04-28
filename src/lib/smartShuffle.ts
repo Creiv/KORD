@@ -1,4 +1,8 @@
 import type { EnrichedTrack } from "../types";
+import { parseTrackGenres } from "./genres";
+import { parseTrackMoods } from "./trackMoods";
+
+const CARD_QUEUE_CAP = 500;
 
 export function fisherYatesShuffle<T>(items: readonly T[]): T[] {
   const a = [...items];
@@ -34,6 +38,71 @@ export type SmartShuffleOpts = {
   currentArtist?: string;
   recentRelPaths?: ReadonlySet<string>;
 };
+
+function moodOverlaps(seed: EnrichedTrack, t: EnrichedTrack): boolean {
+  const s = parseTrackMoods(seed.meta);
+  if (s.length === 0) return false;
+  const set = new Set(s);
+  return parseTrackMoods(t.meta).some((m) => set.has(m));
+}
+
+function genreOverlaps(seed: EnrichedTrack, t: EnrichedTrack): boolean {
+  const sg = parseTrackGenres(seed.meta?.genre).map((g) => g.toLowerCase());
+  if (sg.length === 0) return false;
+  const tgSet = new Set(
+    parseTrackGenres(t.meta?.genre).map((g) => g.toLowerCase())
+  );
+  return sg.some((g) => tgSet.has(g));
+}
+
+function artistMatches(seed: EnrichedTrack, t: EnrichedTrack): boolean {
+  return (
+    seed.artist.trim().toLowerCase() === t.artist.trim().toLowerCase()
+  );
+}
+
+export function buildCardPlayQueueFromSeed(
+  seed: EnrichedTrack,
+  libraryTracks: readonly EnrichedTrack[],
+  opts?: { maxLength?: number }
+): EnrichedTrack[] {
+  const maxLen =
+    opts?.maxLength !== undefined ? opts.maxLength : CARD_QUEUE_CAP;
+  const cap = Math.max(1, Math.min(maxLen, CARD_QUEUE_CAP));
+  const seedCanon =
+    libraryTracks.find((t) => t.relPath === seed.relPath) ?? seed;
+  const pool = libraryTracks.filter((t) => t.relPath !== seedCanon.relPath);
+
+  const mood: EnrichedTrack[] = [];
+  const genre: EnrichedTrack[] = [];
+  const artistTier: EnrichedTrack[] = [];
+  const rest: EnrichedTrack[] = [];
+
+  for (const t of pool) {
+    if (moodOverlaps(seedCanon, t)) {
+      mood.push(t);
+      continue;
+    }
+    if (genreOverlaps(seedCanon, t)) {
+      genre.push(t);
+      continue;
+    }
+    if (artistMatches(seedCanon, t)) {
+      artistTier.push(t);
+      continue;
+    }
+    rest.push(t);
+  }
+
+  const tail = [
+    ...fisherYatesShuffle(mood),
+    ...fisherYatesShuffle(genre),
+    ...fisherYatesShuffle(artistTier),
+    ...fisherYatesShuffle(rest),
+  ];
+  const full = [seedCanon, ...tail];
+  return full.slice(0, cap);
+}
 
 export function buildSmartRandomQueue(
   tracks: readonly EnrichedTrack[],

@@ -36,25 +36,16 @@ body,
   }
 
   .album-grid {
-    grid-template-columns: repeat(
-      auto-fill,
-      minmax(min(100%, 200px), 1fr)
-    );
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
   }
 
   .album-grid.compact {
-    grid-template-columns: repeat(
-      auto-fill,
-      minmax(min(100%, 176px), 1fr)
-    );
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 176px), 1fr));
   }
 
   .artist-grid,
   .album-grid--artist {
-    grid-template-columns: repeat(
-      auto-fill,
-      minmax(min(100%, 160px), 1fr)
-    );
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr));
   }
 }
 
@@ -112,9 +103,8 @@ body,
     padding-bottom: 0.5rem;
   }
 
-  .tools .tool-block,
-  .tools .studio-hero {
-    padding: 0.95rem 1rem 1rem;
+  .tools .studio-pane {
+    padding: 0;
   }
 
   .tools .studio-head h3 {
@@ -228,10 +218,7 @@ body,
 
   .artgrid2,
   .tools-art .artgrid2 {
-    grid-template-columns: repeat(
-      auto-fill,
-      minmax(min(100%, 150px), 1fr)
-    );
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr));
   }
 
   .meta-edit-dialog {
@@ -291,19 +278,13 @@ body,
 
   .album-grid,
   .album-grid.compact {
-    grid-template-columns: repeat(
-      auto-fill,
-      minmax(min(100%, 142px), 1fr)
-    );
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 142px), 1fr));
     gap: 0.65rem;
   }
 
   .artist-grid,
   .album-grid--artist {
-    grid-template-columns: repeat(
-      auto-fill,
-      minmax(min(100%, 132px), 1fr)
-    );
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 132px), 1fr));
   }
 
   .library-view .artist-grid > .artist-card,
@@ -380,8 +361,7 @@ body,
 /* --- Schermi molto stretti --- */
 @media (max-width: 400px) {
   .section-head h2,
-  .section-head--page-toolbar h2,
-  .studio-hero__title {
+  .section-head--page-toolbar h2 {
     font-size: 1.1rem;
     line-height: 1.25;
   }

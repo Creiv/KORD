@@ -121,6 +121,10 @@
   --player-art-fb: rgba(255, 200, 180, 0.1);
 }
 
+:root[data-player-dock="0"] {
+  --bar-h: 0px;
+}
+
 :root[data-theme="aurora"] {
   --bg: #071116;
   --surface: rgba(12, 32, 40, 0.88);
@@ -779,44 +783,15 @@ ul {
 }
 
 .tools {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 1.1rem;
   padding-bottom: 1rem;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
   margin-inline: 0;
-}
-
-.tools > .studio-hero {
-  grid-column: 1 / -1;
-}
-
-.tools > .tool-block {
-  grid-column: span 6;
-}
-
-.tools > .tool-block.tools-shared-lib {
-  grid-column: 1 / -1;
-}
-
-.tools > .tool-block.tools-download {
-  grid-column: span 7;
-}
-
-.tools > .tool-block.tools-meta {
-  grid-column: span 5;
-}
-
-.tools > .tool-block.tools-art {
-  grid-column: span 12;
-}
-
-@media (max-width: 1300px) {
-  .tools > .tool-block {
-    grid-column: span 12;
-  }
+  min-width: 0;
 }
 
 .tool-block {

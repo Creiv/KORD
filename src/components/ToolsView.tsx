@@ -64,7 +64,6 @@ import {
   UiLink,
   UiNote,
 } from "./KordUiIcons";
-
 type P = {
   library: LibraryResponse | null;
   libraryIndex: LibraryIndex | null;
@@ -323,6 +322,23 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
   const [genreApplyConfirmList, setGenreApplyConfirmList] = useState<
     GenreAutoAssignment[] | null
   >(null);
+  const [studioPane, setStudioPane] = useState<
+    "shared" | "download" | "meta" | "covers"
+  >("download");
+
+  const showSharedTab = sharedAccounts.length > 1;
+  const studioDefaultToSharedRef = useRef(false);
+
+  useEffect(() => {
+    if (studioPane === "shared" && !showSharedTab) setStudioPane("download");
+  }, [studioPane, showSharedTab]);
+
+  useEffect(() => {
+    if (!showSharedTab) return;
+    if (studioDefaultToSharedRef.current) return;
+    studioDefaultToSharedRef.current = true;
+    setStudioPane((prev) => (prev === "download" ? "shared" : prev));
+  }, [showSharedTab]);
 
   useEffect(() => {
     if (!genreApplyScopeOpen && genreApplyConfirmList == null) return;
@@ -615,21 +631,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
         setAlbumForCover(folder);
       }
     }
-  };
-
-  const setCoverDestFromCurrentTrack = () => {
-    if (!p.current?.relPath) {
-      setLog((x) => x + t("tools.logNoTrackPath"));
-      return;
-    }
-    const folder = albumFolderFromTrackRelPath(p.current.relPath);
-    if (!folder) {
-      setLog((x) => x + t("tools.logNoAlbumFolder"));
-      return;
-    }
-    setCoverPickArtist(p.current.artist);
-    setAlbumForCover(folder);
-    setLog((x) => x + t("tools.logCoverDest", { path: folder }));
   };
 
   const doCreateFolder = () => {
@@ -1260,7 +1261,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
           setRelPayload((p) =>
             p ? { ...p, entries: [...p.entries, e] } : null
           );
-          setRelSel((prev) => new Set([...prev, e.id]));
         },
         onDone: () => {
           setRelStreamComplete(true);
@@ -1460,114 +1460,895 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
       .finally(() => setArtBusy(false));
   };
 
+  const studioOverviewIcon = useMemo(() => {
+    switch (studioPane) {
+      case "shared":
+        return <UiLink className="section-head__ic" />;
+      case "download":
+        return <UiDownload className="section-head__ic" />;
+      case "meta":
+        return <UiNote className="section-head__ic" />;
+      case "covers":
+        return <UiImage className="section-head__ic" />;
+      default:
+        return <UiGraphicEq className="section-head__ic" />;
+    }
+  }, [studioPane]);
+
   return (
     <>
-      <div className="tools tool-studio-layout">
-        <section
-          className="studio-hero surface-card"
-          aria-labelledby="studio-hero-title"
-        >
-          <div className="studio-hero__lead">
+      <section className="surface-card surface-card--toolbar-only">
+        <div className="section-head section-head--page-toolbar">
+          <div className="section-head__lead">
             <span className="section-head__icon-wrap" aria-hidden>
-              <UiGraphicEq className="section-head__ic" />
+              {studioOverviewIcon}
             </span>
-            <div className="studio-hero__text">
-              <p className="eyebrow">{t("tools.studioHeroEyebrow")}</p>
-              <h2 id="studio-hero-title" className="studio-hero__title">
-                {t("tools.studioHeroTitle")}
-              </h2>
+            <div className="section-head__text">
+              <p className="eyebrow">{t("tools.studioOverviewEyebrow")}</p>
+              <div
+                className="section-nav-tabs"
+                role="group"
+                aria-label={t("tools.studioPaneAria")}
+              >
+                {showSharedTab ? (
+                  <button
+                    type="button"
+                    className={`section-nav-tab${
+                      studioPane === "shared" ? " is-on" : ""
+                    }`}
+                    onClick={() => setStudioPane("shared")}
+                  >
+                    {t("tools.studioTabShared")}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className={`section-nav-tab${
+                    studioPane === "download" ? " is-on" : ""
+                  }`}
+                  onClick={() => setStudioPane("download")}
+                >
+                  {t("tools.studioTabDownload")}
+                </button>
+                <button
+                  type="button"
+                  className={`section-nav-tab${
+                    studioPane === "meta" ? " is-on" : ""
+                  }`}
+                  onClick={() => setStudioPane("meta")}
+                >
+                  {t("tools.studioTabMeta")}
+                </button>
+                <button
+                  type="button"
+                  className={`section-nav-tab${
+                    studioPane === "covers" ? " is-on" : ""
+                  }`}
+                  onClick={() => setStudioPane("covers")}
+                >
+                  {t("tools.studioTabCovers")}
+                </button>
+              </div>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {sharedAccounts.length >= 2 ? (
-          <section
-            className="tool-block glass tools-shared-lib"
-            aria-labelledby="tools-shared-title"
-          >
-            <header className="studio-head studio-head--with-ic">
-              <span
-                className="section-head__icon-wrap studio-head__ic-slot"
-                aria-hidden
-              >
-                <UiLink className="section-head__ic" />
-              </span>
-              <div className="studio-head__text">
-                <p className="eyebrow">{t("tools.sharedEyebrow")}</p>
-                <h3 id="tools-shared-title">{t("tools.sharedTitle")}</h3>
-              </div>
-            </header>
-
-            <div className="studio-panel tools-shared-browse">
-              <p className="subtle sm tools-shared-browse-lead">
-                {t("tools.sharedBrowseDesc")}
-              </p>
-              {sharedLockedByEnv ? (
-                <p className="subtle sm warnline">{t("tools.sharedEnvLock")}</p>
-              ) : null}
-              {otherSharedAccounts.length === 0 ? (
-                <p className="subtle sm">{t("tools.sharedNoOtherAccount")}</p>
-              ) : (
-                <>
-                  <div className="tools-shared-browse-row">
-                    <select
-                      className="select"
-                      value={sharedSourceId}
-                      onChange={(e) => {
-                        setSharedSourceId(e.target.value);
-                        setSharedIndex(null);
-                        setSharedArtistId("");
-                        setSharedAlbumRel("");
-                        setSharedMsg(null);
-                        setSharedErr(null);
-                      }}
-                      aria-label={t("tools.sharedPickSource")}
-                    >
-                      <option value="">
-                        {t("tools.sharedPickPlaceholder")}
-                      </option>
-                      {otherSharedAccounts.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name}
+      <section className="surface-card studio-page-card">
+        <div className="tools tool-studio-layout">
+          {studioPane === "shared" && showSharedTab ? (
+            <div
+              className="studio-pane tools-shared-lib"
+              role="region"
+              aria-label={t("tools.sharedTitle")}
+            >
+              <div className="studio-panel tools-shared-browse">
+                <p className="subtle sm tools-shared-browse-lead">
+                  {t("tools.sharedBrowseDesc")}
+                </p>
+                {sharedLockedByEnv ? (
+                  <p className="subtle sm warnline">
+                    {t("tools.sharedEnvLock")}
+                  </p>
+                ) : null}
+                {otherSharedAccounts.length === 0 ? (
+                  <p className="subtle sm">{t("tools.sharedNoOtherAccount")}</p>
+                ) : (
+                  <>
+                    <div className="tools-shared-browse-row">
+                      <select
+                        className="select"
+                        value={sharedSourceId}
+                        onChange={(e) => {
+                          setSharedSourceId(e.target.value);
+                          setSharedIndex(null);
+                          setSharedArtistId("");
+                          setSharedAlbumRel("");
+                          setSharedMsg(null);
+                          setSharedErr(null);
+                        }}
+                        aria-label={t("tools.sharedPickSource")}
+                      >
+                        <option value="">
+                          {t("tools.sharedPickPlaceholder")}
                         </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className="btn sm"
-                      onClick={loadSharedCatalog}
-                      disabled={!sharedSourceId || sharedLoadBusy}
+                        {otherSharedAccounts.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="btn sm"
+                        onClick={loadSharedCatalog}
+                        disabled={!sharedSourceId || sharedLoadBusy}
+                      >
+                        {sharedLoadBusy
+                          ? t("tools.sharedLoadingCatalog")
+                          : t("tools.sharedLoadCatalog")}
+                      </button>
+                    </div>
+                    {sharedIndex ? (
+                      <div className="tools-shared-browse-picks">
+                        <div>
+                          <label
+                            className="subtle sm block-label"
+                            htmlFor="shared-artist-sel"
+                          >
+                            {t("tools.sharedPickArtist")}
+                          </label>
+                          <select
+                            id="shared-artist-sel"
+                            className="select"
+                            value={sharedArtistId}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setSharedArtistId(v);
+                              setSharedAlbumRel(v ? SHARED_ALL_ALBUMS : "");
+                            }}
+                          >
+                            <option value="">
+                              {t("tools.sharedPickPlaceholder")}
+                            </option>
+                            {sharedIndex.artists.map((ar) => (
+                              <option key={ar.id} value={ar.id}>
+                                {ar.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label
+                            className="subtle sm block-label"
+                            htmlFor="shared-album-sel"
+                          >
+                            {t("tools.sharedPickAlbum")}
+                          </label>
+                          <select
+                            id="shared-album-sel"
+                            className="select"
+                            value={sharedArtistId ? sharedAlbumRel : ""}
+                            onChange={(e) => setSharedAlbumRel(e.target.value)}
+                            disabled={!sharedArtistId}
+                          >
+                            {!sharedArtistId ? (
+                              <option value="">
+                                {t("tools.sharedAlbumNeedArtist")}
+                              </option>
+                            ) : (
+                              <>
+                                <option value={SHARED_ALL_ALBUMS}>
+                                  {t("tools.sharedAllAlbums")}
+                                </option>
+                                {sharedAlbumsForArtist.map((al) => (
+                                  <option key={al.relPath} value={al.relPath}>
+                                    {al.name} · {al.trackCount}
+                                  </option>
+                                ))}
+                              </>
+                            )}
+                          </select>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn"
+                          onClick={doLinkSharedAlbum}
+                          disabled={
+                            sharedLinkBusy || !sharedArtistId || !sharedAlbumRel
+                          }
+                        >
+                          {sharedLinkBusy
+                            ? t("tools.sharedLinking")
+                            : t("tools.sharedAddToMine")}
+                        </button>
+                      </div>
+                    ) : null}
+                  </>
+                )}
+                {sharedMsg ? <p className="subtle sm">{sharedMsg}</p> : null}
+                {sharedErr ? (
+                  <p className="subtle sm warnline">{sharedErr}</p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {studioPane === "download" ? (
+            <div
+              className="studio-pane tools-download"
+              role="region"
+              aria-label={t("tools.downloadTitle")}
+            >
+              <details className="studio-details" open={false}>
+                <summary>{t("tools.cmdUsed")}</summary>
+                <pre className="codebox" tabIndex={0}>
+                  {preset || t("tools.cmdFallback")}
+                </pre>
+              </details>
+
+              <div className="studio-panel tools-dl-dest">
+                <h4 className="studio-panel-title">
+                  {t("tools.dlSaveFolder")}
+                </h4>
+                <p className="subtle sm tools-dl-dest__lead">
+                  {t("tools.dlDestLead")}
+                </p>
+                <div className="tools-dl-dest__shell">
+                  <div className="tools-dl-dest__pathheader">
+                    <p
+                      className="tools-dl-dest__label"
+                      id="tools-dl-dest-where"
                     >
-                      {sharedLoadBusy
-                        ? t("tools.sharedLoadingCatalog")
-                        : t("tools.sharedLoadCatalog")}
-                    </button>
+                      {t("tools.dlPathLabel")}
+                    </p>
+                    <div className="tools-dl-dest__pathbar">
+                      <button
+                        type="button"
+                        className="tools-dl-dest__up-icon"
+                        onClick={() => {
+                          if (dlList) loadDlFs(dlList.parent || "");
+                        }}
+                        disabled={!dlList?.path}
+                        title={t("tools.up")}
+                        aria-label={t("tools.upFolderAria")}
+                      >
+                        <DlDestUpIcon />
+                      </button>
+                      <nav
+                        className="breadcrumbs tools-dl-dest__crumbs"
+                        aria-labelledby="tools-dl-dest-where"
+                      >
+                        <button
+                          type="button"
+                          className="crumb"
+                          onClick={() => loadDlFs("")}
+                        >
+                          {dlList?.musicRoot?.split("/").pop() ||
+                            t("tools.musicRoot")}
+                        </button>
+                        {(dlList?.path || "")
+                          .split("/")
+                          .filter(Boolean)
+                          .map((seg, i, arr) => {
+                            const pth = arr.slice(0, i + 1).join("/");
+                            return (
+                              <span className="tools-dl-dest__bc" key={pth}>
+                                <span
+                                  className="tools-dl-dest__bc-sep"
+                                  aria-hidden
+                                >
+                                  <UiChevronRight className="tools-dl-dest__bc-ic" />
+                                </span>
+                                <button
+                                  type="button"
+                                  className="crumb"
+                                  onClick={() => loadDlFs(pth)}
+                                >
+                                  {seg}
+                                </button>
+                              </span>
+                            );
+                          })}
+                      </nav>
+                    </div>
                   </div>
-                  {sharedIndex ? (
-                    <div className="tools-shared-browse-picks">
+
+                  <div
+                    className="tools-dl-dest__browser"
+                    role="group"
+                    aria-label={t("tools.dlSubfolders")}
+                  >
+                    {dlList && dlList.dirs.length === 0 ? (
+                      <p className="subtle sm tools-dl-dest__empty">
+                        {t("tools.dlEmptyFolders")}
+                      </p>
+                    ) : null}
+                    <ul className="tools-dl-dest__dirlist">
+                      {dlList?.dirs.map((d) => (
+                        <li key={d.relPath}>
+                          <button
+                            type="button"
+                            className="tools-dl-dest__dirbtn"
+                            onClick={() => loadDlFs(d.relPath)}
+                          >
+                            <DlDestFolderGlyph className="tools-dl-dest__dir-ic" />
+                            <span className="tools-dl-dest__dir-name">
+                              {d.name}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div
+                    className="tools-dl-dest__create"
+                    aria-label={t("tools.dlNewSubLabel")}
+                  >
+                    <p className="tools-dl-dest__label tools-dl-dest__label--inline">
+                      {t("tools.dlNewSubLabel")}
+                    </p>
+                    <div className="tools-dl-dest__newrow">
+                      <input
+                        type="text"
+                        className="tools-dl-dest__newinput"
+                        minLength={1}
+                        maxLength={200}
+                        placeholder={t("tools.newFolderPh")}
+                        value={newDirName}
+                        onChange={(e) => setNewDirName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (
+                            e.key === "Enter" &&
+                            newDirName.trim() &&
+                            dlList
+                          ) {
+                            e.preventDefault();
+                            doCreateFolder();
+                          }
+                        }}
+                        aria-label={t("tools.newFolderAria")}
+                      />
+                      <button
+                        type="button"
+                        className="btn secondary"
+                        disabled={mkBusy || !newDirName.trim() || !dlList}
+                        onClick={doCreateFolder}
+                      >
+                        {mkBusy ? t("tools.creating") : t("tools.createHere")}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="tools-dl-dest__actions">
+                    <p
+                      className="tools-dl-dest__label"
+                      id="tools-dl-dest-confirm"
+                    >
+                      {t("tools.dlPathActions")}
+                    </p>
+                    <div className="tools-dl-dest__actions-row">
+                      <div
+                        className="tools-dl-dest__commit"
+                        aria-labelledby="tools-dl-dest-confirm"
+                      >
+                        <button
+                          type="button"
+                          className="btn"
+                          onClick={() => {
+                            if (dlList) commitDlDest(dlList.path || "");
+                          }}
+                          disabled={!dlList}
+                          title={t("tools.useThisFolderTitle")}
+                        >
+                          {t("tools.useThisFolder")}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn secondary"
+                          onClick={() => commitDlDest("")}
+                          title={t("tools.musicRootTitle")}
+                        >
+                          {t("tools.musicRootBtn")}
+                        </button>
+                      </div>
+                      <label
+                        className={`tools-dl-dest__replace${
+                          !dlPath.trim() ? " tools-dl-dest__replace--off" : ""
+                        }`}
+                        title={
+                          !dlPath.trim()
+                            ? t("tools.dlReplaceRootTitle")
+                            : t("tools.dlReplaceHint")
+                        }
+                      >
+                        <input
+                          type="checkbox"
+                          checked={dlReplaceMode}
+                          disabled={!dlDestPicked || !dlPath.trim()}
+                          onChange={(e) => {
+                            setDlReplaceMode(e.target.checked);
+                          }}
+                        />
+                        <span>{t("tools.dlReplaceFolder")}</span>
+                      </label>
+                    </div>
+                  </div>
+                  {dlDestPicked ? (
+                    <div className="tools-dl-dest__picked" role="status">
+                      {t("tools.destLine", {
+                        path: dlPath || t("tools.destRoot"),
+                      })}
+                    </div>
+                  ) : (
+                    <p className="subtle sm warnline tools-dl-dest__warn">
+                      {t("tools.confirmFolderWarn")}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="studio-panel">
+                <h4 className="studio-panel-title">
+                  {t("tools.dlLinkSection")}
+                </h4>
+                <div className="tools-dl-modes">
+                  <div className="tools-dl-mode">
+                    <span className="tools-dl-mode__label subtle sm">
+                      {t("tools.dlYtVideoLabel")}
+                    </span>
+                    <div
+                      className="tools-dl-mode__seg"
+                      role="group"
+                      aria-label={t("tools.dlYtVideoLabel")}
+                    >
+                      <button
+                        type="button"
+                        className={`tools-dl-mode__btn${
+                          dlYtSource === "video" && dlUrlMode === "single"
+                            ? " is-on"
+                            : ""
+                        }`}
+                        aria-pressed={
+                          dlYtSource === "video" && dlUrlMode === "single"
+                        }
+                        onClick={() => {
+                          setDlYtSource("video");
+                          setDlUrlMode("single");
+                        }}
+                      >
+                        {t("tools.dlTypeSingle")}
+                      </button>
+                      <button
+                        type="button"
+                        className={`tools-dl-mode__btn${
+                          dlYtSource === "video" && dlUrlMode === "playlist"
+                            ? " is-on"
+                            : ""
+                        }`}
+                        aria-pressed={
+                          dlYtSource === "video" && dlUrlMode === "playlist"
+                        }
+                        onClick={() => {
+                          setDlYtSource("video");
+                          setDlUrlMode("playlist");
+                        }}
+                      >
+                        {t("tools.dlTypePlaylist")}
+                      </button>
+                      <button
+                        type="button"
+                        className={`tools-dl-mode__btn${
+                          dlYtSource === "video" && dlUrlMode === "releases"
+                            ? " is-on"
+                            : ""
+                        }`}
+                        aria-pressed={
+                          dlYtSource === "video" && dlUrlMode === "releases"
+                        }
+                        onClick={() => {
+                          setDlYtSource("video");
+                          setDlUrlMode("releases");
+                        }}
+                      >
+                        {t("tools.dlTypeReleases")}
+                      </button>
+                    </div>
+                    <span className="tools-dl-mode__help-wrap">
+                      <button
+                        type="button"
+                        className="tools-dl-mode__help"
+                        aria-label={t("tools.dlModeHelpAria")}
+                      >
+                        ?
+                      </button>
+                      <span className="tools-dl-mode__tip" role="tooltip">
+                        {t("tools.dlModeGuide")}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="tools-dl-mode">
+                    <span className="tools-dl-mode__label subtle sm">
+                      {t("tools.dlYtMusicLabel")}
+                    </span>
+                    <div
+                      className="tools-dl-mode__seg tools-dl-mode__seg--one"
+                      role="group"
+                      aria-label={t("tools.dlYtMusicLabel")}
+                    >
+                      <button
+                        type="button"
+                        className={`tools-dl-mode__btn${
+                          dlYtSource === "music" ? " is-on" : ""
+                        }`}
+                        aria-pressed={dlYtSource === "music"}
+                        onClick={() => setDlYtSource("music")}
+                      >
+                        {t("tools.dlYtMusicMode")}
+                      </button>
+                    </div>
+                    <span className="tools-dl-mode__help-wrap">
+                      <button
+                        type="button"
+                        className="tools-dl-mode__help"
+                        aria-label={t("tools.dlYtMusicHelpAria")}
+                      >
+                        ?
+                      </button>
+                      <span className="tools-dl-mode__tip" role="tooltip">
+                        {t("tools.dlYtMusicGuide")}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+                <input
+                  type="url"
+                  className="w-full"
+                  placeholder={dlUrlPlaceholder}
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  autoComplete="off"
+                  aria-invalid={url.trim() !== "" && !dlUrlValid}
+                />
+                {showMultiAlbumPicker ? (
+                  <div className="tools-dl-releases">
+                    {relPayload ? (
+                      <div className="tools-dl-releases__picks tools-dl-releases__picks--full">
+                        <p className="subtle sm">
+                          {relPayload.listTitle
+                            ? relPayload.listTitle
+                            : relPayload.uploader
+                            ? t("tools.dlReleasesUploader", {
+                                name: relPayload.uploader,
+                              })
+                            : null}
+                        </p>
+                        <div className="tools-dl-releases__toolbar">
+                          <button
+                            type="button"
+                            className="btn secondary sm"
+                            onClick={() =>
+                              setRelSel(
+                                new Set(relPayload.entries.map((e) => e.id))
+                              )
+                            }
+                          >
+                            {t("tools.dlSelectAll")}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn secondary sm"
+                            onClick={() => setRelSel(new Set())}
+                          >
+                            {t("tools.dlSelectNone")}
+                          </button>
+                        </div>
+                        <ul
+                          className="tools-dl-releases__list tools-dl-releases__list--grid"
+                          aria-label={t("tools.dlReleasesListTitle")}
+                          aria-busy={!relStreamComplete}
+                        >
+                          {relPayload.entries.map((e) => (
+                            <li key={e.id} className="tools-dl-releases__row">
+                              <label className="tools-dl-releases__check">
+                                <input
+                                  type="checkbox"
+                                  checked={relSel.has(e.id)}
+                                  onChange={() => toggleRelEntry(e.id)}
+                                />
+                                <span
+                                  className="tools-dl-releases__title"
+                                  title={e.url}
+                                >
+                                  {e.title}
+                                </span>
+                                <span
+                                  className="tools-dl-releases__trackcount"
+                                  aria-label={
+                                    e.trackCount != null
+                                      ? t("tools.dlTrackCountAria", {
+                                          n: e.trackCount,
+                                        })
+                                      : undefined
+                                  }
+                                >
+                                  {e.trackCount != null
+                                    ? t("tools.dlTrackCount", {
+                                        n: e.trackCount,
+                                      })
+                                    : t("tools.dlTrackCountUnknown")}
+                                </span>
+                              </label>
+                            </li>
+                          ))}
+                          {relStreamTotal != null && !relStreamComplete
+                            ? Array.from(
+                                {
+                                  length: Math.max(
+                                    0,
+                                    relStreamTotal - relPayload.entries.length
+                                  ),
+                                },
+                                (_, sk) => (
+                                  <li
+                                    key={`rel-sk-${sk}`}
+                                    className="tools-dl-releases__row tools-dl-releases__row--skeleton"
+                                    aria-hidden
+                                  >
+                                    <div className="tools-dl-releases__check tools-dl-releases__check--skeleton">
+                                      <span className="tools-dl-releases__sk-pad" />
+                                      <div className="tools-dl-releases__sk-text">
+                                        <div className="tools-dl-releases__skeleton-bar" />
+                                        <div className="tools-dl-releases__skeleton-bar tools-dl-releases__skeleton-bar--sub" />
+                                      </div>
+                                      <div className="tools-dl-releases__skeleton-bar tools-dl-releases__skeleton-bcount" />
+                                    </div>
+                                  </li>
+                                )
+                              )
+                            : null}
+                        </ul>
+                        {relPayload && !relStreamComplete ? (
+                          <p
+                            className="subtle sm tools-dl-releases__enrich"
+                            role="status"
+                          >
+                            {t("tools.dlReleasesEnriching")}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    <div className="studio-inline-actions studio-inline-actions--spaced">
+                      {!relPayload ? (
+                        <button
+                          type="button"
+                          className="btn"
+                          onClick={loadReleasesCatalog}
+                          disabled={
+                            relLoadBusy ||
+                            !url.trim() ||
+                            !dlDestPicked ||
+                            !dlUrlValid
+                          }
+                        >
+                          {relLoadBusy
+                            ? t("tools.dlReleasesLoading")
+                            : t("tools.dlLoadReleases")}
+                        </button>
+                      ) : dlBusy ? (
+                        <span className="subtle sm" role="status">
+                          {t("tools.inProgress")}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn"
+                          onClick={runReleasesDl}
+                          disabled={
+                            dlBusy ||
+                            relLoadBusy ||
+                            !dlDestPicked ||
+                            relSel.size === 0 ||
+                            !relStreamComplete ||
+                            !dlUrlValid
+                          }
+                        >
+                          {t("tools.dlDownloadSelected")}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="studio-inline-actions studio-inline-actions--spaced">
+                    {dlBusy ? (
+                      <span className="subtle sm" role="status">
+                        {t("tools.inProgress")}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={runDl}
+                        disabled={
+                          dlBusy || !url.trim() || !dlDestPicked || !dlUrlValid
+                        }
+                      >
+                        {t("tools.downloadRun")}
+                      </button>
+                    )}
+                  </div>
+                )}
+                {(dlBusy || dlProg) && (
+                  <div
+                    className={[
+                      "dl-progress-wrap",
+                      showReleaseMultiTrackBar ? "dl-progress-wrap--dual" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    aria-live="polite"
+                  >
+                    {dlBusy ? (
+                      <div className="dl-progress-stop-row">
+                        <button
+                          type="button"
+                          className="btn danger sm"
+                          onClick={stopStudioDownload}
+                        >
+                          {t("tools.dlStop")}
+                        </button>
+                      </div>
+                    ) : null}
+                    {showReleaseMultiTrackBar ? (
+                      <>
+                        <div className="dl-progress-block">
+                          <div className="dl-progress-top">
+                            <strong>{t("tools.dlProgressAlbumsLabel")}</strong>
+                            <span>
+                              {dlBusy
+                                ? dlProgNorm
+                                  ? t("tools.dlProgressCount", {
+                                      cur: dlProgNorm.cur,
+                                      tot: dlProgNorm.tot,
+                                    })
+                                  : t("tools.inProgress")
+                                : dlProgNorm
+                                ? t("tools.dlProgressCount", {
+                                    cur: dlProgNorm.cur,
+                                    tot: dlProgNorm.tot,
+                                  })
+                                : t("common.emDash")}
+                            </span>
+                          </div>
+                          <div className="dl-progress-rail">
+                            <div
+                              className="dl-progress-fill"
+                              style={{
+                                width: dlProgNorm
+                                  ? `${dlProgNorm.pct}%`
+                                  : dlBusy
+                                  ? "18%"
+                                  : "0%",
+                              }}
+                            />
+                          </div>
+                        </div>
+                        {dlTrackNorm ? (
+                          <div className="dl-progress-block">
+                            <div className="dl-progress-top">
+                              <strong>
+                                {t("tools.dlProgressTracksInAlbum")}
+                              </strong>
+                              <span>
+                                {dlTrackNorm.hasTotal
+                                  ? t("tools.dlProgressCount", {
+                                      cur: dlTrackNorm.cur,
+                                      tot: dlTrackNorm.tot,
+                                    })
+                                  : t("tools.dlProgressTrackWait")}
+                              </span>
+                            </div>
+                            <div className="dl-progress-rail">
+                              <div
+                                className="dl-progress-fill"
+                                style={{ width: `${dlTrackNorm.pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        <div className="dl-progress-top">
+                          <strong>{t("tools.progress")}</strong>
+                          <span>
+                            {dlBusy
+                              ? dlProgNorm
+                                ? t("tools.dlProgressCount", {
+                                    cur: dlProgNorm.cur,
+                                    tot: dlProgNorm.tot,
+                                  })
+                                : t("tools.inProgress")
+                              : dlProgNorm
+                              ? t("tools.dlProgressCount", {
+                                  cur: dlProgNorm.cur,
+                                  tot: dlProgNorm.tot,
+                                })
+                              : t("common.emDash")}
+                          </span>
+                        </div>
+                        <div className="dl-progress-rail">
+                          <div
+                            className="dl-progress-fill"
+                            style={{
+                              width: dlProgNorm
+                                ? `${dlProgNorm.pct}%`
+                                : dlBusy
+                                ? "18%"
+                                : "0%",
+                            }}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="studio-log">
+                <label className="subtle sm">{t("tools.logLabel")}</label>
+                <textarea
+                  className="log"
+                  value={log}
+                  onChange={(e) => setLog(e.target.value)}
+                  rows={4}
+                />
+                <button
+                  type="button"
+                  className="linkbtn"
+                  onClick={() => setLog("")}
+                >
+                  {t("tools.clear")}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {studioPane === "meta" ? (
+            <div
+              className="studio-pane tools-meta"
+              role="region"
+              aria-label={t("tools.metaTitle")}
+            >
+              <div className="studio-meta-split">
+                <div className="studio-meta-split__primary">
+                  <div className="studio-panel studio-meta-picks">
+                    <div className="tools-shared-browse-picks tools-studio-pair-picks">
                       <div>
                         <label
                           className="subtle sm block-label"
-                          htmlFor="shared-artist-sel"
+                          htmlFor="meta-artist-sel"
                         >
                           {t("tools.sharedPickArtist")}
                         </label>
                         <select
-                          id="shared-artist-sel"
+                          id="meta-artist-sel"
                           className="select"
-                          value={sharedArtistId}
+                          value={metaArtistName}
                           onChange={(e) => {
                             const v = e.target.value;
-                            setSharedArtistId(v);
-                            setSharedAlbumRel(v ? SHARED_ALL_ALBUMS : "");
+                            setMetaArtistName(v);
+                            setMetaAlbumPath("");
                           }}
+                          aria-label={t("tools.sharedPickArtist")}
                         >
                           <option value="">
                             {t("tools.sharedPickPlaceholder")}
                           </option>
-                          {sharedIndex.artists.map((ar) => (
-                            <option key={ar.id} value={ar.id}>
-                              {ar.name}
+                          {libraryArtistsSorted.map((a) => (
+                            <option key={a.name} value={a.name}>
+                              {a.name}
                             </option>
                           ))}
                         </select>
@@ -1575,1267 +2356,574 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                       <div>
                         <label
                           className="subtle sm block-label"
-                          htmlFor="shared-album-sel"
+                          htmlFor="meta-album-sel"
                         >
                           {t("tools.sharedPickAlbum")}
                         </label>
                         <select
-                          id="shared-album-sel"
+                          id="meta-album-sel"
                           className="select"
-                          value={sharedArtistId ? sharedAlbumRel : ""}
-                          onChange={(e) => setSharedAlbumRel(e.target.value)}
-                          disabled={!sharedArtistId}
+                          value={metaAlbumPath}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setMetaAlbumPath(v);
+                            const o = metaAlbumsForPick.find(
+                              (x) => x.relPath === v
+                            );
+                            if (o) {
+                              setMetaArt(metaArtistName);
+                              setMetaAlb(o.name);
+                            }
+                          }}
+                          disabled={!metaArtistName}
+                          aria-label={t("tools.metaAlbumAria")}
                         >
-                          {!sharedArtistId ? (
+                          {!metaArtistName ? (
                             <option value="">
                               {t("tools.sharedAlbumNeedArtist")}
                             </option>
                           ) : (
                             <>
-                              <option value={SHARED_ALL_ALBUMS}>
-                                {t("tools.sharedAllAlbums")}
-                              </option>
-                              {sharedAlbumsForArtist.map((al) => (
-                                <option key={al.relPath} value={al.relPath}>
-                                  {al.name} · {al.trackCount}
+                              <option value="">{t("tools.pickAlbum")}</option>
+                              {metaAlbumsForPick.map((o) => (
+                                <option key={o.relPath} value={o.relPath}>
+                                  {o.name}
                                 </option>
                               ))}
                             </>
                           )}
                         </select>
                       </div>
-                      <button
-                        type="button"
-                        className="btn"
-                        onClick={doLinkSharedAlbum}
-                        disabled={
-                          sharedLinkBusy || !sharedArtistId || !sharedAlbumRel
-                        }
-                      >
-                        {sharedLinkBusy
-                          ? t("tools.sharedLinking")
-                          : t("tools.sharedAddToMine")}
-                      </button>
                     </div>
-                  ) : null}
-                </>
-              )}
-              {sharedMsg ? <p className="subtle sm">{sharedMsg}</p> : null}
-              {sharedErr ? (
-                <p className="subtle sm warnline">{sharedErr}</p>
-              ) : null}
-            </div>
-          </section>
-        ) : null}
-
-        <section className="tool-block glass tools-download">
-          <header className="studio-head studio-head--with-ic">
-            <span
-              className="section-head__icon-wrap studio-head__ic-slot"
-              aria-hidden
-            >
-              <UiDownload className="section-head__ic" />
-            </span>
-            <h3 className="studio-head__h3-solo">{t("tools.downloadTitle")}</h3>
-          </header>
-
-          <details className="studio-details" open={false}>
-            <summary>{t("tools.cmdUsed")}</summary>
-            <pre className="codebox" tabIndex={0}>
-              {preset || t("tools.cmdFallback")}
-            </pre>
-          </details>
-
-          <div className="studio-panel tools-dl-dest">
-            <h4 className="studio-panel-title">{t("tools.dlSaveFolder")}</h4>
-            <p className="subtle sm tools-dl-dest__lead">
-              {t("tools.dlDestLead")}
-            </p>
-            <div className="tools-dl-dest__shell">
-              <div className="tools-dl-dest__pathheader">
-                <p className="tools-dl-dest__label" id="tools-dl-dest-where">
-                  {t("tools.dlPathLabel")}
-                </p>
-                <div className="tools-dl-dest__pathbar">
-                  <button
-                    type="button"
-                    className="tools-dl-dest__up-icon"
-                    onClick={() => {
-                      if (dlList) loadDlFs(dlList.parent || "");
-                    }}
-                    disabled={!dlList?.path}
-                    title={t("tools.up")}
-                    aria-label={t("tools.upFolderAria")}
-                  >
-                    <DlDestUpIcon />
-                  </button>
-                  <nav
-                    className="breadcrumbs tools-dl-dest__crumbs"
-                    aria-labelledby="tools-dl-dest-where"
-                  >
-                    <button
-                      type="button"
-                      className="crumb"
-                      onClick={() => loadDlFs("")}
-                    >
-                      {dlList?.musicRoot?.split("/").pop() ||
-                        t("tools.musicRoot")}
-                    </button>
-                    {(dlList?.path || "")
-                      .split("/")
-                      .filter(Boolean)
-                      .map((seg, i, arr) => {
-                        const pth = arr.slice(0, i + 1).join("/");
-                        return (
-                          <span className="tools-dl-dest__bc" key={pth}>
-                            <span className="tools-dl-dest__bc-sep" aria-hidden>
-                              <UiChevronRight className="tools-dl-dest__bc-ic" />
-                            </span>
-                            <button
-                              type="button"
-                              className="crumb"
-                              onClick={() => loadDlFs(pth)}
-                            >
-                              {seg}
-                            </button>
-                          </span>
-                        );
-                      })}
-                  </nav>
-                </div>
-              </div>
-
-              <div
-                className="tools-dl-dest__browser"
-                role="group"
-                aria-label={t("tools.dlSubfolders")}
-              >
-                {dlList && dlList.dirs.length === 0 ? (
-                  <p className="subtle sm tools-dl-dest__empty">
-                    {t("tools.dlEmptyFolders")}
-                  </p>
-                ) : null}
-                <ul className="tools-dl-dest__dirlist">
-                  {dlList?.dirs.map((d) => (
-                    <li key={d.relPath}>
-                      <button
-                        type="button"
-                        className="tools-dl-dest__dirbtn"
-                        onClick={() => loadDlFs(d.relPath)}
-                      >
-                        <DlDestFolderGlyph className="tools-dl-dest__dir-ic" />
-                        <span className="tools-dl-dest__dir-name">
-                          {d.name}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div
-                className="tools-dl-dest__create"
-                aria-label={t("tools.dlNewSubLabel")}
-              >
-                <p className="tools-dl-dest__label tools-dl-dest__label--inline">
-                  {t("tools.dlNewSubLabel")}
-                </p>
-                <div className="tools-dl-dest__newrow">
-                  <input
-                    type="text"
-                    className="tools-dl-dest__newinput"
-                    minLength={1}
-                    maxLength={200}
-                    placeholder={t("tools.newFolderPh")}
-                    value={newDirName}
-                    onChange={(e) => setNewDirName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && newDirName.trim() && dlList) {
-                        e.preventDefault();
-                        doCreateFolder();
-                      }
-                    }}
-                    aria-label={t("tools.newFolderAria")}
-                  />
-                  <button
-                    type="button"
-                    className="btn secondary"
-                    disabled={mkBusy || !newDirName.trim() || !dlList}
-                    onClick={doCreateFolder}
-                  >
-                    {mkBusy ? t("tools.creating") : t("tools.createHere")}
-                  </button>
-                </div>
-              </div>
-
-              <div className="tools-dl-dest__actions">
-                <p className="tools-dl-dest__label" id="tools-dl-dest-confirm">
-                  {t("tools.dlPathActions")}
-                </p>
-                <div className="tools-dl-dest__actions-row">
-                  <div
-                    className="tools-dl-dest__commit"
-                    aria-labelledby="tools-dl-dest-confirm"
-                  >
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={() => {
-                        if (dlList) commitDlDest(dlList.path || "");
-                      }}
-                      disabled={!dlList}
-                      title={t("tools.useThisFolderTitle")}
-                    >
-                      {t("tools.useThisFolder")}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn secondary"
-                      onClick={() => commitDlDest("")}
-                      title={t("tools.musicRootTitle")}
-                    >
-                      {t("tools.musicRootBtn")}
-                    </button>
-                  </div>
-                  <label
-                    className={`tools-dl-dest__replace${
-                      !dlPath.trim() ? " tools-dl-dest__replace--off" : ""
-                    }`}
-                    title={
-                      !dlPath.trim()
-                        ? t("tools.dlReplaceRootTitle")
-                        : t("tools.dlReplaceHint")
-                    }
-                  >
-                    <input
-                      type="checkbox"
-                      checked={dlReplaceMode}
-                      disabled={!dlDestPicked || !dlPath.trim()}
-                      onChange={(e) => {
-                        setDlReplaceMode(e.target.checked);
-                      }}
-                    />
-                    <span>{t("tools.dlReplaceFolder")}</span>
-                  </label>
-                </div>
-              </div>
-              {dlDestPicked ? (
-                <div className="tools-dl-dest__picked" role="status">
-                  {t("tools.destLine", { path: dlPath || t("tools.destRoot") })}
-                </div>
-              ) : (
-                <p className="subtle sm warnline tools-dl-dest__warn">
-                  {t("tools.confirmFolderWarn")}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="studio-panel">
-            <h4 className="studio-panel-title">{t("tools.dlLinkSection")}</h4>
-            <div className="tools-dl-modes">
-              <div className="tools-dl-mode">
-                <span className="tools-dl-mode__label subtle sm">
-                  {t("tools.dlYtVideoLabel")}
-                </span>
-                <div
-                  className="tools-dl-mode__seg"
-                  role="group"
-                  aria-label={t("tools.dlYtVideoLabel")}
-                >
-                  <button
-                    type="button"
-                    className={`tools-dl-mode__btn${
-                      dlYtSource === "video" && dlUrlMode === "single"
-                        ? " is-on"
-                        : ""
-                    }`}
-                    aria-pressed={
-                      dlYtSource === "video" && dlUrlMode === "single"
-                    }
-                    onClick={() => {
-                      setDlYtSource("video");
-                      setDlUrlMode("single");
-                    }}
-                  >
-                    {t("tools.dlTypeSingle")}
-                  </button>
-                  <button
-                    type="button"
-                    className={`tools-dl-mode__btn${
-                      dlYtSource === "video" && dlUrlMode === "playlist"
-                        ? " is-on"
-                        : ""
-                    }`}
-                    aria-pressed={
-                      dlYtSource === "video" && dlUrlMode === "playlist"
-                    }
-                    onClick={() => {
-                      setDlYtSource("video");
-                      setDlUrlMode("playlist");
-                    }}
-                  >
-                    {t("tools.dlTypePlaylist")}
-                  </button>
-                  <button
-                    type="button"
-                    className={`tools-dl-mode__btn${
-                      dlYtSource === "video" && dlUrlMode === "releases"
-                        ? " is-on"
-                        : ""
-                    }`}
-                    aria-pressed={
-                      dlYtSource === "video" && dlUrlMode === "releases"
-                    }
-                    onClick={() => {
-                      setDlYtSource("video");
-                      setDlUrlMode("releases");
-                    }}
-                  >
-                    {t("tools.dlTypeReleases")}
-                  </button>
-                </div>
-                <span className="tools-dl-mode__help-wrap">
-                  <button
-                    type="button"
-                    className="tools-dl-mode__help"
-                    aria-label={t("tools.dlModeHelpAria")}
-                  >
-                    ?
-                  </button>
-                  <span className="tools-dl-mode__tip" role="tooltip">
-                    {t("tools.dlModeGuide")}
-                  </span>
-                </span>
-              </div>
-              <div className="tools-dl-mode">
-                <span className="tools-dl-mode__label subtle sm">
-                  {t("tools.dlYtMusicLabel")}
-                </span>
-                <div
-                  className="tools-dl-mode__seg tools-dl-mode__seg--one"
-                  role="group"
-                  aria-label={t("tools.dlYtMusicLabel")}
-                >
-                  <button
-                    type="button"
-                    className={`tools-dl-mode__btn${
-                      dlYtSource === "music" ? " is-on" : ""
-                    }`}
-                    aria-pressed={dlYtSource === "music"}
-                    onClick={() => setDlYtSource("music")}
-                  >
-                    {t("tools.dlYtMusicMode")}
-                  </button>
-                </div>
-                <span className="tools-dl-mode__help-wrap">
-                  <button
-                    type="button"
-                    className="tools-dl-mode__help"
-                    aria-label={t("tools.dlYtMusicHelpAria")}
-                  >
-                    ?
-                  </button>
-                  <span className="tools-dl-mode__tip" role="tooltip">
-                    {t("tools.dlYtMusicGuide")}
-                  </span>
-                </span>
-              </div>
-            </div>
-            <input
-              type="url"
-              className="w-full"
-              placeholder={dlUrlPlaceholder}
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              autoComplete="off"
-              aria-invalid={url.trim() !== "" && !dlUrlValid}
-            />
-            {showMultiAlbumPicker ? (
-              <div className="tools-dl-releases">
-                {relPayload ? (
-                  <div className="tools-dl-releases__picks tools-dl-releases__picks--full">
-                    <p className="subtle sm">
-                      {relPayload.listTitle
-                        ? relPayload.listTitle
-                        : relPayload.uploader
-                        ? t("tools.dlReleasesUploader", {
-                            name: relPayload.uploader,
-                          })
-                        : null}
-                    </p>
-                    <div className="tools-dl-releases__toolbar">
-                      <button
-                        type="button"
-                        className="btn secondary sm"
-                        onClick={() =>
-                          setRelSel(
-                            new Set(relPayload.entries.map((e) => e.id))
-                          )
-                        }
-                      >
-                        {t("tools.dlSelectAll")}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn secondary sm"
-                        onClick={() => setRelSel(new Set())}
-                      >
-                        {t("tools.dlSelectNone")}
-                      </button>
-                    </div>
-                    <ul
-                      className="tools-dl-releases__list tools-dl-releases__list--grid"
-                      aria-label={t("tools.dlReleasesListTitle")}
-                      aria-busy={!relStreamComplete}
-                    >
-                      {relPayload.entries.map((e) => (
-                        <li key={e.id} className="tools-dl-releases__row">
-                          <label className="tools-dl-releases__check">
-                            <input
-                              type="checkbox"
-                              checked={relSel.has(e.id)}
-                              onChange={() => toggleRelEntry(e.id)}
-                            />
-                            <span
-                              className="tools-dl-releases__title"
-                              title={e.url}
-                            >
-                              {e.title}
-                            </span>
-                            <span
-                              className="tools-dl-releases__trackcount"
-                              aria-label={
-                                e.trackCount != null
-                                  ? t("tools.dlTrackCountAria", {
-                                      n: e.trackCount,
-                                    })
-                                  : undefined
-                              }
-                            >
-                              {e.trackCount != null
-                                ? t("tools.dlTrackCount", { n: e.trackCount })
-                                : t("tools.dlTrackCountUnknown")}
-                            </span>
-                          </label>
-                        </li>
-                      ))}
-                      {relStreamTotal != null && !relStreamComplete
-                        ? Array.from(
-                            {
-                              length: Math.max(
-                                0,
-                                relStreamTotal - relPayload.entries.length
-                              ),
-                            },
-                            (_, sk) => (
-                              <li
-                                key={`rel-sk-${sk}`}
-                                className="tools-dl-releases__row tools-dl-releases__row--skeleton"
-                                aria-hidden
-                              >
-                                <div className="tools-dl-releases__check tools-dl-releases__check--skeleton">
-                                  <span className="tools-dl-releases__sk-pad" />
-                                  <div className="tools-dl-releases__sk-text">
-                                    <div className="tools-dl-releases__skeleton-bar" />
-                                    <div className="tools-dl-releases__skeleton-bar tools-dl-releases__skeleton-bar--sub" />
-                                  </div>
-                                  <div className="tools-dl-releases__skeleton-bar tools-dl-releases__skeleton-bcount" />
-                                </div>
-                              </li>
-                            )
-                          )
-                        : null}
-                    </ul>
-                    {relPayload && !relStreamComplete ? (
-                      <p
-                        className="subtle sm tools-dl-releases__enrich"
-                        role="status"
-                      >
-                        {t("tools.dlReleasesEnriching")}
+                    {metaAlbumPath ? (
+                      <p className="art-target sm">
+                        {t("tools.folderLine", { path: metaAlbumPath })}
                       </p>
                     ) : null}
+                    <div className="studio-action-row studio-meta-fill-row">
+                      <button
+                        type="button"
+                        className="btn secondary sm"
+                        onClick={setMetaFromCurrent}
+                        disabled={!p.current || studioMetaBusy}
+                      >
+                        {t("tools.metaFillFromPlayback")}
+                      </button>
+                    </div>
                   </div>
-                ) : null}
-                <div className="studio-inline-actions studio-inline-actions--spaced">
-                  {!relPayload ? (
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={loadReleasesCatalog}
-                      disabled={
-                        relLoadBusy ||
-                        !url.trim() ||
-                        !dlDestPicked ||
-                        !dlUrlValid
-                      }
-                    >
-                      {relLoadBusy
-                        ? t("tools.dlReleasesLoading")
-                        : t("tools.dlLoadReleases")}
-                    </button>
-                  ) : dlBusy ? (
-                    <span className="subtle sm" role="status">
-                      {t("tools.inProgress")}
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={runReleasesDl}
-                      disabled={
-                        dlBusy ||
-                        relLoadBusy ||
-                        !dlDestPicked ||
-                        relSel.size === 0 ||
-                        !relStreamComplete ||
-                        !dlUrlValid
-                      }
-                    >
-                      {t("tools.dlDownloadSelected")}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="studio-inline-actions studio-inline-actions--spaced">
-                {dlBusy ? (
-                  <span className="subtle sm" role="status">
-                    {t("tools.inProgress")}
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={runDl}
-                    disabled={
-                      dlBusy ||
-                      !url.trim() ||
-                      !dlDestPicked ||
-                      !dlUrlValid
-                    }
-                  >
-                    {t("tools.downloadRun")}
-                  </button>
-                )}
-              </div>
-            )}
-            {(dlBusy || dlProg) && (
-              <div
-                className={[
-                  "dl-progress-wrap",
-                  showReleaseMultiTrackBar ? "dl-progress-wrap--dual" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                aria-live="polite"
-              >
-                {dlBusy ? (
-                  <div className="dl-progress-stop-row">
-                    <button
-                      type="button"
-                      className="btn danger sm"
-                      onClick={stopStudioDownload}
-                    >
-                      {t("tools.dlStop")}
-                    </button>
-                  </div>
-                ) : null}
-                {showReleaseMultiTrackBar ? (
-                  <>
-                    <div className="dl-progress-block">
-                      <div className="dl-progress-top">
-                        <strong>{t("tools.dlProgressAlbumsLabel")}</strong>
-                        <span>
-                          {dlBusy
-                            ? dlProgNorm
-                              ? t("tools.dlProgressCount", {
-                                  cur: dlProgNorm.cur,
-                                  tot: dlProgNorm.tot,
-                                })
-                              : t("tools.inProgress")
-                            : dlProgNorm
-                            ? t("tools.dlProgressCount", {
-                                cur: dlProgNorm.cur,
-                                tot: dlProgNorm.tot,
-                              })
-                            : t("common.emDash")}
+
+                  <div className="studio-panel studio-meta-essentials">
+                    <h4 className="studio-panel-title">
+                      {t("tools.metaEssentials")}
+                    </h4>
+                    <div className="studio-action-groups">
+                      <div className="studio-action-group">
+                        <span className="studio-action-group-label">
+                          {t("tools.metaAlbumSectionLabel")}
                         </span>
+                        <p className="subtle sm studio-meta-essentials-hint">
+                          {t("tools.metaEssentialsAlbumSub")}
+                        </p>
+                        <div className="studio-action-row studio-meta-equal-btns">
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            onClick={fetchOneAlbumMeta}
+                            disabled={!metaAlbumPath?.trim() || studioMetaBusy}
+                          >
+                            {metaBusy
+                              ? t("tools.fetchingMeta")
+                              : t("tools.metaBtnSelectedAlbum")}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            onClick={() => setMetaScanChoiceOpen("album")}
+                            disabled={!library || studioMetaBusy}
+                            title={t("tools.scanAlbumsTitle")}
+                          >
+                            {metaAllBusy
+                              ? t("tools.scanning")
+                              : t("tools.metaBtnScanAuto")}
+                          </button>
+                        </div>
                       </div>
-                      <div className="dl-progress-rail">
-                        <div
-                          className="dl-progress-fill"
-                          style={{
-                            width: dlProgNorm
-                              ? `${dlProgNorm.pct}%`
-                              : dlBusy
-                              ? "18%"
-                              : "0%",
-                          }}
-                        />
+                      <div className="studio-action-group">
+                        <span className="studio-action-group-label">
+                          {t("tools.tracks")}
+                        </span>
+                        <p className="subtle sm studio-meta-essentials-hint">
+                          {t("tools.metaEssentialsTracksSub")}
+                        </p>
+                        <div className="studio-action-row studio-meta-equal-btns">
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            onClick={fetchCurrentTrackMeta}
+                            disabled={!p.current || studioMetaBusy}
+                          >
+                            {trackMetaBusy ? "…" : t("tools.currentTrackMeta")}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            onClick={() => setMetaScanChoiceOpen("track")}
+                            disabled={!library || studioMetaBusy}
+                          >
+                            {trackAllBusy
+                              ? t("tools.scanning")
+                              : t("tools.scanAllTracks")}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    {dlTrackNorm ? (
-                      <div className="dl-progress-block">
+                    {metaAllBusy && metaScanProg && metaScanProg.total > 0 ? (
+                      <div className="dl-progress-wrap">
                         <div className="dl-progress-top">
-                          <strong>{t("tools.dlProgressTracksInAlbum")}</strong>
+                          <span>{t("tools.progressAlbumMeta")}</span>
                           <span>
-                            {dlTrackNorm.hasTotal
-                              ? t("tools.dlProgressCount", {
-                                  cur: dlTrackNorm.cur,
-                                  tot: dlTrackNorm.tot,
-                                })
-                              : t("tools.dlProgressTrackWait")}
+                            {metaScanProg.current}/{metaScanProg.total}
                           </span>
                         </div>
                         <div className="dl-progress-rail">
                           <div
                             className="dl-progress-fill"
-                            style={{ width: `${dlTrackNorm.pct}%` }}
+                            style={{
+                              width: `${Math.max(
+                                2,
+                                Math.min(
+                                  100,
+                                  (metaScanProg.current / metaScanProg.total) *
+                                    100
+                                )
+                              )}%`,
+                            }}
                           />
                         </div>
                       </div>
                     ) : null}
-                  </>
-                ) : (
-                  <>
-                    <div className="dl-progress-top">
-                      <strong>{t("tools.progress")}</strong>
-                      <span>
-                        {dlBusy
-                          ? dlProgNorm
-                            ? t("tools.dlProgressCount", {
-                                cur: dlProgNorm.cur,
-                                tot: dlProgNorm.tot,
-                              })
-                            : t("tools.inProgress")
-                          : dlProgNorm
-                          ? t("tools.dlProgressCount", {
-                              cur: dlProgNorm.cur,
-                              tot: dlProgNorm.tot,
-                            })
-                          : t("common.emDash")}
-                      </span>
-                    </div>
-                    <div className="dl-progress-rail">
-                      <div
-                        className="dl-progress-fill"
-                        style={{
-                          width: dlProgNorm
-                            ? `${dlProgNorm.pct}%`
-                            : dlBusy
-                            ? "18%"
-                            : "0%",
+                    {trackAllBusy &&
+                    trackScanProg &&
+                    trackScanProg.total > 0 ? (
+                      <div className="dl-progress-wrap">
+                        <div className="dl-progress-top">
+                          <span>{t("tools.progressTrackMeta")}</span>
+                          <span>
+                            {trackScanProg.current}/{trackScanProg.total}
+                          </span>
+                        </div>
+                        <div className="dl-progress-rail">
+                          <div
+                            className="dl-progress-fill"
+                            style={{
+                              width: `${Math.max(
+                                2,
+                                Math.min(
+                                  100,
+                                  (trackScanProg.current /
+                                    trackScanProg.total) *
+                                    100
+                                )
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                    {genreAutoBusy &&
+                    genreAutoProg &&
+                    genreAutoProg.total > 0 ? (
+                      <div className="dl-progress-wrap">
+                        <div className="dl-progress-top">
+                          <span>{t("tools.genreAutoProgress")}</span>
+                          <span>
+                            {genreAutoProg.current}/{genreAutoProg.total}
+                          </span>
+                        </div>
+                        <div className="dl-progress-rail">
+                          <div
+                            className="dl-progress-fill"
+                            style={{
+                              width: `${Math.max(
+                                2,
+                                Math.min(
+                                  100,
+                                  (genreAutoProg.current /
+                                    genreAutoProg.total) *
+                                    100
+                                )
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                    {trackPruneBusy &&
+                    trackPruneProg &&
+                    trackPruneProg.total > 0 ? (
+                      <div className="dl-progress-wrap">
+                        <div className="dl-progress-top">
+                          <span>{t("tools.progressTrackMetaPrune")}</span>
+                          <span>
+                            {trackPruneProg.current}/{trackPruneProg.total}
+                          </span>
+                        </div>
+                        <div className="dl-progress-rail">
+                          <div
+                            className="dl-progress-fill"
+                            style={{
+                              width: `${Math.max(
+                                2,
+                                Math.min(
+                                  100,
+                                  (trackPruneProg.current /
+                                    trackPruneProg.total) *
+                                    100
+                                )
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                    {(metaAllBusy || trackAllBusy || trackPruneBusy) && (
+                      <div className="studio-stop-row">
+                        {metaAllBusy ? (
+                          <button
+                            type="button"
+                            className="btn secondary sm"
+                            onClick={() => {
+                              stopMetaAll.current = true;
+                            }}
+                          >
+                            {t("tools.stopAlbums")}
+                          </button>
+                        ) : null}
+                        {trackAllBusy ? (
+                          <button
+                            type="button"
+                            className="btn secondary sm"
+                            onClick={() => {
+                              stopTrackAll.current = true;
+                            }}
+                          >
+                            {t("tools.stopTracks")}
+                          </button>
+                        ) : null}
+                        {trackPruneBusy ? (
+                          <button
+                            type="button"
+                            className="btn secondary sm"
+                            onClick={() => {
+                              stopTrackPrune.current = true;
+                            }}
+                          >
+                            {t("tools.stopTrackPrune")}
+                          </button>
+                        ) : null}
+                      </div>
+                    )}
+                    <div className="studio-meta-if-needed">
+                      <button
+                        type="button"
+                        className="btn secondary sm"
+                        onClick={() => {
+                          void runPruneOrphanTrackMeta();
                         }}
-                      />
+                        disabled={!library || studioMetaBusy}
+                        title={t("tools.trackMetaPruneTitle")}
+                      >
+                        {trackPruneBusy
+                          ? "…"
+                          : t("tools.trackMetaPruneOrphans")}
+                      </button>
                     </div>
-                  </>
-                )}
+                  </div>
+                </div>
+
+                <div className="studio-meta-split__secondary">
+                  <div className="studio-meta-optional">
+                    <button
+                      type="button"
+                      className="studio-meta-optional__toggle"
+                      onClick={() => setMetaOptionalOpen((v) => !v)}
+                      aria-expanded={metaOptionalOpen}
+                    >
+                      <span>{t("tools.metaOptional")}</span>
+                      <UiChevronRight
+                        className={
+                          metaOptionalOpen
+                            ? "studio-meta-optional__chev is-open"
+                            : "studio-meta-optional__chev"
+                        }
+                        aria-hidden
+                      />
+                    </button>
+                    {metaOptionalOpen ? (
+                      <div className="studio-meta-optional__body studio-action-groups">
+                        <div className="studio-action-group">
+                          <span className="studio-action-group-label">
+                            {t("tools.metaOptionalGenres")}
+                          </span>
+                          <p className="subtle sm studio-hint-line">
+                            {t("tools.genreAutoHint")}
+                          </p>
+                          <div className="studio-action-row studio-meta-equal-btns">
+                            <button
+                              type="button"
+                              className="btn secondary"
+                              disabled={!libraryIndex || studioMetaBusy}
+                              onClick={runGenreAutoPreview}
+                            >
+                              {genreAutoBusy
+                                ? "…"
+                                : t("tools.genreAutoPreview")}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn"
+                              disabled={!libraryIndex || studioMetaBusy}
+                              onClick={() => beginGenreApplyFlow()}
+                            >
+                              {genreAutoBusy
+                                ? t("tools.scanning")
+                                : t("tools.genreAutoApply")}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="studio-action-group">
+                          <span className="studio-action-group-label">
+                            {t("tools.metaOptionalTitles")}
+                          </span>
+                          <p className="subtle sm studio-hint-line">
+                            {t("tools.titleHint")}
+                          </p>
+                          <div className="studio-action-row studio-meta-equal-btns">
+                            <button
+                              type="button"
+                              className="btn secondary"
+                              disabled={!metaAlbumPath || studioMetaBusy}
+                              onClick={() => runSanitizeTitles("album", true)}
+                            >
+                              {titleSanBusy ? "…" : t("tools.previewAlbum")}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn secondary"
+                              disabled={!metaAlbumPath || studioMetaBusy}
+                              onClick={() => runSanitizeTitles("album", false)}
+                            >
+                              {titleSanBusy ? "…" : t("tools.applyAlbum")}
+                            </button>
+                          </div>
+                          <div className="studio-action-row studio-meta-equal-btns">
+                            <button
+                              type="button"
+                              className="btn secondary"
+                              disabled={!library || studioMetaBusy}
+                              onClick={() => runSanitizeTitles("all", true)}
+                            >
+                              {titleSanBusy ? "…" : t("tools.previewLibrary")}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn"
+                              disabled={!library || studioMetaBusy}
+                              onClick={() => runSanitizeTitles("all", false)}
+                            >
+                              {titleSanBusy ? "…" : t("tools.applyLibrary")}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="studio-log">
+                    <label className="subtle sm">{t("tools.logLabel")}</label>
+                    <textarea
+                      className="log"
+                      value={metaLog}
+                      onChange={(e) => setMetaLog(e.target.value)}
+                      rows={3}
+                    />
+                    <button
+                      type="button"
+                      className="linkbtn"
+                      onClick={() => setMetaLog("")}
+                    >
+                      {t("tools.clear")}
+                    </button>
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
+            </div>
+          ) : null}
 
-          <div className="studio-log">
-            <label className="subtle sm">{t("tools.logLabel")}</label>
-            <textarea
-              className="log"
-              value={log}
-              onChange={(e) => setLog(e.target.value)}
-              rows={4}
-            />
-            <button
-              type="button"
-              className="linkbtn"
-              onClick={() => setLog("")}
+          {studioPane === "covers" ? (
+            <div
+              className="studio-pane tools-art"
+              role="region"
+              aria-label={t("tools.coversTitle")}
             >
-              {t("tools.clear")}
-            </button>
-          </div>
-        </section>
-
-        <section className="tool-block glass tools-meta">
-          <header className="studio-head studio-head--with-ic">
-            <span
-              className="section-head__icon-wrap studio-head__ic-slot"
-              aria-hidden
-            >
-              <UiNote className="section-head__ic" />
-            </span>
-            <h3 className="studio-head__h3-solo">{t("tools.metaTitle")}</h3>
-          </header>
-
-          <div className="studio-panel studio-meta-picks">
-            <div className="tools-shared-browse-picks tools-studio-pair-picks">
-              <div>
-                <label
-                  className="subtle sm block-label"
-                  htmlFor="meta-artist-sel"
-                >
-                  {t("tools.sharedPickArtist")}
-                </label>
-                <select
-                  id="meta-artist-sel"
-                  className="select"
-                  value={metaArtistName}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setMetaArtistName(v);
-                    setMetaAlbumPath("");
-                  }}
-                  aria-label={t("tools.sharedPickArtist")}
-                >
-                  <option value="">{t("tools.sharedPickPlaceholder")}</option>
-                  {libraryArtistsSorted.map((a) => (
-                    <option key={a.name} value={a.name}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label
-                  className="subtle sm block-label"
-                  htmlFor="meta-album-sel"
-                >
-                  {t("tools.sharedPickAlbum")}
-                </label>
-                <select
-                  id="meta-album-sel"
-                  className="select"
-                  value={metaAlbumPath}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setMetaAlbumPath(v);
-                    const o = metaAlbumsForPick.find((x) => x.relPath === v);
-                    if (o) {
-                      setMetaArt(metaArtistName);
-                      setMetaAlb(o.name);
-                    }
-                  }}
-                  disabled={!metaArtistName}
-                  aria-label={t("tools.metaAlbumAria")}
-                >
-                  {!metaArtistName ? (
-                    <option value="">{t("tools.sharedAlbumNeedArtist")}</option>
-                  ) : (
-                    <>
-                      <option value="">{t("tools.pickAlbum")}</option>
-                      {metaAlbumsForPick.map((o) => (
-                        <option key={o.relPath} value={o.relPath}>
-                          {o.name}
+              <div className="studio-covers-split">
+                <div className="studio-panel">
+                  <h4 className="studio-panel-title">
+                    {t("tools.coversSave")}
+                  </h4>
+                  <div className="tools-shared-browse-picks tools-studio-pair-picks">
+                    <div>
+                      <label
+                        className="subtle sm block-label"
+                        htmlFor="cover-artist-sel"
+                      >
+                        {t("tools.sharedPickArtist")}
+                      </label>
+                      <select
+                        id="cover-artist-sel"
+                        className="select"
+                        value={coverPickArtist}
+                        onChange={(e) => {
+                          setCoverPickArtist(e.target.value);
+                          setAlbumForCover("");
+                        }}
+                        aria-label={t("tools.sharedPickArtist")}
+                      >
+                        <option value="">
+                          {t("tools.sharedPickPlaceholder")}
                         </option>
-                      ))}
-                    </>
-                  )}
-                </select>
-              </div>
-            </div>
-            {metaAlbumPath ? (
-              <p className="art-target sm">
-                {t("tools.folderLine", { path: metaAlbumPath })}
-              </p>
-            ) : null}
-            <div className="studio-action-row studio-meta-fill-row">
-              <button
-                type="button"
-                className="btn secondary sm"
-                onClick={setMetaFromCurrent}
-                disabled={!p.current || studioMetaBusy}
-              >
-                {t("tools.metaFillFromPlayback")}
-              </button>
-            </div>
-          </div>
-
-          <div className="studio-panel studio-meta-essentials">
-            <h4 className="studio-panel-title">{t("tools.metaEssentials")}</h4>
-            <div className="studio-action-groups">
-              <div className="studio-action-group">
-                <span className="studio-action-group-label">
-                  {t("tools.metaAlbumSectionLabel")}
-                </span>
-                <p className="subtle sm studio-meta-essentials-hint">
-                  {t("tools.metaEssentialsAlbumSub")}
-                </p>
-                <div className="studio-action-row studio-meta-equal-btns">
-                  <button
-                    type="button"
-                    className="btn secondary"
-                    onClick={fetchOneAlbumMeta}
-                    disabled={!metaAlbumPath?.trim() || studioMetaBusy}
-                  >
-                    {metaBusy
-                      ? t("tools.fetchingMeta")
-                      : t("tools.metaBtnSelectedAlbum")}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={() => setMetaScanChoiceOpen("album")}
-                    disabled={!library || studioMetaBusy}
-                    title={t("tools.scanAlbumsTitle")}
-                  >
-                    {metaAllBusy
-                      ? t("tools.scanning")
-                      : t("tools.metaBtnScanAuto")}
-                  </button>
-                </div>
-              </div>
-              <div className="studio-action-group">
-                <span className="studio-action-group-label">
-                  {t("tools.tracks")}
-                </span>
-                <p className="subtle sm studio-meta-essentials-hint">
-                  {t("tools.metaEssentialsTracksSub")}
-                </p>
-                <div className="studio-action-row studio-meta-equal-btns">
-                  <button
-                    type="button"
-                    className="btn secondary"
-                    onClick={fetchCurrentTrackMeta}
-                    disabled={!p.current || studioMetaBusy}
-                  >
-                    {trackMetaBusy ? "…" : t("tools.currentTrackMeta")}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={() => setMetaScanChoiceOpen("track")}
-                    disabled={!library || studioMetaBusy}
-                  >
-                    {trackAllBusy
-                      ? t("tools.scanning")
-                      : t("tools.scanAllTracks")}
-                  </button>
-                </div>
-              </div>
-            </div>
-            {metaAllBusy && metaScanProg && metaScanProg.total > 0 ? (
-              <div className="dl-progress-wrap">
-                <div className="dl-progress-top">
-                  <span>{t("tools.progressAlbumMeta")}</span>
-                  <span>
-                    {metaScanProg.current}/{metaScanProg.total}
-                  </span>
-                </div>
-                <div className="dl-progress-rail">
-                  <div
-                    className="dl-progress-fill"
-                    style={{
-                      width: `${Math.max(
-                        2,
-                        Math.min(
-                          100,
-                          (metaScanProg.current / metaScanProg.total) * 100
-                        )
-                      )}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            ) : null}
-            {trackAllBusy && trackScanProg && trackScanProg.total > 0 ? (
-              <div className="dl-progress-wrap">
-                <div className="dl-progress-top">
-                  <span>{t("tools.progressTrackMeta")}</span>
-                  <span>
-                    {trackScanProg.current}/{trackScanProg.total}
-                  </span>
-                </div>
-                <div className="dl-progress-rail">
-                  <div
-                    className="dl-progress-fill"
-                    style={{
-                      width: `${Math.max(
-                        2,
-                        Math.min(
-                          100,
-                          (trackScanProg.current / trackScanProg.total) * 100
-                        )
-                      )}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            ) : null}
-            {genreAutoBusy && genreAutoProg && genreAutoProg.total > 0 ? (
-              <div className="dl-progress-wrap">
-                <div className="dl-progress-top">
-                  <span>{t("tools.genreAutoProgress")}</span>
-                  <span>
-                    {genreAutoProg.current}/{genreAutoProg.total}
-                  </span>
-                </div>
-                <div className="dl-progress-rail">
-                  <div
-                    className="dl-progress-fill"
-                    style={{
-                      width: `${Math.max(
-                        2,
-                        Math.min(
-                          100,
-                          (genreAutoProg.current / genreAutoProg.total) * 100
-                        )
-                      )}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            ) : null}
-            {trackPruneBusy && trackPruneProg && trackPruneProg.total > 0 ? (
-              <div className="dl-progress-wrap">
-                <div className="dl-progress-top">
-                  <span>{t("tools.progressTrackMetaPrune")}</span>
-                  <span>
-                    {trackPruneProg.current}/{trackPruneProg.total}
-                  </span>
-                </div>
-                <div className="dl-progress-rail">
-                  <div
-                    className="dl-progress-fill"
-                    style={{
-                      width: `${Math.max(
-                        2,
-                        Math.min(
-                          100,
-                          (trackPruneProg.current / trackPruneProg.total) * 100
-                        )
-                      )}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            ) : null}
-            {(metaAllBusy || trackAllBusy || trackPruneBusy) && (
-              <div className="studio-stop-row">
-                {metaAllBusy ? (
-                  <button
-                    type="button"
-                    className="btn secondary sm"
-                    onClick={() => {
-                      stopMetaAll.current = true;
-                    }}
-                  >
-                    {t("tools.stopAlbums")}
-                  </button>
-                ) : null}
-                {trackAllBusy ? (
-                  <button
-                    type="button"
-                    className="btn secondary sm"
-                    onClick={() => {
-                      stopTrackAll.current = true;
-                    }}
-                  >
-                    {t("tools.stopTracks")}
-                  </button>
-                ) : null}
-                {trackPruneBusy ? (
-                  <button
-                    type="button"
-                    className="btn secondary sm"
-                    onClick={() => {
-                      stopTrackPrune.current = true;
-                    }}
-                  >
-                    {t("tools.stopTrackPrune")}
-                  </button>
-                ) : null}
-              </div>
-            )}
-            <div className="studio-meta-if-needed">
-              <button
-                type="button"
-                className="btn secondary sm"
-                onClick={() => {
-                  void runPruneOrphanTrackMeta();
-                }}
-                disabled={!library || studioMetaBusy}
-                title={t("tools.trackMetaPruneTitle")}
-              >
-                {trackPruneBusy ? "…" : t("tools.trackMetaPruneOrphans")}
-              </button>
-            </div>
-          </div>
-
-          <div className="studio-meta-optional">
-            <button
-              type="button"
-              className="studio-meta-optional__toggle"
-              onClick={() => setMetaOptionalOpen((v) => !v)}
-              aria-expanded={metaOptionalOpen}
-            >
-              <span>{t("tools.metaOptional")}</span>
-              <UiChevronRight
-                className={
-                  metaOptionalOpen
-                    ? "studio-meta-optional__chev is-open"
-                    : "studio-meta-optional__chev"
-                }
-                aria-hidden
-              />
-            </button>
-            {metaOptionalOpen ? (
-              <div className="studio-meta-optional__body studio-action-groups">
-                <div className="studio-action-group">
-                  <span className="studio-action-group-label">
-                    {t("tools.metaOptionalGenres")}
-                  </span>
-                  <p className="subtle sm studio-hint-line">
-                    {t("tools.genreAutoHint")}
-                  </p>
-                  <div className="studio-action-row studio-meta-equal-btns">
-                    <button
-                      type="button"
-                      className="btn secondary"
-                      disabled={!libraryIndex || studioMetaBusy}
-                      onClick={runGenreAutoPreview}
-                    >
-                      {genreAutoBusy ? "…" : t("tools.genreAutoPreview")}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn"
-                      disabled={!libraryIndex || studioMetaBusy}
-                      onClick={() => beginGenreApplyFlow()}
-                    >
-                      {genreAutoBusy
-                        ? t("tools.scanning")
-                        : t("tools.genreAutoApply")}
-                    </button>
+                        {libraryArtistsSorted.map((a) => (
+                          <option key={a.name} value={a.name}>
+                            {a.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label
+                        className="subtle sm block-label"
+                        htmlFor="cover-album-sel"
+                      >
+                        {t("tools.sharedPickAlbum")}
+                      </label>
+                      <select
+                        id="cover-album-sel"
+                        className="select"
+                        value={albumForCover}
+                        onChange={(e) => setAlbumForCover(e.target.value)}
+                        disabled={!coverPickArtist}
+                        aria-label={t("tools.coversPickAria")}
+                      >
+                        {!coverPickArtist ? (
+                          <option value="">
+                            {t("tools.sharedAlbumNeedArtist")}
+                          </option>
+                        ) : (
+                          <>
+                            <option value="">{t("tools.pickAlbum")}</option>
+                            {coverAlbumsForPick.map((o) => (
+                              <option key={o.relPath} value={o.relPath}>
+                                {o.name}
+                              </option>
+                            ))}
+                          </>
+                        )}
+                      </select>
+                    </div>
                   </div>
-                </div>
-                <div className="studio-action-group">
-                  <span className="studio-action-group-label">
-                    {t("tools.metaOptionalTitles")}
-                  </span>
-                  <p className="subtle sm studio-hint-line">
-                    {t("tools.titleHint")}
-                  </p>
-                  <div className="studio-action-row studio-meta-equal-btns">
-                    <button
-                      type="button"
-                      className="btn secondary"
-                      disabled={!metaAlbumPath || studioMetaBusy}
-                      onClick={() => runSanitizeTitles("album", true)}
-                    >
-                      {titleSanBusy ? "…" : t("tools.previewAlbum")}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn secondary"
-                      disabled={!metaAlbumPath || studioMetaBusy}
-                      onClick={() => runSanitizeTitles("album", false)}
-                    >
-                      {titleSanBusy ? "…" : t("tools.applyAlbum")}
-                    </button>
-                  </div>
-                  <div className="studio-action-row studio-meta-equal-btns">
-                    <button
-                      type="button"
-                      className="btn secondary"
-                      disabled={!library || studioMetaBusy}
-                      onClick={() => runSanitizeTitles("all", true)}
-                    >
-                      {titleSanBusy ? "…" : t("tools.previewLibrary")}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn"
-                      disabled={!library || studioMetaBusy}
-                      onClick={() => runSanitizeTitles("all", false)}
-                    >
-                      {titleSanBusy ? "…" : t("tools.applyLibrary")}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="studio-log">
-            <label className="subtle sm">{t("tools.logLabel")}</label>
-            <textarea
-              className="log"
-              value={metaLog}
-              onChange={(e) => setMetaLog(e.target.value)}
-              rows={3}
-            />
-            <button
-              type="button"
-              className="linkbtn"
-              onClick={() => setMetaLog("")}
-            >
-              {t("tools.clear")}
-            </button>
-          </div>
-        </section>
-
-        <section className="tool-block glass tools-art">
-          <header className="studio-head studio-head--with-ic">
-            <span
-              className="section-head__icon-wrap studio-head__ic-slot"
-              aria-hidden
-            >
-              <UiImage className="section-head__ic" />
-            </span>
-            <h3 className="studio-head__h3-solo">{t("tools.coversTitle")}</h3>
-          </header>
-
-          <div className="studio-panel">
-            <h4 className="studio-panel-title">{t("tools.coversSave")}</h4>
-            <div className="tools-shared-browse-picks tools-studio-pair-picks">
-              <div>
-                <label
-                  className="subtle sm block-label"
-                  htmlFor="cover-artist-sel"
-                >
-                  {t("tools.sharedPickArtist")}
-                </label>
-                <select
-                  id="cover-artist-sel"
-                  className="select"
-                  value={coverPickArtist}
-                  onChange={(e) => {
-                    setCoverPickArtist(e.target.value);
-                    setAlbumForCover("");
-                  }}
-                  aria-label={t("tools.sharedPickArtist")}
-                >
-                  <option value="">{t("tools.sharedPickPlaceholder")}</option>
-                  {libraryArtistsSorted.map((a) => (
-                    <option key={a.name} value={a.name}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label
-                  className="subtle sm block-label"
-                  htmlFor="cover-album-sel"
-                >
-                  {t("tools.sharedPickAlbum")}
-                </label>
-                <select
-                  id="cover-album-sel"
-                  className="select"
-                  value={albumForCover}
-                  onChange={(e) => setAlbumForCover(e.target.value)}
-                  disabled={!coverPickArtist}
-                  aria-label={t("tools.coversPickAria")}
-                >
-                  {!coverPickArtist ? (
-                    <option value="">{t("tools.sharedAlbumNeedArtist")}</option>
-                  ) : (
-                    <>
-                      <option value="">{t("tools.pickAlbum")}</option>
-                      {coverAlbumsForPick.map((o) => (
-                        <option key={o.relPath} value={o.relPath}>
-                          {o.name}
-                        </option>
-                      ))}
-                    </>
-                  )}
-                </select>
-              </div>
-            </div>
-            {albumForCover ? (
-              <p className="art-target sm">
-                <code>{albumForCover}</code>
-              </p>
-            ) : null}
-            <button
-              type="button"
-              className="btn secondary sm"
-              onClick={setCoverDestFromCurrentTrack}
-              disabled={!p.current}
-            >
-              {t("tools.useAlbumFromTrack")}
-            </button>
-          </div>
-
-          <div className="studio-panel">
-            <h4 className="studio-panel-title">{t("tools.coversSearch")}</h4>
-            <div className="art-fields">
-              <input
-                type="text"
-                className="flex1"
-                value={artArt}
-                onChange={(e) => setArtArt(e.target.value)}
-                placeholder={t("tools.artistPh")}
-              />
-              <input
-                type="text"
-                className="flex1"
-                value={artAlb}
-                onChange={(e) => setArtAlb(e.target.value)}
-                placeholder={t("tools.albumPh")}
-              />
-            </div>
-            <div className="studio-inline-actions studio-inline-actions--spaced">
-              <button
-                type="button"
-                className="btn secondary sm"
-                onClick={useCurrentForArt}
-              >
-                {t("tools.fillFromPlayback")}
-              </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={doArtSearch}
-                disabled={artBusy}
-              >
-                {artBusy ? t("tools.searching") : t("tools.searchCovers")}
-              </button>
-            </div>
-          </div>
-
-          <div className="artgrid2">
-            {artRes.map((a, i) => (
-              <div key={i + a.artwork} className="artcard2">
-                <div className="artcard2-img">
-                  <img src={a.artwork} alt="" loading="lazy" />
-                  {a.source ? (
-                    <span className="art-src">{sourceLabel(a.source)}</span>
+                  {albumForCover ? (
+                    <p className="art-target sm">
+                      <code>{albumForCover}</code>
+                    </p>
                   ) : null}
                 </div>
-                <div className="artcap2">
-                  <strong>{a.artist}</strong>
-                  <br />
-                  {a.name}
-                </div>
-                <div className="art-actions">
-                  <a
-                    className="extlink"
-                    href={a.url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {extLinkLabel(a.url, t("common.open"))}
-                  </a>
-                  <button
-                    type="button"
-                    className="btn sm"
-                    disabled={artBusy || !albumForCover}
-                    onClick={() => applyCover(a.artwork)}
-                  >
-                    {t("tools.saveCover")}
-                  </button>
+
+                <div className="studio-panel">
+                  <h4 className="studio-panel-title">
+                    {t("tools.coversSearch")}
+                  </h4>
+                  <div className="art-fields">
+                    <input
+                      type="text"
+                      className="flex1"
+                      value={artArt}
+                      onChange={(e) => setArtArt(e.target.value)}
+                      placeholder={t("tools.artistPh")}
+                    />
+                    <input
+                      type="text"
+                      className="flex1"
+                      value={artAlb}
+                      onChange={(e) => setArtAlb(e.target.value)}
+                      placeholder={t("tools.albumPh")}
+                    />
+                  </div>
+                  <div className="studio-inline-actions studio-inline-actions--spaced">
+                    <button
+                      type="button"
+                      className="btn secondary sm"
+                      onClick={useCurrentForArt}
+                    >
+                      {t("tools.fillFromPlayback")}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={doArtSearch}
+                      disabled={artBusy}
+                    >
+                      {artBusy ? t("tools.searching") : t("tools.searchCovers")}
+                    </button>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-          {artRes.length === 0 &&
-          !artBusy &&
-          (artArt.length > 0 || artAlb.length > 0) ? (
-            <p className="subtle sm studio-panel-gap">
-              {t("tools.noCoverResults")}
-            </p>
+
+              <div className="artgrid2">
+                {artRes.map((a, i) => (
+                  <div key={i + a.artwork} className="artcard2">
+                    <div className="artcard2-img">
+                      <img src={a.artwork} alt="" loading="lazy" />
+                      {a.source ? (
+                        <span className="art-src">{sourceLabel(a.source)}</span>
+                      ) : null}
+                    </div>
+                    <div className="artcap2">
+                      <strong>{a.artist}</strong>
+                      <br />
+                      {a.name}
+                    </div>
+                    <div className="art-actions">
+                      <a
+                        className="extlink"
+                        href={a.url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {extLinkLabel(a.url, t("common.open"))}
+                      </a>
+                      <button
+                        type="button"
+                        className="btn sm"
+                        disabled={artBusy || !albumForCover}
+                        onClick={() => applyCover(a.artwork)}
+                      >
+                        {t("tools.saveCover")}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {artRes.length === 0 &&
+              !artBusy &&
+              (artArt.length > 0 || artAlb.length > 0) ? (
+                <p className="subtle sm studio-panel-gap">
+                  {t("tools.noCoverResults")}
+                </p>
+              ) : null}
+            </div>
           ) : null}
-        </section>
-      </div>
+        </div>
+      </section>
       {metaScanChoiceOpen ? (
         <div
           className="meta-edit-backdrop"

@@ -90,6 +90,11 @@ function pickPrevIndex(
 
 const MAX_QUEUE_LENGTH = 500;
 
+function notifyLibrarySyncAfterPlayback() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("kord-sync-library-after-play"));
+}
+
 function capQueueAroundFocus<T>(items: T[], focusIndex: number) {
   if (items.length <= MAX_QUEUE_LENGTH) {
     const i = items.length
@@ -410,6 +415,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         }
       }
       keepPlayingRef.current = true;
+      notifyLibrarySyncAfterPlayback();
     },
     [shuffle],
   );

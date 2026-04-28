@@ -440,7 +440,7 @@ export function buildDashboard(index, userState) {
   ]
   return {
     stats: index.stats,
-    continueListening: (userState?.queue?.tracks || []).slice(0, 8),
+    continueListening: (userState?.queue?.tracks || []).slice(0, 500),
     recentTracks,
     favoriteTracks,
     recentlyUpdatedAlbums,
