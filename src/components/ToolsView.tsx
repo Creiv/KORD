@@ -111,8 +111,28 @@ const K_DL_OUT = "kord-dl-out";
 const W_DL_OUT = "wpp-dl-out";
 const K_COVER_ALB = "kord-cover-album";
 const W_COVER_ALB = "wpp-cover-album";
+const K_STUDIO_PANE = "kord-studio-pane";
 
 const SHARED_ALL_ALBUMS = "__kord_all_albums__";
+
+type StudioPane = "shared" | "download" | "meta" | "covers";
+
+function readStoredStudioPane(): StudioPane | null {
+  try {
+    const v = localStorage.getItem(K_STUDIO_PANE);
+    if (
+      v === "shared" ||
+      v === "download" ||
+      v === "meta" ||
+      v === "covers"
+    ) {
+      return v;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
 
 function normalizeDlProgress(
   p: { current: number; total: number } | null
@@ -322,23 +342,23 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
   const [genreApplyConfirmList, setGenreApplyConfirmList] = useState<
     GenreAutoAssignment[] | null
   >(null);
-  const [studioPane, setStudioPane] = useState<
-    "shared" | "download" | "meta" | "covers"
-  >("download");
+  const [studioPane, setStudioPane] = useState<StudioPane>(() => {
+    return readStoredStudioPane() ?? "shared";
+  });
 
   const showSharedTab = sharedAccounts.length > 1;
-  const studioDefaultToSharedRef = useRef(false);
 
   useEffect(() => {
     if (studioPane === "shared" && !showSharedTab) setStudioPane("download");
   }, [studioPane, showSharedTab]);
 
   useEffect(() => {
-    if (!showSharedTab) return;
-    if (studioDefaultToSharedRef.current) return;
-    studioDefaultToSharedRef.current = true;
-    setStudioPane((prev) => (prev === "download" ? "shared" : prev));
-  }, [showSharedTab]);
+    try {
+      localStorage.setItem(K_STUDIO_PANE, studioPane);
+    } catch {
+      /* ignore */
+    }
+  }, [studioPane]);
 
   useEffect(() => {
     if (!genreApplyScopeOpen && genreApplyConfirmList == null) return;

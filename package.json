@@ -3,7 +3,7 @@
   "description": "KORD — local hub for listening to, organizing, and maintaining a personal music library",
   "author": "KORD",
   "private": true,
-  "version": "1.5.0",
+  "version": "1.6.0",
   "type": "module",
   "main": "electron/main.mjs",
   "scripts": {
