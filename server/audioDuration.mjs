@@ -1,6 +1,8 @@
 import fs from "fs/promises"
 
-const MAX_FULL_READ_BYTES = 192 * 1024 * 1024
+const MAX_FULL_READ_BYTES = 8 * 1024 * 1024
+const HEAD_READ_BYTES = 1024 * 1024
+const TAIL_READ_BYTES = 256 * 1024
 
 function finiteMs(seconds) {
   if (!Number.isFinite(seconds) || seconds <= 0) return null
@@ -110,13 +112,21 @@ function mp3FrameInfo(buf, offset) {
       ? Math.floor((12 * bitrate * 1000) / sampleRate + padding) * 4
       : Math.floor(((layer === 3 && version !== 1 ? 72 : 144) * bitrate * 1000) / sampleRate + padding)
   if (frameSize <= 4) return null
-  return { frameSize, samples, sampleRate }
+  return { frameSize, samples, sampleRate, bitrateKbps: bitrate }
 }
 
-function parseMp3Duration(buf) {
+function parseMp3Duration(buf, fileSize = null) {
   let offset = 0
   if (buf.subarray(0, 3).toString("ascii") === "ID3") {
     offset = 10 + syncsafe(buf, 6)
+  }
+  if (fileSize && fileSize > buf.length) {
+    for (let i = offset; i + 4 <= buf.length; i += 1) {
+      const info = mp3FrameInfo(buf, i)
+      if (!info?.bitrateKbps) continue
+      return finiteMs(((fileSize - i) * 8) / (info.bitrateKbps * 1000))
+    }
+    return null
   }
   let totalSamples = 0
   let sampleRate = 0
@@ -134,6 +144,23 @@ function parseMp3Duration(buf) {
   }
   if (frames > 0 && sampleRate > 0) return finiteMs(totalSamples / sampleRate)
   return null
+}
+
+async function readFileSample(filePath, size) {
+  if (size <= MAX_FULL_READ_BYTES) return fs.readFile(filePath)
+  const handle = await fs.open(filePath, "r")
+  try {
+    const headSize = Math.min(size, HEAD_READ_BYTES)
+    const head = Buffer.alloc(headSize)
+    await handle.read(head, 0, headSize, 0)
+    const tailSize = Math.min(size - headSize, TAIL_READ_BYTES)
+    if (tailSize <= 0) return head
+    const tail = Buffer.alloc(tailSize)
+    await handle.read(tail, 0, tailSize, size - tailSize)
+    return Buffer.concat([head, tail])
+  } finally {
+    await handle.close()
+  }
 }
 
 function parseMp4Mvhd(buf, offset, end) {
@@ -259,19 +286,19 @@ export async function getAudioFileDurationMs(filePath) {
   } catch {
     return null
   }
-  if (!st.isFile() || st.size <= 0 || st.size > MAX_FULL_READ_BYTES) return null
+  if (!st.isFile() || st.size <= 0) return null
   let buf
   try {
-    buf = await fs.readFile(filePath)
+    buf = await readFileSample(filePath, st.size)
   } catch {
     return null
   }
   const lower = filePath.toLowerCase()
   if (lower.endsWith(".flac")) return parseFlacDuration(buf)
   if (lower.endsWith(".wav")) return parseWavDuration(buf)
-  if (lower.endsWith(".mp3")) return parseMp3Duration(buf)
+  if (lower.endsWith(".mp3")) return parseMp3Duration(buf, st.size > buf.length ? st.size : null)
   if (lower.endsWith(".m4a") || lower.endsWith(".mp4") || lower.endsWith(".aac")) return parseMp4Atoms(buf)
   if (lower.endsWith(".ogg") || lower.endsWith(".opus")) return parseOggOpusDuration(buf)
   if (lower.endsWith(".webm")) return parseWebmDuration(buf)
-  return parseMp4Atoms(buf) || parseOggOpusDuration(buf) || parseFlacDuration(buf) || parseWavDuration(buf) || parseMp3Duration(buf)
+  return parseMp4Atoms(buf) || parseOggOpusDuration(buf) || parseFlacDuration(buf) || parseWavDuration(buf) || parseMp3Duration(buf, st.size > buf.length ? st.size : null)
 }

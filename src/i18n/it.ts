@@ -499,12 +499,12 @@ export const IT: Record<string, string> = {
   "tools.dlProgressTrackWait": "Rilevamento brani…",
   "tools.dlPathLabel": "Cartella attuale",
   "tools.dlDestLead":
-    "Apri le cartelle dall’elenco (freccia: cartella superiore), poi premi «Usa questa cartella» per fissare la destinazione. Le cartelle nuove restano sotto il percorso attuale.",
+    "Apri una cartella artista o una sua sottocartella, poi premi «Usa questa cartella» per fissare la destinazione. La root Musica non può essere usata per scaricare.",
   "tools.dlSubfolders": "Sottocartelle",
   "tools.upFolderAria": "Cartella superiore",
   "tools.dlNewSubLabel": "Nuova sottocartella qui",
   "tools.dlEmptyFolders":
-    "Nessuna sottocartella. Creane una sopra o scegli la radice Musica.",
+    "Nessuna sottocartella. Creane una qui oppure scegli una cartella già presente.",
   "tools.dlPathActions": "Destinazione download",
   "tools.dlReplaceFolder": "Sostituisci file",
   "tools.dlReplaceHint":
@@ -529,12 +529,13 @@ export const IT: Record<string, string> = {
   "tools.createHere": "Crea qui",
   "tools.creating": "Creo…",
   "tools.useThisFolder": "Usa questa cartella",
-  "tools.useThisFolderTitle": "Percorso relativo a Musica",
+  "tools.useThisFolderTitle": "Scegli una cartella sotto Musica, non la root",
   "tools.musicRootBtn": "Root Musica",
   "tools.musicRootTitle": "File direttamente sotto Musica",
   "tools.destLine": "Destinazione: {{path}}",
   "tools.destRoot": "— (root) —",
-  "tools.confirmFolderWarn": "Conferma una cartella prima del download.",
+  "tools.confirmFolderWarn":
+    "Scegli e conferma una cartella sotto Musica prima del download. La root non è consentita.",
   "tools.url": "URL",
   "tools.urlPh": "URL playlist o video",
   "tools.downloadRun": "Scarica e importa",
@@ -700,7 +701,7 @@ export const IT: Record<string, string> = {
     "OK, aggiorna la libreria se non si aggiorna da sola.\n",
   "tools.sanitizeErr": "Titoli: {{e}}\n",
   "tools.dlPickFolder":
-    "Scegli la cartella: «Usa questa cartella» o «Usa root Musica» (sopra).\n",
+    "Scegli una cartella artista o una sottocartella: la root Musica non è consentita.\n",
   "tools.dlStart": "→ Avvio in «{{path}}»…\n",
   "tools.dlRootLabel": "(root Musica)",
   "tools.dlResult": "{{ok}} (code {{code}})\n",

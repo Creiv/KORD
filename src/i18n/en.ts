@@ -492,11 +492,11 @@ export const EN: Record<string, string> = {
   "tools.dlProgressTrackWait": "Resolving track list…",
   "tools.dlPathLabel": "Current folder",
   "tools.dlDestLead":
-    "Open folders from the list (arrow: parent). Then press “Use this folder” to set the download destination. New subfolders are created in the current location.",
+    "Open an artist folder or one of its subfolders, then press “Use this folder” to set the download destination. The Music root cannot be used for downloads.",
   "tools.dlSubfolders": "Subfolders",
   "tools.upFolderAria": "Up one level",
   "tools.dlNewSubLabel": "New subfolder here",
-  "tools.dlEmptyFolders": "No subfolders. Create one above or pick Music root.",
+  "tools.dlEmptyFolders": "No subfolders. Create one here or choose an existing folder.",
   "tools.dlPathActions": "Use as download destination",
   "tools.dlReplaceFolder": "Replace files",
   "tools.dlReplaceHint":
@@ -521,12 +521,13 @@ export const EN: Record<string, string> = {
   "tools.createHere": "Create here",
   "tools.creating": "Creating…",
   "tools.useThisFolder": "Use this folder",
-  "tools.useThisFolderTitle": "Path relative to Music",
+  "tools.useThisFolderTitle": "Pick a folder under Music, not the root",
   "tools.musicRootBtn": "Music root",
   "tools.musicRootTitle": "Files directly under Music",
   "tools.destLine": "Destination: {{path}}",
   "tools.destRoot": "— (root) —",
-  "tools.confirmFolderWarn": "Confirm a folder before downloading.",
+  "tools.confirmFolderWarn":
+    "Pick and confirm a folder under Music before downloading. The root is not allowed.",
   "tools.url": "URL",
   "tools.urlPh": "Playlist or video URL",
   "tools.downloadRun": "Download and import",
@@ -690,7 +691,7 @@ export const EN: Record<string, string> = {
     "OK, refresh the library if it does not update automatically.\n",
   "tools.sanitizeErr": "Titles: {{e}}\n",
   "tools.dlPickFolder":
-    "Pick a folder: “Use this folder” or “Music root” (above).\n",
+    "Pick an artist folder or a subfolder: the Music root is not allowed.\n",
   "tools.dlStart": "→ Starting in “{{path}}”…\n",
   "tools.dlRootLabel": "(Music root)",
   "tools.dlResult": "{{ok}} (code {{code}})\n",

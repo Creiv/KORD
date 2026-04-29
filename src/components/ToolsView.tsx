@@ -136,6 +136,18 @@ function readStoredStudioPane(): StudioPane | null {
   return null;
 }
 
+function normalizeDownloadDestPath(value: string | null | undefined) {
+  return String(value || "")
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "")
+    .replace(/\/+$/, "")
+    .trim();
+}
+
+function isValidDownloadDestPath(value: string | null | undefined) {
+  return normalizeDownloadDestPath(value).length > 0;
+}
+
 function normalizeDlProgress(
   p: { current: number; total: number } | null
 ): { cur: number; tot: number; pct: number } | null {
@@ -261,11 +273,12 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
         sessionStorage.getItem(K_DL_OK) === "1" ||
         sessionStorage.getItem(W_DL_OK) === "1"
       ) {
-        return (
+        const saved = normalizeDownloadDestPath(
           sessionStorage.getItem(K_DL_OUT) ??
           sessionStorage.getItem(W_DL_OUT) ??
           ""
         );
+        if (saved) return saved;
       }
     } catch {
       /* ignore */
@@ -274,7 +287,12 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
   });
   const [dlDestPicked, setDlDestPicked] = useState(() => {
     try {
-      return (
+      const saved = normalizeDownloadDestPath(
+        sessionStorage.getItem(K_DL_OUT) ??
+          sessionStorage.getItem(W_DL_OUT) ??
+          ""
+      );
+      return Boolean(saved) && (
         sessionStorage.getItem(K_DL_OK) === "1" ||
         sessionStorage.getItem(W_DL_OK) === "1"
       );
@@ -447,11 +465,19 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
   );
 
   const commitDlDest = (path: string) => {
-    setDlPath(path);
-    setDlDestPicked(true);
+    const normalized = normalizeDownloadDestPath(path);
+    setDlPath(normalized);
+    setDlDestPicked(Boolean(normalized));
     try {
-      sessionStorage.setItem(K_DL_OK, "1");
-      sessionStorage.setItem(K_DL_OUT, path);
+      if (normalized) {
+        sessionStorage.setItem(K_DL_OK, "1");
+        sessionStorage.setItem(K_DL_OUT, normalized);
+      } else {
+        sessionStorage.removeItem(K_DL_OK);
+        sessionStorage.removeItem(K_DL_OUT);
+        sessionStorage.removeItem(W_DL_OK);
+        sessionStorage.removeItem(W_DL_OUT);
+      }
     } catch {
       /* ignore */
     }
@@ -1093,6 +1119,9 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
     if (id) void cancelStudioDownload(id);
   };
 
+  const hasValidDownloadDest =
+    dlDestPicked && isValidDownloadDestPath(dlPath);
+
   const runDl = () => {
     if (!url.trim()) return;
     if (!urlMatchesStudioDlMode(url, "video", dlUrlMode)) {
@@ -1103,7 +1132,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
       setLog((x) => x + t("tools.dlNeedLoadReleases"));
       return;
     }
-    if (!dlDestPicked) {
+    if (!hasValidDownloadDest) {
       setLog((x) => x + t("tools.dlPickFolder"));
       return;
     }
@@ -1115,7 +1144,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
         setDlProg(null);
         let indexBefore: LibraryIndex | null = null;
         let replaceSnap: FolderReplaceSnapshot | null = null;
-        if (dlReplaceMode && dlPath.trim()) {
+        if (dlReplaceMode && hasValidDownloadDest) {
           if (!window.confirm(t("tools.dlReplaceConfirm", { path: dlPath }))) {
             return;
           }
@@ -1158,7 +1187,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
             (x) =>
               x +
               t("tools.dlStart", {
-                path: dlPath || t("tools.dlRootLabel"),
+                path: dlPath,
               })
           );
           const r = await runYtdlpDownload(
@@ -1260,7 +1289,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
       setLog((x) => x + t("tools.dlUrlMismatch"));
       return;
     }
-    if (!dlDestPicked) {
+    if (!hasValidDownloadDest) {
       setLog((x) => x + t("tools.dlPickFolder"));
       return;
     }
@@ -1328,8 +1357,8 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
       setLog((x) => x + t("tools.dlUrlMismatch"));
       return;
     }
-    if (!relPayload || !dlDestPicked) {
-      if (!dlDestPicked) setLog((x) => x + t("tools.dlPickFolder"));
+    if (!relPayload || !hasValidDownloadDest) {
+      if (!hasValidDownloadDest) setLog((x) => x + t("tools.dlPickFolder"));
       return;
     }
     if (!relStreamComplete) {
@@ -1352,7 +1381,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
         setDlProg({ current: 1, total: list.length });
         let indexBefore: LibraryIndex | null = null;
         let replaceSnap: FolderReplaceSnapshot | null = null;
-        if (dlReplaceMode && dlPath.trim()) {
+        if (dlReplaceMode && hasValidDownloadDest) {
           if (!window.confirm(t("tools.dlReplaceConfirm", { path: dlPath }))) {
             return;
           }
@@ -1363,11 +1392,10 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
             dlPath
           );
         }
-        const rootLabel = dlPath || t("tools.dlRootLabel");
         setLog(
           (x) =>
             x +
-            t("tools.dlStart", { path: rootLabel }) +
+            t("tools.dlStart", { path: dlPath }) +
             ` — ${list.length} album(s)\n`
         );
         const studioDlKind: StudioDownloadKind =
@@ -1867,28 +1895,22 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                           type="button"
                           className="btn"
                           onClick={() => {
-                            if (dlList) commitDlDest(dlList.path || "");
+                            if (dlList && isValidDownloadDestPath(dlList.path)) {
+                              commitDlDest(dlList.path);
+                            }
                           }}
-                          disabled={!dlList}
+                          disabled={!dlList || !isValidDownloadDestPath(dlList.path)}
                           title={t("tools.useThisFolderTitle")}
                         >
                           {t("tools.useThisFolder")}
                         </button>
-                        <button
-                          type="button"
-                          className="btn secondary"
-                          onClick={() => commitDlDest("")}
-                          title={t("tools.musicRootTitle")}
-                        >
-                          {t("tools.musicRootBtn")}
-                        </button>
                       </div>
                       <label
                         className={`tools-dl-dest__replace${
-                          !dlPath.trim() ? " tools-dl-dest__replace--off" : ""
+                          !hasValidDownloadDest ? " tools-dl-dest__replace--off" : ""
                         }`}
                         title={
-                          !dlPath.trim()
+                          !hasValidDownloadDest
                             ? t("tools.dlReplaceRootTitle")
                             : t("tools.dlReplaceHint")
                         }
@@ -1896,7 +1918,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                         <input
                           type="checkbox"
                           checked={dlReplaceMode}
-                          disabled={!dlDestPicked || !dlPath.trim()}
+                          disabled={!hasValidDownloadDest}
                           onChange={(e) => {
                             setDlReplaceMode(e.target.checked);
                           }}
@@ -1905,10 +1927,10 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                       </label>
                     </div>
                   </div>
-                  {dlDestPicked ? (
+                  {hasValidDownloadDest ? (
                     <div className="tools-dl-dest__picked" role="status">
                       {t("tools.destLine", {
-                        path: dlPath || t("tools.destRoot"),
+                        path: dlPath,
                       })}
                     </div>
                   ) : (
@@ -2101,7 +2123,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                           disabled={
                             relLoadBusy ||
                             !url.trim() ||
-                            !dlDestPicked ||
+                            !hasValidDownloadDest ||
                             !dlUrlValid
                           }
                         >
@@ -2121,7 +2143,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                           disabled={
                             dlBusy ||
                             relLoadBusy ||
-                            !dlDestPicked ||
+                            !hasValidDownloadDest ||
                             relSel.size === 0 ||
                             !relStreamComplete ||
                             !dlUrlValid
@@ -2144,7 +2166,10 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                         className="btn"
                         onClick={runDl}
                         disabled={
-                          dlBusy || !url.trim() || !dlDestPicked || !dlUrlValid
+                          dlBusy ||
+                          !url.trim() ||
+                          !hasValidDownloadDest ||
+                          !dlUrlValid
                         }
                       >
                         {t("tools.downloadRun")}
