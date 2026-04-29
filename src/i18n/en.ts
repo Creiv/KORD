@@ -348,6 +348,8 @@ export const EN: Record<string, string> = {
   "accounts.name": "Account name",
   "accounts.rename": "Rename",
   "accounts.remove": "Remove",
+  "accounts.removeConfirm":
+    "Remove account “{{name}}”? Music files will not be deleted, but this account’s session and local state will be removed.",
   "accounts.createEyebrow": "New profile",
   "accounts.createHeading": "Account and folder",
   "accounts.newNameAria": "New account name",
@@ -387,6 +389,9 @@ export const EN: Record<string, string> = {
   "player.repeatAll": "Repeat: entire queue",
   "player.repeatOne": "Repeat: one track",
   "player.volumeAria": "Volume",
+  "player.castTitle": "Cast to a device",
+  "player.castUnsupported": "Casting is not supported by this browser",
+  "player.castFailed": "Could not open the device picker.",
   "theme.midnight": "Midnight",
   "theme.sunset": "Sunset",
   "theme.aurora": "Aurora",

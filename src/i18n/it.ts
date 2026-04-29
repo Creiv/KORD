@@ -355,6 +355,8 @@ export const IT: Record<string, string> = {
   "accounts.name": "Nome account",
   "accounts.rename": "Rinomina",
   "accounts.remove": "Rimuovi",
+  "accounts.removeConfirm":
+    "Rimuovere l’account “{{name}}”? I file musicali non verranno eliminati, ma la sessione e lo stato locale dell’account verranno rimossi.",
   "accounts.createEyebrow": "Nuovo profilo",
   "accounts.createHeading": "Account e cartella",
   "accounts.newNameAria": "Nome nuovo account",
@@ -394,6 +396,9 @@ export const IT: Record<string, string> = {
   "player.repeatAll": "Ripetizione: tutta la coda",
   "player.repeatOne": "Ripetizione: brano",
   "player.volumeAria": "Volume",
+  "player.castTitle": "Trasmetti a un dispositivo",
+  "player.castUnsupported": "Trasmissione non supportata da questo browser",
+  "player.castFailed": "Non riesco ad aprire la selezione dispositivo.",
   "theme.midnight": "Mezzanotte",
   "theme.sunset": "Tramonto",
   "theme.aurora": "Aurora",

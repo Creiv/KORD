@@ -61,6 +61,7 @@ import {
   UiAutorenew,
   UiBarChart,
   UiBuild,
+  UiCast,
   UiChevronLeft,
   UiClose,
   UiDateRange,
@@ -129,6 +130,17 @@ import {
 import "./App.css";
 import "./responsive.css";
 import { MobileBottomNav } from "./components/MobileBottomNav.tsx";
+
+type RemotePlaybackHandle = EventTarget & {
+  state?: "connecting" | "connected" | "disconnected";
+  prompt?: () => Promise<void>;
+  watchAvailability?: (callback: (available: boolean) => void) => Promise<number>;
+  cancelWatchAvailability?: (id: number) => Promise<void>;
+};
+
+type RemotePlaybackAudio = HTMLAudioElement & {
+  remote?: RemotePlaybackHandle;
+};
 
 type RouteState = {
   section: AppSection;
@@ -3936,6 +3948,9 @@ function SettingsView({
   };
 
   const removeAccount = (id: string) => {
+    const account = accounts?.accounts.find((item) => item.id === id) || null;
+    const name = account?.name || id;
+    if (!window.confirm(t("accounts.removeConfirm", { name }))) return;
     setAccountErr(null);
     setAccountBusy(true);
     deleteApiAccount(id)
@@ -4366,6 +4381,10 @@ function PlayerDock({
   );
   const percent = p.duration > 0 ? (p.currentTime / p.duration) * 100 : 0;
   const cur = p.current;
+  const [castAvailable, setCastAvailable] = useState(false);
+  const [castState, setCastState] = useState<
+    "connecting" | "connected" | "disconnected"
+  >("disconnected");
   const exAlb = getExcludedAlbums();
   const albumShuffleExcluded = Boolean(
     cur && isTrackAlbumShuffleExcluded(cur, exAlb)
@@ -4385,6 +4404,48 @@ function PlayerDock({
     }
     onGoToAscolta();
   };
+
+  useEffect(() => {
+    const audio = p.audioRef.current as RemotePlaybackAudio | null;
+    const remote = audio?.remote;
+    if (!remote?.prompt) {
+      setCastAvailable(false);
+      setCastState("disconnected");
+      return;
+    }
+    setCastAvailable(true);
+    const syncState = () => {
+      setCastState(remote.state || "disconnected");
+    };
+    syncState();
+    remote.addEventListener("connecting", syncState);
+    remote.addEventListener("connect", syncState);
+    remote.addEventListener("disconnect", syncState);
+    return () => {
+      remote.removeEventListener("connecting", syncState);
+      remote.removeEventListener("connect", syncState);
+      remote.removeEventListener("disconnect", syncState);
+    };
+  }, [p.audioRef, cur?.relPath]);
+
+  const openCastPicker = async () => {
+    const audio = p.audioRef.current as RemotePlaybackAudio | null;
+    const remote = audio?.remote;
+    if (!remote?.prompt) {
+      window.alert(t("player.castUnsupported"));
+      return;
+    }
+    try {
+      await remote.prompt();
+      setCastState(remote.state || "disconnected");
+    } catch (error) {
+      const name = String((error as Error)?.name || "");
+      if (name !== "AbortError" && name !== "NotAllowedError") {
+        window.alert(t("player.castFailed"));
+      }
+    }
+  };
+
   if (p.queue.length === 0) return null;
 
   return (
@@ -4589,17 +4650,45 @@ function PlayerDock({
               </button>
             ) : null}
           </div>
-          <label className="volume2">
-            <span className="sr-only">{t("player.volumeAria")}</span>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={p.volume}
-              onChange={(event) => p.setVolume(Number(event.target.value))}
-            />
-          </label>
+          <div className="player-bar2__output">
+            <button
+              type="button"
+              className={`player-bar2__ic player-bar2__ic--cast ${
+                castState === "connected" ? "is-on" : ""
+              }`}
+              disabled={!cur || !castAvailable}
+              onClick={() => void openCastPicker()}
+              title={
+                castAvailable
+                  ? t("player.castTitle")
+                  : t("player.castUnsupported")
+              }
+              aria-label={
+                castAvailable
+                  ? t("player.castTitle")
+                  : t("player.castUnsupported")
+              }
+              aria-pressed={castState === "connected"}
+            >
+              <span
+                className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
+                aria-hidden
+              >
+                <UiCast />
+              </span>
+            </button>
+            <label className="volume2">
+              <span className="sr-only">{t("player.volumeAria")}</span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={p.volume}
+                onChange={(event) => p.setVolume(Number(event.target.value))}
+              />
+            </label>
+          </div>
         </div>
         <div className="player-bar2__row player-bar2__row--seek">
           <div className="player-bar2__timeline">
