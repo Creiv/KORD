@@ -22,6 +22,7 @@ import {
   runYtdlpDownload,
   cancelStudioDownload,
   applyGenreAutoBatch,
+  saveTrackInfoManual,
   sanitizeTrackTitles,
   searchArtwork,
   pruneOrphanTrackMetaForAlbum,
@@ -36,6 +37,7 @@ import { albumFolderFromTrackRelPath } from "../lib/trackPaths";
 import type { LinkSharedAlbumResult, LinkSharedResult } from "../lib/api";
 import {
   buildFolderReplaceSnapshotForFolder,
+  buildFolderReplaceTrackMetaPatches,
   computePostDownloadRedundantRemovals,
   type FolderReplaceSnapshot,
 } from "../lib/downloadFolderReplace";
@@ -1228,6 +1230,19 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
         const indexFinal = await fetchLibraryIndex();
         stripUserStateForRelPaths(toDelete);
         remapUserStateAfterDownloadReplace(replaceSnap, indexFinal, dlPath);
+        const metaPatches = buildFolderReplaceTrackMetaPatches(
+          replaceSnap,
+          indexFinal,
+          dlPath
+        );
+        if (metaPatches.length > 0) {
+          await Promise.all(
+            metaPatches.map(({ relPath, patch }) =>
+              saveTrackInfoManual(relPath, patch)
+            )
+          );
+          await onRefreshLibrary();
+        }
       } catch (e) {
         setLog(
           (x) =>

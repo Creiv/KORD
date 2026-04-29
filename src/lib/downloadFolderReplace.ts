@@ -1,4 +1,4 @@
-import type { LibraryIndex, UserStateV1 } from "../types"
+import type { LibraryIndex, TrackMeta, UserStateV1 } from "../types"
 
 function uniqStr(list: string[]) {
   return [...new Set(list.filter(Boolean))]
@@ -29,9 +29,23 @@ export function normalizeStemFromRelPath(relPath: string): string {
 export type FolderReplaceSnapshot = {
   stemMeta: Record<
     string,
-    { favorite: boolean; excluded: boolean; playCount: number }
+    {
+      favorite: boolean
+      excluded: boolean
+      playCount: number
+      genre: string | null
+      moods: string[]
+    }
   >
   excludedAlbumIds: string[]
+}
+
+export type FolderReplaceTrackMetaPatch = {
+  relPath: string
+  patch: {
+    genre?: string | null
+    moods?: string[] | null
+  }
 }
 
 function underFolder(relPath: string, folder: string): boolean {
@@ -50,6 +64,26 @@ export function relPathsForTracksInFolder(
     .map((t) => t.relPath)
 }
 
+function cleanGenre(meta?: TrackMeta | null): string | null {
+  const s = String(meta?.genre || "").trim()
+  return s ? s : null
+}
+
+function cleanMoods(meta?: TrackMeta | null): string[] {
+  const out: string[] = []
+  const add = (value: unknown) => {
+    if (typeof value !== "string") return
+    const s = value.trim()
+    if (!s || out.includes(s)) return
+    out.push(s)
+  }
+  if (Array.isArray(meta?.moods)) {
+    for (const mood of meta.moods) add(mood)
+  }
+  add(meta?.mood)
+  return out
+}
+
 /** Snapshot prima del download, da tutte le tracce attuali nella cartella. */
 export function buildFolderReplaceSnapshotForFolder(
   user: UserStateV1,
@@ -66,10 +100,14 @@ export function buildFolderReplaceSnapshotForFolder(
       favorite: false,
       excluded: false,
       playCount: 0,
+      genre: null,
+      moods: [],
     }
     if (user.favorites.includes(t.relPath)) cur.favorite = true
     if (user.shuffleExcludedTrackRelPaths.includes(t.relPath)) cur.excluded = true
     cur.playCount = Math.max(cur.playCount, user.trackPlayCounts[t.relPath] ?? 0)
+    if (!cur.genre) cur.genre = cleanGenre(t.meta)
+    if (!cur.moods.length) cur.moods = cleanMoods(t.meta)
     stemMeta[st] = cur
   }
   const excludedAlbumIds: string[] = []
@@ -117,6 +155,26 @@ export function computePostDownloadRedundantRemovals(
     }
   }
   return { toDelete, newPathSet }
+}
+
+export function buildFolderReplaceTrackMetaPatches(
+  snap: FolderReplaceSnapshot,
+  indexAfter: LibraryIndex,
+  folderRelPrefix: string,
+): FolderReplaceTrackMetaPatch[] {
+  const pfx = folderRelPrefix.replace(/\/+$/, "")
+  const patches: FolderReplaceTrackMetaPatch[] = []
+  for (const t of indexAfter.tracks) {
+    if (!underFolder(t.relPath, pfx)) continue
+    const st = normalizeStemFromRelPath(t.relPath)
+    const old = st ? snap.stemMeta[st] : undefined
+    if (!old) continue
+    const patch: FolderReplaceTrackMetaPatch["patch"] = {}
+    if (old.genre) patch.genre = old.genre
+    if (old.moods.length) patch.moods = old.moods
+    if (Object.keys(patch).length) patches.push({ relPath: t.relPath, patch })
+  }
+  return patches
 }
 
 export function applyStripToUserStateForPathsOnly(
