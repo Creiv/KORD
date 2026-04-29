@@ -50,7 +50,18 @@ function ensureUserDataConfig() {
   } catch {
     /* ok */
   }
-  fs.writeFileSync(configPath, JSON.stringify({ musicRoot: defaultRoot }, null, 2), "utf8")
+    fs.writeFileSync(
+    configPath,
+    JSON.stringify(
+      {
+        musicRoot: defaultRoot,
+        schemaVersion: 3,
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  )
 }
 
 function getPortFilePath() {

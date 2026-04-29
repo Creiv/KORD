@@ -105,6 +105,9 @@ import { ToolsView } from "./components/ToolsView";
 import { PlayerProgressTrack } from "./components/PlayerProgressTrack";
 import { Visualizer } from "./components/Visualizer";
 import { useI18n } from "./i18n/useI18n";
+import { EN } from "./i18n/en";
+import { IT } from "./i18n/it";
+import { translate } from "./i18n/translate";
 import {
   eligibleTracksForIntelligentRandom,
   getExcludedAlbums,
@@ -131,6 +134,7 @@ import {
 import "./App.css";
 import "./responsive.css";
 import { MobileBottomNav } from "./components/MobileBottomNav.tsx";
+import { KordWordmarkSvg } from "./components/KordWordmarkSvg";
 
 type RemotePlaybackHandle = EventTarget & {
   state?: "connecting" | "connected" | "disconnected";
@@ -260,7 +264,7 @@ function clientLegacyLibrary(
 ): LibraryResponse | null {
   if (!index) return null;
   return {
-    musicRoot: index.musicRoot,
+    musicRoot: index.musicRoot ?? "",
     artists: index.artists.map((artist) => ({
       id: artist.id,
       name: artist.name,
@@ -386,6 +390,28 @@ function TrackRowArt({ relPath }: { relPath: string }) {
   return (
     <img
       className="track-row__art"
+      src={coverUrlForTrackRelPath(relPath)}
+      alt=""
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+function PlayerBarTrackArt({ relPath }: { relPath: string }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setFailed(false);
+  }, [relPath]);
+  if (failed) {
+    return (
+      <div className="player-bar2__art fallback" aria-hidden>
+        <UiMusicNote className="player-bar2__art-fallback-ic" />
+      </div>
+    );
+  }
+  return (
+    <img
+      className="player-bar2__art"
       src={coverUrlForTrackRelPath(relPath)}
       alt=""
       onError={() => setFailed(true)}
@@ -3870,23 +3896,19 @@ function SettingsView({
   const user = useUserState();
   const { t, locale, setLocale } = useI18n();
   const [libLocked, setLibLocked] = useState(false);
-  const [listenOnLan, setListenOnLan] = useState(false);
+  const [libraryPath, setLibraryPath] = useState("");
+  const [libraryBusy, setLibraryBusy] = useState(false);
+  const [libraryErr, setLibraryErr] = useState<string | null>(null);
   const [serverPort, setServerPort] = useState(3001);
   const [devClientPort, setDevClientPort] = useState(5173);
   const [lanAccessUrl, setLanAccessUrl] = useState<string | null>(null);
-  const [netBusy, setNetBusy] = useState(false);
-  const [netErr, setNetErr] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<AccountsResponse | null>(null);
   const [selectedAccountId, setSelectedAccountIdState] = useState<
     string | null
   >(() => getSelectedAccountId());
   const [newAccountName, setNewAccountName] = useState("");
-  const [newAccountPath, setNewAccountPath] = useState("");
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountErr, setAccountErr] = useState<string | null>(null);
-  const [initialListenOnLan, setInitialListenOnLan] = useState<boolean | null>(
-    null
-  );
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[] | null>(
     null
   );
@@ -3906,7 +3928,7 @@ function SettingsView({
       return false;
     }
   });
-  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "1.6.0");
+  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "1.7.0");
 
   useEffect(() => {
     Promise.all([fetchConfig(), fetchAccounts()])
@@ -3915,16 +3937,11 @@ function SettingsView({
         setAccounts(a);
         const selected = getSelectedAccountId() || a.defaultAccountId;
         setSelectedAccountIdState(selected);
-        const current =
-          a.accounts.find((account) => account.id === selected) ||
-          a.accounts[0];
-        setNewAccountPath(current?.musicRoot || c.musicRoot);
-        setInitialListenOnLan((prev) => prev ?? c.listenOnLan);
-        setListenOnLan(c.listenOnLan);
+        setLibraryPath(String(c.musicRoot ?? ""));
         setServerPort(c.serverPort);
         setDevClientPort(c.devClientPort);
         setLanAccessUrl(c.lanAccessUrl);
-        setNetErr(null);
+        setLibraryErr(null);
         setAccountErr(null);
       })
       .catch((e: unknown) =>
@@ -3960,28 +3977,11 @@ function SettingsView({
     return new Map(accounts.accounts.map((a) => [a.id, a.name] as const));
   }, [accounts]);
 
-  const saveListenOnLan = (next: boolean) => {
-    setNetErr(null);
-    setNetBusy(true);
-    saveAppConfig({ listenOnLan: next })
-      .then((c) => {
-        setListenOnLan(c.listenOnLan);
-        setLanAccessUrl(c.lanAccessUrl);
-        setServerPort(c.serverPort);
-        setDevClientPort(c.devClientPort);
-      })
-      .catch((e: unknown) =>
-        setNetErr(e instanceof Error ? e.message : String(e))
-      )
-      .finally(() => setNetBusy(false));
-  };
-
   const createNewAccount = () => {
     setAccountErr(null);
     setAccountBusy(true);
     createApiAccount({
       name: newAccountName.trim() || t("accounts.newFallback"),
-      musicRoot: newAccountPath.trim(),
     })
       .then((next) => {
         setAccounts(next);
@@ -4087,7 +4087,6 @@ function SettingsView({
                     </span>
                     <span className="account-row__text">
                       <strong>{account.name}</strong>
-                      <span>{account.musicRoot}</span>
                     </span>
                   </button>
                   <button
@@ -4126,22 +4125,10 @@ function SettingsView({
                   autoComplete="off"
                 />
               </label>
-              <label className="flex1" style={{ minWidth: "12rem" }}>
-                <span className="sr-only">{t("accounts.newPathAria")}</span>
-                <input
-                  type="text"
-                  className="ghost-input w-full"
-                  value={newAccountPath}
-                  onChange={(event) => setNewAccountPath(event.target.value)}
-                  placeholder={t("settings.libPathPh")}
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-              </label>
               <button
                 type="button"
                 className="btn"
-                disabled={accountBusy || !newAccountPath.trim()}
+                disabled={accountBusy || !newAccountName.trim()}
                 onClick={createNewAccount}
               >
                 {accountBusy ? t("settings.saving") : t("accounts.create")}
@@ -4270,38 +4257,87 @@ function SettingsView({
         <section className="surface-card">
           <div className="section-head section-head--page-toolbar">
             <div>
+              <p className="eyebrow">{t("settings.libraryEyebrow")}</p>
+              <h2>{t("settings.libraryHeading")}</h2>
+            </div>
+          </div>
+          <p className="subtle sm">{t("settings.libraryRootLead")}</p>
+          {libraryErr ? (
+            <p className="subtle sm warnline">{libraryErr}</p>
+          ) : null}
+          {libLocked ? (
+            <p className="subtle sm">
+              {t("settings.libLocked", {
+                path: libraryPath || "—",
+              })}
+            </p>
+          ) : (
+            <div
+              className="row gap flex-wrap"
+              style={{ alignItems: "flex-end" }}
+            >
+              <label className="flex1" style={{ minWidth: "12rem" }}>
+                <span className="sr-only">{t("settings.libPathAria")}</span>
+                <input
+                  type="text"
+                  className="ghost-input w-full"
+                  value={libraryPath}
+                  onChange={(event) => setLibraryPath(event.target.value)}
+                  placeholder={t("settings.libPathPh")}
+                  autoComplete="off"
+                  aria-label={t("settings.libPathAria")}
+                />
+              </label>
+              <button
+                type="button"
+                className="btn"
+                disabled={libraryBusy || !libraryPath.trim()}
+                onClick={() => {
+                  setLibraryErr(null);
+                  setLibraryBusy(true);
+                  saveAppConfig({ musicRoot: libraryPath.trim() })
+                    .then(() => {
+                      window.location.replace(
+                        new URL("/", window.location.href).href,
+                      );
+                    })
+                    .catch((e: unknown) =>
+                      setLibraryErr(
+                        e instanceof Error ? e.message : String(e),
+                      ),
+                    )
+                    .finally(() => setLibraryBusy(false));
+                }}
+              >
+                {libraryBusy ? t("settings.saving") : t("settings.saveReload")}
+              </button>
+            </div>
+          )}
+        </section>
+      )}
+      {isKordClientEmbed ? null : (
+        <section className="surface-card settings-network-section">
+          <div className="section-head section-head--page-toolbar">
+            <div>
               <p className="eyebrow">{t("settings.networkEyebrow")}</p>
               <h2>{t("settings.networkHeading")}</h2>
             </div>
           </div>
-          {netErr ? <p className="subtle sm warnline">{netErr}</p> : null}
-          <p className="subtle sm">
-            {t("settings.networkLead", {
-              port: serverPort,
-              devPort: devClientPort,
-            })}
-          </p>
-          <label className="setting-card checkbox">
-            <input
-              type="checkbox"
-              checked={listenOnLan}
-              disabled={netBusy}
-              onChange={(e) => saveListenOnLan(e.target.checked)}
-            />
-            <span>{t("settings.networkListenOnLan")}</span>
-          </label>
-          {listenOnLan && lanAccessUrl ? (
+          <div className="settings-network-section__body">
             <p className="subtle sm">
-              {t("settings.networkUrlHint", { url: lanAccessUrl })}
+              {t("settings.networkLead", {
+                port: serverPort,
+                devPort: devClientPort,
+              })}
             </p>
-          ) : listenOnLan ? (
-            <p className="subtle sm">{t("settings.networkNoUrl")}</p>
-          ) : null}
-          {initialListenOnLan !== null && listenOnLan !== initialListenOnLan ? (
-            <p className="subtle sm warnline">
-              {t("settings.networkRestartHint")}
-            </p>
-          ) : null}
+            {lanAccessUrl ? (
+              <p className="subtle sm">
+                {t("settings.networkUrlHint", { url: lanAccessUrl })}
+              </p>
+            ) : (
+              <p className="subtle sm">{t("settings.networkNoUrl")}</p>
+            )}
+          </div>
         </section>
       )}
       {isKordClientEmbed ? null : (
@@ -4550,11 +4586,7 @@ function PlayerDock({
             <div className="player-bar2__track">
               <div className="player-bar2__art-hit">
                 {cur ? (
-                  <img
-                    className="player-bar2__art"
-                    src={coverUrlForTrackRelPath(cur.relPath)}
-                    alt=""
-                  />
+                  <PlayerBarTrackArt relPath={cur.relPath} />
                 ) : (
                   <div className="player-bar2__art fallback">
                     <UiMusicNote className="player-bar2__art-fallback-ic" />
@@ -5228,11 +5260,9 @@ function Shell() {
               <div className="topbar2__row">
                 <div className="topbar2__start">
                   <div className="topbar2__brand">
-                    <img
-                      className="kord-app-logo kord-app-logo--topbar"
-                      src="/favicon.png"
-                      alt=""
-                      aria-hidden="true"
+                    <KordWordmarkSvg
+                      className="kord-wordmark-svg kord-wordmark-svg--topbar"
+                      decorative
                     />
                   </div>
                   {!isMobileLayout ? (
@@ -5436,14 +5466,68 @@ function Shell() {
   );
 }
 
+function LibraryRootGate({ children }: { children: React.ReactNode }) {
+  const [phase, setPhase] = useState<"load" | "ok" | "need">("load");
+  const route = parseRoute();
+  useEffect(() => {
+    fetchConfig()
+      .then((c) => {
+        if (c.lockedByEnv || c.libraryRootConfigured) setPhase("ok");
+        else setPhase("need");
+      })
+      .catch(() => setPhase("need"));
+  }, []);
+  if (phase === "load") {
+    const table =
+      typeof navigator !== "undefined" && navigator.language.startsWith("it")
+        ? IT
+        : EN;
+    return (
+      <div
+        className="dashboard-grid"
+        style={{ padding: "2rem", maxWidth: "28rem", margin: "10vh auto" }}
+      >
+        <p className="subtle sm">{translate(table, "gate.checkingLibrary", undefined)}</p>
+      </div>
+    );
+  }
+  if (phase === "need" && route.section !== "settings") {
+    const table =
+      typeof navigator !== "undefined" && navigator.language.startsWith("it")
+        ? IT
+        : EN;
+    return (
+      <div
+        className="dashboard-grid settings-page"
+        style={{ padding: "2rem", maxWidth: "32rem", margin: "8vh auto" }}
+      >
+        <section className="surface-card">
+          <h2>{translate(table, "gate.libraryRequiredTitle", undefined)}</h2>
+          <p className="subtle sm">{translate(table, "gate.libraryRequiredLead", undefined)}</p>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => window.location.assign("/settings")}
+          >
+            {translate(table, "gate.openSettings", undefined)}
+          </button>
+        </section>
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
-    <UserStateProvider>
-      <PlayerProvider>
-        <ToolsActivityProvider>
-          <Shell />
-        </ToolsActivityProvider>
-      </PlayerProvider>
-    </UserStateProvider>
+    <LibraryRootGate>
+      <UserStateProvider>
+        <PlayerProvider>
+          <ToolsActivityProvider>
+            <Shell />
+          </ToolsActivityProvider>
+        </PlayerProvider>
+      </UserStateProvider>
+    </LibraryRootGate>
   );
 }

@@ -1,7 +1,9 @@
 import type {
   DashboardPayload,
+  LibraryCatalogResponse,
   LibraryIndex,
   LibraryResponse,
+  LibrarySelectionV1,
   UserStateV1,
 } from "../types"
 
@@ -142,36 +144,42 @@ export async function fetchLibraryIndexForAccount(accountId: string): Promise<Li
   return unwrap<LibraryIndex>(response)
 }
 
-export type LinkSharedAlbumResult = {
-  scope?: "album"
-  linked: number
-  skipped: number
-  destRelPath: string
-  linkManifestPath: string
-}
-
-export type LinkSharedArtistResult = {
-  scope: "artist"
-  artist: string
-  albums: { destRelPath: string; linked: number; skipped: number; linkManifestPath: string }[]
-  errors?: { relPath: string; error: string; code?: string }[]
-  totalLinked: number
-  totalSkipped: number
-}
-
-export type LinkSharedResult = LinkSharedAlbumResult | LinkSharedArtistResult
-
-export async function linkSharedFromAccount(
-  sourceAccountId: string,
-  relPath: string,
-  scope: "album" | "artist" = "album",
-): Promise<LinkSharedResult> {
-  const response = await fetch("/api/studio/link-shared-album", {
-    method: "POST",
-    headers: accountHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ sourceAccountId, relPath, scope }),
+export async function fetchLibraryCatalog(): Promise<LibraryCatalogResponse> {
+  await ensureSelectedAccountId()
+  const response = await fetch(apiUrl("/api/catalog"), {
+    cache: "no-store",
+    headers: accountHeaders(),
   })
-  return unwrap<LinkSharedResult>(response)
+  return unwrap<LibraryCatalogResponse>(response)
+}
+
+export async function fetchMyLibrarySelection(): Promise<LibrarySelectionV1> {
+  await ensureSelectedAccountId()
+  const response = await fetch(apiUrl("/api/my-library-selection"), {
+    cache: "no-store",
+    headers: accountHeaders(),
+  })
+  return unwrap<LibrarySelectionV1>(response)
+}
+
+export async function patchMyLibrarySelection(
+  patch: Partial<{
+    includeAll: boolean
+    addArtists: string[]
+    removeArtists: string[]
+    addAlbums: string[]
+    removeAlbums: string[]
+    addTracks: string[]
+    removeTracks: string[]
+  }>,
+): Promise<LibrarySelectionV1> {
+  await ensureSelectedAccountId()
+  const response = await fetch(apiUrl("/api/my-library-selection"), {
+    method: "PATCH",
+    headers: accountHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(patch),
+  })
+  return unwrap<LibrarySelectionV1>(response)
 }
 
 export async function fetchDashboard(): Promise<DashboardPayload> {
@@ -202,9 +210,9 @@ export async function saveUserState(state: UserStateV1): Promise<UserStateV1> {
 }
 
 export type AppConfig = {
-  musicRoot: string
+  musicRoot?: string | null
   lockedByEnv: boolean
-  listenOnLan: boolean
+  libraryRootConfigured?: boolean
   serverPort: number
   devClientPort: number
   lanAccessUrl: string | null
@@ -214,7 +222,6 @@ export type AppConfig = {
 export type Account = {
   id: string
   name: string
-  musicRoot: string
 }
 
 export type AccountsResponse = {
@@ -232,7 +239,7 @@ export async function fetchConfig(): Promise<AppConfig> {
 }
 
 export async function saveAppConfig(
-  patch: { musicRoot?: string; listenOnLan?: boolean }
+  patch: { musicRoot?: string }
 ): Promise<AppConfig> {
   const response = await fetch("/api/config", {
     method: "PUT",
@@ -253,10 +260,7 @@ export async function fetchAccounts(): Promise<AccountsResponse> {
   return data
 }
 
-export async function createAccount(input: {
-  name: string
-  musicRoot: string
-}): Promise<AccountsResponse> {
+export async function createAccount(input: { name: string }): Promise<AccountsResponse> {
   const response = await fetch("/api/accounts", {
     method: "POST",
     headers: accountHeaders({ "Content-Type": "application/json" }),
@@ -269,7 +273,7 @@ export async function createAccount(input: {
 
 export async function updateAccount(
   id: string,
-  patch: { name?: string; musicRoot?: string },
+  patch: { name?: string },
 ): Promise<AccountsResponse> {
   const response = await fetch(`/api/accounts/${encodeURIComponent(id)}`, {
     method: "PUT",

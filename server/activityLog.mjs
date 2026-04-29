@@ -1,12 +1,16 @@
 import fs from "fs/promises"
 import { existsSync } from "fs"
 import path from "path"
-import { CONFIG_FILE } from "./musicRootConfig.mjs"
+import { getMusicRoot, isLibraryRootConfigured } from "./musicRootConfig.mjs"
+import { kordGlobalInfoDir } from "./kordDataStore.mjs"
 
 const LOG_BASENAME = "kord-activity.log.jsonl"
 
 export function getActivityLogFilePath() {
-  return path.join(path.dirname(CONFIG_FILE), LOG_BASENAME)
+  if (!isLibraryRootConfigured()) return null
+  const root = getMusicRoot()
+  if (!root) return null
+  return path.join(kordGlobalInfoDir(root), LOG_BASENAME)
 }
 
 /**
@@ -14,6 +18,7 @@ export function getActivityLogFilePath() {
  */
 export async function appendActivityLog(entry) {
   const p = getActivityLogFilePath()
+  if (!p) return
   const line =
     JSON.stringify({
       ts: new Date().toISOString(),
@@ -91,7 +96,7 @@ export function diffUserStatePlaylistsAndSettings(prev, next) {
  */
 export async function readActivityLogs(limit = 500) {
   const p = getActivityLogFilePath()
-  if (!existsSync(p)) return []
+  if (!p || !existsSync(p)) return []
   const raw = await fs.readFile(p, "utf8")
   const lines = raw
     .split("\n")

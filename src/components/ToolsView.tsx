@@ -6,16 +6,18 @@ import { useI18n } from "../i18n/useI18n";
 import {
   applyArtwork,
   createMusicSubdir,
+  coverUrlForAlbumRelPath,
   deleteAudioRelPaths,
-  fetchAccounts,
+  fetchConfig,
   fetchAlbumInfo,
   fetchLibraryIndex,
-  fetchLibraryIndexForAccount,
+  fetchLibraryCatalog,
+  fetchMyLibrarySelection,
+  patchMyLibrarySelection,
   fetchTrackInfo,
   fetchDownloadPreset,
   streamYoutubeReleasesList,
   getSelectedAccountId,
-  linkSharedFromAccount,
   listMusicDirs,
   fetchDownloadFlatCount,
   newStudioDownloadId,
@@ -34,7 +36,16 @@ import type {
 } from "../lib/api";
 import { fmtDate } from "../lib/metaFormat";
 import { albumFolderFromTrackRelPath } from "../lib/trackPaths";
-import type { LinkSharedAlbumResult, LinkSharedResult } from "../lib/api";
+import type {
+  CatalogAlbumEntry,
+  CatalogArtistEntry,
+  LibArtist,
+  LibTrack,
+  LibraryCatalogResponse,
+  LibraryIndex,
+  LibraryResponse,
+  LibrarySelectionV1,
+} from "../types";
 import {
   buildFolderReplaceSnapshotForFolder,
   buildFolderReplaceTrackMetaPatches,
@@ -47,12 +58,6 @@ import {
   computeGenreAutoAssignments,
   type GenreAutoAssignment,
 } from "../lib/genreAutoAssign";
-import type {
-  LibArtist,
-  LibTrack,
-  LibraryIndex,
-  LibraryResponse,
-} from "../types";
 import {
   studioDownloadSourceForArtistUrl,
   urlMatchesStudioDlMode,
@@ -63,7 +68,6 @@ import {
   UiDownload,
   UiGraphicEq,
   UiImage,
-  UiLink,
   UiNote,
 } from "./KordUiIcons";
 type P = {
@@ -115,25 +119,61 @@ const K_COVER_ALB = "kord-cover-album";
 const W_COVER_ALB = "wpp-cover-album";
 const K_STUDIO_PANE = "kord-studio-pane";
 
-const SHARED_ALL_ALBUMS = "__kord_all_albums__";
-
-type StudioPane = "shared" | "download" | "meta" | "covers";
+type StudioPane = "catalog" | "download" | "meta" | "covers";
 
 function readStoredStudioPane(): StudioPane | null {
   try {
     const v = localStorage.getItem(K_STUDIO_PANE);
-    if (
-      v === "shared" ||
-      v === "download" ||
-      v === "meta" ||
-      v === "covers"
-    ) {
+    if (v === "shared") return "catalog";
+    if (v === "catalog" || v === "download" || v === "meta" || v === "covers") {
       return v;
     }
   } catch {
     /* ignore */
   }
   return null;
+}
+
+function selectionHasArtist(sel: LibrarySelectionV1 | null, artistId: string) {
+  if (!sel) return false;
+  if (sel.includeAll) return true;
+  return sel.artists.includes(artistId);
+}
+
+function selectionHasAlbum(
+  sel: LibrarySelectionV1 | null,
+  albumRel: string,
+  artistId: string,
+) {
+  if (!sel) return false;
+  if (sel.includeAll) return true;
+  if (sel.artists.includes(artistId)) return true;
+  return sel.albums.includes(albumRel);
+}
+
+function indexHasArtist(index: LibraryIndex | null, artistId: string) {
+  if (!index?.artists?.length) return false;
+  return index.artists.some((a) => a.id === artistId);
+}
+
+function indexHasAlbum(index: LibraryIndex | null, relPath: string) {
+  if (!index?.albums?.length) return false;
+  return index.albums.some((a) => a.relPath === relPath);
+}
+
+function catalogArtistCoverRel(ar: CatalogArtistEntry): string | null {
+  const c = ar.relAlbums.find((x) => x.coverRelPath);
+  if (c?.coverRelPath) return c.coverRelPath;
+  return ar.relAlbums[0]?.relPath ?? null;
+}
+
+function initialsCatalog(text: string) {
+  return text
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("");
 }
 
 function normalizeDownloadDestPath(value: string | null | undefined) {
@@ -300,21 +340,22 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
       return false;
     }
   });
-  const [sharedAccounts, setSharedAccounts] = useState<
-    { id: string; name: string; musicRoot: string }[]
-  >([]);
-  const [sharedLockedByEnv, setSharedLockedByEnv] = useState(false);
+  const [catalogLockedByEnv, setCatalogLockedByEnv] = useState(false);
   const [localSessionAccount, setLocalSessionAccount] = useState<string | null>(
     () => getSelectedAccountId()
   );
-  const [sharedSourceId, setSharedSourceId] = useState("");
-  const [sharedIndex, setSharedIndex] = useState<LibraryIndex | null>(null);
-  const [sharedLoadBusy, setSharedLoadBusy] = useState(false);
-  const [sharedLinkBusy, setSharedLinkBusy] = useState(false);
-  const [sharedArtistId, setSharedArtistId] = useState("");
-  const [sharedAlbumRel, setSharedAlbumRel] = useState("");
-  const [sharedMsg, setSharedMsg] = useState<string | null>(null);
-  const [sharedErr, setSharedErr] = useState<string | null>(null);
+  const [catalogData, setCatalogData] = useState<LibraryCatalogResponse | null>(
+    null,
+  );
+  const [mySelection, setMySelection] = useState<LibrarySelectionV1 | null>(
+    null,
+  );
+  const [catalogBusy, setCatalogBusy] = useState(false);
+  const [catalogErr, setCatalogErr] = useState<string | null>(null);
+  const [catalogMsg, setCatalogMsg] = useState<string | null>(null);
+  const [catalogBrowse, setCatalogBrowse] = useState<"artists" | "albums">(
+    "artists",
+  );
   const [artQuery, setArtQuery] = useState("");
   const [artRes, setArtRes] = useState<ArtworkHit[]>([]);
   const [newDirName, setNewDirName] = useState("");
@@ -361,14 +402,8 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
     GenreAutoAssignment[] | null
   >(null);
   const [studioPane, setStudioPane] = useState<StudioPane>(() => {
-    return readStoredStudioPane() ?? "shared";
+    return readStoredStudioPane() ?? "catalog";
   });
-
-  const showSharedTab = sharedAccounts.length > 1;
-
-  useEffect(() => {
-    if (studioPane === "shared" && !showSharedTab) setStudioPane("download");
-  }, [studioPane, showSharedTab]);
 
   useEffect(() => {
     try {
@@ -497,11 +532,8 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
   }, [albumForCover]);
 
   useEffect(() => {
-    fetchAccounts()
-      .then((a) => {
-        setSharedAccounts(a.accounts);
-        setSharedLockedByEnv(a.lockedByEnv);
-      })
+    fetchConfig()
+      .then((c) => setCatalogLockedByEnv(c.lockedByEnv))
       .catch(() => {});
   }, []);
 
@@ -587,82 +619,138 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
     [url, dlUrlMode]
   );
 
-  const otherSharedAccounts = useMemo(
-    () => sharedAccounts.filter((a) => a.id !== (localSessionAccount || "")),
-    [sharedAccounts, localSessionAccount]
+  const loadCatalogPane = useCallback(() => {
+    setCatalogBusy(true);
+    setCatalogErr(null);
+    Promise.all([fetchLibraryCatalog(), fetchMyLibrarySelection()])
+      .then(([cat, sel]) => {
+        setCatalogData(cat);
+        setMySelection(sel);
+      })
+      .catch((e) => {
+        setCatalogErr(
+          t("tools.catalogErr", { e: String((e as Error)?.message || e) }),
+        );
+        setCatalogData(null);
+        setMySelection(null);
+      })
+      .finally(() => setCatalogBusy(false));
+  }, [t]);
+
+  useEffect(() => {
+    if (studioPane !== "catalog") return;
+    loadCatalogPane();
+  }, [studioPane, loadCatalogPane, localSessionAccount]);
+
+  const afterCatalogPatch = useCallback(() => {
+    setCatalogMsg(t("tools.catalogUpdated"));
+    loadCatalogPane();
+    onRefreshLibrary();
+  }, [loadCatalogPane, onRefreshLibrary, t]);
+
+  const addArtistCatalog = useCallback(
+    (artistId: string) => {
+      setCatalogBusy(true);
+      setCatalogErr(null);
+      patchMyLibrarySelection({ addArtists: [artistId] })
+        .then((s) => {
+          setMySelection(s);
+          afterCatalogPatch();
+        })
+        .catch((e) => {
+          setCatalogErr(
+            t("tools.catalogErr", { e: String((e as Error)?.message || e) }),
+          );
+        })
+        .finally(() => setCatalogBusy(false));
+    },
+    [afterCatalogPatch, t],
   );
 
-  const sharedAlbumsForArtist = useMemo(() => {
-    if (!sharedIndex || !sharedArtistId) return [];
-    return sharedIndex.albums.filter(
-      (a) => a.artistId === sharedArtistId && !a.loose
-    );
-  }, [sharedIndex, sharedArtistId]);
-
-  const loadSharedCatalog = useCallback(() => {
-    if (!sharedSourceId) return;
-    setSharedLoadBusy(true);
-    setSharedErr(null);
-    setSharedMsg(null);
-    setSharedIndex(null);
-    setSharedArtistId("");
-    setSharedAlbumRel("");
-    fetchLibraryIndexForAccount(sharedSourceId)
-      .then((ix) => {
-        setSharedIndex(ix);
+  const removeArtistCatalog = useCallback(
+    (artistId: string) => {
+      setCatalogBusy(true);
+      setCatalogErr(null);
+      patchMyLibrarySelection({
+        includeAll: false,
+        removeArtists: [artistId],
       })
-      .catch((e) => {
-        setSharedErr(
-          t("tools.sharedErr", { e: String((e as Error)?.message || e) })
-        );
-        setSharedIndex(null);
-      })
-      .finally(() => setSharedLoadBusy(false));
-  }, [sharedSourceId, t]);
-
-  const doLinkSharedAlbum = useCallback(() => {
-    if (!sharedSourceId || !sharedArtistId || !sharedAlbumRel) return;
-    setSharedLinkBusy(true);
-    setSharedErr(null);
-    setSharedMsg(null);
-    const scope = sharedAlbumRel === SHARED_ALL_ALBUMS ? "artist" : "album";
-    const rel = scope === "artist" ? sharedArtistId : sharedAlbumRel;
-    linkSharedFromAccount(sharedSourceId, rel, scope)
-      .then((r: LinkSharedResult) => {
-        if ("scope" in r && r.scope === "artist") {
-          const extra = r.errors?.length
-            ? t("tools.sharedLinkArtistErrors", { n: r.errors.length })
-            : "";
-          setSharedMsg(
-            t("tools.sharedLinkOkArtist", {
-              albums: r.albums.length,
-              files: r.totalLinked,
-              skipped: r.totalSkipped,
-              extra,
-            }) +
-              (r.errors?.length
-                ? ` ${r.errors.map((e) => e.relPath).join(", ")}`
-                : "")
+        .then((s) => {
+          setMySelection(s);
+          afterCatalogPatch();
+        })
+        .catch((e) => {
+          setCatalogErr(
+            t("tools.catalogErr", { e: String((e as Error)?.message || e) }),
           );
-        } else {
-          const al = r as LinkSharedAlbumResult;
-          setSharedMsg(
-            t("tools.sharedLinkOk", {
-              linked: al.linked,
-              skipped: al.skipped,
-              path: al.destRelPath,
-            })
+        })
+        .finally(() => setCatalogBusy(false));
+    },
+    [afterCatalogPatch, t],
+  );
+
+  const addAlbumCatalog = useCallback(
+    (relPath: string) => {
+      setCatalogBusy(true);
+      setCatalogErr(null);
+      patchMyLibrarySelection({ addAlbums: [relPath] })
+        .then((s) => {
+          setMySelection(s);
+          afterCatalogPatch();
+        })
+        .catch((e) => {
+          setCatalogErr(
+            t("tools.catalogErr", { e: String((e as Error)?.message || e) }),
           );
-        }
-        onRefreshLibrary();
-      })
-      .catch((e) => {
-        setSharedErr(
-          t("tools.sharedErr", { e: String((e as Error)?.message || e) })
-        );
-      })
-      .finally(() => setSharedLinkBusy(false));
-  }, [onRefreshLibrary, sharedAlbumRel, sharedArtistId, sharedSourceId, t]);
+        })
+        .finally(() => setCatalogBusy(false));
+    },
+    [afterCatalogPatch, t],
+  );
+
+  const removeAlbumCatalog = useCallback(
+    (relPath: string) => {
+      setCatalogBusy(true);
+      setCatalogErr(null);
+      patchMyLibrarySelection({ removeAlbums: [relPath] })
+        .then((s) => {
+          setMySelection(s);
+          afterCatalogPatch();
+        })
+        .catch((e) => {
+          setCatalogErr(
+            t("tools.catalogErr", { e: String((e as Error)?.message || e) }),
+          );
+        })
+        .finally(() => setCatalogBusy(false));
+    },
+    [afterCatalogPatch, t],
+  );
+
+  const catalogAlbumsFlat = useMemo(() => {
+    if (!catalogData) return [];
+    const rows: (CatalogAlbumEntry & {
+      artistId: string;
+      artistName: string;
+    })[] = [];
+    for (const ar of catalogData.artists) {
+      for (const al of ar.relAlbums) {
+        rows.push({
+          ...al,
+          artistId: ar.id,
+          artistName: ar.name,
+        });
+      }
+    }
+    rows.sort((a, b) => {
+      const c = a.artistName.localeCompare(b.artistName, sortLocale, {
+        numeric: true,
+      });
+      if (c !== 0) return c;
+      return a.name.localeCompare(b.name, sortLocale, { numeric: true });
+    });
+    return rows;
+  }, [catalogData, sortLocale]);
 
   const useCurrentForArt = () => {
     if (p.current) {
@@ -683,8 +771,8 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
       .then(({ relPath }) => {
         setLog((x) => x + t("tools.logNewFolder", { path: relPath }));
         setNewDirName("");
-        const parent = relPath.split("/").slice(0, -1).join("/");
-        loadDlFs(parent);
+        loadDlFs(relPath);
+        commitDlDest(relPath);
       })
       .catch((e) => setLog((x) => x + t("tools.logFolderErr", { e })))
       .finally(() => setMkBusy(false));
@@ -1520,8 +1608,8 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
 
   const studioOverviewIcon = useMemo(() => {
     switch (studioPane) {
-      case "shared":
-        return <UiLink className="section-head__ic" />;
+      case "catalog":
+        return <UiGraphicEq className="section-head__ic" />;
       case "download":
         return <UiDownload className="section-head__ic" />;
       case "meta":
@@ -1548,17 +1636,15 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                 role="group"
                 aria-label={t("tools.studioPaneAria")}
               >
-                {showSharedTab ? (
-                  <button
-                    type="button"
-                    className={`section-nav-tab${
-                      studioPane === "shared" ? " is-on" : ""
-                    }`}
-                    onClick={() => setStudioPane("shared")}
-                  >
-                    {t("tools.studioTabShared")}
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  className={`section-nav-tab${
+                    studioPane === "catalog" ? " is-on" : ""
+                  }`}
+                  onClick={() => setStudioPane("catalog")}
+                >
+                  {t("tools.studioTabCatalog")}
+                </button>
                 <button
                   type="button"
                   className={`section-nav-tab${
@@ -1594,139 +1680,225 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
 
       <section className="surface-card studio-page-card">
         <div className="tools tool-studio-layout">
-          {studioPane === "shared" && showSharedTab ? (
+          {studioPane === "catalog" ? (
             <div
               className="studio-pane tools-shared-lib"
               role="region"
-              aria-label={t("tools.sharedTitle")}
+              aria-label={t("tools.catalogTitle")}
             >
               <div className="studio-panel tools-shared-browse">
                 <p className="subtle sm tools-shared-browse-lead">
-                  {t("tools.sharedBrowseDesc")}
+                  {t("tools.catalogDesc")}
                 </p>
-                {sharedLockedByEnv ? (
+                {catalogLockedByEnv ? (
                   <p className="subtle sm warnline">
                     {t("tools.sharedEnvLock")}
                   </p>
                 ) : null}
-                {otherSharedAccounts.length === 0 ? (
-                  <p className="subtle sm">{t("tools.sharedNoOtherAccount")}</p>
-                ) : (
+                <div className="tools-shared-browse-row">
+                  <button
+                    type="button"
+                    className="btn sm"
+                    onClick={loadCatalogPane}
+                    disabled={catalogBusy}
+                  >
+                    {catalogBusy
+                      ? t("tools.catalogLoading")
+                      : t("tools.catalogReload")}
+                  </button>
+                </div>
+                {mySelection?.includeAll ? (
+                  <p className="subtle sm">{t("tools.catalogIncludeAll")}</p>
+                ) : null}
+                <p className="subtle sm studio-catalog-hint">
+                  {t("tools.catalogBrowseHint")}
+                </p>
+                {catalogData ? (
                   <>
-                    <div className="tools-shared-browse-row">
-                      <select
-                        className="select"
-                        value={sharedSourceId}
-                        onChange={(e) => {
-                          setSharedSourceId(e.target.value);
-                          setSharedIndex(null);
-                          setSharedArtistId("");
-                          setSharedAlbumRel("");
-                          setSharedMsg(null);
-                          setSharedErr(null);
-                        }}
-                        aria-label={t("tools.sharedPickSource")}
-                      >
-                        <option value="">
-                          {t("tools.sharedPickPlaceholder")}
-                        </option>
-                        {otherSharedAccounts.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.name}
-                          </option>
-                        ))}
-                      </select>
+                    <div
+                      className="studio-catalog-view-toggle section-nav-tabs"
+                      role="tablist"
+                      aria-label={t("tools.catalogViewAria")}
+                    >
                       <button
                         type="button"
-                        className="btn sm"
-                        onClick={loadSharedCatalog}
-                        disabled={!sharedSourceId || sharedLoadBusy}
+                        role="tab"
+                        aria-selected={catalogBrowse === "artists"}
+                        className={`section-nav-tab${
+                          catalogBrowse === "artists" ? " is-on" : ""
+                        }`}
+                        onClick={() => setCatalogBrowse("artists")}
                       >
-                        {sharedLoadBusy
-                          ? t("tools.sharedLoadingCatalog")
-                          : t("tools.sharedLoadCatalog")}
+                        {t("tools.catalogTabArtists")}
+                      </button>
+                      <button
+                        type="button"
+                        role="tab"
+                        aria-selected={catalogBrowse === "albums"}
+                        className={`section-nav-tab${
+                          catalogBrowse === "albums" ? " is-on" : ""
+                        }`}
+                        onClick={() => setCatalogBrowse("albums")}
+                      >
+                        {t("tools.catalogTabAlbums")}
                       </button>
                     </div>
-                    {sharedIndex ? (
-                      <div className="tools-shared-browse-picks">
-                        <div>
-                          <label
-                            className="subtle sm block-label"
-                            htmlFor="shared-artist-sel"
-                          >
-                            {t("tools.sharedPickArtist")}
-                          </label>
-                          <select
-                            id="shared-artist-sel"
-                            className="select"
-                            value={sharedArtistId}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setSharedArtistId(v);
-                              setSharedAlbumRel(v ? SHARED_ALL_ALBUMS : "");
-                            }}
-                          >
-                            <option value="">
-                              {t("tools.sharedPickPlaceholder")}
-                            </option>
-                            {sharedIndex.artists.map((ar) => (
-                              <option key={ar.id} value={ar.id}>
-                                {ar.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label
-                            className="subtle sm block-label"
-                            htmlFor="shared-album-sel"
-                          >
-                            {t("tools.sharedPickAlbum")}
-                          </label>
-                          <select
-                            id="shared-album-sel"
-                            className="select"
-                            value={sharedArtistId ? sharedAlbumRel : ""}
-                            onChange={(e) => setSharedAlbumRel(e.target.value)}
-                            disabled={!sharedArtistId}
-                          >
-                            {!sharedArtistId ? (
-                              <option value="">
-                                {t("tools.sharedAlbumNeedArtist")}
-                              </option>
-                            ) : (
-                              <>
-                                <option value={SHARED_ALL_ALBUMS}>
-                                  {t("tools.sharedAllAlbums")}
-                                </option>
-                                {sharedAlbumsForArtist.map((al) => (
-                                  <option key={al.relPath} value={al.relPath}>
-                                    {al.name} · {al.trackCount}
-                                  </option>
-                                ))}
-                              </>
-                            )}
-                          </select>
-                        </div>
-                        <button
-                          type="button"
-                          className="btn"
-                          onClick={doLinkSharedAlbum}
-                          disabled={
-                            sharedLinkBusy || !sharedArtistId || !sharedAlbumRel
-                          }
-                        >
-                          {sharedLinkBusy
-                            ? t("tools.sharedLinking")
-                            : t("tools.sharedAddToMine")}
-                        </button>
+                    {catalogBrowse === "artists" ? (
+                      <div className="studio-catalog-grid">
+                        {catalogData.artists.map((ar) => {
+                          const coverRel = catalogArtistCoverRel(ar);
+                          const inIndex = indexHasArtist(libraryIndex, ar.id);
+                          const sel = selectionHasArtist(mySelection, ar.id);
+                          const aU =
+                            ar.albumCount === 1
+                              ? t("library.unitAlbum")
+                              : t("library.unitAlbumPlural");
+                          const trU =
+                            ar.trackCount === 1
+                              ? t("library.unitTrack")
+                              : t("library.unitTrackPlural");
+                          return (
+                            <div
+                              key={ar.id}
+                              className={`studio-catalog-card artist-card${
+                                inIndex ? "" : " studio-catalog-card--dim"
+                              }${sel ? " studio-catalog-card--selected" : ""}`}
+                            >
+                              <div className="studio-catalog-card__media" aria-hidden>
+                                {coverRel ? (
+                                  <img
+                                    className="artist-card__cover studio-catalog-card__img"
+                                    src={coverUrlForAlbumRelPath(coverRel)}
+                                    alt=""
+                                  />
+                                ) : (
+                                  <div className="artist-card__badge">
+                                    {initialsCatalog(ar.name)}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="studio-catalog-card__body">
+                                <div className="artist-card__title">
+                                  {ar.name}
+                                </div>
+                                <div className="artist-card__meta">
+                                  {ar.albumCount} {aU} · {ar.trackCount} {trU}
+                                </div>
+                                <div className="studio-catalog-card__actions">
+                                  {sel ? (
+                                    <button
+                                      type="button"
+                                      className="btn danger sm"
+                                      disabled={
+                                        catalogBusy || mySelection?.includeAll
+                                      }
+                                      onClick={() => removeArtistCatalog(ar.id)}
+                                    >
+                                      {t("tools.catalogRemoveLibrary")}
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className="btn sm"
+                                      disabled={
+                                        catalogBusy || mySelection?.includeAll
+                                      }
+                                      onClick={() => addArtistCatalog(ar.id)}
+                                    >
+                                      {t("tools.catalogAddLibrary")}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    ) : null}
+                    ) : (
+                      <div className="studio-catalog-grid">
+                        {catalogAlbumsFlat.map((al) => {
+                          const inIndex = indexHasAlbum(
+                            libraryIndex,
+                            al.relPath,
+                          );
+                          const sel = selectionHasAlbum(
+                            mySelection,
+                            al.relPath,
+                            al.artistId,
+                          );
+                          const coverPath =
+                            al.coverRelPath?.trim() || al.relPath;
+                          const trU =
+                            al.trackCount === 1
+                              ? t("library.unitTrack")
+                              : t("library.unitTrackPlural");
+                          return (
+                            <div
+                              key={al.relPath}
+                              className={`studio-catalog-card album-card${
+                                inIndex ? "" : " studio-catalog-card--dim"
+                              }${sel ? " studio-catalog-card--selected" : ""}`}
+                            >
+                              <div className="studio-catalog-card__media" aria-hidden>
+                                {coverPath ? (
+                                  <img
+                                    className="artist-card__cover studio-catalog-card__img"
+                                    src={coverUrlForAlbumRelPath(coverPath)}
+                                    alt=""
+                                  />
+                                ) : (
+                                  <div className="artist-card__badge">
+                                    {initialsCatalog(al.name)}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="studio-catalog-card__body">
+                                <div className="album-card__title">
+                                  {al.name}
+                                </div>
+                                <div className="album-card__meta">
+                                  {al.artistName} · {al.trackCount} {trU}
+                                </div>
+                                <div className="studio-catalog-card__actions">
+                                  {sel ? (
+                                    <button
+                                      type="button"
+                                      className="btn danger sm"
+                                      disabled={
+                                        catalogBusy || mySelection?.includeAll
+                                      }
+                                      onClick={() =>
+                                        removeAlbumCatalog(al.relPath)
+                                      }
+                                    >
+                                      {t("tools.catalogRemoveLibrary")}
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className="btn sm"
+                                      disabled={
+                                        catalogBusy || mySelection?.includeAll
+                                      }
+                                      onClick={() =>
+                                        addAlbumCatalog(al.relPath)
+                                      }
+                                    >
+                                      {t("tools.catalogAddLibrary")}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </>
-                )}
-                {sharedMsg ? <p className="subtle sm">{sharedMsg}</p> : null}
-                {sharedErr ? (
-                  <p className="subtle sm warnline">{sharedErr}</p>
+                ) : null}
+                {catalogMsg ? <p className="subtle sm">{catalogMsg}</p> : null}
+                {catalogErr ? (
+                  <p className="subtle sm warnline">{catalogErr}</p>
                 ) : null}
               </div>
             </div>

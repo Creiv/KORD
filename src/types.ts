@@ -53,7 +53,7 @@ export type LibArtist = {
   trackCount: number;
   albums: LibAlbum[];
 };
-export type LibraryResponse = { musicRoot: string; artists: LibArtist[] };
+export type LibraryResponse = { musicRoot?: string; artists: LibArtist[] };
 
 export type EnrichedTrack = LibTrack & {
   artist: string;
@@ -122,6 +122,8 @@ export type UserStateV1 = {
   /** relPath tracce escluse singolarmente. */
   shuffleExcludedTrackRelPaths: string[];
   migratedLegacy?: boolean;
+  trackMoods?: Record<string, string[]>;
+  trackMoodsMigrated?: boolean;
 };
 
 export type LibraryArtistIndex = {
@@ -185,7 +187,7 @@ export type LibraryStats = {
 };
 
 export type LibraryIndex = {
-  musicRoot: string;
+  musicRoot?: string;
   artists: LibraryArtistIndex[];
   albums: LibraryAlbumIndex[];
   tracks: LibraryTrackIndex[];
@@ -206,6 +208,35 @@ export type DashboardPayload = {
   favoriteTracks: LibraryTrackIndex[];
   recentlyUpdatedAlbums: LibraryAlbumIndex[];
   qualityAlerts: DashboardAlert[];
+};
+
+export type CatalogAlbumEntry = {
+  id: string;
+  name: string;
+  relPath: string;
+  artist: string;
+  artistId: string;
+  trackCount: number;
+  loose: boolean;
+  coverRelPath: string | null;
+};
+
+export type CatalogArtistEntry = {
+  id: string;
+  name: string;
+  albumCount: number;
+  trackCount: number;
+  relAlbums: CatalogAlbumEntry[];
+};
+
+export type LibraryCatalogResponse = { artists: CatalogArtistEntry[] };
+
+export type LibrarySelectionV1 = {
+  version: 1;
+  includeAll: boolean;
+  artists: string[];
+  albums: string[];
+  tracks: string[];
 };
 
 /** Sezioni route principali (URL / shell). */

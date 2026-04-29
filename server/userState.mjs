@@ -1,6 +1,7 @@
 import fs from "fs/promises"
 import { existsSync } from "fs"
 import path from "path"
+import { kordAccountUserStatePath } from "./kordDataStore.mjs"
 import { CONFIG_FILE } from "./musicRootConfig.mjs"
 
 function isObj(v) {
@@ -9,6 +10,18 @@ function isObj(v) {
 
 function uniqStrings(arr) {
   return [...new Set((Array.isArray(arr) ? arr : []).filter((v) => typeof v === "string" && v.trim()))]
+}
+
+function sanitizeTrackMoodsMap(raw) {
+  if (!isObj(raw)) return {}
+  const out = {}
+  for (const [k, v] of Object.entries(raw)) {
+    if (typeof k !== "string" || !k.trim()) continue
+    const arr = Array.isArray(v) ? v : typeof v === "string" ? [v] : []
+    const moods = uniqStrings(arr)
+    if (moods.length) out[k.trim()] = moods
+  }
+  return out
 }
 
 function sanitizeTrack(track) {
@@ -88,8 +101,8 @@ function sanitizeSettings(settings) {
   return {
     theme: THEME_MODES.has(src.theme) ? src.theme : "midnight",
     vizMode: (() => {
-      let m = src.vizMode === "soft" ? "signals" : src.vizMode;
-      if (m === "horizon") m = "embers";
+      let m = src.vizMode === "soft" ? "signals" : src.vizMode
+      if (m === "horizon") m = "embers"
       return m === "mirror" ||
         m === "osc" ||
         m === "bars" ||
@@ -97,7 +110,7 @@ function sanitizeSettings(settings) {
         m === "embers" ||
         m === "kord"
         ? m
-        : "bars";
+        : "bars"
     })(),
     restoreSession: src.restoreSession !== false,
     defaultTab:
@@ -128,13 +141,10 @@ export function defaultUserState() {
     settings: sanitizeSettings({}),
     shuffleExcludedAlbumIds: [],
     shuffleExcludedTrackRelPaths: [],
+    trackMoods: {},
   }
 }
 
-/**
- * Unisce l'aggiornamento client con lo stato già su disco, così un body vuoto o parziale
- * non azzera preferiti, playlist e impostazioni.
- */
 export function mergeUserStateForPut(prev, patch) {
   if (!isObj(patch) || Array.isArray(patch)) return prev
   if (Object.keys(patch).length === 0) return prev
@@ -149,6 +159,10 @@ export function mergeUserStateForPut(prev, patch) {
     }
     if (k === "queue" && isObj(patch.queue)) {
       out.queue = patch.queue
+      continue
+    }
+    if (k === "trackMoods" && isObj(patch.trackMoods)) {
+      out.trackMoods = { ...(prev.trackMoods || {}), ...sanitizeTrackMoodsMap(patch.trackMoods) }
       continue
     }
     out[k] = patch[k]
@@ -183,7 +197,9 @@ export function sanitizeUserState(input) {
     settings: sanitizeSettings(src.settings),
     shuffleExcludedAlbumIds: sanitizeShuffleIdList(src.shuffleExcludedAlbumIds),
     shuffleExcludedTrackRelPaths: sanitizeShuffleIdList(src.shuffleExcludedTrackRelPaths),
+    trackMoods: sanitizeTrackMoodsMap(src.trackMoods),
     migratedLegacy: src.migratedLegacy === true,
+    trackMoodsMigrated: src.trackMoodsMigrated === true,
   }
 }
 
@@ -193,15 +209,18 @@ function safeAccountId(accountId) {
   return id.replace(/[^a-zA-Z0-9._-]/g, "_")
 }
 
-function filePathAccount(accountId) {
+function filePathAccountLegacy(accountId) {
   const id = safeAccountId(accountId)
   if (!id) return null
   return path.join(path.dirname(CONFIG_FILE), "accounts", id, "user-state.v1.json")
 }
 
-/** Percorso assoluto dello user state sotto la cartella di configurazione (es. `accounts/…/user-state.v1.json`). */
 export function getUserStateFilePathInConfigDir(accountId) {
-  return filePathAccount(accountId)
+  return filePathAccountLegacy(accountId)
+}
+
+export function getUserStateFilePathForAccount(libraryRoot, accountId) {
+  return kordAccountUserStatePath(libraryRoot, accountId)
 }
 
 function filePathKord(musicRoot) {
@@ -217,7 +236,16 @@ async function readStateFile(fp) {
 }
 
 export async function readUserState(musicRoot, accountId = null) {
-  const accountPath = filePathAccount(accountId)
+  if (!musicRoot) return defaultUserState()
+  const kordAcc = kordAccountUserStatePath(musicRoot, accountId)
+  if (kordAcc && existsSync(kordAcc)) {
+    try {
+      return await readStateFile(kordAcc)
+    } catch {
+      return defaultUserState()
+    }
+  }
+  const accountPath = filePathAccountLegacy(accountId)
   if (accountPath && existsSync(accountPath)) {
     try {
       return await readStateFile(accountPath)
@@ -240,7 +268,10 @@ export async function readUserState(musicRoot, accountId = null) {
     if (accountId && safeAccountId(accountId) !== "default") {
       state.migratedLegacy = true
     }
-    if (accountPath) {
+    if (kordAcc) {
+      await fs.mkdir(path.dirname(kordAcc), { recursive: true })
+      await fs.writeFile(kordAcc, JSON.stringify(state, null, 2), "utf8")
+    } else if (accountPath) {
       await fs.mkdir(path.dirname(accountPath), { recursive: true })
       await fs.writeFile(accountPath, JSON.stringify(state, null, 2), "utf8")
     }
@@ -251,7 +282,13 @@ export async function readUserState(musicRoot, accountId = null) {
 }
 
 export async function writeUserState(musicRoot, input, accountId = null) {
-  const fp = filePathAccount(accountId) || filePathKord(musicRoot)
+  if (!musicRoot) {
+    const e = new Error("Library not configured")
+    e.code = "LIBRARY_NOT_CONFIGURED"
+    throw e
+  }
+  const kordAcc = kordAccountUserStatePath(musicRoot, accountId)
+  const fp = kordAcc || filePathAccountLegacy(accountId) || filePathKord(musicRoot)
   await fs.mkdir(path.dirname(fp), { recursive: true })
   const state = sanitizeUserState(input)
   await fs.writeFile(fp, JSON.stringify(state, null, 2), "utf8")

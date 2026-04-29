@@ -7,12 +7,13 @@ import {
   CONFIG_FILE,
   findAccountById,
   getAccountsSnapshot,
+  getMusicRoot,
   getMusicRootForAccountStrict,
   isMusicRootFromEnv,
   reloadConfigFromDisk,
 } from "./musicRootConfig.mjs"
 import { getActivityLogFilePath } from "./activityLog.mjs"
-import { getUserStateFilePathInConfigDir } from "./userState.mjs"
+import { getUserStateFilePathForAccount, getUserStateFilePathInConfigDir } from "./userState.mjs"
 
 const METADATA_BASENAMES = new Set([
   "kord-albuminfo.json",
@@ -22,7 +23,7 @@ const METADATA_BASENAMES = new Set([
   "linked-source.json",
 ])
 
-export async function collectLibraryMetadataForBackup(musicRoot, accountId) {
+export async function collectLibraryMetadataForBackup(musicRoot, zipFolderTag) {
   const root = path.resolve(musicRoot)
   try {
     const st = await fs.stat(root)
@@ -41,7 +42,7 @@ export async function collectLibraryMetadataForBackup(musicRoot, accountId) {
     for (const e of entries) {
       const full = path.join(dir, e.name)
       if (e.isDirectory()) {
-        if (e.name === "node_modules" || e.name === ".git") continue
+        if (e.name === "node_modules" || e.name === ".git" || e.name === ".kord") continue
         await go(full)
         continue
       }
@@ -51,7 +52,7 @@ export async function collectLibraryMetadataForBackup(musicRoot, accountId) {
         const relPosix = rel.split(path.sep).join("/")
         out.push({
           abs: full,
-          zipName: `libraries/${accountId}/${relPosix}`,
+          zipName: `libraries/${zipFolderTag}/${relPosix}`,
         })
       }
     }
@@ -60,8 +61,38 @@ export async function collectLibraryMetadataForBackup(musicRoot, accountId) {
   return out
 }
 
+async function collectKordDbJsonBackup(libraryRoot) {
+  const root = path.join(path.resolve(libraryRoot), ".kord")
+  if (!existsSync(root)) return []
+  const out = []
+  async function walk(dir) {
+    let entries
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const e of entries) {
+      const full = path.join(dir, e.name)
+      if (e.isDirectory()) {
+        await walk(full)
+        continue
+      }
+      if (!e.isFile() || !e.name.endsWith(".json")) continue
+      const rel = path.relative(root, full)
+      const relPosix = rel.split(path.sep).join("/")
+      out.push({
+        abs: full,
+        zipName: `kord-db/${relPosix}`,
+      })
+    }
+  }
+  await walk(root)
+  return out
+}
+
 /**
- * @param {() => { accounts: { id: string; name: string; musicRoot: string }[]; lockedByEnv: boolean; defaultAccountId: string }} getAccountsSnapshot
+ * @param {() => { accounts: { id: string; name: string }[]; lockedByEnv: boolean; defaultAccountId: string }} getAccountsSnapshot
  */
 export async function buildKordBackupPlan(getAccountsSnapshot) {
   const snap = getAccountsSnapshot()
@@ -74,44 +105,48 @@ export async function buildKordBackupPlan(getAccountsSnapshot) {
     entries.push({ abs: actPath, zipName: "config/kord-activity.log.jsonl" })
   }
   const accounts = Array.isArray(snap.accounts) ? snap.accounts : []
+  const libRoot = getMusicRoot()
   const manifest = {
-    kordBackup: 1,
+    kordBackup: 2,
     createdAt: new Date().toISOString(),
-    accounts: accounts.map((a) => ({ id: a.id, name: a.name, musicRoot: a.musicRoot })),
+    accounts: accounts.map((a) => ({ id: a.id, name: a.name })),
     lockedByEnv: Boolean(snap.lockedByEnv),
+    libraryRoot: libRoot,
   }
   entries.push({
     _body: JSON.stringify(manifest, null, 2),
     zipName: "config/manifest.json",
   })
+  const dbFiles = await collectKordDbJsonBackup(libRoot)
+  for (const e of dbFiles) entries.push(e)
   for (const acc of accounts) {
-    const p = getUserStateFilePathInConfigDir(acc.id)
-    if (p && existsSync(p)) {
-      entries.push({ abs: p, zipName: `user-state/accounts/${acc.id}/user-state.v1.json` })
+    const leg = getUserStateFilePathInConfigDir(acc.id)
+    if (leg && existsSync(leg)) {
+      entries.push({ abs: leg, zipName: `user-state/legacy-config/${acc.id}/user-state.v1.json` })
     }
-    const kordLegacy = path.join(acc.musicRoot, ".kord", "user-state.v1.json")
-    const wppLegacy = path.join(acc.musicRoot, ".wpp", "user-state.v1.json")
+    const kordLegacy = path.join(libRoot, ".kord", "user-state.v1.json")
+    const wppLegacy = path.join(libRoot, ".wpp", "user-state.v1.json")
     if (existsSync(kordLegacy)) {
       entries.push({
         abs: kordLegacy,
-        zipName: `user-state/legacy-in-library/${acc.id}/.kord-user-state.v1.json`,
+        zipName: `user-state/legacy-in-library/.kord-user-state.v1.json`,
       })
     }
     if (existsSync(wppLegacy)) {
       entries.push({
         abs: wppLegacy,
-        zipName: `user-state/legacy-in-library/${acc.id}/.wpp-user-state.v1.json`,
+        zipName: `user-state/legacy-in-library/.wpp-user-state.v1.json`,
       })
     }
-    const lib = await collectLibraryMetadataForBackup(acc.musicRoot, acc.id)
-    for (const e of lib) entries.push(e)
   }
+  const lib = await collectLibraryMetadataForBackup(libRoot, "shared")
+  for (const e of lib) entries.push(e)
   return entries
 }
 
 /**
  * @param {import("express").Response} res
- * @param {() => { accounts: { id: string; name: string; musicRoot: string }[]; lockedByEnv: boolean; defaultAccountId: string }} getAccountsSnapshot
+ * @param {() => { accounts: { id: string; name: string }[]; lockedByEnv: boolean; defaultAccountId: string }} getAccountsSnapshot
  */
 export async function streamKordBackupZip(res, getAccountsSnapshot) {
   const plan = await buildKordBackupPlan(getAccountsSnapshot)
@@ -181,7 +216,8 @@ export async function restoreKordFromZipBuffer(buffer) {
     e.code = "BAD_BACKUP"
     throw e
   }
-  if (manifest.kordBackup !== 1) {
+  const backupVer = manifest.kordBackup
+  if (backupVer !== 1 && backupVer !== 2) {
     const e = new Error("Not a Kord backup archive")
     e.code = "BAD_BACKUP"
     throw e
@@ -202,18 +238,43 @@ export async function restoreKordFromZipBuffer(buffer) {
     await fs.writeFile(p, actBuf, "utf8")
   }
   const snap = getAccountsSnapshot()
+  const lr = getMusicRoot()
+
+  if (backupVer === 2) {
+    for (const [name, buf] of entries) {
+      if (!name.startsWith("kord-db/")) continue
+      const rel = name.slice("kord-db/".length)
+      const dest = path.join(lr, ".kord", rel.split("/").join(path.sep))
+      const kordRoot = path.join(lr, ".kord")
+      if (!underMusicRoot(dest, kordRoot)) continue
+      await fs.mkdir(path.dirname(dest), { recursive: true })
+      await fs.writeFile(dest, buf, "utf8")
+    }
+  }
+
   for (const acc of snap.accounts) {
     const us = entries.get(`user-state/accounts/${acc.id}/user-state.v1.json`)
-    if (us) {
-      const dest = getUserStateFilePathInConfigDir(acc.id)
+    const usLeg = entries.get(`user-state/legacy-config/${acc.id}/user-state.v1.json`)
+    const buf = us || usLeg
+    if (buf) {
+      const dest = getUserStateFilePathForAccount(lr, acc.id)
       if (dest) {
         await fs.mkdir(path.dirname(dest), { recursive: true })
-        await fs.writeFile(dest, us, "utf8")
+        await fs.writeFile(dest, buf, "utf8")
+      }
+      const leg = getUserStateFilePathInConfigDir(acc.id)
+      if (leg) {
+        await fs.mkdir(path.dirname(leg), { recursive: true })
+        await fs.writeFile(leg, buf, "utf8")
       }
     }
     const mr = getMusicRootForAccountStrict(acc.id)
-    const kordL = entries.get(`user-state/legacy-in-library/${acc.id}/.kord-user-state.v1.json`)
-    const wppL = entries.get(`user-state/legacy-in-library/${acc.id}/.wpp-user-state.v1.json`)
+    const kordL =
+      entries.get(`user-state/legacy-in-library/${acc.id}/.kord-user-state.v1.json`) ||
+      entries.get(`user-state/legacy-in-library/.kord-user-state.v1.json`)
+    const wppL =
+      entries.get(`user-state/legacy-in-library/${acc.id}/.wpp-user-state.v1.json`) ||
+      entries.get(`user-state/legacy-in-library/.wpp-user-state.v1.json`)
     if (kordL) {
       const dest = path.join(mr, ".kord", "user-state.v1.json")
       await fs.mkdir(path.dirname(dest), { recursive: true })
@@ -232,10 +293,10 @@ export async function restoreKordFromZipBuffer(buffer) {
     if (slash < 0) continue
     const accountId = rest.slice(0, slash)
     const rel = rest.slice(slash + 1)
-    if (!findAccountById(accountId)) continue
+    if (backupVer === 1 && !findAccountById(accountId)) continue
     const base = path.basename(rel)
     if (!METADATA_BASENAMES.has(base)) continue
-    const musicRoot = getMusicRootForAccountStrict(accountId)
+    const musicRoot = backupVer === 2 ? lr : getMusicRootForAccountStrict(accountId)
     const full = path.join(musicRoot, rel.split("/").join(path.sep))
     if (!underMusicRoot(full, musicRoot)) continue
     await fs.mkdir(path.dirname(full), { recursive: true })

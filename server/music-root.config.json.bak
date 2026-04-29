@@ -1,0 +1,16 @@
+{
+  "musicRoot": "/home/diego-ubuntu/Musica/Brani",
+  "listenOnLan": true,
+  "accounts": [
+    {
+      "id": "default",
+      "name": "Diego",
+      "musicRoot": "/home/diego-ubuntu/Musica/Brani"
+    },
+    {
+      "id": "ceae51b7-3d98-40d8-b2ec-00f4b043e7f2",
+      "name": "Nicole",
+      "musicRoot": "/home/diego-ubuntu/Musica/BraniNicole"
+    }
+  ]
+}

@@ -1,35 +1,12 @@
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-function configFilePath() {
-  const userDir =
-    process.env.KORD_USER_CONFIG_DIR || process.env.WPP_USER_CONFIG_DIR;
-  if (userDir && String(userDir).trim()) {
-    return join(resolve(String(userDir).trim()), "music-root.config.json");
-  }
-  return join(__dirname, "server", "music-root.config.json");
-}
-
-function readListenOnLanFromDisk() {
-  try {
-    const p = configFilePath();
-    if (existsSync(p)) {
-      const j = JSON.parse(readFileSync(p, "utf8"));
-      return Boolean(j?.listenOnLan);
-    }
-  } catch {
-    /* ignore */
-  }
-  return false;
-}
-
-const exposeLan =
-  readListenOnLanFromDisk() || process.env.KORD_LISTEN_ON_LAN === "1";
+const exposeLan = process.env.KORD_LISTEN_ON_LAN !== "0";
 
 const packageVersion = (() => {
   try {

@@ -3,19 +3,26 @@ import fsp from "fs/promises";
 import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
+import {
+  atomicWriteFileUtf8,
+  kordAccountDir,
+  kordAccountLibrarySelectionPath,
+  kordGlobalAccountsPath,
+  kordGlobalInfoDir,
+} from "./kordDataStore.mjs";
+import { runKordLayoutMigration } from "./migrateKordV2.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const userDir = process.env.KORD_USER_CONFIG_DIR || process.env.WPP_USER_CONFIG_DIR;
 export const CONFIG_FILE = userDir
   ? path.join(path.resolve(String(userDir).trim()), "music-root.config.json")
   : path.join(__dirname, "music-root.config.json");
-const DEFAULT_PATH = "/";
+const BOOTSTRAP_SCHEMA_VERSION = 3;
 const DEFAULT_ACCOUNT_ID = "default";
 
 const state = {
   path: null,
   fromEnv: false,
-  listenOnLan: false,
   accounts: [],
 };
 
@@ -48,56 +55,171 @@ function cleanAccountName(value, fallback = "Default") {
   return name || fallback;
 }
 
-function normalizeAccount(input, fallbackMusicRoot) {
-  const src = input && typeof input === "object" ? input : {};
-  const id = String(src.id || "").trim() || makeAccountId();
-  const musicRoot =
-    typeof src.musicRoot === "string" && src.musicRoot.trim()
-      ? path.resolve(src.musicRoot)
-      : path.resolve(fallbackMusicRoot || DEFAULT_PATH);
-  return {
-    id,
-    name: cleanAccountName(src.name, id === DEFAULT_ACCOUNT_ID ? "Default" : "Account"),
-    musicRoot,
-  };
+function collectLegacyAccountRoots(rawAccounts) {
+  const out = {};
+  if (!Array.isArray(rawAccounts)) return out;
+  for (const item of rawAccounts) {
+    if (!item || typeof item !== "object") continue;
+    const id = String(item.id || "").trim();
+    if (!id || !item.musicRoot || typeof item.musicRoot !== "string") continue;
+    out[id] = path.resolve(item.musicRoot.trim());
+  }
+  return out;
 }
 
-function normalizeAccounts(file) {
-  const fallbackMusicRoot =
-    typeof file.musicRoot === "string" && file.musicRoot.trim()
-      ? file.musicRoot
-      : DEFAULT_PATH;
-  const raw = Array.isArray(file.accounts) ? file.accounts : [];
+function normalizeAccountsArray(raw) {
+  const rawArr = Array.isArray(raw) ? raw : [];
   const seen = new Set();
-  const accounts = raw
-    .map((item) => normalizeAccount(item, fallbackMusicRoot))
-    .filter((item) => {
-      if (seen.has(item.id)) return false;
-      seen.add(item.id);
-      return true;
-    });
-  if (!accounts.length) {
+  const accounts = [];
+  for (const item of rawArr) {
+    if (!item || typeof item !== "object") continue;
+    const id = String(item.id || "").trim() || makeAccountId();
+    if (seen.has(id)) continue;
+    seen.add(id);
     accounts.push({
-      id: DEFAULT_ACCOUNT_ID,
-      name: "Default",
-      musicRoot: path.resolve(fallbackMusicRoot),
+      id,
+      name: cleanAccountName(item.name, id === DEFAULT_ACCOUNT_ID ? "Default" : "Account"),
     });
   }
   return accounts;
 }
 
+function normalizeAccountsFromFile(file) {
+  return normalizeAccountsArray(file.accounts);
+}
+
+function resolveLibraryRootFromBootstrap(file) {
+  if (typeof file.musicRoot === "string" && file.musicRoot.trim()) {
+    return path.resolve(file.musicRoot.trim());
+  }
+  return null;
+}
+
+function configNeedsPersistRewrite(file) {
+  if (Number(file.schemaVersion) === 2) return false;
+  const raw = Array.isArray(file.accounts) ? file.accounts : [];
+  if (raw.some((a) => a && typeof a === "object" && typeof a.musicRoot === "string" && a.musicRoot.trim())) {
+    return true;
+  }
+  return false;
+}
+
+function writeAccountsFileSync(libraryRoot, accounts) {
+  const accPath = kordGlobalAccountsPath(libraryRoot);
+  fs.mkdirSync(path.dirname(accPath), { recursive: true });
+  fs.writeFileSync(accPath, JSON.stringify({ schemaVersion: 1, accounts }, null, 2), "utf8");
+}
+
+function loadOrCreateAccountsInLibrarySync(libraryRoot, rawBootstrapAccounts) {
+  try {
+    fs.mkdirSync(kordGlobalInfoDir(libraryRoot), { recursive: true });
+  } catch {
+    /* ignore */
+  }
+  const accPath = kordGlobalAccountsPath(libraryRoot);
+  if (fs.existsSync(accPath)) {
+    try {
+      const j = JSON.parse(fs.readFileSync(accPath, "utf8"));
+      const list = normalizeAccountsArray(j.accounts);
+      if (list.length) return list;
+    } catch {
+      /* ignore */
+    }
+  }
+  const fromBootstrap = normalizeAccountsArray(rawBootstrapAccounts);
+  if (fromBootstrap.length) {
+    writeAccountsFileSync(libraryRoot, fromBootstrap);
+    return fromBootstrap;
+  }
+  const def = [{ id: DEFAULT_ACCOUNT_ID, name: "Default" }];
+  writeAccountsFileSync(libraryRoot, def);
+  return def;
+}
+
+async function persistAccountsToLibraryAsync() {
+  const lib = state.path;
+  if (!lib) return;
+  const accPath = kordGlobalAccountsPath(lib);
+  await fsp.mkdir(path.dirname(accPath), { recursive: true });
+  await atomicWriteFileUtf8(
+    accPath,
+    JSON.stringify({ schemaVersion: 1, accounts: state.accounts }, null, 2),
+  );
+}
+
+function persistBootstrapOnlySync() {
+  try {
+    fs.mkdirSync(path.dirname(CONFIG_FILE), { recursive: true });
+    fs.writeFileSync(
+      CONFIG_FILE,
+      JSON.stringify(
+        {
+          musicRoot: state.path,
+          schemaVersion: BOOTSTRAP_SCHEMA_VERSION,
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+function persistConfigSyncFromState() {
+  persistBootstrapOnlySync();
+}
+
+function shouldRewriteBootstrap(file) {
+  if (Number(file.schemaVersion) !== BOOTSTRAP_SCHEMA_VERSION) return true;
+  return Object.prototype.hasOwnProperty.call(file, "accounts");
+}
+
 function applyConfigFileToState() {
   const file = readFileObject();
-  state.listenOnLan = Boolean(file.listenOnLan);
-  state.accounts = normalizeAccounts(file);
+  const rawAccounts = Array.isArray(file.accounts) ? file.accounts : [];
+  const legacyRoots = collectLegacyAccountRoots(rawAccounts);
+  const needsLegacyV2Rewrite = configNeedsPersistRewrite(file);
+
+  if (needsLegacyV2Rewrite && fs.existsSync(CONFIG_FILE)) {
+    try {
+      fs.copyFileSync(CONFIG_FILE, `${CONFIG_FILE}.bak`);
+    } catch {
+      /* ignore */
+    }
+  }
+
   const fromEnv = readEnv();
   if (fromEnv) {
     state.path = fromEnv.path;
     state.fromEnv = true;
-    return;
+    state.accounts = loadOrCreateAccountsInLibrarySync(state.path, []);
+    if (shouldRewriteBootstrap(file)) {
+      persistBootstrapOnlySync();
+    }
+  } else {
+    state.fromEnv = false;
+    state.path = resolveLibraryRootFromBootstrap(file);
+    if (!state.path) {
+      state.accounts = [];
+    } else {
+      state.accounts = loadOrCreateAccountsInLibrarySync(state.path, rawAccounts);
+      if (shouldRewriteBootstrap(file) || needsLegacyV2Rewrite) {
+        persistBootstrapOnlySync();
+      }
+    }
   }
-  state.fromEnv = false;
-  state.path = state.accounts[0]?.musicRoot || path.resolve(DEFAULT_PATH);
+
+  const cfgDir = path.dirname(CONFIG_FILE);
+  if (state.path) {
+    void runKordLayoutMigration({
+      libraryRoot: state.path,
+      accounts: state.accounts,
+      legacyAccountMusicRoots: legacyRoots,
+      configDir: cfgDir,
+    }).catch(() => {});
+  }
 }
 
 function init() {
@@ -106,9 +228,18 @@ function init() {
 
 init();
 
-/** Rilegge `music-root.config.json` da disco (dopo restore o modifica esterna). */
 export function reloadConfigFromDisk() {
   applyConfigFileToState();
+}
+
+export function isLibraryRootConfigured() {
+  if (state.fromEnv) return true;
+  if (!state.path) return false;
+  try {
+    return fs.existsSync(state.path) && fs.statSync(state.path).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 function isIPv4Family(family) {
@@ -148,30 +279,28 @@ export function getMusicRoot() {
   return state.path;
 }
 
+export function getLibraryRoot() {
+  return state.path;
+}
+
 export function getDefaultAccountId() {
-  return state.accounts[0]?.id || DEFAULT_ACCOUNT_ID;
+  return state.accounts[0]?.id ?? "";
 }
 
 export function getAccount(accountId) {
   const id = String(accountId || "").trim();
-  const account =
-    state.accounts.find((item) => item.id === id) || state.accounts[0];
+  const account = state.accounts.find((item) => item.id === id) || state.accounts[0];
   if (!account) {
     return {
-      id: DEFAULT_ACCOUNT_ID,
+      id: "",
       name: "Default",
-      musicRoot: state.fromEnv ? state.path : path.resolve(DEFAULT_PATH),
     };
   }
-  return {
-    id: account.id,
-    name: account.name,
-    musicRoot: state.fromEnv ? state.path : account.musicRoot,
-  };
+  return { id: account.id, name: account.name };
 }
 
-export function getMusicRootForAccount(accountId) {
-  return getAccount(accountId).musicRoot;
+export function getMusicRootForAccount(_accountId) {
+  return state.path;
 }
 
 export function findAccountById(accountId) {
@@ -181,13 +310,18 @@ export function findAccountById(accountId) {
 }
 
 export function getMusicRootForAccountStrict(accountId) {
+  if (!isLibraryRootConfigured()) {
+    const e = new Error("Set the library folder in Settings first.");
+    e.code = "LIBRARY_NOT_CONFIGURED";
+    throw e;
+  }
   const acc = findAccountById(accountId);
   if (!acc) {
     const e = new Error("Account not found");
     e.code = "ACCOUNT_NOT_FOUND";
     throw e;
   }
-  return state.fromEnv ? state.path : acc.musicRoot;
+  return state.path;
 }
 
 export function isMusicRootFromEnv() {
@@ -195,55 +329,54 @@ export function isMusicRootFromEnv() {
 }
 
 export function getListenHost() {
-  return state.listenOnLan ? "0.0.0.0" : "127.0.0.1";
+  return "0.0.0.0";
 }
 
-export function getConfigSnapshot() {
+export function getConfigSnapshot(includeMusicRoot) {
   const serverPort = Number(process.env.PORT) || 3001;
   const ip = guessLanIPv4();
-  const lanAccessUrl =
-    state.listenOnLan && ip ? `http://${ip}:${serverPort}` : null;
-  return {
-    musicRoot: getMusicRoot(),
+  const lanAccessUrl = ip ? `http://${ip}:${serverPort}` : null;
+  const snap = {
     lockedByEnv: state.fromEnv,
-    listenOnLan: state.listenOnLan,
+    libraryRootConfigured: isLibraryRootConfigured(),
     serverPort,
     devClientPort: 5173,
     lanAccessUrl,
     defaultAccountId: getDefaultAccountId(),
   };
+  if (includeMusicRoot) {
+    snap.musicRoot = getMusicRoot();
+  }
+  return snap;
 }
 
-async function writeMergedConfig() {
+async function writeMergedConfigBootstrap() {
   await fsp.mkdir(path.dirname(CONFIG_FILE), { recursive: true });
   await fsp.writeFile(
     CONFIG_FILE,
     JSON.stringify(
       {
-        musicRoot: state.accounts[0]?.musicRoot || state.path,
-        listenOnLan: state.listenOnLan,
-        accounts: state.accounts,
+        musicRoot: state.path,
+        schemaVersion: BOOTSTRAP_SCHEMA_VERSION,
       },
       null,
-      2
+      2,
     ),
-    "utf8"
+    "utf8",
   );
-}
-
-export async function setListenOnLan(value) {
-  state.listenOnLan = Boolean(value);
-  await writeMergedConfig();
 }
 
 export async function setPersistedMusicRoot(absolute) {
   if (state.fromEnv) {
     const err = new Error(
-      "MUSIC_ROOT is set in the environment: unset the variable to use the in-app option."
+      "MUSIC_ROOT is set in the environment: unset the variable to use the in-app option.",
     );
     err.code = "ENV_LOCKED";
     throw err;
   }
+  const bootstrap = readFileObject();
+  const rawBootstrap = Array.isArray(bootstrap.accounts) ? bootstrap.accounts : [];
+  const legacyRoots = collectLegacyAccountRoots(rawBootstrap);
   const resolved = path.resolve(String(absolute || "").trim() || "/");
   if (!fs.existsSync(resolved)) {
     const err = new Error("Folder does not exist");
@@ -255,11 +388,17 @@ export async function setPersistedMusicRoot(absolute) {
     err.code = "NOT_DIR";
     throw err;
   }
-  const current = state.accounts[0];
-  if (current) current.musicRoot = resolved;
   state.path = resolved;
   state.fromEnv = false;
-  await writeMergedConfig();
+  state.accounts = loadOrCreateAccountsInLibrarySync(resolved, rawBootstrap);
+  await writeMergedConfigBootstrap();
+  const cfgDir = path.dirname(CONFIG_FILE);
+  void runKordLayoutMigration({
+    libraryRoot: state.path,
+    accounts: state.accounts,
+    legacyAccountMusicRoots: legacyRoots,
+    configDir: cfgDir,
+  }).catch(() => {});
 }
 
 export function getAccountsSnapshot() {
@@ -268,9 +407,9 @@ export function getAccountsSnapshot() {
     accounts: state.accounts.map((account) => ({
       id: account.id,
       name: account.name,
-      musicRoot: state.fromEnv ? state.path : account.musicRoot,
     })),
     lockedByEnv: state.fromEnv,
+    libraryRootConfigured: isLibraryRootConfigured(),
   };
 }
 
@@ -284,28 +423,54 @@ async function ensureMusicRootDir(resolved) {
   }
 }
 
-export async function createAccount({ name, musicRoot } = {}) {
+async function ensureNewAccountKordLayout(libraryRoot, accountId) {
+  const dir = kordAccountDir(libraryRoot, accountId);
+  if (!dir) return;
+  await fsp.mkdir(dir, { recursive: true });
+  const sel = kordAccountLibrarySelectionPath(libraryRoot, accountId);
+  if (sel && !fs.existsSync(sel)) {
+    await atomicWriteFileUtf8(
+      sel,
+      JSON.stringify(
+        { version: 1, includeAll: false, artists: [], albums: [], tracks: [] },
+        null,
+        2,
+      ),
+    );
+  }
+}
+
+function assertLibraryReady() {
+  if (!isLibraryRootConfigured()) {
+    const err = new Error("Set the library folder in Settings first.");
+    err.code = "LIBRARY_NOT_CONFIGURED";
+    throw err;
+  }
+}
+
+export async function createAccount({ name } = {}) {
+  assertLibraryReady();
   if (state.fromEnv) {
     const err = new Error(
-      "MUSIC_ROOT is set in the environment: unset the variable to use per-account libraries."
+      "MUSIC_ROOT is set in the environment: unset the variable to create accounts.",
     );
     err.code = "ENV_LOCKED";
     throw err;
   }
-  const resolved = path.resolve(String(musicRoot || "").trim() || DEFAULT_PATH);
-  await ensureMusicRootDir(resolved);
+  const lib = getMusicRoot();
+  await ensureMusicRootDir(lib);
   const account = {
     id: makeAccountId(),
     name: cleanAccountName(name, "New account"),
-    musicRoot: resolved,
   };
   state.accounts.push(account);
-  state.path = state.accounts[0]?.musicRoot || resolved;
-  await writeMergedConfig();
+  await persistAccountsToLibraryAsync();
+  await ensureNewAccountKordLayout(lib, account.id);
   return { ...getAccountsSnapshot(), createdAccountId: account.id };
 }
 
 export async function updateAccount(id, patch = {}) {
+  assertLibraryReady();
   const account = state.accounts.find((item) => item.id === String(id || "").trim());
   if (!account) {
     const err = new Error("Account not found");
@@ -313,24 +478,12 @@ export async function updateAccount(id, patch = {}) {
     throw err;
   }
   if (patch.name != null) account.name = cleanAccountName(patch.name, account.name);
-  if (patch.musicRoot != null) {
-    if (state.fromEnv) {
-      const err = new Error(
-        "MUSIC_ROOT is set in the environment: unset the variable to use per-account libraries."
-      );
-      err.code = "ENV_LOCKED";
-      throw err;
-    }
-    const resolved = path.resolve(String(patch.musicRoot || "").trim() || DEFAULT_PATH);
-    await ensureMusicRootDir(resolved);
-    account.musicRoot = resolved;
-  }
-  state.path = state.accounts[0]?.musicRoot || state.path;
-  await writeMergedConfig();
+  await persistAccountsToLibraryAsync();
   return getAccountsSnapshot();
 }
 
 export async function deleteAccount(id) {
+  assertLibraryReady();
   const accountId = String(id || "").trim();
   const index = state.accounts.findIndex((item) => item.id === accountId);
   if (index < 0) {
@@ -344,7 +497,6 @@ export async function deleteAccount(id) {
     throw err;
   }
   state.accounts.splice(index, 1);
-  state.path = state.accounts[0]?.musicRoot || path.resolve(DEFAULT_PATH);
-  await writeMergedConfig();
+  await persistAccountsToLibraryAsync();
   return getAccountsSnapshot();
 }

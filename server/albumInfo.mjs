@@ -293,33 +293,13 @@ export async function saveTrackManualMeta(albumDir, fileName, patch) {
       next.genre = norm ? str(norm, 800) : null
     }
   }
-  if (Object.prototype.hasOwnProperty.call(patch, "moods")) {
-    const list =
-      patch.moods == null
-        ? []
-        : normalizeTrackMoodsList(patch.moods, null)
-    delete next.mood
-    if (!list.length) {
-      delete next.moods
-    } else {
-      next.moods = list
-    }
-  } else if (Object.prototype.hasOwnProperty.call(patch, "mood")) {
-    const list = normalizeTrackMoodsList([], patch.mood)
-    delete next.mood
-    if (!list.length) {
-      delete next.moods
-    } else {
-      next.moods = list
-    }
-  }
   if (Object.prototype.hasOwnProperty.call(patch, "source")) {
     next.source = str(patch.source, 200)
   }
   if (Object.prototype.hasOwnProperty.call(patch, "url")) {
     next.url = str(patch.url, 2000)
   }
-  for (const f of ["durationMs", "trackNumber", "discNumber"]) {
+  for (const f of ["trackNumber", "discNumber"]) {
     if (Object.prototype.hasOwnProperty.call(patch, f)) {
       const v = patch[f]
       if (v === "" || v == null) next[f] = null

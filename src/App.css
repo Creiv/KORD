@@ -113,7 +113,7 @@
   align-items: center;
 }
 
-.topbar2--toolbar .kord-app-logo--topbar {
+.topbar2--toolbar .kord-wordmark-svg--topbar {
   margin-top: 0;
 }
 
@@ -1584,6 +1584,23 @@
   min-width: 0;
 }
 
+@media (min-width: 901px) {
+  .settings-page .settings-network-section {
+    grid-column: 1 / -1;
+  }
+
+  .settings-network-section__body {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem 1.25rem;
+    align-items: start;
+  }
+}
+
+.settings-network-section__body > p {
+  margin: 0;
+}
+
 .activity-log-table {
   width: 100%;
   border-collapse: collapse;
@@ -2883,19 +2900,6 @@
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.22));
 }
 
-.kord-app-logo {
-  display: block;
-  flex-shrink: 0;
-  object-fit: contain;
-  user-select: none;
-}
-
-.kord-app-logo--topbar {
-  width: 42px;
-  height: 42px;
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.22));
-}
-
 .kord-wordmark-layer--halo {
   fill: none;
   stroke: color-mix(in srgb, var(--text) 52%, var(--border-strong) 48%);
@@ -4089,6 +4093,109 @@
   line-height: 1.5;
   min-width: 0;
   padding: 0;
+}
+
+.studio-catalog-hint {
+  margin-top: 0.35rem;
+  max-width: 52rem;
+}
+
+.studio-catalog-view-toggle {
+  margin-top: 0.9rem;
+}
+
+.studio-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
+  gap: 0.85rem;
+  margin-top: 0.65rem;
+}
+
+.studio-catalog-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.85rem;
+  border-radius: var(--radius-lg);
+  text-align: left;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.studio-catalog-card .artist-card__title,
+.studio-catalog-card .album-card__title {
+  font-size: 0.98rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.studio-catalog-card .artist-card__meta,
+.studio-catalog-card .album-card__meta {
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.studio-catalog-card__media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 100%;
+}
+
+.studio-catalog-card__img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+}
+
+.studio-catalog-card .artist-card__badge {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  font-weight: 750;
+  border-radius: var(--radius-md);
+}
+
+.studio-catalog-card--dim:not(.studio-catalog-card--selected) {
+  opacity: 0.52;
+  filter: grayscale(0.2);
+}
+
+.studio-catalog-card--selected {
+  border-color: color-mix(
+    in srgb,
+    var(--accent) 55%,
+    var(--border-strong) 45%
+  );
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 38%, transparent),
+    var(--shadow-elev-2);
+}
+
+.studio-catalog-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.studio-catalog-card__actions {
+  margin-top: auto;
+  padding-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.studio-catalog-card__actions .btn {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .tools-meta .studio-meta-split {
@@ -5437,9 +5544,9 @@
     min-width: 0;
   }
 
-  .kord-app-logo--topbar {
-    width: 36px;
+  .kord-wordmark-svg--topbar {
     height: 36px;
+    width: auto;
   }
 
   .topbar-nav {

@@ -143,6 +143,23 @@ function mockApi() {
         JSON.stringify({ ok: true, data: userState, error: null })
       );
     }
+    if (url.includes("/api/config")) {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          data: {
+            lockedByEnv: false,
+            libraryRootConfigured: true,
+            serverPort: 3001,
+            devClientPort: 5173,
+            lanAccessUrl: null,
+            defaultAccountId: "default",
+            musicRoot: "/music",
+          },
+          error: null,
+        })
+      );
+    }
     if (url.includes("/api/accounts") && !url.includes("library-index")) {
       return new Response(
         JSON.stringify({
@@ -150,9 +167,10 @@ function mockApi() {
           data: {
             defaultAccountId: "default",
             accounts: [
-              { id: "default", name: "Default", musicRoot: "/music" },
+              { id: "default", name: "Default" },
             ],
             lockedByEnv: false,
+            libraryRootConfigured: true,
           },
           error: null,
         })

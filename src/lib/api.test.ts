@@ -10,12 +10,10 @@ const accountsPayload = {
     {
       id: "acc-default",
       name: "Default",
-      musicRoot: "/music/default",
     },
     {
       id: "acc-alt",
       name: "Alt",
-      musicRoot: "/music/alt",
     },
   ],
   lockedByEnv: false,
