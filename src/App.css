@@ -6103,3 +6103,110 @@
   flex: 1 1 0.5rem;
   min-width: 0.5rem;
 }
+
+.content-shell:has(> .kord-splash) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.kord-splash {
+  align-self: center;
+  width: 100%;
+  max-width: 36rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(0.85rem, 3vw, 1.35rem);
+  padding: clamp(0.85rem, 3vw, 1.85rem);
+  margin: clamp(1rem, 4vh, 2.75rem) auto;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.kord-splash__carousel {
+  width: 100%;
+  min-height: 4.5rem;
+  display: grid;
+  place-items: center;
+}
+
+.kord-splash__tip {
+  grid-area: 1 / 1;
+  margin: 0 auto;
+  max-width: 32rem;
+  font-size: clamp(0.94rem, 2.4vw, 1.06rem);
+  font-weight: 550;
+  line-height: 1.42;
+  color: color-mix(in srgb, var(--accent) 74%, var(--text) 26%);
+  text-wrap: balance;
+  animation: kordSplashTipIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes kordSplashTipIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kord-splash__tip {
+    animation-duration: 0.01ms;
+    animation: none;
+  }
+}
+
+.kord-splash__title {
+  margin: 0;
+  font-size: clamp(1.6rem, 4.5vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.18;
+}
+
+.kord-splash__lead {
+  margin: 0;
+  font-size: 0.96rem;
+  line-height: 1.52;
+  color: color-mix(in srgb, var(--muted) 88%, var(--text) 12%);
+}
+
+.kord-splash__spinner {
+  box-sizing: border-box;
+  width: 3.25rem;
+  height: 3.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.35rem;
+}
+
+.kord-splash__ring {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 3px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-top-color: color-mix(in srgb, var(--accent) 92%, var(--border) 8%);
+  border-right-color: color-mix(in srgb, var(--accent) 48%, var(--border) 52%);
+  animation: kordSplashSpin 0.88s linear infinite;
+}
+
+@keyframes kordSplashSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kord-splash__ring {
+    animation-duration: 2.4s;
+    animation-timing-function: linear;
+  }
+}

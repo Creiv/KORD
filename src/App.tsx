@@ -55,6 +55,7 @@ import {
 } from "./lib/trackMoods";
 import { fmtDate, trackInfoBadges } from "./lib/metaFormat";
 import { ExcludeShuffleIcon } from "./components/ExcludeShuffleIcon";
+import { KordSplashLoader } from "./components/KordSplashLoader";
 import {
   KordNavIcon,
   UiAdd,
@@ -5133,7 +5134,7 @@ function Shell() {
 
   const currentView = (() => {
     if (loading && !index)
-      return <div className="panel-empty">{t("loading.app")}</div>;
+      return <KordSplashLoader />;
     if (error && !index)
       return <div className="panel-empty danger">{error}</div>;
     if (!index) return <div className="panel-empty">{t("empty.noData")}</div>;

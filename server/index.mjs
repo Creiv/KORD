@@ -74,8 +74,12 @@ import {
   fetchYoutubeWebReleasesList,
   isYoutubeWebReleasesPageUrl,
 } from "./youtubeWebReleasesInnertube.mjs";
+import { reuseKeyedPromise } from "./asyncSingleflight.mjs";
 
 const execFileAsync = promisify(execFile);
+
+/** Evita scan disco duplicate quando più richieste parallele leggono lo stesso root (es. /api/library-index + /api/dashboard all'avvio UI). */
+const libraryIndexFlight = new Map();
 
 /** downloadId (UUID) → { child, userCancelled, killTimer } per /api/download-cancel */
 const activeYtdlpDownloads = new Map();
@@ -657,7 +661,10 @@ async function getLibraryIndex(root = getMusicRoot()) {
   if (!existsSync(root) || !underRoot(root, root)) {
     throw new Error("Music library folder is not available");
   }
-  return buildLibraryIndex(root);
+  const key = path.resolve(root);
+  return reuseKeyedPromise(libraryIndexFlight, key, () =>
+    buildLibraryIndex(root),
+  );
 }
 
 async function getFilteredIndexForAccount(accountId) {

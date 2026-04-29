@@ -35,6 +35,29 @@ export const IT: Record<string, string> = {
   "common.open": "Apri",
   "common.emDash": "—",
   "loading.app": "Caricamento di KORD…",
+  "loading.splashTitle": "Benvenuto in KORD",
+  "loading.splashLead":
+    "Stiamo caricando la tua musica — la libreria locale di cui ti puoi fidare.",
+  "loading.splashAria": "Caricamento libreria in corso",
+  "loading.splashTip1": "La tua musica, sempre a portata di clic.",
+  "loading.splashTip2": "Stiamo caricando la tua musica…",
+  "loading.splashTip3": "La tua libreria locale di fiducia.",
+  "loading.splashTip4": "Esplora cartelle, brani e copertine sulla tua unità.",
+  "loading.splashTip5":
+    "Le librerie molto ricche ci mettono qualche secondo in più — è normale.",
+  "loading.splashTip6": "Tutto rimane sul computer: nessun cloud obbligatorio.",
+  "loading.splashTip7": "Prepariamo artisti, album e percorsi per la ricerca.",
+  "loading.splashTip8": "Leggiamo metadati e JSON salvati accanto ai file.",
+  "loading.splashTip9": "Playlist, preferiti e bozza della coda stanno prendendo forma.",
+  "loading.splashTip10": "Respira un attimo — ci siamo quasi.",
+  "loading.splashTip11":
+    "KORD è offline-first: la libreria resta davvero tua.",
+  "loading.splashTip12":
+    "Dopo questo caricamento navigare sarà più reattivo.",
+  "loading.splashTip13":
+    "Generi, mood e cronologia sono nella tua cartella musica.",
+  "loading.splashTip14": "Zero invii esterni: filesystem locale sicuro.",
+  "loading.splashTip15": "Grazie della pazienza — l'attesa avrà senso.",
   "gate.checkingLibrary": "Verifica configurazione libreria…",
   "gate.libraryRequiredTitle": "Cartella libreria obbligatoria",
   "gate.libraryRequiredLead":
