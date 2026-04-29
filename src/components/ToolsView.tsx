@@ -54,9 +54,9 @@ import type {
   LibraryResponse,
 } from "../types";
 import {
+  studioDownloadSourceForArtistUrl,
   urlMatchesStudioDlMode,
   type DlVideoMode,
-  type DlYtSource,
 } from "../lib/youtubeUrl";
 import {
   UiChevronRight,
@@ -248,7 +248,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
   } | null>(null);
   const [preset, setPreset] = useState<string | null>(null);
   const [url, setUrl] = useState("");
-  const [dlYtSource, setDlYtSource] = useState<DlYtSource>("video");
   const [dlUrlMode, setDlUrlMode] = useState<DlVideoMode>("single");
   const [dlList, setDlList] = useState<{
     path: string;
@@ -435,7 +434,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
     setRelStreamTotal(null);
     setRelStreamComplete(false);
     setRelSel(new Set());
-  }, [url, dlUrlMode, dlYtSource]);
+  }, [url, dlUrlMode]);
 
   useEffect(() => {
     loadDlFs("");
@@ -551,19 +550,16 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
   }, [library, coverPickArtist, sortLocale]);
 
   const dlUrlPlaceholder = useMemo(() => {
-    if (dlYtSource === "music") return t("tools.dlUrlPhYtMusic");
     if (dlUrlMode === "single") return t("tools.dlUrlPhSingle");
     if (dlUrlMode === "playlist") return t("tools.dlUrlPhPlaylist");
     return t("tools.dlUrlPhReleases");
-  }, [dlYtSource, dlUrlMode, t]);
+  }, [dlUrlMode, t]);
 
-  const showMultiAlbumPicker =
-    dlYtSource === "music" ||
-    (dlYtSource === "video" && dlUrlMode === "releases");
+  const showMultiAlbumPicker = dlUrlMode === "releases";
 
   const dlUrlValid = useMemo(
-    () => urlMatchesStudioDlMode(url, dlYtSource, dlUrlMode),
-    [url, dlYtSource, dlUrlMode]
+    () => urlMatchesStudioDlMode(url, "video", dlUrlMode),
+    [url, dlUrlMode]
   );
 
   const otherSharedAccounts = useMemo(
@@ -1101,7 +1097,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
 
   const runDl = () => {
     if (!url.trim()) return;
-    if (!urlMatchesStudioDlMode(url, dlYtSource, dlUrlMode)) {
+    if (!urlMatchesStudioDlMode(url, "video", dlUrlMode)) {
       setLog((x) => x + t("tools.dlUrlMismatch"));
       return;
     }
@@ -1262,7 +1258,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
 
   const loadReleasesCatalog = () => {
     if (!url.trim()) return;
-    if (!urlMatchesStudioDlMode(url, dlYtSource, dlUrlMode)) {
+    if (!urlMatchesStudioDlMode(url, "video", dlUrlMode)) {
       setLog((x) => x + t("tools.dlUrlMismatch"));
       return;
     }
@@ -1330,7 +1326,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
   };
 
   const runReleasesDl = () => {
-    if (!urlMatchesStudioDlMode(url, dlYtSource, dlUrlMode)) {
+    if (!urlMatchesStudioDlMode(url, "video", dlUrlMode)) {
       setLog((x) => x + t("tools.dlUrlMismatch"));
       return;
     }
@@ -1377,7 +1373,9 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
             ` — ${list.length} album(s)\n`
         );
         const studioDlKind: StudioDownloadKind =
-          dlYtSource === "music" ? "download_ytmusic" : "download_releases";
+          studioDownloadSourceForArtistUrl(url) === "music"
+            ? "download_ytmusic"
+            : "download_releases";
         try {
           for (let i = 0; i < list.length; i += 1) {
             if (dlBatchStopRef.current) {
@@ -1930,62 +1928,38 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                 </h4>
                 <div className="tools-dl-modes">
                   <div className="tools-dl-mode">
-                    <span className="tools-dl-mode__label subtle sm">
-                      {t("tools.dlYtVideoLabel")}
-                    </span>
                     <div
                       className="tools-dl-mode__seg"
                       role="group"
-                      aria-label={t("tools.dlYtVideoLabel")}
+                      aria-label={t("tools.dlModeHelpAria")}
                     >
                       <button
                         type="button"
                         className={`tools-dl-mode__btn${
-                          dlYtSource === "video" && dlUrlMode === "single"
-                            ? " is-on"
-                            : ""
+                          dlUrlMode === "single" ? " is-on" : ""
                         }`}
-                        aria-pressed={
-                          dlYtSource === "video" && dlUrlMode === "single"
-                        }
-                        onClick={() => {
-                          setDlYtSource("video");
-                          setDlUrlMode("single");
-                        }}
+                        aria-pressed={dlUrlMode === "single"}
+                        onClick={() => setDlUrlMode("single")}
                       >
                         {t("tools.dlTypeSingle")}
                       </button>
                       <button
                         type="button"
                         className={`tools-dl-mode__btn${
-                          dlYtSource === "video" && dlUrlMode === "playlist"
-                            ? " is-on"
-                            : ""
+                          dlUrlMode === "playlist" ? " is-on" : ""
                         }`}
-                        aria-pressed={
-                          dlYtSource === "video" && dlUrlMode === "playlist"
-                        }
-                        onClick={() => {
-                          setDlYtSource("video");
-                          setDlUrlMode("playlist");
-                        }}
+                        aria-pressed={dlUrlMode === "playlist"}
+                        onClick={() => setDlUrlMode("playlist")}
                       >
                         {t("tools.dlTypePlaylist")}
                       </button>
                       <button
                         type="button"
                         className={`tools-dl-mode__btn${
-                          dlYtSource === "video" && dlUrlMode === "releases"
-                            ? " is-on"
-                            : ""
+                          dlUrlMode === "releases" ? " is-on" : ""
                         }`}
-                        aria-pressed={
-                          dlYtSource === "video" && dlUrlMode === "releases"
-                        }
-                        onClick={() => {
-                          setDlYtSource("video");
-                          setDlUrlMode("releases");
-                        }}
+                        aria-pressed={dlUrlMode === "releases"}
+                        onClick={() => setDlUrlMode("releases")}
                       >
                         {t("tools.dlTypeReleases")}
                       </button>
@@ -2000,39 +1974,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                       </button>
                       <span className="tools-dl-mode__tip" role="tooltip">
                         {t("tools.dlModeGuide")}
-                      </span>
-                    </span>
-                  </div>
-                  <div className="tools-dl-mode">
-                    <span className="tools-dl-mode__label subtle sm">
-                      {t("tools.dlYtMusicLabel")}
-                    </span>
-                    <div
-                      className="tools-dl-mode__seg tools-dl-mode__seg--one"
-                      role="group"
-                      aria-label={t("tools.dlYtMusicLabel")}
-                    >
-                      <button
-                        type="button"
-                        className={`tools-dl-mode__btn${
-                          dlYtSource === "music" ? " is-on" : ""
-                        }`}
-                        aria-pressed={dlYtSource === "music"}
-                        onClick={() => setDlYtSource("music")}
-                      >
-                        {t("tools.dlYtMusicMode")}
-                      </button>
-                    </div>
-                    <span className="tools-dl-mode__help-wrap">
-                      <button
-                        type="button"
-                        className="tools-dl-mode__help"
-                        aria-label={t("tools.dlYtMusicHelpAria")}
-                      >
-                        ?
-                      </button>
-                      <span className="tools-dl-mode__tip" role="tooltip">
-                        {t("tools.dlYtMusicGuide")}
                       </span>
                     </span>
                   </div>

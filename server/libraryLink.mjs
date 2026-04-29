@@ -1,8 +1,10 @@
 import fs from "fs/promises"
-import { existsSync, statSync } from "fs"
+import { existsSync, lstatSync, statSync } from "fs"
 import path from "path"
 import { isAudioFile, coverCandidates } from "./musicLibrary.mjs"
 import { getMusicRootForAccountStrict } from "./musicRootConfig.mjs"
+
+const WINDOWS_SYMLINK_FALLBACK_CODES = new Set(["EPERM", "EACCES", "EINVAL"])
 
 function sanitizeAlbumObjectForSync(src) {
   if (!src || typeof src !== "object") return null
@@ -27,6 +29,60 @@ function sanitizeTrackObjectForSync(orig) {
     delete o.title
   }
   return o
+}
+
+function isSamePhysicalFile(a, b) {
+  try {
+    const sa = statSync(a)
+    const sb = statSync(b)
+    return Boolean(sa.isFile() && sb.isFile() && sa.dev === sb.dev && sa.ino && sa.ino === sb.ino)
+  } catch {
+    return false
+  }
+}
+
+async function existingFileReferenceMatches(linkPath, targetAbs) {
+  try {
+    const st = lstatSync(linkPath)
+    if (st.isSymbolicLink()) {
+      const cur = await fs.readlink(linkPath)
+      const resolved = path.isAbsolute(cur)
+        ? cur
+        : path.resolve(path.dirname(linkPath), cur)
+      return path.resolve(resolved) === path.resolve(targetAbs)
+    }
+    return isSamePhysicalFile(linkPath, targetAbs)
+  } catch {
+    return false
+  }
+}
+
+export function shouldFallbackToHardLink(error, platform = process.platform) {
+  return (
+    platform === "win32" &&
+    WINDOWS_SYMLINK_FALLBACK_CODES.has(String(error?.code || ""))
+  )
+}
+
+export async function createSharedFileReference(
+  targetAbs,
+  linkPath,
+  platform = process.platform,
+) {
+  try {
+    await fs.symlink(targetAbs, linkPath, "file")
+  } catch (error) {
+    if (!shouldFallbackToHardLink(error, platform)) throw error
+    try {
+      await fs.link(targetAbs, linkPath)
+    } catch (linkError) {
+      const e = new Error(
+        `Windows non consente il collegamento simbolico e il collegamento fisico non è riuscito: ${String(linkError?.message || linkError)}`,
+      )
+      e.code = linkError?.code || error?.code || "LINK_FAILED"
+      throw e
+    }
+  }
 }
 
 /**
@@ -304,23 +360,15 @@ export async function linkSharedAlbumFromDirs({
     const targetAbs = path.join(sourceAlbumDir, name)
     const linkPath = path.join(destAlbumDir, name)
     if (existsSync(linkPath)) {
-      if (statSync(linkPath).isSymbolicLink()) {
-        try {
-          const cur = await fs.readlink(linkPath)
-          const want = path.isAbsolute(cur) ? cur : path.resolve(path.dirname(linkPath), cur)
-          if (path.resolve(want) === path.resolve(targetAbs)) {
-            skipped += 1
-            continue
-          }
-        } catch {
-          /* fallthrough */
-        }
+      if (await existingFileReferenceMatches(linkPath, targetAbs)) {
+        skipped += 1
+        continue
       }
       const e = new Error(`Esiste già un file diverso: ${name}`)
       e.code = "CLASH"
       throw e
     }
-    await fs.symlink(targetAbs, linkPath, "file")
+    await createSharedFileReference(targetAbs, linkPath)
     linked += 1
   }
 
@@ -333,7 +381,7 @@ export async function linkSharedAlbumFromDirs({
     } catch {
       continue
     }
-    await fs.symlink(path.resolve(srcC), dstC, "file")
+    await createSharedFileReference(path.resolve(srcC), dstC)
   }
 
   await copyLinkedAlbumMetadata({

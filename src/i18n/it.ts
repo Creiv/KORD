@@ -448,7 +448,7 @@ export const IT: Record<string, string> = {
   "tools.dlLinkSection": "Link",
   "tools.dlTypeSingle": "Video Singolo",
   "tools.dlTypePlaylist": "Album o Playlist",
-  "tools.dlTypeReleases": "Release",
+  "tools.dlTypeReleases": "Uscite Artista",
   "tools.dlYtVideoLabel": "Da YT Video",
   "tools.dlYtMusicLabel": "Da YT Music",
   "tools.dlYtMusicMode": "Album Artista",
@@ -457,17 +457,17 @@ export const IT: Record<string, string> = {
     "Da pagina di visualizzazione degli album di un artista [«browse» nell’URL]",
   "tools.dlUrlPhYtMusic": "https://music.youtube.com/browse/…",
   "tools.dlUrlMismatch":
-    "L’URL non corrisponde al tipo selezionato (Video singolo / Album o playlist / Release / Album Artista).\n",
+    "L’URL non corrisponde al tipo selezionato (Video singolo / Album o playlist / Uscite Artista).\n",
   "tools.dlModeHelpAria":
-    "Guida: Video Singolo, Album o Playlist, pagina Release",
+    "Guida: Video Singolo, Album o Playlist, Uscite Artista",
   "tools.dlModeGuide":
-    "Video Singolo: video non in playlist convertito in audio [«watch» nell’URL]\n\nAlbum o Playlist: video in una playlist o pagina playlist [«playlist» / «watch» nell’URL]\n\nRelease: pagina Uscite (Releases in inglese) di un artista [«releases» nell’URL]",
+    "Video Singolo: video non in playlist convertito in audio [«watch» nell’URL]\n\nAlbum o Playlist: video in una playlist o pagina playlist [«playlist» / «watch» nell’URL]\n\nUscite Artista: pagina Uscite o album di un artista [«releases» o «browse» nell’URL]",
   "tools.dlUrlPhSingle": "https://youtube.com/watch?v=… o youtu.be/…",
   "tools.dlUrlPhPlaylist":
     "https://youtube.com/playlist?list=… oppure watch?v=…&list=…",
   "tools.dlUrlPhReleases":
-    "https://music.youtube.com/…/releases oppure …/channel/…/releases",
-  "tools.dlLoadReleases": "Carica elenco release",
+    "https://music.youtube.com/browse/… oppure …/channel/…/releases",
+  "tools.dlLoadReleases": "Carica elenco uscite",
   "tools.dlReleasesLoading": "Caricamento release…",
   "tools.dlReleasesEnriching": "Recupero del numero brani per ogni uscita…",
   "tools.dlReleasesWaitEnrich":

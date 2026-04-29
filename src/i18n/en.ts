@@ -441,7 +441,7 @@ export const EN: Record<string, string> = {
   "tools.dlLinkSection": "Link",
   "tools.dlTypeSingle": "Single video",
   "tools.dlTypePlaylist": "Album or playlist",
-  "tools.dlTypeReleases": "Releases (pick albums)",
+  "tools.dlTypeReleases": "Artist Releases",
   "tools.dlYtVideoLabel": "YouTube video",
   "tools.dlYtMusicLabel": "YouTube Music",
   "tools.dlYtMusicMode": "Artist albums",
@@ -450,17 +450,17 @@ export const EN: Record<string, string> = {
     "From the artist’s album listing page [“browse” in the URL]",
   "tools.dlUrlPhYtMusic": "https://music.youtube.com/browse/…",
   "tools.dlUrlMismatch":
-    "The URL does not match the selected mode (single video / playlist / releases / YouTube Music albums).\n",
+    "The URL does not match the selected mode (single video / album or playlist / artist releases).\n",
   "tools.dlModeHelpAria":
-    "Guide: single video, album/playlist, artist Releases page",
+    "Guide: single video, album/playlist, artist releases",
   "tools.dlModeGuide":
-    "Single video: a video not in a playlist, saved as audio [“watch” in the URL]\n\nAlbum or playlist: a video that’s in a playlist, or a playlist page [“playlist” / “watch” in the URL]\n\nReleases: an artist’s Releases page [“releases” in the URL]",
+    "Single video: a video not in a playlist, saved as audio [“watch” in the URL]\n\nAlbum or playlist: a video that’s in a playlist, or a playlist page [“playlist” / “watch” in the URL]\n\nArtist Releases: an artist releases or albums page [“releases” or “browse” in the URL]",
   "tools.dlUrlPhSingle": "https://youtube.com/watch?v=… or youtu.be/…",
   "tools.dlUrlPhPlaylist":
     "https://youtube.com/playlist?list=… or watch?v=…&list=…",
   "tools.dlUrlPhReleases":
-    "https://music.youtube.com/…/releases or …/channel/…/releases",
-  "tools.dlLoadReleases": "Load release list",
+    "https://music.youtube.com/browse/… or …/channel/…/releases",
+  "tools.dlLoadReleases": "Load releases",
   "tools.dlReleasesLoading": "Loading releases…",
   "tools.dlReleasesEnriching": "Getting track count for each release…",
   "tools.dlReleasesWaitEnrich":

@@ -82,10 +82,16 @@ export function urlMatchesStudioDlMode(
 ): boolean {
   const t = String(raw ?? "").trim()
   if (!t) return false
+  if (videoMode === "releases")
+    return urlMatchesVideoReleases(t) || urlMatchesYtMusicBrowse(t)
   if (source === "music") return urlMatchesYtMusicBrowse(t)
   if (videoMode === "single") return urlMatchesVideoSingle(t)
   if (videoMode === "playlist") return urlMatchesVideoPlaylist(t)
-  return urlMatchesVideoReleases(t)
+  return false
+}
+
+export function studioDownloadSourceForArtistUrl(raw: string): DlYtSource {
+  return urlMatchesYtMusicBrowse(raw) ? "music" : "video"
 }
 
 /** Classifica link YouTube: playlist se c'è `list=`, altrimenti /releases, altrimenti singolo watch/short. */
