@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
 const pkg = require("./package.json")
 const b = pkg.build || {}
 

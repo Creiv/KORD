@@ -397,11 +397,8 @@ function TrackRowArt({ relPath }: { relPath: string }) {
   );
 }
 
-function PlayerBarTrackArt({ relPath }: { relPath: string }) {
+function PlayerBarTrackArtInner({ relPath }: { relPath: string }) {
   const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    setFailed(false);
-  }, [relPath]);
   if (failed) {
     return (
       <div className="player-bar2__art fallback" aria-hidden>
@@ -417,6 +414,10 @@ function PlayerBarTrackArt({ relPath }: { relPath: string }) {
       onError={() => setFailed(true)}
     />
   );
+}
+
+function PlayerBarTrackArt({ relPath }: { relPath: string }) {
+  return <PlayerBarTrackArtInner key={relPath} relPath={relPath} />;
 }
 
 function TrackListRow({
@@ -3928,7 +3929,7 @@ function SettingsView({
       return false;
     }
   });
-  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "1.7.0");
+  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "1.8.0");
 
   useEffect(() => {
     Promise.all([fetchConfig(), fetchAccounts()])
@@ -4531,26 +4532,43 @@ function PlayerDock({
     onGoToAscolta();
   };
 
+  const castEffectGenRef = useRef(0);
+  const castRemoteCleanupRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
-    const audio = p.audioRef.current as RemotePlaybackAudio | null;
-    const remote = audio?.remote;
-    if (!remote?.prompt) {
-      setCastAvailable(false);
-      setCastState("disconnected");
-      return;
-    }
-    setCastAvailable(true);
-    const syncState = () => {
-      setCastState(remote.state || "disconnected");
-    };
-    syncState();
-    remote.addEventListener("connecting", syncState);
-    remote.addEventListener("connect", syncState);
-    remote.addEventListener("disconnect", syncState);
+    const myGen = ++castEffectGenRef.current;
+
+    void Promise.resolve().then(() => {
+      if (myGen !== castEffectGenRef.current) return;
+
+      castRemoteCleanupRef.current?.();
+      castRemoteCleanupRef.current = null;
+
+      const audio = p.audioRef.current as RemotePlaybackAudio | null;
+      const remote = audio?.remote;
+      if (!remote?.prompt) {
+        setCastAvailable(false);
+        setCastState("disconnected");
+        return;
+      }
+      setCastAvailable(true);
+      const syncState = () => {
+        setCastState(remote.state || "disconnected");
+      };
+      syncState();
+      remote.addEventListener("connecting", syncState);
+      remote.addEventListener("connect", syncState);
+      remote.addEventListener("disconnect", syncState);
+      castRemoteCleanupRef.current = () => {
+        remote.removeEventListener("connecting", syncState);
+        remote.removeEventListener("connect", syncState);
+        remote.removeEventListener("disconnect", syncState);
+      };
+    });
+
     return () => {
-      remote.removeEventListener("connecting", syncState);
-      remote.removeEventListener("connect", syncState);
-      remote.removeEventListener("disconnect", syncState);
+      castRemoteCleanupRef.current?.();
+      castRemoteCleanupRef.current = null;
     };
   }, [p.audioRef, cur?.relPath]);
 
