@@ -618,6 +618,8 @@ export const IT: Record<string, string> = {
   "tools.coversPickAria": "Album in cui salvare la copertina",
   "tools.useAlbumFromTrack": "Usa album del brano in riproduzione",
   "tools.coversSearch": "Ricerca",
+  "tools.coverSearchLabel": "Testo ricerca",
+  "tools.coverSearchPh": "Artista, album, versione…",
   "tools.fillFromPlayback": "Compila da riproduzione",
   "tools.searchCovers": "Cerca copertine",
   "tools.searching": "Ricerca…",

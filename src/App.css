@@ -4166,6 +4166,14 @@
   align-items: start;
 }
 
+.tools-cover-save-picks {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.tools-cover-save-picks > div {
+  min-width: 0;
+}
+
 .tools-dl-dest__lead {
   margin: 0.15rem 0 0.85rem;
   line-height: 1.45;
@@ -5143,14 +5151,29 @@
 }
 
 .art-fields {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr));
   gap: 0.55rem;
   margin-bottom: 0.5rem;
 }
 
+.art-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.art-field .block-label {
+  margin: 0;
+}
+
+.art-field--full {
+  grid-column: 1 / -1;
+}
+
 .art-fields .flex1 {
-  min-width: 140px;
+  min-width: 0;
 }
 
 .artgrid2 {

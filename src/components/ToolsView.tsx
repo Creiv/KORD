@@ -297,8 +297,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
   const [sharedAlbumRel, setSharedAlbumRel] = useState("");
   const [sharedMsg, setSharedMsg] = useState<string | null>(null);
   const [sharedErr, setSharedErr] = useState<string | null>(null);
-  const [artArt, setArtArt] = useState("");
-  const [artAlb, setArtAlb] = useState("");
+  const [artQuery, setArtQuery] = useState("");
   const [artRes, setArtRes] = useState<ArtworkHit[]>([]);
   const [newDirName, setNewDirName] = useState("");
   const [metaArtistName, setMetaArtistName] = useState("");
@@ -641,8 +640,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
 
   const useCurrentForArt = () => {
     if (p.current) {
-      setArtArt(p.current.artist);
-      setArtAlb(p.current.album);
+      setArtQuery([p.current.artist, p.current.album].filter(Boolean).join(" "));
       setCoverPickArtist(p.current.artist);
       const folder = albumFolderFromTrackRelPath(p.current.relPath);
       if (folder) {
@@ -1468,11 +1466,10 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
     (dlBusy || dlTrackProg != null);
 
   const doArtSearch = () => {
-    const a = artArt.trim();
-    const b = artAlb.trim();
-    if (a.length < 1 && b.length < 1) return;
+    const q = artQuery.trim();
+    if (q.length < 1) return;
     setArtBusy(true);
-    searchArtwork(a || b ? { artist: a, album: b } : { q: `${a} ${b}`.trim() })
+    searchArtwork({ q })
       .then(setArtRes)
       .catch(() => setArtRes([]))
       .finally(() => setArtBusy(false));
@@ -2747,7 +2744,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                   <h4 className="studio-panel-title">
                     {t("tools.coversSave")}
                   </h4>
-                  <div className="tools-shared-browse-picks tools-studio-pair-picks">
+                  <div className="tools-shared-browse-picks tools-studio-pair-picks tools-cover-save-picks">
                     <div>
                       <label
                         className="subtle sm block-label"
@@ -2819,20 +2816,18 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                     {t("tools.coversSearch")}
                   </h4>
                   <div className="art-fields">
-                    <input
-                      type="text"
-                      className="flex1"
-                      value={artArt}
-                      onChange={(e) => setArtArt(e.target.value)}
-                      placeholder={t("tools.artistPh")}
-                    />
-                    <input
-                      type="text"
-                      className="flex1"
-                      value={artAlb}
-                      onChange={(e) => setArtAlb(e.target.value)}
-                      placeholder={t("tools.albumPh")}
-                    />
+                    <label className="art-field art-field--full">
+                      <span className="subtle sm block-label">
+                        {t("tools.coverSearchLabel")}
+                      </span>
+                      <input
+                        type="text"
+                        className="flex1"
+                        value={artQuery}
+                        onChange={(e) => setArtQuery(e.target.value)}
+                        placeholder={t("tools.coverSearchPh")}
+                      />
+                    </label>
                   </div>
                   <div className="studio-inline-actions studio-inline-actions--spaced">
                     <button
@@ -2891,7 +2886,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
               </div>
               {artRes.length === 0 &&
               !artBusy &&
-              (artArt.length > 0 || artAlb.length > 0) ? (
+              artQuery.length > 0 ? (
                 <p className="subtle sm studio-panel-gap">
                   {t("tools.noCoverResults")}
                 </p>

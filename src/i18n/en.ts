@@ -610,6 +610,8 @@ export const EN: Record<string, string> = {
   "tools.coversPickAria": "Album to save cover into",
   "tools.useAlbumFromTrack": "Use album from now playing",
   "tools.coversSearch": "Search",
+  "tools.coverSearchLabel": "Search text",
+  "tools.coverSearchPh": "Artist, album, version…",
   "tools.fillFromPlayback": "Fill from playback",
   "tools.searchCovers": "Search covers",
   "tools.searching": "Searching…",
