@@ -12,6 +12,20 @@ import {
 } from "./kordDataStore.mjs";
 import { runKordLayoutMigration } from "./migrateKordV2.mjs";
 
+let layoutMigrationChain = Promise.resolve()
+
+export async function waitForInitialLayoutMigration() {
+  await layoutMigrationChain
+}
+
+function enqueueLayoutMigration(opts) {
+  layoutMigrationChain = layoutMigrationChain
+    .then(() => runKordLayoutMigration(opts))
+    .catch((err) => {
+      console.error("[kord] layout migration failed:", err?.message ?? err)
+    })
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const userDir = process.env.KORD_USER_CONFIG_DIR || process.env.WPP_USER_CONFIG_DIR;
 export const CONFIG_FILE = userDir
@@ -213,12 +227,12 @@ function applyConfigFileToState() {
 
   const cfgDir = path.dirname(CONFIG_FILE);
   if (state.path) {
-    void runKordLayoutMigration({
+    enqueueLayoutMigration({
       libraryRoot: state.path,
       accounts: state.accounts,
       legacyAccountMusicRoots: legacyRoots,
       configDir: cfgDir,
-    }).catch(() => {});
+    })
   }
 }
 
@@ -329,7 +343,11 @@ export function isMusicRootFromEnv() {
 }
 
 export function getListenHost() {
-  return "0.0.0.0";
+  const raw = process.env.KORD_LISTEN_HOST ?? process.env.KORD_LISTEN ?? ""
+  const h = String(raw).trim().toLowerCase()
+  if (h === "localhost" || h === "loopback" || h === "127.0.0.1") return "127.0.0.1"
+  if (!h || h === "lan" || h === "any" || h === "all" || h === "0.0.0.0") return "0.0.0.0"
+  return String(raw).trim()
 }
 
 export function getConfigSnapshot(includeMusicRoot) {
@@ -393,12 +411,12 @@ export async function setPersistedMusicRoot(absolute) {
   state.accounts = loadOrCreateAccountsInLibrarySync(resolved, rawBootstrap);
   await writeMergedConfigBootstrap();
   const cfgDir = path.dirname(CONFIG_FILE);
-  void runKordLayoutMigration({
+  enqueueLayoutMigration({
     libraryRoot: state.path,
     accounts: state.accounts,
     legacyAccountMusicRoots: legacyRoots,
     configDir: cfgDir,
-  }).catch(() => {});
+  })
 }
 
 export function getAccountsSnapshot() {

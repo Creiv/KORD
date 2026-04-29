@@ -337,6 +337,7 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   })
   const url = isDev() ? "http://127.0.0.1:5173" : `http://127.0.0.1:${p}/`

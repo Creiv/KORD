@@ -4,6 +4,16 @@ import path from "path"
 import { kordAccountUserStatePath } from "./kordDataStore.mjs"
 import { CONFIG_FILE } from "./musicRootConfig.mjs"
 
+/** Serie di readUserState sulla stessa coppia (library, account): evita race sulla migrazione lazy. */
+const readUserChains = new Map()
+
+function readUserMutexKey(musicRoot, accountId) {
+  try {
+    return `${path.resolve(String(musicRoot))}\0${String(accountId ?? "")}`
+  } catch {
+    return `${String(musicRoot)}\0${String(accountId ?? "")}`
+  }
+}
 function isObj(v) {
   return Boolean(v) && typeof v === "object" && !Array.isArray(v)
 }
@@ -235,7 +245,7 @@ async function readStateFile(fp) {
   return sanitizeUserState(JSON.parse(raw))
 }
 
-export async function readUserState(musicRoot, accountId = null) {
+async function readUserStateImpl(musicRoot, accountId = null) {
   if (!musicRoot) return defaultUserState()
   const kordAcc = kordAccountUserStatePath(musicRoot, accountId)
   if (kordAcc && existsSync(kordAcc)) {
@@ -279,6 +289,16 @@ export async function readUserState(musicRoot, accountId = null) {
   } catch {
     return defaultUserState()
   }
+}
+
+export async function readUserState(musicRoot, accountId = null) {
+  const key = readUserMutexKey(musicRoot, accountId)
+  const prev = readUserChains.get(key) ?? Promise.resolve()
+  const next = prev
+    .catch(() => {})
+    .then(() => readUserStateImpl(musicRoot, accountId))
+  readUserChains.set(key, next)
+  return await next
 }
 
 export async function writeUserState(musicRoot, input, accountId = null) {

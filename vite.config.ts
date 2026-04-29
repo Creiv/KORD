@@ -6,7 +6,8 @@ import { defineConfig } from "vitest/config";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const exposeLan = process.env.KORD_LISTEN_ON_LAN !== "0";
+/** Impostare `KORD_LISTEN_ON_LAN=1` per esporre il dev server sulla LAN (proxy /api verso localhost). */
+const exposeLan = process.env.KORD_LISTEN_ON_LAN === "1";
 
 const packageVersion = (() => {
   try {

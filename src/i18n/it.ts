@@ -521,13 +521,12 @@ export const IT: Record<string, string> = {
   "tools.dlProgressTrackWait": "Rilevamento brani…",
   "tools.dlPathLabel": "Cartella attuale",
   "tools.dlDestLead":
-    "Apri una cartella artista o una sua sottocartella, poi premi «Usa questa cartella» per fissare la destinazione. La root Musica non può essere usata per scaricare.",
+    "Apri una cartella artista o una sottocartella: la cartella vista diventa la destinazione di download (non puoi scaricare nella root Musica).",
   "tools.dlSubfolders": "Sottocartelle",
   "tools.upFolderAria": "Cartella superiore",
   "tools.dlNewSubLabel": "Nuova sottocartella qui",
   "tools.dlEmptyFolders":
     "Nessuna sottocartella. Creane una qui oppure scegli una cartella già presente.",
-  "tools.dlPathActions": "Destinazione download",
   "tools.dlReplaceFolder": "Sostituisci file",
   "tools.dlReplaceHint":
     "Stesso brano = stesso «nome file» dopo normalizzazione (no estensione, no numero traccia iniziale, spazi/trattini uniformati, rimossi alcuni suffissi tra parentesi tipo video ufficiale). Se i titoli restano diversi, non vengono uniti. Rimozione duplicati solo se almeno un percorso è nuovo rispetto a prima del download e più file hanno lo stesso stem: si tiene il primo file nuovo in ordine alfabetico e si eliminano gli altri. Se yt-dlp riscrive lo stesso file, non c’è duplicato da togliere.",
@@ -550,14 +549,12 @@ export const IT: Record<string, string> = {
   "tools.newFolderAria": "Nome nuova cartella",
   "tools.createHere": "Crea qui",
   "tools.creating": "Creo…",
-  "tools.useThisFolder": "Usa questa cartella",
-  "tools.useThisFolderTitle": "Scegli una cartella sotto Musica, non la root",
   "tools.musicRootBtn": "Root Musica",
   "tools.musicRootTitle": "File direttamente sotto Musica",
   "tools.destLine": "Destinazione: {{path}}",
   "tools.destRoot": "— (root) —",
   "tools.confirmFolderWarn":
-    "Scegli e conferma una cartella sotto Musica prima del download. La root non è consentita.",
+    "Apri una cartella (non la root) nel browser sopra: è quella che verrà usata per scaricare.",
   "tools.url": "URL",
   "tools.urlPh": "URL playlist o video",
   "tools.downloadRun": "Scarica e importa",

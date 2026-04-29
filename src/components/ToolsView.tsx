@@ -446,13 +446,38 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
     loadPreset();
   }, [loadPreset]);
 
+  const commitDlDest = useCallback((path: string) => {
+    const normalized = normalizeDownloadDestPath(path);
+    setDlPath(normalized);
+    setDlDestPicked(Boolean(normalized));
+    try {
+      if (normalized) {
+        sessionStorage.setItem(K_DL_OK, "1");
+        sessionStorage.setItem(K_DL_OUT, normalized);
+      } else {
+        sessionStorage.removeItem(K_DL_OK);
+        sessionStorage.removeItem(K_DL_OUT);
+        sessionStorage.removeItem(W_DL_OK);
+        sessionStorage.removeItem(W_DL_OUT);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const loadDlFs = useCallback(
     (path: string) => {
       listMusicDirs(path)
-        .then(setDlList)
+        .then((data) => {
+          setDlList(data);
+          const browsed = data.path ?? "";
+          if (isValidDownloadDestPath(browsed)) {
+            commitDlDest(browsed);
+          }
+        })
         .catch((e) => setLog((x) => x + t("tools.logFolderErr", { e })));
     },
-    [t]
+    [t, commitDlDest],
   );
 
   useEffect(() => {
@@ -496,27 +521,8 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
     () => () => {
       relAborter.current?.abort();
     },
-    []
+    [],
   );
-
-  const commitDlDest = (path: string) => {
-    const normalized = normalizeDownloadDestPath(path);
-    setDlPath(normalized);
-    setDlDestPicked(Boolean(normalized));
-    try {
-      if (normalized) {
-        sessionStorage.setItem(K_DL_OK, "1");
-        sessionStorage.setItem(K_DL_OUT, normalized);
-      } else {
-        sessionStorage.removeItem(K_DL_OK);
-        sessionStorage.removeItem(K_DL_OUT);
-        sessionStorage.removeItem(W_DL_OK);
-        sessionStorage.removeItem(W_DL_OUT);
-      }
-    } catch {
-      /* ignore */
-    }
-  };
 
   useEffect(() => {
     try {
@@ -772,7 +778,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
         setLog((x) => x + t("tools.logNewFolder", { path: relPath }));
         setNewDirName("");
         loadDlFs(relPath);
-        commitDlDest(relPath);
       })
       .catch((e) => setLog((x) => x + t("tools.logFolderErr", { e })))
       .finally(() => setMkBusy(false));
@@ -1458,14 +1463,13 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
       setLog((x) => x + t("tools.dlNeedSelection"));
       return;
     }
-    const multiRelease = list.length > 1;
     if (studioDlRunLatchRef.current || dlBusy) return;
     studioDlRunLatchRef.current = true;
     void (async () => {
       try {
         setDlBusy(true);
         dlBatchStopRef.current = false;
-        setDlTrackProg(multiRelease ? { current: 0, total: 0 } : null);
+        setDlTrackProg({ current: 0, total: 0 });
         setDlProg({ current: 1, total: list.length });
         let indexBefore: LibraryIndex | null = null;
         let replaceSnap: FolderReplaceSnapshot | null = null;
@@ -1498,7 +1502,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
             }
             const item = list[i]!;
             setDlProg({ current: i + 1, total: list.length });
-            if (multiRelease) setDlTrackProg({ current: 0, total: 0 });
+            setDlTrackProg({ current: 0, total: 0 });
             setLog(
               (x) =>
                 x +
@@ -1514,10 +1518,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
               const r = await runYtdlpDownload(
                 item.url,
                 dlPath,
-                multiRelease
-                  ? (p) =>
-                      setDlTrackProg({ current: p.current, total: p.total })
-                  : undefined,
+                (p) => setDlTrackProg({ current: p.current, total: p.total }),
                 { downloadId: dlId, downloadKind: studioDlKind }
               );
               const detail = ytdlpLogDetailForUser(r);
@@ -1545,11 +1546,11 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
           }
           if (!dlBatchStopRef.current) {
             setDlProg({ current: list.length, total: list.length });
+            setDlTrackProg(null);
           } else {
             setDlProg(null);
             setDlTrackProg(null);
           }
-          if (multiRelease && !dlBatchStopRef.current) setDlTrackProg(null);
           await onRefreshLibrary();
           if (replaceSnap && indexBefore) {
             await runReplaceAfterDownload(indexBefore, replaceSnap);
@@ -1578,7 +1579,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
   const showReleaseMultiTrackBar =
     showMultiAlbumPicker &&
     dlProgNorm != null &&
-    dlProgNorm.tot > 1 &&
+    dlProgNorm.tot >= 1 &&
     (dlBusy || dlTrackProg != null);
 
   const doArtSearch = () => {
@@ -2052,31 +2053,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                   </div>
 
                   <div className="tools-dl-dest__actions">
-                    <p
-                      className="tools-dl-dest__label"
-                      id="tools-dl-dest-confirm"
-                    >
-                      {t("tools.dlPathActions")}
-                    </p>
                     <div className="tools-dl-dest__actions-row">
-                      <div
-                        className="tools-dl-dest__commit"
-                        aria-labelledby="tools-dl-dest-confirm"
-                      >
-                        <button
-                          type="button"
-                          className="btn"
-                          onClick={() => {
-                            if (dlList && isValidDownloadDestPath(dlList.path)) {
-                              commitDlDest(dlList.path);
-                            }
-                          }}
-                          disabled={!dlList || !isValidDownloadDestPath(dlList.path)}
-                          title={t("tools.useThisFolderTitle")}
-                        >
-                          {t("tools.useThisFolder")}
-                        </button>
-                      </div>
                       <label
                         className={`tools-dl-dest__replace${
                           !hasValidDownloadDest ? " tools-dl-dest__replace--off" : ""

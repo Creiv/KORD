@@ -151,6 +151,7 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
       partition: "persist:kordclient",
       preload: path.join(__dirname, "connect-preload.cjs"),
     },

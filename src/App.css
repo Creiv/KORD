@@ -4526,14 +4526,6 @@
   gap: 0.5rem 1rem;
 }
 
-.tools-dl-dest__commit {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-  flex: 0 1 auto;
-}
-
 .tools-dl-dest__actions-row .tools-dl-dest__replace {
   margin-left: auto;
   flex: 0 0 auto;

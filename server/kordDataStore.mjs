@@ -54,7 +54,8 @@ export function kordAccountLibrarySelectionPath(libraryRoot, accountId) {
 export async function readJsonFile(fp) {
   try {
     const raw = await fsp.readFile(fp, "utf8")
-    return JSON.parse(raw)
+    const v = JSON.parse(raw)
+    return v !== null && typeof v === "object" ? v : null
   } catch {
     return null
   }

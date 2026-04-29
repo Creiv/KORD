@@ -13,6 +13,9 @@ export function getActivityLogFilePath() {
   return path.join(kordGlobalInfoDir(root), LOG_BASENAME)
 }
 
+/** Coda in-process: righe JSONL non si intercalano. */
+let activityLogChain = Promise.resolve()
+
 /**
  * @param {Record<string, unknown>} entry accountId, kind, action, folder?, musicRoot?, detail?
  */
@@ -24,8 +27,12 @@ export async function appendActivityLog(entry) {
       ts: new Date().toISOString(),
       ...entry,
     }) + "\n"
-  await fs.mkdir(path.dirname(p), { recursive: true })
-  await fs.appendFile(p, line, "utf8")
+  const job = activityLogChain.catch(() => {}).then(async () => {
+    await fs.mkdir(path.dirname(p), { recursive: true })
+    await fs.appendFile(p, line, "utf8")
+  })
+  activityLogChain = job.catch((e) => console.error("[kord] activity log:", e?.message ?? e))
+  await job
 }
 
 /** Differenze su playlist e impostazioni (esclude coda, preferiti, esclusioni shuffle, conteggi, …). */
