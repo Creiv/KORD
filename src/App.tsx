@@ -66,6 +66,7 @@ import {
   UiClose,
   UiDateRange,
   UiFavorite,
+  UiInstallMobile,
   UiPalette,
   UiHistory,
   UiNavList,
@@ -140,6 +141,11 @@ type RemotePlaybackHandle = EventTarget & {
 
 type RemotePlaybackAudio = HTMLAudioElement & {
   remote?: RemotePlaybackHandle;
+};
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
 
 type RouteState = {
@@ -4723,6 +4729,19 @@ function Shell() {
   const prevSectionForSearchRef = useRef<AppSection | null>(null);
   const syncTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [syncTapAnim, setSyncTapAnim] = useState(false);
+  const [installPrompt, setInstallPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
+  const [installDismissed, setInstallDismissed] = useState(false);
+  const [standalone, setStandalone] = useState(() => {
+    try {
+      return (
+        window.matchMedia("(display-mode: standalone)").matches ||
+        Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+      );
+    } catch {
+      return false;
+    }
+  });
 
   const refresh = useCallback(() => {
     setLoading(true);
@@ -4782,6 +4801,58 @@ function Shell() {
     },
     []
   );
+
+  useEffect(() => {
+    const onBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as BeforeInstallPromptEvent);
+      setInstallDismissed(false);
+    };
+    const onInstalled = () => {
+      setInstallPrompt(null);
+      setStandalone(true);
+    };
+    const standaloneQuery = window.matchMedia("(display-mode: standalone)");
+    const onStandaloneChange = (event: MediaQueryListEvent) => {
+      setStandalone(event.matches);
+    };
+    window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    standaloneQuery.addEventListener?.("change", onStandaloneChange);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+      standaloneQuery.removeEventListener?.("change", onStandaloneChange);
+    };
+  }, []);
+
+  const isIosBrowser = useMemo(() => {
+    const ua = navigator.userAgent || "";
+    const platform = navigator.platform || "";
+    return (
+      /iPad|iPhone|iPod/.test(ua) ||
+      (platform === "MacIntel" && navigator.maxTouchPoints > 1)
+    );
+  }, []);
+
+  const showInstallAppButton =
+    isMobileLayout &&
+    !standalone &&
+    !installDismissed &&
+    (installPrompt != null || isIosBrowser);
+
+  const installApp = useCallback(async () => {
+    if (installPrompt) {
+      const prompt = installPrompt;
+      setInstallPrompt(null);
+      await prompt.prompt();
+      const choice = await prompt.userChoice;
+      if (choice.outcome === "dismissed") setInstallDismissed(true);
+      return;
+    }
+    window.alert(t("topbar.installIosHint"));
+    setInstallDismissed(true);
+  }, [installPrompt, t]);
 
   useLayoutEffect(() => {
     document.documentElement.dataset.playerDock =
@@ -5195,6 +5266,22 @@ function Shell() {
                       <UiSearch />
                     </span>
                   </button>
+                  {showInstallAppButton ? (
+                    <button
+                      type="button"
+                      className="ghost-btn ghost-btn--toolbar topbar2__install-btn"
+                      onClick={() => void installApp()}
+                      title={t("topbar.installApp")}
+                      aria-label={t("topbar.installApp")}
+                    >
+                      <span className="topbar2__install-ic" aria-hidden>
+                        <UiInstallMobile />
+                      </span>
+                      <span className="topbar2__install-label">
+                        {t("topbar.installApp")}
+                      </span>
+                    </button>
+                  ) : null}
                   {isMobileLayout ? (
                     <button
                       type="button"

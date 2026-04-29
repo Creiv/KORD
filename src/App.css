@@ -227,6 +227,33 @@
   color: var(--accent2);
 }
 
+.topbar2__install-btn {
+  flex-shrink: 1;
+  min-width: 0;
+  padding-inline: 0.62rem;
+  gap: 0.35rem;
+}
+
+.topbar2__install-ic {
+  display: block;
+  width: 1.05rem;
+  height: 1.05rem;
+  flex-shrink: 0;
+}
+
+.topbar2__install-ic svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.topbar2__install-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .topbar2__sync-btn {
   display: inline-flex;
   align-items: center;
@@ -5416,6 +5443,12 @@
     min-height: 2.2rem;
   }
 
+  .topbar2__install-btn {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-width: 0;
+  }
+
   .ghost-input--topbar {
     min-height: 30px;
     padding: 0.16rem 0.5rem;
@@ -5548,6 +5581,15 @@
     min-height: 28px;
     padding: 0.22rem 0.55rem;
     font-size: 0.74rem;
+  }
+
+  .topbar2__install-btn {
+    flex: 0 1 auto;
+    max-width: 9.5rem;
+  }
+
+  .topbar2__install-label {
+    display: none;
   }
 
   .player-bar2 {

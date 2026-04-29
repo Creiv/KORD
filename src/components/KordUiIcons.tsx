@@ -159,6 +159,17 @@ export function UiCast({ className }: { className?: string }) {
   );
 }
 
+export function UiInstallMobile({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M17 1H7C5.9 1 5 1.9 5 3v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 17H7V4h10v14zm-4 3h-2v-1h2v1zm-1-5 4-4h-3V7h-2v5H8l4 4z"
+      />
+    </svg>
+  );
+}
+
 export function UiNavHome({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>

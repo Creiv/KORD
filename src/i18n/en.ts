@@ -19,6 +19,9 @@ export const EN: Record<string, string> = {
   "topbar.sync": "Sync",
   "topbar.searchPlaceholder": "Search… / Ctrl+K",
   "topbar.searchAria": "Search entire library",
+  "topbar.installApp": "Install app",
+  "topbar.installIosHint":
+    "To install KORD: open the browser Share menu and choose “Add to Home Screen”.",
   "topbar.refresh": "Refresh",
   "topbar.refreshTitle": "Reload library and dashboard",
   "topbar.toolsBusyTitle": "Tools: download or metadata running in background",

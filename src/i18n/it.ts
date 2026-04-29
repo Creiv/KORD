@@ -19,6 +19,9 @@ export const IT: Record<string, string> = {
   "topbar.sync": "Sincronizza",
   "topbar.searchPlaceholder": "Cerca… / Ctrl+K",
   "topbar.searchAria": "Cerca in tutta la libreria",
+  "topbar.installApp": "Installa app",
+  "topbar.installIosHint":
+    "Per installare KORD: apri il menu Condividi del browser e scegli “Aggiungi alla schermata Home”.",
   "topbar.refresh": "Aggiorna",
   "topbar.refreshTitle": "Ricarica libreria e dashboard",
   "topbar.toolsBusyTitle":
