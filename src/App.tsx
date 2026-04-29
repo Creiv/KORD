@@ -1867,13 +1867,19 @@ function LibraryView({
     const list = index.albums.filter((album) => album.artistId === artist.id);
     const next = [...list];
     if (artistAlbumSort === "date") {
-      next.sort((a, b) =>
-        String(a.releaseDate || "").localeCompare(
-          String(b.releaseDate || ""),
-          undefined,
-          { numeric: true }
-        )
-      );
+      next.sort((a, b) => {
+        const da = String(a.releaseDate || "");
+        const db = String(b.releaseDate || "");
+        if (!da && !db) {
+          return a.name.localeCompare(b.name, sortLocale, { numeric: true });
+        }
+        if (!da) return 1;
+        if (!db) return -1;
+        return (
+          db.localeCompare(da, undefined, { numeric: true }) ||
+          a.name.localeCompare(b.name, sortLocale, { numeric: true })
+        );
+      });
     } else if (artistAlbumSort === "name") {
       next.sort((a, b) =>
         a.name.localeCompare(b.name, sortLocale, { numeric: true })
