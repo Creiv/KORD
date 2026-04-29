@@ -70,6 +70,8 @@ import {
   UiImage,
   UiNote,
 } from "./KordUiIcons";
+import { CoverImg } from "./CoverImg";
+
 type P = {
   library: LibraryResponse | null;
   libraryIndex: LibraryIndex | null;
@@ -1767,7 +1769,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                             >
                               <div className="studio-catalog-card__media" aria-hidden>
                                 {coverRel ? (
-                                  <img
+                                  <CoverImg
                                     className="artist-card__cover studio-catalog-card__img"
                                     src={coverUrlForAlbumRelPath(coverRel)}
                                     alt=""
@@ -1842,7 +1844,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                             >
                               <div className="studio-catalog-card__media" aria-hidden>
                                 {coverPath ? (
-                                  <img
+                                  <CoverImg
                                     className="artist-card__cover studio-catalog-card__img"
                                     src={coverUrlForAlbumRelPath(coverPath)}
                                     alt=""
@@ -3027,7 +3029,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary }: P) {
                 {artRes.map((a, i) => (
                   <div key={i + a.artwork} className="artcard2">
                     <div className="artcard2-img">
-                      <img src={a.artwork} alt="" loading="lazy" />
+                      <CoverImg src={a.artwork} alt="" decoding="async" />
                       {a.source ? (
                         <span className="art-src">{sourceLabel(a.source)}</span>
                       ) : null}

@@ -54,6 +54,7 @@ import {
   type TrackMoodId,
 } from "./lib/trackMoods";
 import { fmtDate, trackInfoBadges } from "./lib/metaFormat";
+import { CoverImg } from "./components/CoverImg";
 import { ExcludeShuffleIcon } from "./components/ExcludeShuffleIcon";
 import { KordSplashLoader } from "./components/KordSplashLoader";
 import {
@@ -389,7 +390,7 @@ function TrackRowArt({ relPath }: { relPath: string }) {
     );
   }
   return (
-    <img
+    <CoverImg
       className="track-row__art"
       src={coverUrlForTrackRelPath(relPath)}
       alt=""
@@ -408,7 +409,8 @@ function PlayerBarTrackArtInner({ relPath }: { relPath: string }) {
     );
   }
   return (
-    <img
+    <CoverImg
+      priority
       className="player-bar2__art"
       src={coverUrlForTrackRelPath(relPath)}
       alt=""
@@ -602,7 +604,7 @@ function AlbumCover({
 }) {
   if (album.coverRelPath) {
     return (
-      <img
+      <CoverImg
         className={`album-cover ${compact ? "is-compact" : ""}`}
         src={coverUrlForAlbumRelPath(album.relPath)}
         alt=""
@@ -1179,7 +1181,7 @@ function GenreCoverSlot({ relPath }: { relPath: string | null }) {
   }
   return (
     <div className="genre-quad__slot">
-      <img
+      <CoverImg
         src={coverUrlForAlbumRelPath(relPath)}
         alt=""
         onError={() => setFailed(true)}
@@ -1264,7 +1266,7 @@ function ArtistCard({
   return (
     <button type="button" className="artist-card" onClick={onOpen}>
       {coverAlbumRelPath ? (
-        <img
+        <CoverImg
           className="artist-card__cover"
           src={coverUrlForAlbumRelPath(coverAlbumRelPath)}
           alt=""
@@ -1630,7 +1632,8 @@ function ListenView({
         <div className="listen-stage__meta">
           <div className="listen-stage__head">
             {p.current?.relPath ? (
-              <img
+              <CoverImg
+                priority
                 className="listen-stage__art"
                 src={coverUrlForTrackRelPath(p.current.relPath)}
                 alt=""
@@ -3645,7 +3648,7 @@ function StatisticsView({
                       onClick={() => openTrackInLibrary(row.tr)}
                     >
                       <span className="statistics-rank-row__pos">{i + 1}</span>
-                      <img
+                      <CoverImg
                         className="statistics-rank-row__art"
                         src={coverUrlForTrackRelPath(row.tr.relPath)}
                         alt=""
@@ -3709,7 +3712,7 @@ function StatisticsView({
                     >
                       <span className="statistics-rank-row__pos">{i + 1}</span>
                       {coverRel ? (
-                        <img
+                        <CoverImg
                           className="statistics-rank-row__art"
                           src={coverUrlForAlbumRelPath(coverRel)}
                           alt=""

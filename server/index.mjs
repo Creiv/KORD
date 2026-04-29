@@ -74,7 +74,13 @@ import {
   fetchYoutubeWebReleasesList,
   isYoutubeWebReleasesPageUrl,
 } from "./youtubeWebReleasesInnertube.mjs";
-import { reuseKeyedPromise } from "./asyncSingleflight.mjs";
+import {
+  readLibraryIndexCache,
+  writeLibraryIndexCache,
+  scheduleBackgroundLibraryRefresh,
+  invalidateLibraryIndexCache,
+  getLibraryIndexCacheEpochSnapshot,
+} from "./libraryIndexCache.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -537,7 +543,7 @@ async function attachStudioDownloadToLibrarySelection(req, root, outputDirRel) {
     }
     if (cur.includeAll) return;
 
-    const full = await buildLibraryIndex(root);
+    const full = await getLibraryIndex(root);
     const toAddAlbums = new Set();
     const toAddArtists = new Set();
     for (const al of full.albums) {
@@ -662,9 +668,30 @@ async function getLibraryIndex(root = getMusicRoot()) {
     throw new Error("Music library folder is not available");
   }
   const key = path.resolve(root);
-  return reuseKeyedPromise(libraryIndexFlight, key, () =>
-    buildLibraryIndex(root),
-  );
+  let inflight = libraryIndexFlight.get(key);
+  if (inflight) return inflight;
+
+  const cached = await readLibraryIndexCache(root);
+  if (cached) {
+    scheduleBackgroundLibraryRefresh(root);
+    return cached;
+  }
+
+  inflight = (async () => {
+    const epochAtStart = getLibraryIndexCacheEpochSnapshot(root);
+    const idx = await buildLibraryIndex(root);
+    if (getLibraryIndexCacheEpochSnapshot(root) === epochAtStart) {
+      await writeLibraryIndexCache(root, idx);
+    }
+    return idx;
+  })();
+  libraryIndexFlight.set(key, inflight);
+  inflight.finally(() => {
+    if (libraryIndexFlight.get(key) === inflight) {
+      libraryIndexFlight.delete(key);
+    }
+  });
+  return inflight;
 }
 
 async function getFilteredIndexForAccount(accountId) {
@@ -787,6 +814,7 @@ app.post(
         return sendError(res, 400, "Missing or empty file");
       }
       const data = await restoreKordFromZipBuffer(req.file.buffer);
+      await invalidateLibraryIndexCache(getMusicRoot());
       return sendOk(res, data);
     } catch (error) {
       if (error?.code === "ENV_LOCKED") {
@@ -1550,7 +1578,10 @@ app.post("/api/download", async (req, res) => {
           folder,
           detail: u,
         });
-        void attachStudioDownloadToLibrarySelection(req, root, outputDirForLog);
+        void (async () => {
+          await invalidateLibraryIndexCache(root);
+          await attachStudioDownloadToLibrarySelection(req, root, outputDirForLog);
+        })();
       }
       const combined = `${stderrAcc.buffer}\n${stdoutAcc.buffer}`;
       const ot = trimLogForNdjson(stdoutAcc);
@@ -1683,6 +1714,7 @@ app.post("/api/fs/mkdir", async (req, res) => {
     if (!underRoot(full, root)) return sendError(res, 400, "Invalid path");
     if (existsSync(full)) return sendError(res, 400, "Folder already exists");
     await fs.mkdir(full, { recursive: false });
+    await invalidateLibraryIndexCache(root);
     return res.json({ ok: true, relPath: relPath.replaceAll(path.sep, "/") });
   } catch (error) {
     return sendError(res, 500, String(error?.message || error));
@@ -1729,6 +1761,7 @@ app.post("/api/fs/clear-dl-dest", async (req, res) => {
       }
     };
     await walk(full, baseRel);
+    await invalidateLibraryIndexCache(root);
     return sendOk(res, { deleted });
   } catch (error) {
     return sendError(res, 500, String(error?.message || error));
@@ -1752,6 +1785,7 @@ app.post("/api/fs/delete-audio-relpaths", async (req, res) => {
       await fs.unlink(full);
       deleted.push(rel.replaceAll(path.sep, "/"));
     }
+    await invalidateLibraryIndexCache(root);
     return sendOk(res, { deleted });
   } catch (error) {
     return sendError(res, 500, String(error?.message || error));
@@ -1794,6 +1828,7 @@ app.post("/api/fs/delete-album-folder", async (req, res) => {
     if (!deleted.length)
       return sendError(res, 400, "No audio files in album folder");
     await fs.rm(full, { recursive: true, force: false });
+    await invalidateLibraryIndexCache(root);
     return sendOk(res, {
       deleted,
       deletedFolder: albumPath.replaceAll(path.sep, "/"),
@@ -1873,6 +1908,7 @@ app.post("/api/artwork/apply", async (req, res) => {
       folder: albumPath,
       detail: path.basename(dest),
     });
+    await invalidateLibraryIndexCache(root);
     return sendOk(res, { saved: path.basename(dest), albumPath, abs: dest });
   } catch (error) {
     return sendError(res, 500, String(error?.message || error));
