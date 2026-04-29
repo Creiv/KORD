@@ -125,6 +125,15 @@ let mainWindow = null
 
 const APP_NAME = "KORD"
 
+function getAppIconPath() {
+  const candidates = [
+    path.join(__dirname, "..", "build", "icon.png"),
+    path.join(__dirname, "..", "dist", "favicon.png"),
+    path.join(__dirname, "..", "public", "favicon.png"),
+  ]
+  return candidates.find((p) => fs.existsSync(p)) || undefined
+}
+
 function installAppMenu() {
   const isMac = process.platform === "darwin"
   const viewItems = [
@@ -312,6 +321,7 @@ function createWindow() {
     minHeight: 600,
     show: true,
     title: APP_NAME,
+    icon: getAppIconPath(),
     autoHideMenuBar: false,
     webPreferences: {
       contextIsolation: true,

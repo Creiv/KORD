@@ -98,7 +98,6 @@ import {
   TrackMetaEditProvider,
   useOpenTrackMetaEdit,
 } from "./components/TrackMetaEditor";
-import { KordWordmarkSvg } from "./components/KordWordmarkSvg";
 import { ThemePicker } from "./components/ThemePicker";
 import { TrackMoodGlyph } from "./components/TrackMoodGlyph";
 import { ToolsView } from "./components/ToolsView";
@@ -5145,7 +5144,12 @@ function Shell() {
               <div className="topbar2__row">
                 <div className="topbar2__start">
                   <div className="topbar2__brand">
-                    <KordWordmarkSvg className="kord-wordmark-svg kord-wordmark-svg--topbar" />
+                    <img
+                      className="kord-app-logo kord-app-logo--topbar"
+                      src="/favicon.png"
+                      alt=""
+                      aria-hidden="true"
+                    />
                   </div>
                   {!isMobileLayout ? (
                     <nav

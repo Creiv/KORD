@@ -113,7 +113,7 @@
   align-items: center;
 }
 
-.topbar2--toolbar .kord-wordmark-svg--topbar {
+.topbar2--toolbar .kord-app-logo--topbar {
   margin-top: 0;
 }
 
@@ -2866,6 +2866,19 @@
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.22));
 }
 
+.kord-app-logo {
+  display: block;
+  flex-shrink: 0;
+  object-fit: contain;
+  user-select: none;
+}
+
+.kord-app-logo--topbar {
+  width: 42px;
+  height: 42px;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.22));
+}
+
 .kord-wordmark-layer--halo {
   fill: none;
   stroke: color-mix(in srgb, var(--text) 52%, var(--border-strong) 48%);
@@ -5384,7 +5397,8 @@
     min-width: 0;
   }
 
-  .kord-wordmark-svg--topbar {
+  .kord-app-logo--topbar {
+    width: 36px;
     height: 36px;
   }
 

@@ -68,6 +68,7 @@
   "build": {
     "appId": "com.kord.app",
     "productName": "KORD",
+    "icon": "build/icon.png",
     "copyright": "Copyright KORD",
     "directories": {
       "output": "release"
@@ -75,11 +76,13 @@
     "files": [
       "package.json",
       "dist",
+      "build/icon.png",
       "electron",
       "server",
       "node_modules"
     ],
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -96,12 +99,14 @@
       ]
     },
     "linux": {
+      "icon": "build/icon.png",
       "target": [
         "AppImage"
       ],
       "category": "Audio"
     },
     "mac": {
+      "icon": "build/icon.png",
       "target": [
         "dmg"
       ],

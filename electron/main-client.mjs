@@ -9,6 +9,14 @@ const APP_NAME = "Kord Client";
 let mainWindow = null;
 let useConnectScreen = true;
 
+function getAppIconPath() {
+  const candidates = [
+    path.join(__dirname, "..", "build", "icon.png"),
+    path.join(__dirname, "..", "public", "favicon.png"),
+  ];
+  return candidates.find((p) => fs.existsSync(p)) || undefined;
+}
+
 function getRemoteStatePath() {
   return path.join(app.getPath("userData"), "kord-remote.json");
 }
@@ -138,6 +146,7 @@ function createWindow() {
     minHeight: 600,
     show: true,
     title: APP_NAME,
+    icon: getAppIconPath(),
     autoHideMenuBar: false,
     webPreferences: {
       contextIsolation: true,

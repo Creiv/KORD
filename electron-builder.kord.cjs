@@ -7,7 +7,7 @@ const ver = process.env.KORD_APP_VERSION || pkg.version
 const isClient = flavor === "client"
 
 const serverFiles = b.files
-const clientFiles = ["package.json", "electron/**", "node_modules/**", "!server", "!dist"]
+const clientFiles = ["package.json", "electron/**", "build/icon.png", "node_modules/**", "!server", "!dist"]
 
 const isWinHost = process.platform === "win32"
 const forceWinNsis = process.env.KORD_WIN_INSTALLER === "1"
