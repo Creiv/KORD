@@ -7,7 +7,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { deleteAudioRelPaths, saveAlbumInfoManual } from "../lib/api";
+import { deleteAlbumFolder, saveAlbumInfoManual } from "../lib/api";
 import { useI18n } from "../i18n/useI18n";
 import { usePlayer } from "../context/PlayerContext";
 import { useUserState } from "../context/UserStateContext";
@@ -86,10 +86,13 @@ function AlbumMetaEditorModal({
   );
 
   const runDelete = useCallback(async () => {
-    if (!album || !album.tracks.length) return;
+    if (!album || album.loose || !album.relPath || !album.tracks.length) return;
     if (
       !window.confirm(
-        t("albumMeta.deleteConfirm", { n: String(album.tracks.length) })
+        t("albumMeta.deleteConfirm", {
+          n: String(album.tracks.length),
+          path: album.relPath,
+        })
       )
     ) {
       return;
@@ -97,7 +100,7 @@ function AlbumMetaEditorModal({
     setDeleteBusy(true);
     setErr(null);
     try {
-      const { deleted } = await deleteAudioRelPaths([...album.tracks]);
+      const { deleted } = await deleteAlbumFolder(album.relPath);
       if (!deleted.length) {
         setErr(t("albumMeta.deleteFailed"));
         return;
@@ -181,7 +184,7 @@ function AlbumMetaEditorModal({
             <button
               type="button"
               className="ghost-btn danger"
-              disabled={busy || deleteBusy || !album.tracks.length}
+              disabled={busy || deleteBusy || album.loose || !album.tracks.length}
               onClick={() => {
                 void runDelete();
               }}

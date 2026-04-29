@@ -4,6 +4,7 @@ import { stat as statAsync } from "fs/promises"
 import path from "path"
 import { loadAlbumJsonMetaFromDir, loadTrackJsonMetaMapFromDir } from "./albumInfo.mjs"
 import { reorderTracksByAlbumExpectedRelease } from "./albumExpectedOrder.mjs"
+import { getAudioFileDurationMs } from "./audioDuration.mjs"
 import { parseTrackGenres } from "./genres.mjs"
 import { normalizeTrackMoodsList } from "./trackMoods.mjs"
 
@@ -76,6 +77,7 @@ function trackFromFile({
   fileName,
   fullPath,
   trackMeta,
+  fileDurationMs,
   albumMeta,
   loose,
 }) {
@@ -105,7 +107,7 @@ function trackFromFile({
         trackMeta?.moods,
         trackMeta?.mood,
       ),
-      durationMs: numOrNull(trackMeta?.durationMs),
+      durationMs: numOrNull(fileDurationMs),
       trackNumber: numOrNull(
         trackMeta?.trackNumber || (trackNumberGuess ? Number(trackNumberGuess[0]) : null),
       ),
@@ -154,14 +156,17 @@ async function readAlbumTracks(artistName, albumFolderName, albumDir, albumMeta)
   const tracks = []
   for (const entry of entries) {
     if (!(await entryIsAudioInDir(entry, albumDir))) continue
+    const fullPath = path.join(albumDir, entry.name)
+    const fileDurationMs = await getAudioFileDurationMs(fullPath)
     tracks.push(
       trackFromFile({
         artistName,
         albumFolderName,
         albumDisplayName,
         fileName: entry.name,
-        fullPath: path.join(albumDir, entry.name),
+        fullPath,
         trackMeta: trackMetaMap?.[entry.name] || null,
+        fileDurationMs,
         albumMeta,
       }),
     )
@@ -195,14 +200,17 @@ async function readLooseTracks(artistName, artistDir) {
   const tracks = []
   for (const entry of entries) {
     if (!(await entryIsAudioInDir(entry, artistDir))) continue
+    const fullPath = path.join(artistDir, entry.name)
+    const fileDurationMs = await getAudioFileDurationMs(fullPath)
     tracks.push(
       trackFromFile({
         artistName,
         albumFolderName: "Tracce",
         albumDisplayName: "Tracce",
         fileName: entry.name,
-        fullPath: path.join(artistDir, entry.name),
+        fullPath,
         trackMeta: null,
+        fileDurationMs,
         albumMeta: null,
         loose: true,
       }),

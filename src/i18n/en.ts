@@ -83,10 +83,10 @@ export const EN: Record<string, string> = {
   "albumMeta.fieldReleaseDate": "Release date",
   "albumMeta.fieldLabel": "Label",
   "albumMeta.fieldCountry": "Country",
-  "albumMeta.deleteAlbum": "Delete all tracks",
+  "albumMeta.deleteAlbum": "Delete album",
   "albumMeta.deleteConfirm":
-    "Delete all {{n}} audio file(s) in this folder from disk? The folder and non-audio files stay; this cannot be undone.",
-  "albumMeta.deleteFailed": "No audio files were removed.",
+    "Delete the album folder “{{path}}” from disk, including {{n}} audio file(s) and every file inside it? This cannot be undone.",
+  "albumMeta.deleteFailed": "No album was removed.",
   "trackRow.editMetaTitle": "Edit track metadata",
   "trackRow.editMetaAria": "Edit track metadata",
   "trackRow.removeQueueTitle": "Remove from queue",

@@ -1373,6 +1373,42 @@ app.post("/api/fs/delete-audio-relpaths", async (req, res) => {
   }
 })
 
+app.post("/api/fs/delete-album-folder", async (req, res) => {
+  const root = musicRootFromReq(req)
+  const albumPath = safeRelSeg(String(req.body?.albumPath || ""))
+  if (albumPath == null || !albumPath) return sendError(res, 400, "albumPath is required")
+  if (albumPath.split("/").filter(Boolean).length < 2) {
+    return sendError(res, 400, "albumPath must be an album folder under an artist")
+  }
+  try {
+    const full = path.join(root, albumPath.replaceAll("/", path.sep))
+    if (!underRoot(full, root) || !existsSync(full)) {
+      return sendError(res, 404, "Album folder not found")
+    }
+    const st = statSync(full)
+    if (!st.isDirectory()) return sendError(res, 400, "Not a directory")
+    const deleted = []
+    const collectAudio = async (dir, relFromRoot) => {
+      const entries = await fs.readdir(dir, { withFileTypes: true })
+      for (const e of entries) {
+        const child = path.join(dir, e.name)
+        const rel = `${relFromRoot}/${e.name}`.replaceAll(path.sep, "/")
+        if (e.isDirectory()) {
+          await collectAudio(child, rel)
+        } else if (e.isFile() && isAudioFile(e.name)) {
+          deleted.push(rel)
+        }
+      }
+    }
+    await collectAudio(full, albumPath.replaceAll(path.sep, "/"))
+    if (!deleted.length) return sendError(res, 400, "No audio files in album folder")
+    await fs.rm(full, { recursive: true, force: false })
+    return sendOk(res, { deleted, deletedFolder: albumPath.replaceAll(path.sep, "/") })
+  } catch (error) {
+    return sendError(res, 500, String(error?.message || error))
+  }
+})
+
 app.get("/api/artwork/search", async (req, res) => {
   const q = String(req.query.q || req.query.term || "").trim()
   const artist = String(req.query.artist || "").trim()

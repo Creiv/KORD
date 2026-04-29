@@ -696,6 +696,17 @@ export async function deleteAudioRelPaths(
   return unwrap<{ deleted: string[] }>(response)
 }
 
+export async function deleteAlbumFolder(
+  albumPath: string,
+): Promise<{ deleted: string[]; deletedFolder: string }> {
+  const response = await fetch("/api/fs/delete-album-folder", {
+    method: "POST",
+    headers: accountHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ albumPath }),
+  })
+  return unwrap<{ deleted: string[]; deletedFolder: string }>(response)
+}
+
 export type ArtworkHit = {
   name: string
   artist: string

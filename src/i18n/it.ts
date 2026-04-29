@@ -85,10 +85,10 @@ export const IT: Record<string, string> = {
   "albumMeta.fieldReleaseDate": "Data uscita",
   "albumMeta.fieldLabel": "Etichetta",
   "albumMeta.fieldCountry": "Paese",
-  "albumMeta.deleteAlbum": "Elimina tutti i brani",
+  "albumMeta.deleteAlbum": "Elimina album",
   "albumMeta.deleteConfirm":
-    "Eliminare dal disco {{n}} file audio in questa cartella? Le cartelle e i file non audio restano; l'operazione non è reversibile.",
-  "albumMeta.deleteFailed": "Nessun file audio è stato eliminato.",
+    "Eliminare dal disco la cartella album «{{path}}» con {{n}} file audio e tutti i file contenuti? L'operazione non è reversibile.",
+  "albumMeta.deleteFailed": "Nessun album è stato eliminato.",
   "trackRow.editMetaTitle": "Modifica metadati brano",
   "trackRow.editMetaAria": "Modifica metadati brano",
   "trackRow.removeQueueTitle": "Rimuovi dalla coda",
