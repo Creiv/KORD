@@ -5788,6 +5788,20 @@
   margin-bottom: 0.5rem;
 }
 
+.meta-edit-genre-select {
+  color: var(--text);
+  background-color: var(--ghost-input-bg);
+}
+
+.meta-edit-genre-select option {
+  color: #111827;
+  background: #ffffff;
+}
+
+.meta-edit-genre-select option:disabled {
+  color: #6b7280;
+}
+
 .meta-edit-genre-custom {
   display: flex;
   flex-wrap: wrap;

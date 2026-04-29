@@ -2177,6 +2177,16 @@ function LibraryView({
     p.playTrack(shuffled[0], shuffled, 0, { preserveQueueOrder: true });
   };
 
+  const openSearchArtist = (artistId: string) => {
+    onSearchChange("");
+    onOpenArtist(artistId);
+  };
+
+  const openSearchAlbum = (artistId: string, albumName: string) => {
+    onSearchChange("");
+    onOpenAlbum(artistId, albumName);
+  };
+
   const renderLibrarySearchHero = () => (
     <section className="surface-card library-search-hero">
       <div className="library-search-bar" role="search">
@@ -2285,7 +2295,7 @@ function LibraryView({
                     albumCount={item.albums.length}
                     coverAlbumRelPath={artistCoverById.get(item.id) ?? null}
                     index={index}
-                    onOpen={() => onOpenArtist(item.id)}
+                    onOpen={() => openSearchArtist(item.id)}
                   />
                 ))}
               </div>
@@ -2300,7 +2310,7 @@ function LibraryView({
                     type="button"
                     key={item.id}
                     className="album-card"
-                    onClick={() => onOpenAlbum(item.artistId, item.name)}
+                    onClick={() => openSearchAlbum(item.artistId, item.name)}
                   >
                     <AlbumCover album={item} compact />
                     <div className="album-card__text">

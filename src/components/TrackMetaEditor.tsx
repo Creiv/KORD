@@ -242,13 +242,13 @@ function TrackMetaEditorModal({
               ))}
             </div>
             <div className="meta-edit-genre-add">
-            <label className="sr-only" htmlFor={pickId}>
-              {t("trackMeta.fieldGenrePick")}
-            </label>
+              <label className="sr-only" htmlFor={pickId}>
+                {t("trackMeta.fieldGenrePick")}
+              </label>
               <select
                 key={`${genres.length}-${availableFromLibrary.length}`}
                 id={pickId}
-                className="ghost-input w-full"
+                className="ghost-input w-full meta-edit-genre-select"
                 defaultValue=""
                 onChange={(ev) => {
                   const v = ev.target.value;
