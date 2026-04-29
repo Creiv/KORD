@@ -8,6 +8,7 @@ import type {
 type Wrapped<T> = { ok: boolean; data: T; error: string | null }
 const SESSION_ACCOUNT_STORAGE_KEY = "kord-session-account-id"
 const LEGACY_ACTIVE_ACCOUNT_STORAGE_KEY = "kord-active-account-id"
+let accountBootstrapPromise: Promise<string | null> | null = null
 
 async function unwrap<T>(response: Response): Promise<T> {
   const json = (await response.json()) as T | Wrapped<T> | { error?: string }
@@ -41,6 +42,7 @@ export function setSelectedAccountId(id: string) {
   try {
     localStorage.setItem(SESSION_ACCOUNT_STORAGE_KEY, id)
     localStorage.removeItem(LEGACY_ACTIVE_ACCOUNT_STORAGE_KEY)
+    accountBootstrapPromise = Promise.resolve(id)
     window.dispatchEvent(new CustomEvent("kord-account-session-changed"))
   } catch {
     /* ignore */
@@ -83,6 +85,21 @@ function apiUrl(path: string, params: Record<string, string> = {}) {
   return query ? `${path}?${query}` : path
 }
 
+async function ensureSelectedAccountId(): Promise<string | null> {
+  if (accountBootstrapPromise) return accountBootstrapPromise
+  accountBootstrapPromise = fetch("/api/accounts", { cache: "no-store" })
+    .then((response) => unwrap<AccountsResponse>(response))
+    .then((data) => {
+      rememberAvailableAccount(data)
+      return getSelectedAccountId()
+    })
+    .catch(() => {
+      accountBootstrapPromise = null
+      return getSelectedAccountId()
+    })
+  return accountBootstrapPromise
+}
+
 export function mediaUrl(relPath: string) {
   const path = `/media/${relPath
     .split("/")
@@ -101,6 +118,7 @@ export function coverUrlForAlbumRelPath(relPath: string) {
 }
 
 export async function fetchLibrary(): Promise<LibraryResponse> {
+  await ensureSelectedAccountId()
   const response = await fetch(apiUrl("/api/library"), {
     headers: accountHeaders(),
   })
@@ -108,6 +126,7 @@ export async function fetchLibrary(): Promise<LibraryResponse> {
 }
 
 export async function fetchLibraryIndex(): Promise<LibraryIndex> {
+  await ensureSelectedAccountId()
   const response = await fetch(apiUrl("/api/library-index"), {
     cache: "no-store",
     headers: accountHeaders(),
@@ -156,6 +175,7 @@ export async function linkSharedFromAccount(
 }
 
 export async function fetchDashboard(): Promise<DashboardPayload> {
+  await ensureSelectedAccountId()
   const response = await fetch(apiUrl("/api/dashboard"), {
     cache: "no-store",
     headers: accountHeaders(),
@@ -164,6 +184,7 @@ export async function fetchDashboard(): Promise<DashboardPayload> {
 }
 
 export async function fetchUserState(): Promise<UserStateV1> {
+  await ensureSelectedAccountId()
   const response = await fetch(apiUrl("/api/user-state"), {
     headers: accountHeaders(),
   })
@@ -171,6 +192,7 @@ export async function fetchUserState(): Promise<UserStateV1> {
 }
 
 export async function saveUserState(state: UserStateV1): Promise<UserStateV1> {
+  await ensureSelectedAccountId()
   const response = await fetch(apiUrl("/api/user-state"), {
     method: "PUT",
     headers: accountHeaders({ "Content-Type": "application/json" }),
