@@ -2567,9 +2567,21 @@
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
   gap: 0.28rem;
+  cursor: grab;
+  user-select: none;
+  touch-action: pan-x;
+}
+
+.lib-badge-cluster--card-foot::-webkit-scrollbar {
+  display: none;
+}
+
+.lib-badge-cluster--card-foot.is-dragging {
+  cursor: grabbing;
 }
 
 .lib-badge-cluster--title-left {
@@ -2579,6 +2591,11 @@
 .lib-badge-cluster--card-foot .lib-meta-badges {
   justify-content: flex-start;
   flex-wrap: nowrap;
+  flex: 0 0 auto;
+}
+
+.lib-badge-cluster--card-foot .lib-meta-chip {
+  flex: 0 0 auto;
 }
 
 .lib-badge-cluster:empty {

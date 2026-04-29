@@ -13,6 +13,7 @@ import type {
   ChangeEvent,
   CSSProperties,
   MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
   ReactNode,
   RefObject,
 } from "react";
@@ -1062,6 +1063,85 @@ function LibraryAlbumExcludeChips({
   );
 }
 
+function DraggableBadgeCluster({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const dragRef = useRef({
+    active: false,
+    pointerId: -1,
+    startX: 0,
+    scrollLeft: 0,
+    moved: false,
+  });
+
+  const finishDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const el = ref.current;
+    const drag = dragRef.current;
+    if (el && drag.active) {
+      try {
+        el.releasePointerCapture(drag.pointerId);
+      } catch {
+        /* pointer already released */
+      }
+      el.classList.remove("is-dragging");
+    }
+    dragRef.current = { ...drag, active: false, pointerId: -1 };
+    event.stopPropagation();
+  };
+
+  return (
+    <div
+      ref={ref}
+      className="lib-badge-cluster lib-badge-cluster--card-foot"
+      onClickCapture={(event) => {
+        if (!dragRef.current.moved) return;
+        dragRef.current.moved = false;
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+      onPointerDown={(event) => {
+        const el = ref.current;
+        if (!el || el.scrollWidth <= el.clientWidth) return;
+        if (event.pointerType === "mouse" && event.button !== 0) return;
+        dragRef.current = {
+          active: true,
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          scrollLeft: el.scrollLeft,
+          moved: false,
+        };
+        el.setPointerCapture(event.pointerId);
+        el.classList.add("is-dragging");
+        event.stopPropagation();
+      }}
+      onPointerMove={(event) => {
+        const el = ref.current;
+        const drag = dragRef.current;
+        if (!el || !drag.active || drag.pointerId !== event.pointerId) return;
+        const delta = event.clientX - drag.startX;
+        if (Math.abs(delta) > 3) drag.moved = true;
+        el.scrollLeft = drag.scrollLeft - delta;
+        if (drag.moved) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
+      onPointerUp={finishDrag}
+      onPointerCancel={finishDrag}
+      onLostPointerCapture={() => {
+        const el = ref.current;
+        el?.classList.remove("is-dragging");
+        dragRef.current = {
+          ...dragRef.current,
+          active: false,
+          pointerId: -1,
+        };
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 function GenreCoverSlot({ relPath }: { relPath: string | null }) {
   const [failed, setFailed] = useState(false);
   if (!relPath || failed) {
@@ -1123,11 +1203,11 @@ function GenreCard({
         <div className="artist-card__meta">
           {albumCount} {aU} · {trackCount} {trU}
         </div>
-        <div className="lib-badge-cluster lib-badge-cluster--card-foot">
+        <DraggableBadgeCluster>
           <LibraryGenreMetaChips genreKey={genreKey} index={libraryIndex} />
           <LibraryGenreFavoriteChips genreKey={genreKey} index={libraryIndex} />
           <LibraryGenreExcludeChips genreKey={genreKey} index={libraryIndex} />
-        </div>
+        </DraggableBadgeCluster>
       </div>
     </button>
   );
@@ -1169,11 +1249,11 @@ function ArtistCard({
         <div className="artist-card__meta">
           {albumCount} {aU} · {artist.trackCount} {trU}
         </div>
-        <div className="lib-badge-cluster lib-badge-cluster--card-foot">
+        <DraggableBadgeCluster>
           <LibraryArtistMetaChips artist={artist} />
           <LibraryArtistFavoriteChips artist={artist} index={libraryIndex} />
           <LibraryArtistExcludeChips artist={artist} index={libraryIndex} />
-        </div>
+        </DraggableBadgeCluster>
       </div>
     </button>
   );
@@ -1386,11 +1466,11 @@ function DashboardView({
                         : ""}
                     </div>
                     <AlbumCardTracksMetaLine album={album} />
-                    <div className="lib-badge-cluster lib-badge-cluster--card-foot">
+                    <DraggableBadgeCluster>
                       <LibraryAlbumMetaChips album={album} />
                       <LibraryAlbumFavoriteChips album={album} />
                       <LibraryAlbumExcludeChips album={album} />
-                    </div>
+                    </DraggableBadgeCluster>
                   </div>
                 </button>
               ))}
@@ -1460,11 +1540,9 @@ function DashboardView({
 }
 
 function ListenView({
-  dashboard,
   index,
   onOpenSection,
 }: {
-  dashboard: DashboardPayload | null;
   index: LibraryIndex;
   onOpenSection: (section: AppSection) => void;
 }) {
@@ -1517,6 +1595,7 @@ function ListenView({
     listenQueueStart,
     listenQueueStart + 6
   );
+  const recentTracks = user.state.recent.slice(0, 5);
   return (
     <div className="view-stack">
       <section className="listen-stage">
@@ -1700,9 +1779,9 @@ function ListenView({
               {t("listen.recentSeeAll")}
             </button>
           </div>
-          {dashboard?.recentTracks.length ? (
+          {recentTracks.length ? (
             <div className="list-stack">
-              {dashboard.recentTracks.slice(0, 5).map((track) => (
+              {recentTracks.map((track) => (
                 <TrackListRow
                   key={track.relPath}
                   track={track}
@@ -2334,11 +2413,11 @@ function LibraryView({
                       <div className="album-card__title">{item.name}</div>
                       <div className="album-card__meta">{item.artist}</div>
                       <AlbumCardTracksMetaLine album={item} />
-                      <div className="lib-badge-cluster lib-badge-cluster--card-foot">
+                      <DraggableBadgeCluster>
                         <LibraryAlbumMetaChips album={item} />
                         <LibraryAlbumFavoriteChips album={item} />
                         <LibraryAlbumExcludeChips album={item} />
-                      </div>
+                      </DraggableBadgeCluster>
                     </div>
                   </button>
                 ))}
@@ -2566,11 +2645,11 @@ function LibraryView({
                 <div className="album-card__text">
                   <div className="album-card__title">{item.name}</div>
                   <AlbumCardTracksMetaLine album={item} />
-                  <div className="lib-badge-cluster lib-badge-cluster--card-foot">
+                  <DraggableBadgeCluster>
                     <LibraryAlbumMetaChips album={item} />
                     <LibraryAlbumFavoriteChips album={item} />
                     <LibraryAlbumExcludeChips album={item} />
-                  </div>
+                  </DraggableBadgeCluster>
                 </div>
               </button>
             ))}
@@ -5017,7 +5096,6 @@ function Shell() {
       case "ascolta":
         return (
           <ListenView
-            dashboard={dashboard}
             index={index}
             onOpenSection={(section) => navigate({ section })}
           />
