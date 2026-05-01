@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePlayer } from "../context/PlayerContext";
 import { useToolsActivity } from "../context/ToolsActivityContext";
 import { useUserState } from "../context/UserStateContext";
+import { useAppConfirm } from "../context/AppConfirmContext";
 import { useI18n } from "../i18n/useI18n";
 import {
   applyArtwork,
@@ -27,10 +28,12 @@ import {
   saveTrackInfoManual,
   sanitizeTrackTitles,
   searchArtwork,
+  searchMusicDirs,
   pruneOrphanTrackMetaForAlbum,
 } from "../lib/api";
 import type {
   ArtworkHit,
+  FsDirSearchResult,
   StudioDownloadKind,
   YoutubeReleasesList,
 } from "../lib/api";
@@ -193,6 +196,62 @@ function isValidDownloadDestPath(value: string | null | undefined) {
   return normalizeDownloadDestPath(value).length > 0;
 }
 
+function relPathLooksLikeAlbumFolderDest(relPath: string | null | undefined) {
+  return normalizeDownloadDestPath(relPath).split("/").filter(Boolean).length >= 2;
+}
+
+function joinMusicDestRelPath(base: string, title: string): string {
+  const b = normalizeDownloadDestPath(base);
+  const seg = normalizeDownloadDestPath(
+    title.replace(/[/\\]+/g, " ").replace(/\s+/g, " ").trim(),
+  );
+  return b && seg ? `${b}/${seg}` : seg || b;
+}
+
+function buildReleasesArtistFolderConfirm(args: {
+  dlPath: string;
+  entries: { title: string }[];
+  libraryIndex: LibraryIndex | null;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}): string {
+  const norm = normalizeDownloadDestPath(args.dlPath);
+  const rows: { path: string; exists: boolean }[] = [];
+  const seen = new Set<string>();
+  for (const e of args.entries) {
+    const rel = joinMusicDestRelPath(norm, e.title);
+    if (!rel || seen.has(rel)) continue;
+    seen.add(rel);
+    rows.push({
+      path: rel,
+      exists: indexHasAlbum(args.libraryIndex, rel),
+    });
+  }
+  rows.sort((a, b) => a.path.localeCompare(b.path));
+  const max = 45;
+  const shown = rows.slice(0, max);
+  const lines = shown.map((r) =>
+    r.exists
+      ? args.t("tools.dlReleasesRowUpdate", { path: r.path })
+      : args.t("tools.dlReleasesRowNew", { path: r.path }),
+  );
+  let msg =
+    args.t("tools.dlReleasesArtistConfirmLead", {
+      count: rows.length,
+      base: norm,
+    }) +
+    "\n\n" +
+    lines.join("\n");
+  if (rows.length > max) {
+    msg += "\n" + args.t("tools.dlReleasesRowMore", { n: rows.length - max });
+  }
+  msg +=
+    "\n\n" +
+    args.t("tools.dlReleasesFolderNameHint") +
+    "\n\n" +
+    args.t("tools.dlReleasesProceedQ");
+  return msg;
+}
+
 function normalizeDlProgress(
   p: { current: number; total: number } | null
 ): { cur: number; tot: number; pct: number } | null {
@@ -218,6 +277,28 @@ function normalizeTrackInAlbumProgress(
     hasTotal: true,
     pct: Math.max(3, Math.min(100, (cur / tot) * 100)),
   };
+}
+
+function downloadSummaryLine(r: {
+  downloadedItems?: string[];
+  skippedItems?: { label: string; reason: string }[];
+  failedItems?: { label: string; reason: string }[];
+}) {
+  const downloaded = r.downloadedItems?.length ?? 0;
+  const skipped = r.skippedItems?.length ?? 0;
+  const failed = r.failedItems?.length ?? 0;
+  if (downloaded + skipped + failed === 0) return "";
+  return `Scaricati: ${downloaded} · Saltati: ${skipped} · Non scaricati: ${failed}\n`;
+}
+
+function releaseBatchSummaryLine(
+  rows: { status: "ok" | "partial" | "failed"; title: string }[]
+) {
+  if (!rows.length) return "";
+  const ok = rows.filter((row) => row.status === "ok").length;
+  const partial = rows.filter((row) => row.status === "partial").length;
+  const failed = rows.filter((row) => row.status === "failed").length;
+  return `Scaricati: ${ok} · Parziali: ${partial} · Non scaricati: ${failed}\n`;
 }
 
 function DlDestFolderGlyph({ className }: { className?: string }) {
@@ -257,6 +338,7 @@ function DlDestUpIcon() {
 export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDelta }: P) {
   const p = usePlayer();
   const { t, sortLocale } = useI18n();
+  const { confirm: appConfirm } = useAppConfirm();
   const {
     state: userState,
     stripUserStateForRelPaths,
@@ -304,6 +386,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
     total: number;
   } | null>(null);
   const [preset, setPreset] = useState<string | null>(null);
+  const [ytCookiesConfigured, setYtCookiesConfigured] = useState(false);
   const [url, setUrl] = useState("");
   const [dlUrlMode, setDlUrlMode] = useState<DlVideoMode>("single");
   const [dlList, setDlList] = useState<{
@@ -312,6 +395,9 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
     dirs: { name: string; relPath: string }[];
     musicRoot: string;
   } | null>(null);
+  const [dlDirQuery, setDlDirQuery] = useState("");
+  const [dlDirResults, setDlDirResults] = useState<FsDirSearchResult[]>([]);
+  const [dlDirSearchBusy, setDlDirSearchBusy] = useState(false);
   const [dlPath, setDlPath] = useState(() => {
     try {
       if (
@@ -374,10 +460,12 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
   const [relStreamTotal, setRelStreamTotal] = useState<number | null>(null);
   const [relStreamComplete, setRelStreamComplete] = useState(false);
   const [relSel, setRelSel] = useState<Set<string>>(() => new Set());
+  const [relQuery, setRelQuery] = useState("");
   const [relLoadBusy, setRelLoadBusy] = useState(false);
   const relAborter = useRef<AbortController | null>(null);
   const relLogTotalRef = useRef(0);
   const relLogUploaderRef = useRef("");
+  const catalogLoadedAccountRef = useRef<string | null>(null);
   const dlActiveDownloadIdRef = useRef<string | null>(null);
   const dlBatchStopRef = useRef(false);
   const studioDlRunLatchRef = useRef(false);
@@ -441,6 +529,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
     fetchDownloadPreset()
       .then((d) => {
         setPreset(d.found && d.text ? d.text : null);
+        setYtCookiesConfigured(Boolean(d.cookiesConfigured));
         if (d.exampleUrl) setUrl(d.exampleUrl);
       })
       .catch((e) => setLog((x) => x + t("tools.logCmdErr", { e })));
@@ -515,11 +604,42 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
     setRelStreamTotal(null);
     setRelStreamComplete(false);
     setRelSel(new Set());
+    setRelQuery("");
   }, [url, dlUrlMode]);
 
   useEffect(() => {
     loadDlFs("");
   }, [loadDlFs]);
+
+  useEffect(() => {
+    const q = dlDirQuery.trim();
+    if (!q) {
+      setDlDirResults([]);
+      setDlDirSearchBusy(false);
+      return;
+    }
+    let cancelled = false;
+    setDlDirSearchBusy(true);
+    const timer = window.setTimeout(() => {
+      searchMusicDirs(q)
+        .then((results) => {
+          if (!cancelled) setDlDirResults(results);
+        })
+        .catch((e) => {
+          if (!cancelled) {
+            setDlDirResults([]);
+            setLog((x) => x + t("tools.logFolderErr", { e }));
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setDlDirSearchBusy(false);
+        });
+    }, 180);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [dlDirQuery, setLog, t]);
 
   useEffect(
     () => () => {
@@ -624,12 +744,32 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
 
   const showMultiAlbumPicker = dlUrlMode === "releases";
 
+  const filteredRelEntries = useMemo(() => {
+    const entries = relPayload?.entries ?? [];
+    const q = relQuery.trim().toLowerCase();
+    if (!q) return entries;
+    return entries.filter(
+      (entry) =>
+        entry.title.toLowerCase().includes(q) ||
+        entry.url.toLowerCase().includes(q)
+    );
+  }, [relPayload?.entries, relQuery]);
+
   const dlUrlValid = useMemo(
     () => urlMatchesStudioDlMode(url, "video", dlUrlMode),
     [url, dlUrlMode]
   );
 
-  const loadCatalogPane = useCallback(() => {
+  const loadCatalogPane = useCallback((force = false) => {
+    const accountKey = localSessionAccount || "__default__";
+    if (
+      !force &&
+      catalogLoadedAccountRef.current === accountKey &&
+      catalogData &&
+      mySelection
+    ) {
+      return;
+    }
     setCatalogBusy(true);
     setCatalogErr(null);
     setCatalogArtistDetail(null);
@@ -637,6 +777,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
       .then(([cat, sel]) => {
         setCatalogData(cat);
         setMySelection(sel);
+        catalogLoadedAccountRef.current = accountKey;
       })
       .catch((e) => {
         setCatalogErr(
@@ -646,7 +787,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
         setMySelection(null);
       })
       .finally(() => setCatalogBusy(false));
-  }, [t]);
+  }, [catalogData, localSessionAccount, mySelection, t]);
 
   const openCatalogArtist = useCallback(
     (artistId: string) => {
@@ -684,7 +825,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
         .catch(() => {});
       void fetchMyLibrarySelection().then(setMySelection).catch(() => {});
     } else {
-      loadCatalogPane();
+      loadCatalogPane(true);
     }
     onRefreshLibrary();
   }, [catalogArtistDetail, loadCatalogPane, onRefreshLibrary, t]);
@@ -782,6 +923,10 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
   const doCreateFolder = () => {
     const n = newDirName.trim();
     if (n.length < 1 || !dlList) return;
+    if (relPathLooksLikeAlbumFolderDest(dlList.path || "")) {
+      setLog((x) => x + t("tools.dlMkdirBlockedInAlbum") + "\n");
+      return;
+    }
     setMkBusy(true);
     createMusicSubdir(dlList.path || "", n)
       .then(({ relPath }) => {
@@ -995,7 +1140,14 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
 
   const runPruneOrphanTrackMeta = async () => {
     if (!library) return;
-    if (!window.confirm(t("tools.trackMetaPruneConfirm"))) return;
+    if (
+      !(await appConfirm({
+        message: t("tools.trackMetaPruneConfirm"),
+        variant: "danger",
+      }))
+    ) {
+      return;
+    }
     stopTrackPrune.current = false;
     setTrackPruneBusy(true);
     setTrackPruneProg(null);
@@ -1228,6 +1380,11 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
   const hasValidDownloadDest =
     dlDestPicked && isValidDownloadDestPath(dlPath);
 
+  const releasesDlBlockedAlbumFolder =
+    showMultiAlbumPicker &&
+    hasValidDownloadDest &&
+    relPathLooksLikeAlbumFolderDest(dlPath);
+
   const runDl = () => {
     if (!url.trim()) return;
     if (!urlMatchesStudioDlMode(url, "video", dlUrlMode)) {
@@ -1250,8 +1407,24 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
         setDlProg(null);
         let indexBefore: LibraryIndex | null = null;
         let replaceSnap: FolderReplaceSnapshot | null = null;
+        const studioDlKind: StudioDownloadKind =
+          dlUrlMode === "playlist" ? "download_playlist" : "download_single";
+        const normDl = normalizeDownloadDestPath(dlPath);
+        if (
+          !(await appConfirm({
+            message: relPathLooksLikeAlbumFolderDest(normDl)
+              ? t("tools.dlConfirmAlbumFolderTracks", { path: normDl })
+              : t("tools.dlConfirmArtistFolderDl", { path: normDl }),
+          }))
+        ) {
+          return;
+        }
         if (dlReplaceMode && hasValidDownloadDest) {
-          if (!window.confirm(t("tools.dlReplaceConfirm", { path: dlPath }))) {
+          if (
+            !(await appConfirm({
+              message: t("tools.dlReplaceConfirm", { path: dlPath }),
+            }))
+          ) {
             return;
           }
           indexBefore = await fetchLibraryIndex();
@@ -1266,7 +1439,9 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
             const cnt = await fetchDownloadFlatCount(url.trim());
             if (cnt > 35) {
               if (
-                !window.confirm(t("tools.dlPlaylistManyConfirm", { n: cnt }))
+                !(await appConfirm({
+                  message: t("tools.dlPlaylistManyConfirm", { n: cnt }),
+                }))
               ) {
                 return;
               }
@@ -1287,8 +1462,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
         try {
           const dlId = newStudioDownloadId();
           dlActiveDownloadIdRef.current = dlId;
-          const studioDlKind: StudioDownloadKind =
-            dlUrlMode === "playlist" ? "download_playlist" : "download_single";
           setLog(
             (x) =>
               x +
@@ -1314,7 +1487,8 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
               (r.ok
                 ? t("tools.dlResultOk")
                 : t("tools.dlResultErr", { code: r.code }) +
-                  (detail ? t("tools.dlErrDetail", { detail }) : ""))
+                  (detail ? t("tools.dlErrDetail", { detail }) : "")) +
+              downloadSummaryLine(r)
             );
           });
           await onRefreshLibrary();
@@ -1486,8 +1660,32 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
         setDlProg({ current: 1, total: list.length });
         let indexBefore: LibraryIndex | null = null;
         let replaceSnap: FolderReplaceSnapshot | null = null;
+        const studioDlKind: StudioDownloadKind =
+          studioDownloadSourceForArtistUrl(url) === "music"
+            ? "download_ytmusic"
+            : "download_releases";
+        if (releasesDlBlockedAlbumFolder) {
+          setLog((x) => x + t("tools.dlReleasesBlockedAlbumFolderLog") + "\n");
+          return;
+        }
+        if (
+          !(await appConfirm({
+            message: buildReleasesArtistFolderConfirm({
+              dlPath,
+              entries: list,
+              libraryIndex,
+              t,
+            }),
+          }))
+        ) {
+          return;
+        }
         if (dlReplaceMode && hasValidDownloadDest) {
-          if (!window.confirm(t("tools.dlReplaceConfirm", { path: dlPath }))) {
+          if (
+            !(await appConfirm({
+              message: t("tools.dlReplaceConfirm", { path: dlPath }),
+            }))
+          ) {
             return;
           }
           indexBefore = await fetchLibraryIndex();
@@ -1503,11 +1701,11 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
             t("tools.dlStart", { path: dlPath }) +
             ` — ${list.length} album(s)\n`
         );
-        const studioDlKind: StudioDownloadKind =
-          studioDownloadSourceForArtistUrl(url) === "music"
-            ? "download_ytmusic"
-            : "download_releases";
         try {
+          const batchResults: {
+            status: "ok" | "partial" | "failed";
+            title: string;
+          }[] = [];
           for (let i = 0; i < list.length; i += 1) {
             if (dlBatchStopRef.current) {
               setLog((x) => x + t("tools.dlBatchStoppedHint") + "\n");
@@ -1539,15 +1737,25 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                 setLog((x) => x + t("tools.dlStoppedByUser") + "\n");
                 break;
               }
+              batchResults.push({
+                status: !r.ok
+                  ? "failed"
+                  : (r.failedItems?.length ?? 0) > 0
+                    ? "partial"
+                    : "ok",
+                title: item.title,
+              });
               setLog(
                 (x) =>
                   x +
                   (r.ok
                     ? t("tools.dlResultOk")
                     : t("tools.dlResultErr", { code: r.code }) +
-                      (detail ? t("tools.dlErrDetail", { detail }) : ""))
+                      (detail ? t("tools.dlErrDetail", { detail }) : "")) +
+                  downloadSummaryLine(r)
               );
             } catch (e) {
+              batchResults.push({ status: "failed", title: item.title });
               setLog(
                 (x) =>
                   x +
@@ -1564,6 +1772,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
             setDlProg(null);
             setDlTrackProg(null);
           }
+          setLog((x) => x + releaseBatchSummaryLine(batchResults));
           await onRefreshLibrary();
           if (replaceSnap && indexBefore) {
             await runReplaceAfterDownload(indexBefore, replaceSnap);
@@ -1586,6 +1795,10 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
       return n;
     });
   };
+
+  const dlMkdirBlockedInAlbum = Boolean(
+    dlList && relPathLooksLikeAlbumFolderDest(dlList.path || ""),
+  );
 
   const dlProgNorm = normalizeDlProgress(dlProg);
   const dlTrackNorm = normalizeTrackInAlbumProgress(dlTrackProg);
@@ -1714,7 +1927,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                   <button
                     type="button"
                     className="btn sm"
-                    onClick={loadCatalogPane}
+                    onClick={() => loadCatalogPane(true)}
                     disabled={catalogBusy}
                   >
                     {catalogBusy
@@ -1781,6 +1994,8 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                                       className="artist-card__cover studio-catalog-card__img"
                                       src={coverUrlForAlbumRelPath(coverPath)}
                                       alt=""
+                                      fallbackClassName="artist-card__badge"
+                                      fallback={initialsCatalog(al.name)}
                                     />
                                   ) : (
                                     <div className="artist-card__badge">
@@ -1866,6 +2081,8 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                                     className="artist-card__cover studio-catalog-card__img"
                                     src={coverUrlForAlbumRelPath(coverRel)}
                                     alt=""
+                                    fallbackClassName="artist-card__badge"
+                                    fallback={initialsCatalog(ar.name)}
                                   />
                                 ) : (
                                   <div className="artist-card__badge">
@@ -1938,6 +2155,11 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                 <pre className="codebox" tabIndex={0}>
                   {preset || t("tools.cmdFallback")}
                 </pre>
+                <p className="subtle sm">
+                  {ytCookiesConfigured
+                    ? t("tools.dlCookiesOn")
+                    : t("tools.dlCookiesOff")}
+                </p>
               </details>
 
               <div className="studio-panel tools-dl-dest">
@@ -2007,6 +2229,46 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                     </div>
                   </div>
 
+                  <div className="tools-dl-dest__search">
+                    <input
+                      type="search"
+                      className="w-full"
+                      value={dlDirQuery}
+                      onChange={(e) => setDlDirQuery(e.target.value)}
+                      placeholder={t("tools.dlFolderSearchPh")}
+                      aria-label={t("tools.dlFolderSearchAria")}
+                    />
+                    {dlDirQuery.trim() ? (
+                      <div className="tools-dl-dest__search-results">
+                        {dlDirSearchBusy ? (
+                          <p className="subtle sm">{t("tools.searching")}</p>
+                        ) : dlDirResults.length ? (
+                          <ul className="tools-dl-dest__dirlist">
+                            {dlDirResults.map((d) => (
+                              <li key={d.relPath}>
+                                <button
+                                  type="button"
+                                  className="tools-dl-dest__dirbtn"
+                                  onClick={() => {
+                                    loadDlFs(d.relPath);
+                                    setDlDirQuery("");
+                                  }}
+                                >
+                                  <DlDestFolderGlyph className="tools-dl-dest__dir-ic" />
+                                  <span className="tools-dl-dest__dir-name">
+                                    {d.relPath}
+                                  </span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="subtle sm">{t("tools.dlFolderSearchEmpty")}</p>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+
                   <div
                     className="tools-dl-dest__browser"
                     role="group"
@@ -2037,41 +2299,55 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
 
                   <div
                     className="tools-dl-dest__create"
-                    aria-label={t("tools.dlNewSubLabel")}
+                    aria-label={
+                      dlMkdirBlockedInAlbum
+                        ? t("tools.dlMkdirBlockedInAlbum")
+                        : t("tools.dlNewSubLabel")
+                    }
                   >
-                    <p className="tools-dl-dest__label tools-dl-dest__label--inline">
-                      {t("tools.dlNewSubLabel")}
-                    </p>
-                    <div className="tools-dl-dest__newrow">
-                      <input
-                        type="text"
-                        className="tools-dl-dest__newinput"
-                        minLength={1}
-                        maxLength={200}
-                        placeholder={t("tools.newFolderPh")}
-                        value={newDirName}
-                        onChange={(e) => setNewDirName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (
-                            e.key === "Enter" &&
-                            newDirName.trim() &&
-                            dlList
-                          ) {
-                            e.preventDefault();
-                            doCreateFolder();
-                          }
-                        }}
-                        aria-label={t("tools.newFolderAria")}
-                      />
-                      <button
-                        type="button"
-                        className="btn secondary"
-                        disabled={mkBusy || !newDirName.trim() || !dlList}
-                        onClick={doCreateFolder}
-                      >
-                        {mkBusy ? t("tools.creating") : t("tools.createHere")}
-                      </button>
-                    </div>
+                    {dlMkdirBlockedInAlbum ? (
+                      <p className="subtle sm tools-dl-dest__mkdir-blocked">
+                        {t("tools.dlMkdirBlockedInAlbum")}
+                      </p>
+                    ) : (
+                      <>
+                        <p className="tools-dl-dest__label tools-dl-dest__label--inline">
+                          {t("tools.dlNewSubLabel")}
+                        </p>
+                        <div className="tools-dl-dest__newrow">
+                          <input
+                            type="text"
+                            className="tools-dl-dest__newinput"
+                            minLength={1}
+                            maxLength={200}
+                            placeholder={t("tools.newFolderPh")}
+                            value={newDirName}
+                            onChange={(e) => setNewDirName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (
+                                e.key === "Enter" &&
+                                newDirName.trim() &&
+                                dlList
+                              ) {
+                                e.preventDefault();
+                                doCreateFolder();
+                              }
+                            }}
+                            aria-label={t("tools.newFolderAria")}
+                          />
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            disabled={
+                              mkBusy || !newDirName.trim() || !dlList
+                            }
+                            onClick={doCreateFolder}
+                          >
+                            {mkBusy ? t("tools.creating") : t("tools.createHere")}
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   <div className="tools-dl-dest__actions">
@@ -2191,12 +2467,22 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                             : null}
                         </p>
                         <div className="tools-dl-releases__toolbar">
+                          {relPayload.entries.length > 1 ? (
+                            <input
+                              type="search"
+                              className="w-full"
+                              value={relQuery}
+                              onChange={(e) => setRelQuery(e.target.value)}
+                              placeholder={t("tools.dlReleaseSearchPh")}
+                              aria-label={t("tools.dlReleaseSearchAria")}
+                            />
+                          ) : null}
                           <button
                             type="button"
                             className="btn secondary sm"
                             onClick={() =>
                               setRelSel(
-                                new Set(relPayload.entries.map((e) => e.id))
+                                new Set(filteredRelEntries.map((e) => e.id))
                               )
                             }
                           >
@@ -2215,7 +2501,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                           aria-label={t("tools.dlReleasesListTitle")}
                           aria-busy={!relStreamComplete}
                         >
-                          {relPayload.entries.map((e) => (
+                          {filteredRelEntries.map((e) => (
                             <li key={e.id} className="tools-dl-releases__row">
                               <label className="tools-dl-releases__check">
                                 <input
@@ -2307,21 +2593,29 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                           {t("tools.inProgress")}
                         </span>
                       ) : (
-                        <button
-                          type="button"
-                          className="btn"
-                          onClick={runReleasesDl}
-                          disabled={
-                            dlBusy ||
-                            relLoadBusy ||
-                            !hasValidDownloadDest ||
-                            relSel.size === 0 ||
-                            !relStreamComplete ||
-                            !dlUrlValid
-                          }
-                        >
-                          {t("tools.dlDownloadSelected")}
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            className="btn"
+                            onClick={runReleasesDl}
+                            disabled={
+                              dlBusy ||
+                              relLoadBusy ||
+                              !hasValidDownloadDest ||
+                              relSel.size === 0 ||
+                              !relStreamComplete ||
+                              !dlUrlValid ||
+                              releasesDlBlockedAlbumFolder
+                            }
+                          >
+                            {t("tools.dlDownloadSelected")}
+                          </button>
+                          {releasesDlBlockedAlbumFolder ? (
+                            <p className="subtle sm tools-dl-releases__blocked-hint">
+                              {t("tools.dlReleasesBlockedAlbumFolderHint")}
+                            </p>
+                          ) : null}
+                        </>
                       )}
                     </div>
                   </div>

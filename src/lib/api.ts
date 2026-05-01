@@ -353,8 +353,13 @@ export type AppConfig = {
   musicRoot?: string | null
   lockedByEnv: boolean
   libraryRootConfigured?: boolean
+  localAccess?: boolean
   libraryRootWritable?: boolean
   libraryRootLabel?: string | null
+  youtubeCookiesConfigured?: boolean
+  youtubeCookiesWritable?: boolean
+  youtubeCookiesLockedByEnv?: boolean
+  youtubeCookiesLabel?: string | null
   serverPort: number
   devClientPort: number
   lanAccessUrl: string | null
@@ -393,6 +398,23 @@ export async function saveAppConfig(
 
 export async function saveConfig(musicRoot: string): Promise<AppConfig> {
   return saveAppConfig({ musicRoot })
+}
+
+export async function uploadYoutubeCookies(file: File): Promise<AppConfig> {
+  const fd = new FormData()
+  fd.append("file", file)
+  const response = await apiFetch("/api/config/youtube-cookies", {
+    method: "POST",
+    body: fd,
+  })
+  return unwrap<AppConfig>(response)
+}
+
+export async function clearYoutubeCookies(): Promise<AppConfig> {
+  const response = await apiFetch("/api/config/youtube-cookies", {
+    method: "DELETE",
+  })
+  return unwrap<AppConfig>(response)
 }
 
 export async function fetchAccounts(): Promise<AccountsResponse> {
@@ -512,6 +534,7 @@ export type PresetYtdlp = {
   program: string
   args: string[]
   exampleUrl: string | null
+  cookiesConfigured?: boolean
 }
 
 export async function fetchDownloadPreset(): Promise<PresetYtdlp> {
@@ -656,6 +679,9 @@ export type DownloadRes = {
   logTruncated?: boolean
   stdoutTotalChars?: number
   stderrTotalChars?: number
+  downloadedItems?: string[]
+  skippedItems?: { label: string; reason: string }[]
+  failedItems?: { label: string; reason: string }[]
 }
 
 function downloadResFromDoneMsg(msg: Record<string, unknown>): DownloadRes {
@@ -678,6 +704,25 @@ function downloadResFromDoneMsg(msg: Record<string, unknown>): DownloadRes {
     ...(typeof msg.stderrTotalChars === "number"
       ? { stderrTotalChars: Math.floor(Number(msg.stderrTotalChars)) }
       : {}),
+    downloadedItems: Array.isArray(msg.downloadedItems)
+      ? msg.downloadedItems.map((x) => String(x)).filter(Boolean)
+      : [],
+    skippedItems: Array.isArray(msg.skippedItems)
+      ? msg.skippedItems
+          .map((x) => {
+            const row = x as { label?: unknown; reason?: unknown }
+            return { label: String(row.label ?? ""), reason: String(row.reason ?? "") }
+          })
+          .filter((x) => x.label)
+      : [],
+    failedItems: Array.isArray(msg.failedItems)
+      ? msg.failedItems
+          .map((x) => {
+            const row = x as { label?: unknown; reason?: unknown }
+            return { label: String(row.label ?? ""), reason: String(row.reason ?? "") }
+          })
+          .filter((x) => x.label)
+      : [],
   }
 }
 
@@ -784,6 +829,15 @@ export async function runYtdlpDownload(
   const decoder = new TextDecoder()
   let buffer = ""
   let final: DownloadRes | null = null
+  let itemSummary: {
+    downloadedItems: string[]
+    skippedItems: { label: string; reason: string }[]
+    failedItems: { label: string; reason: string }[]
+  } = {
+    downloadedItems: [],
+    skippedItems: [],
+    failedItems: [],
+  }
   const handleLine = (line: string) => {
     const t = line.trim()
     if (!t) return
@@ -795,6 +849,30 @@ export async function runYtdlpDownload(
     }
     const ty = msg.type
     if (ty === "keepalive" || ty === "started") return
+    if (ty === "items") {
+      itemSummary = {
+        downloadedItems: Array.isArray(msg.downloadedItems)
+          ? msg.downloadedItems.map((x) => String(x)).filter(Boolean)
+          : [],
+        skippedItems: Array.isArray(msg.skippedItems)
+          ? msg.skippedItems
+              .map((x) => {
+                const row = x as { label?: unknown; reason?: unknown }
+                return { label: String(row.label ?? ""), reason: String(row.reason ?? "") }
+              })
+              .filter((x) => x.label)
+          : [],
+        failedItems: Array.isArray(msg.failedItems)
+          ? msg.failedItems
+              .map((x) => {
+                const row = x as { label?: unknown; reason?: unknown }
+                return { label: String(row.label ?? ""), reason: String(row.reason ?? "") }
+              })
+              .filter((x) => x.label)
+          : [],
+      }
+      return
+    }
     if (msg.type === "progress" && onProgress) {
       const pr = msg.progress as { current?: number; total?: number } | undefined
       if (
@@ -815,7 +893,21 @@ export async function runYtdlpDownload(
       ) {
         onProgress({ current: pr.current, total: pr.total })
       }
-      final = downloadResFromDoneMsg(msg)
+      final = {
+        ...downloadResFromDoneMsg(msg),
+        downloadedItems:
+          Array.isArray(msg.downloadedItems) && msg.downloadedItems.length
+            ? msg.downloadedItems.map((x) => String(x)).filter(Boolean)
+            : itemSummary.downloadedItems,
+        skippedItems:
+          Array.isArray(msg.skippedItems) && msg.skippedItems.length
+            ? (downloadResFromDoneMsg(msg).skippedItems ?? [])
+            : itemSummary.skippedItems,
+        failedItems:
+          Array.isArray(msg.failedItems) && msg.failedItems.length
+            ? (downloadResFromDoneMsg(msg).failedItems ?? [])
+            : itemSummary.failedItems,
+      }
     }
   }
   for (;;) {
@@ -842,9 +934,22 @@ export type FsList = {
   musicRoot: string
 }
 
+export type FsDirSearchResult = {
+  name: string
+  relPath: string
+}
+
 export async function listMusicDirs(path: string): Promise<FsList> {
   const response = await apiFetch("/api/fs/list", {}, { path: path || "" })
   return unwrap<FsList>(response)
+}
+
+export async function searchMusicDirs(q: string): Promise<FsDirSearchResult[]> {
+  const query = q.trim()
+  if (!query) return []
+  const response = await apiFetch("/api/fs/search-dirs", {}, { q: query })
+  const data = await unwrap<{ results: FsDirSearchResult[] }>(response)
+  return data.results || []
 }
 
 export async function clearDownloadDestAudioFiles(

@@ -38,6 +38,8 @@ const state = {
   path: null,
   fromEnv: false,
   accounts: [],
+  youtubeCookiesPath: null,
+  youtubeCookiesFromEnv: false,
 };
 
 function readEnv() {
@@ -45,6 +47,12 @@ function readEnv() {
   if (e && String(e).trim()) {
     return { path: path.resolve(e), fromEnv: true };
   }
+  return null;
+}
+
+function readYoutubeCookiesEnv() {
+  const e = process.env.KORD_YTDLP_COOKIES;
+  if (e && String(e).trim()) return path.resolve(String(e).trim());
   return null;
 }
 
@@ -105,6 +113,13 @@ function normalizeAccountsFromFile(file) {
 function resolveLibraryRootFromBootstrap(file) {
   if (typeof file.musicRoot === "string" && file.musicRoot.trim()) {
     return path.resolve(file.musicRoot.trim());
+  }
+  return null;
+}
+
+function resolveYoutubeCookiesFromBootstrap(file) {
+  if (typeof file.youtubeCookiesPath === "string" && file.youtubeCookiesPath.trim()) {
+    return path.resolve(file.youtubeCookiesPath.trim());
   }
   return null;
 }
@@ -170,6 +185,9 @@ function persistBootstrapOnlySync() {
         {
           musicRoot: state.path,
           schemaVersion: BOOTSTRAP_SCHEMA_VERSION,
+          ...(state.youtubeCookiesPath && !state.youtubeCookiesFromEnv
+            ? { youtubeCookiesPath: state.youtubeCookiesPath }
+            : {}),
         },
         null,
         2,
@@ -205,6 +223,14 @@ function applyConfigFileToState() {
   }
 
   const fromEnv = readEnv();
+  const youtubeCookiesEnv = readYoutubeCookiesEnv();
+  if (youtubeCookiesEnv) {
+    state.youtubeCookiesPath = youtubeCookiesEnv;
+    state.youtubeCookiesFromEnv = true;
+  } else {
+    state.youtubeCookiesPath = resolveYoutubeCookiesFromBootstrap(file);
+    state.youtubeCookiesFromEnv = false;
+  }
   if (fromEnv) {
     state.path = fromEnv.path;
     state.fromEnv = true;
@@ -361,11 +387,71 @@ export function getConfigSnapshot(includeMusicRoot) {
     devClientPort: 5173,
     lanAccessUrl,
     defaultAccountId: getDefaultAccountId(),
+    youtubeCookiesConfigured: Boolean(
+      state.youtubeCookiesPath && fs.existsSync(state.youtubeCookiesPath)
+    ),
+    youtubeCookiesLockedByEnv: state.youtubeCookiesFromEnv,
+    youtubeCookiesLabel: state.youtubeCookiesPath
+      ? path.basename(state.youtubeCookiesPath)
+      : null,
   };
   if (includeMusicRoot) {
     snap.musicRoot = getMusicRoot();
   }
   return snap;
+}
+
+export function getYoutubeCookiesPath() {
+  if (!state.youtubeCookiesPath) return null;
+  try {
+    if (!fs.existsSync(state.youtubeCookiesPath)) return null;
+    return state.youtubeCookiesPath;
+  } catch {
+    return null;
+  }
+}
+
+export async function setPersistedYoutubeCookiesFile(buffer) {
+  if (state.youtubeCookiesFromEnv) {
+    const err = new Error(
+      "KORD_YTDLP_COOKIES is set in the environment: unset it to use the in-app option.",
+    );
+    err.code = "ENV_LOCKED";
+    throw err;
+  }
+  const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer || "");
+  if (!data.length) {
+    const err = new Error("Cookie file is empty");
+    err.code = "EMPTY";
+    throw err;
+  }
+  const dest = path.join(path.dirname(CONFIG_FILE), "youtube-cookies.txt");
+  await fsp.mkdir(path.dirname(dest), { recursive: true });
+  await fsp.writeFile(dest, data);
+  state.youtubeCookiesPath = dest;
+  state.youtubeCookiesFromEnv = false;
+  await writeMergedConfigBootstrap();
+  return dest;
+}
+
+export async function clearPersistedYoutubeCookiesFile() {
+  if (state.youtubeCookiesFromEnv) {
+    const err = new Error(
+      "KORD_YTDLP_COOKIES is set in the environment: unset it to use the in-app option.",
+    );
+    err.code = "ENV_LOCKED";
+    throw err;
+  }
+  const prev = state.youtubeCookiesPath;
+  state.youtubeCookiesPath = null;
+  await writeMergedConfigBootstrap();
+  if (prev && path.basename(prev) === "youtube-cookies.txt" && path.dirname(prev) === path.dirname(CONFIG_FILE)) {
+    try {
+      await fsp.unlink(prev);
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 async function writeMergedConfigBootstrap() {
@@ -376,6 +462,9 @@ async function writeMergedConfigBootstrap() {
       {
         musicRoot: state.path,
         schemaVersion: BOOTSTRAP_SCHEMA_VERSION,
+        ...(state.youtubeCookiesPath && !state.youtubeCookiesFromEnv
+          ? { youtubeCookiesPath: state.youtubeCookiesPath }
+          : {}),
       },
       null,
       2,

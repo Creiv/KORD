@@ -22,6 +22,8 @@ coverage
 
 *.local
 server/music-root.config.json
+server/music-root.config.json.bak
+server/youtube-cookies.txt
 server/accounts/
 
 # KORD activity log (local paths, URLs — never commit)

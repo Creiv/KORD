@@ -14,6 +14,7 @@ import { deleteAudioRelPaths, saveTrackInfoManual } from "../lib/api";
 import { useI18n } from "../i18n/useI18n";
 import { usePlayer } from "../context/PlayerContext";
 import { useUserState } from "../context/UserStateContext";
+import { useAppConfirm } from "../context/AppConfirmContext";
 import {
   parseTrackGenres,
   serializeTrackGenres,
@@ -91,6 +92,7 @@ function TrackMetaEditorModal({
   onSaved: (delta?: LibraryEntityDelta) => void | Promise<void>;
 }) {
   const { t } = useI18n();
+  const { confirm: appConfirm } = useAppConfirm();
   const pickId = useId();
   const [title, setTitle] = useState("");
   const [releaseDate, setReleaseDate] = useState("");
@@ -106,7 +108,7 @@ function TrackMetaEditorModal({
 
   useEffect(() => {
     if (!track) return;
-    const timer =     window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
       const m = track.meta;
       const im = parseTrackMoods(m ?? undefined);
       setTitle(track.title);
@@ -185,7 +187,14 @@ function TrackMetaEditorModal({
 
   const runDelete = useCallback(async () => {
     if (!track) return;
-    if (!window.confirm(t("trackMeta.deleteConfirm"))) return;
+    if (
+      !(await appConfirm({
+        message: t("trackMeta.deleteConfirm"),
+        variant: "danger",
+      }))
+    ) {
+      return;
+    }
     setDeleteBusy(true);
     setErr(null);
     try {
@@ -203,7 +212,7 @@ function TrackMetaEditorModal({
     } finally {
       setDeleteBusy(false);
     }
-  }, [onClose, onSaved, p, stripUserStateForRelPaths, t, track]);
+  }, [onClose, onSaved, p, stripUserStateForRelPaths, t, track, appConfirm]);
 
   if (!track) return null;
 

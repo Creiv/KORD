@@ -1585,6 +1585,10 @@
 }
 
 @media (min-width: 901px) {
+  .settings-page .settings-youtube-cookies-section {
+    grid-column: 1 / -1;
+  }
+
   .settings-page .settings-network-section {
     grid-column: 1 / -1;
   }
@@ -5919,6 +5923,47 @@
   max-height: min(90dvh, 100%);
   overflow: auto;
   margin: 0;
+}
+
+.app-dialog-backdrop {
+  z-index: 120;
+}
+
+.app-dialog {
+  padding: 1.2rem 1.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.app-dialog__eyebrow {
+  margin: 0;
+}
+
+.app-dialog__body {
+  margin: 0;
+  font-size: 0.93rem;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.app-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.app-dialog__btn--danger {
+  background: color-mix(in srgb, var(--danger, #c44) 82%, var(--bg) 18%);
+  border-color: color-mix(in srgb, var(--danger, #c44) 50%, var(--border) 50%);
+  color: #fff;
+}
+
+.app-dialog__btn--danger:hover {
+  filter: brightness(1.06);
 }
 
 .meta-edit-path {

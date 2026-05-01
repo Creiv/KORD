@@ -11,6 +11,7 @@ import { deleteAlbumFolder, saveAlbumInfoManual } from "../lib/api";
 import { useI18n } from "../i18n/useI18n";
 import { usePlayer } from "../context/PlayerContext";
 import { useUserState } from "../context/UserStateContext";
+import { useAppConfirm } from "../context/AppConfirmContext";
 import type { LibraryAlbumIndex, LibraryEntityDelta } from "../types";
 
 const AlbumMetaEditContext = createContext<(album: LibraryAlbumIndex) => void>(
@@ -40,6 +41,7 @@ function AlbumMetaEditorModal({
   onSaved: (delta?: LibraryEntityDelta) => void | Promise<void>;
 }) {
   const { t } = useI18n();
+  const { confirm: appConfirm } = useAppConfirm();
   const [title, setTitle] = useState("");
   const [releaseDate, setReleaseDate] = useState("");
   const [label, setLabel] = useState("");
@@ -88,12 +90,13 @@ function AlbumMetaEditorModal({
   const runDelete = useCallback(async () => {
     if (!album || album.loose || !album.relPath || !album.tracks.length) return;
     if (
-      !window.confirm(
-        t("albumMeta.deleteConfirm", {
+      !(await appConfirm({
+        message: t("albumMeta.deleteConfirm", {
           n: String(album.tracks.length),
           path: album.relPath,
-        })
-      )
+        }),
+        variant: "danger",
+      }))
     ) {
       return;
     }
@@ -114,7 +117,7 @@ function AlbumMetaEditorModal({
     } finally {
       setDeleteBusy(false);
     }
-  }, [album, onClose, onSaved, p, stripUserStateForRelPaths, t]);
+  }, [album, onClose, onSaved, p, stripUserStateForRelPaths, t, appConfirm]);
 
   if (!album) return null;
 

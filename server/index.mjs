@@ -16,8 +16,11 @@ import {
   getDefaultAccountId,
   getListenHost,
   getMusicRoot,
+  getYoutubeCookiesPath,
   findAccountById,
   getMusicRootForAccountStrict,
+  setPersistedYoutubeCookiesFile,
+  clearPersistedYoutubeCookiesFile,
   setPersistedMusicRoot,
   updateAccount,
   isMusicRootFromEnv,
@@ -122,6 +125,17 @@ function ytdlpArgsBase() {
   return YTDLP_ARGS;
 }
 
+function ytdlpJavascriptArgs() {
+  const configured = String(process.env.KORD_YTDLP_JS_RUNTIME || "").trim();
+  const runtime = configured || process.execPath;
+  const args = runtime
+    ? ["--js-runtimes", `node:${runtime}`]
+    : ["--js-runtimes", "node"];
+  const remote = String(process.env.KORD_YTDLP_REMOTE_COMPONENTS || "").trim();
+  if (remote) args.push("--remote-components", remote);
+  return args;
+}
+
 function normalizeHttpUrlForYtdlp(raw) {
   const s = String(raw ?? "").trim();
   if (!s) return s;
@@ -165,8 +179,16 @@ function guessYoutubeUrlFromEntryId(id) {
 }
 
 function ytdlpCookieArgs() {
-  const cookies = String(process.env.KORD_YTDLP_COOKIES || "").trim();
+  const cookies = String(getYoutubeCookiesPath() || "").trim();
   return cookies ? ["--cookies", cookies] : [];
+}
+
+function ytdlpCookiesConfigured() {
+  return Boolean(getYoutubeCookiesPath());
+}
+
+function ytdlpCookieArgsForDisplay() {
+  return ytdlpCookiesConfigured() ? ["--cookies", "<server-configured>"] : [];
 }
 
 function ytdlpChildExecOptions() {
@@ -259,6 +281,7 @@ async function ytdlpPlaylistTrackCount(program, playlistUrl, timeoutMs) {
     "--flat-playlist",
     "--no-download",
     "--no-warnings",
+    ...ytdlpJavascriptArgs(),
     ...ytdlpCookieArgs(),
     playlistUrl,
   ];
@@ -419,7 +442,28 @@ function ytdlpTrackIndexFragment(url) {
     : "%(autonumber)02d";
 }
 
-function ytdlpOutputTemplate(url) {
+function relPathLooksLikeAlbumFolder(relPath) {
+  return String(relPath || "")
+    .split("/")
+    .filter(Boolean).length >= 2;
+}
+
+function flatTracksDestKinds(downloadKind) {
+  return (
+    downloadKind === "download_single" ||
+    downloadKind === "download_playlist" ||
+    downloadKind === "download_ytmusic" ||
+    downloadKind === "download_releases"
+  );
+}
+
+function ytdlpOutputTemplate(url, downloadKind = "download_unknown", outputDir = "") {
+  if (
+    flatTracksDestKinds(downloadKind) &&
+    relPathLooksLikeAlbumFolder(outputDir)
+  ) {
+    return `${ytdlpTrackIndexFragment(url)} - ${YTDLP_NAME}.%(ext)s`;
+  }
   const n = ytdlpTrackIndexFragment(url);
   try {
     const u = new URL(url);
@@ -443,13 +487,91 @@ function ytdlpOutputTemplate(url) {
   return `%(title)s/${n} - ${YTDLP_NAME}.%(ext)s`;
 }
 
+/** Argomenti yt-dlp allineati a POST /api/download (senza URL finale). */
+function buildStudioDownloadYtdlpArgs(url, downloadKind, outputDirForLog) {
+  const outputDir = safeRelSeg(String(outputDirForLog ?? ""));
+  const outTmpl = ytdlpOutputTemplate(url, downloadKind, outputDir ?? "");
+  const args = [
+    ...ytdlpArgsBase(),
+    ...ytdlpJavascriptArgs(),
+    ...ytdlpCookieArgs(),
+    "-o",
+    outTmpl,
+  ];
+  if (outputDir != null && outputDir.length > 0) {
+    const oi = args.findIndex((arg) => arg === "-o" || arg === "--output");
+    if (oi >= 0 && args[oi + 1] != null) {
+      const prefix = outputDir.replace(/\\/g, "/").replace(/\/+$/, "");
+      args[oi + 1] = `${prefix}/${String(args[oi + 1]).replace(/^\//, "")}`;
+    }
+  }
+  if (downloadKind === "download_single") args.push("--no-playlist");
+  return args;
+}
+
+function ytdlpItemSummaryFromLog(stdout, stderr) {
+  const raw = `${stderr || ""}\n${stdout || ""}`;
+  const downloaded = [];
+  const skippedItems = [];
+  const failedItems = [];
+  const seenDownloaded = new Set();
+  const seenSkipped = new Set();
+  const seenFailed = new Set();
+  const addDownloaded = (label) => {
+    const s = String(label || "").trim();
+    if (!s || seenDownloaded.has(s)) return;
+    seenDownloaded.add(s);
+    downloaded.push(s);
+  };
+  const addSkipped = (label, reason) => {
+    const s = String(label || "").trim();
+    if (!s) return;
+    const key = `${s}\0${reason}`;
+    if (seenSkipped.has(key)) return;
+    seenSkipped.add(key);
+    skippedItems.push({ label: s, reason });
+  };
+  const addFailed = (label, reason) => {
+    const s = String(label || "").trim();
+    const r = String(reason || "download failed").trim() || "download failed";
+    const key = `${s}\0${r}`;
+    if (seenFailed.has(key)) return;
+    seenFailed.add(key);
+    failedItems.push({ label: s || "unknown item", reason: r });
+  };
+  for (const line0 of raw.split(/\r?\n/)) {
+    const line = line0.trim();
+    if (!line) continue;
+    let m = line.match(/\[download\]\s+Destination:\s+(.+)$/i);
+    if (m) {
+      addDownloaded(m[1]);
+      continue;
+    }
+    m = line.match(/\[download\]\s+(.+?)\s+has already been downloaded/i);
+    if (m) {
+      addSkipped(m[1], "already downloaded");
+      continue;
+    }
+    if (/\[download\].*(Already downloaded|has already been recorded)/i.test(line)) {
+      addSkipped(line.replace(/^\[download\]\s*/i, ""), "already downloaded");
+      continue;
+    }
+    if (/^(ERROR|WARNING):/i.test(line) || /\b(age|sign in|private|unavailable|blocked|members-only|geoblock)\b/i.test(line)) {
+      addFailed(line.replace(/^(ERROR|WARNING):\s*/i, ""), line);
+    }
+  }
+  return { downloadedItems: downloaded, skippedItems, failedItems };
+}
+
 function ytdlpCmdDisplay() {
   const bin = resolveYtdlpPath();
   const base = ytdlpArgsBase();
-  const cook = ytdlpCookieArgs();
+  const js = ytdlpJavascriptArgs();
+  const cook = ytdlpCookieArgsForDisplay();
   const note = " (m4a → webm/opus → bestaudio; no ffmpeg / no metadata embed)";
   return `${bin} ${[
     ...base,
+    ...js,
     ...cook,
     "-o",
     `%(folder)s/%(autonumber)02d - ${YTDLP_NAME}.%(ext)s`,
@@ -465,6 +587,11 @@ app.use(express.json({ limit: "2mb" }));
 const uploadKordBackup = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 512 * 1024 * 1024 },
+});
+
+const uploadYoutubeCookies = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
 });
 
 function sendOk(res, data, status = 200) {
@@ -522,7 +649,9 @@ function isLocalRequest(req) {
 function buildConfigPayload(req) {
   const local = isLocalRequest(req);
   const snap = getConfigSnapshot(local);
+  snap.localAccess = local;
   snap.libraryRootWritable = Boolean(local && !snap.lockedByEnv);
+  snap.youtubeCookiesWritable = Boolean(local && !snap.youtubeCookiesLockedByEnv);
   if (!local && isLibraryRootConfigured()) {
     const root = getMusicRoot();
     if (root)
@@ -709,6 +838,11 @@ async function getLibraryIndex(root = getMusicRoot()) {
   return inflight;
 }
 
+async function invalidateLibraryIndex(root = getMusicRoot()) {
+  libraryIndexFlight.delete(path.resolve(root));
+  await invalidateLibraryIndexCache(root);
+}
+
 async function getFilteredIndexForAccount(accountId) {
   const root = getMusicRoot();
   const [full, state, sel] = await Promise.all([
@@ -891,7 +1025,7 @@ app.post(
         return sendError(res, 400, "Missing or empty file");
       }
       const data = await restoreKordFromZipBuffer(req.file.buffer);
-      await invalidateLibraryIndexCache(getMusicRoot());
+      await invalidateLibraryIndex(getMusicRoot());
       return sendOk(res, data);
     } catch (error) {
       if (error?.code === "ENV_LOCKED") {
@@ -946,6 +1080,65 @@ app.put("/api/config", async (req, res) => {
   } catch (error) {
     if (error?.code === "ENV_LOCKED") return sendError(res, 403, error.message);
     return sendError(res, 400, String(error?.message || error));
+  }
+});
+
+app.post(
+  "/api/config/youtube-cookies",
+  uploadYoutubeCookies.single("file"),
+  async (req, res) => {
+    try {
+      if (!isLocalRequest(req)) {
+        return sendError(
+          res,
+          403,
+          "YouTube cookies can only be configured from the machine running the server.",
+          { details: { code: "YOUTUBE_COOKIES_REMOTE_FORBIDDEN" } },
+        );
+      }
+      if (!req.file?.buffer?.length) {
+        return sendError(res, 400, "Missing or empty cookie file");
+      }
+      await setPersistedYoutubeCookiesFile(req.file.buffer);
+      void actLog(req, {
+        kind: "server",
+        action: "config",
+        folder: null,
+        detail: "youtubeCookies",
+      });
+      return sendOk(res, buildConfigPayload(req));
+    } catch (error) {
+      if (error?.code === "ENV_LOCKED") {
+        return sendError(res, 403, String(error.message || error));
+      }
+      return sendError(res, 500, String(error?.message || error));
+    }
+  },
+);
+
+app.delete("/api/config/youtube-cookies", async (req, res) => {
+  try {
+    if (!isLocalRequest(req)) {
+      return sendError(
+        res,
+        403,
+        "YouTube cookies can only be configured from the machine running the server.",
+        { details: { code: "YOUTUBE_COOKIES_REMOTE_FORBIDDEN" } },
+      );
+    }
+    await clearPersistedYoutubeCookiesFile();
+    void actLog(req, {
+      kind: "server",
+      action: "config",
+      folder: null,
+      detail: "youtubeCookies:clear",
+    });
+    return sendOk(res, buildConfigPayload(req));
+  } catch (error) {
+    if (error?.code === "ENV_LOCKED") {
+      return sendError(res, 403, String(error.message || error));
+    }
+    return sendError(res, 500, String(error?.message || error));
   }
 });
 
@@ -1531,6 +1724,7 @@ app.post("/api/youtube-releases-list", async (req, res) => {
           "--flat-playlist",
           "--no-download",
           "--no-warnings",
+          ...ytdlpJavascriptArgs(),
           ...ytdlpCookieArgs(),
           url,
         ];
@@ -1632,9 +1826,11 @@ app.get("/api/download-preset", async (_req, res) => {
       file: null,
       text: ytdlpCmdDisplay(),
       program: resolveYtdlpPath(),
+      cookiesConfigured: ytdlpCookiesConfigured(),
       args: [
         ...ytdlpArgsBase(),
-        ...ytdlpCookieArgs(),
+        ...ytdlpJavascriptArgs(),
+        ...ytdlpCookieArgsForDisplay(),
         "-o",
         "%(playlist_title)s/%(playlist_index)02d - %(title)s.%(ext)s",
       ],
@@ -1718,18 +1914,7 @@ app.post("/api/download", async (req, res) => {
     const root = getMusicRoot();
     const outputDirForLog = safeRelSeg(String(req.body?.outputDir || ""));
     const program = resolveYtdlpPath();
-    const outTmpl = ytdlpOutputTemplate(url);
-    const args = [...ytdlpArgsBase(), ...ytdlpCookieArgs(), "-o", outTmpl];
-    const outputDir = outputDirForLog;
-    if (outputDir != null && outputDir.length > 0) {
-      const oi = args.findIndex((arg) => arg === "-o" || arg === "--output");
-      if (oi >= 0 && args[oi + 1] != null) {
-        const prefix = outputDir.replace(/\\/g, "/").replace(/\/+$/, "");
-        args[oi + 1] = `${prefix}/${String(args[oi + 1]).replace(/^\//, "")}`;
-      }
-    }
-    if (downloadKind === "download_single") args.push("--no-playlist");
-    args.push(url);
+    const args = [...buildStudioDownloadYtdlpArgs(url, downloadKind, outputDirForLog), url];
     const stderrAcc = { buffer: "", totalChars: 0 };
     const stdoutAcc = { buffer: "", totalChars: 0 };
     let resultCode = -1;
@@ -1845,7 +2030,7 @@ app.post("/api/download", async (req, res) => {
           detail: u,
         });
         void (async () => {
-          await invalidateLibraryIndexCache(root);
+          await invalidateLibraryIndex(root);
           await attachStudioDownloadToLibrarySelection(req, root, outputDirForLog);
         })();
       }
@@ -1853,8 +2038,16 @@ app.post("/api/download", async (req, res) => {
       const ot = trimLogForNdjson(stdoutAcc);
       const oe = trimLogForNdjson(stderrAcc);
       const progress = extractLastItemProgress(combined) ?? lastProgressEmitted;
+      const itemSummary = ytdlpItemSummaryFromLog(stdoutAcc.buffer, stderrAcc.buffer);
       finish(() => {
         try {
+          if (
+            itemSummary.downloadedItems.length ||
+            itemSummary.skippedItems.length ||
+            itemSummary.failedItems.length
+          ) {
+            res.write(`${JSON.stringify({ type: "items", ...itemSummary })}\n`);
+          }
           const line = `${JSON.stringify({
             type: "done",
             ok: resultCode === 0,
@@ -1868,6 +2061,7 @@ app.post("/api/download", async (req, res) => {
             progress,
             musicRoot: root,
             command,
+            ...itemSummary,
           })}\n`;
           if (!res.writableEnded) res.write(line);
           if (!res.writableEnded) res.end();
@@ -1889,8 +2083,16 @@ app.post("/api/download", async (req, res) => {
       );
       const ot = trimLogForNdjson(stdoutAcc);
       const oe = trimLogForNdjson(stderrAcc);
+      const itemSummary = ytdlpItemSummaryFromLog(stdoutAcc.buffer, stderrAcc.buffer);
       finish(() => {
         try {
+          if (
+            itemSummary.downloadedItems.length ||
+            itemSummary.skippedItems.length ||
+            itemSummary.failedItems.length
+          ) {
+            res.write(`${JSON.stringify({ type: "items", ...itemSummary })}\n`);
+          }
           const line = `${JSON.stringify({
             type: "done",
             ok: false,
@@ -1905,6 +2107,7 @@ app.post("/api/download", async (req, res) => {
             error: error.message,
             musicRoot: root,
             command,
+            ...itemSummary,
           })}\n`;
           if (!res.writableEnded) res.write(line);
           if (!res.writableEnded) res.end();
@@ -1955,12 +2158,50 @@ app.get("/api/fs/list", async (req, res) => {
   }
 });
 
+app.get("/api/fs/search-dirs", async (req, res) => {
+  const root = getMusicRoot();
+  const q = String(req.query.q || "").trim().toLowerCase();
+  if (q.length < 1) return sendOk(res, { results: [] });
+  if (q.length > 80) return sendError(res, 400, "Query too long");
+  try {
+    const results = [];
+    const visit = async (dir, relPath) => {
+      if (results.length >= 80) return;
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (results.length >= 80) break;
+        if (!entry.isDirectory()) continue;
+        if (entry.name.startsWith(".")) continue;
+        if (entry.name === "kord" || entry.name === "node_modules") continue;
+        const childRel = relPath ? `${relPath}/${entry.name}` : entry.name;
+        const full = path.join(root, childRel.replaceAll("/", path.sep));
+        if (!underRoot(full, root)) continue;
+        if (childRel.toLowerCase().includes(q)) {
+          results.push({ name: entry.name, relPath: childRel });
+        }
+        await visit(full, childRel);
+      }
+    };
+    await visit(root, "");
+    return sendOk(res, { results });
+  } catch (error) {
+    return sendError(res, 500, String(error?.message || error));
+  }
+});
+
 app.post("/api/fs/mkdir", async (req, res) => {
   const root = getMusicRoot();
   const parentRaw = req.body?.parent;
   const parent = safeRelSeg(String(parentRaw == null ? "" : parentRaw));
   if (parent == null && parentRaw != null && String(parentRaw) !== "") {
     return sendError(res, 400, "Invalid parent path");
+  }
+  if (relPathLooksLikeAlbumFolder(parent ?? "")) {
+    return sendError(
+      res,
+      400,
+      "Cannot create a folder inside an album path (use an artist folder)",
+    );
   }
   const name = String(req.body?.name || "").trim();
   if (name.length < 1 || name.length > 200)
@@ -1980,7 +2221,7 @@ app.post("/api/fs/mkdir", async (req, res) => {
     if (!underRoot(full, root)) return sendError(res, 400, "Invalid path");
     if (existsSync(full)) return sendError(res, 400, "Folder already exists");
     await fs.mkdir(full, { recursive: false });
-    await invalidateLibraryIndexCache(root);
+    await invalidateLibraryIndex(root);
     return res.json({ ok: true, relPath: relPath.replaceAll(path.sep, "/") });
   } catch (error) {
     return sendError(res, 500, String(error?.message || error));
@@ -2027,7 +2268,7 @@ app.post("/api/fs/clear-dl-dest", async (req, res) => {
       }
     };
     await walk(full, baseRel);
-    await invalidateLibraryIndexCache(root);
+    await invalidateLibraryIndex(root);
     return sendOk(res, { deleted });
   } catch (error) {
     return sendError(res, 500, String(error?.message || error));
@@ -2051,7 +2292,7 @@ app.post("/api/fs/delete-audio-relpaths", async (req, res) => {
       await fs.unlink(full);
       deleted.push(rel.replaceAll(path.sep, "/"));
     }
-    await invalidateLibraryIndexCache(root);
+    await invalidateLibraryIndex(root);
     return sendOk(res, {
       deleted,
       affectedAlbums: [...new Set(deleted.map((rel) => albumFolderFromRelPath(rel)).filter(Boolean))],
@@ -2097,7 +2338,7 @@ app.post("/api/fs/delete-album-folder", async (req, res) => {
     if (!deleted.length)
       return sendError(res, 400, "No audio files in album folder");
     await fs.rm(full, { recursive: true, force: false });
-    await invalidateLibraryIndexCache(root);
+    await invalidateLibraryIndex(root);
     return sendOk(res, {
       deleted,
       deletedFolder: albumPath.replaceAll(path.sep, "/"),
@@ -2178,7 +2419,7 @@ app.post("/api/artwork/apply", async (req, res) => {
       folder: albumPath,
       detail: path.basename(dest),
     });
-    await invalidateLibraryIndexCache(root);
+    await invalidateLibraryIndex(root);
     return sendOk(res, {
       saved: path.basename(dest),
       albumPath,
@@ -2218,7 +2459,7 @@ app.post("/api/album-info/fetch", async (req, res) => {
       folder: albumPath,
       detail: "MusicBrainz / release metadata",
     });
-    await invalidateLibraryIndexCache(root);
+    await invalidateLibraryIndex(root);
     return res.json({ ok: true, albumPath, meta: payload });
   } catch (error) {
     return sendError(res, 500, String(error?.message || error));
@@ -2259,7 +2500,7 @@ app.post("/api/album-info/save", async (req, res) => {
       folder: albumPath,
       detail: Object.keys(safe).join(", "),
     });
-    await invalidateLibraryIndexCache(root);
+    await invalidateLibraryIndex(root);
     return sendOk(res, {
       albumPath,
       meta,
@@ -2353,7 +2594,7 @@ app.post("/api/track-info/fetch", async (req, res) => {
       folder: albumRel,
       detail: fileName,
     });
-    await invalidateLibraryIndexCache(root);
+    await invalidateLibraryIndex(root);
     const fileMs = await getAudioFileDurationMs(fullTrackPath);
     const metaOut = {
       ...json[fileName],
@@ -2432,7 +2673,7 @@ app.post("/api/track-info/save", async (req, res) => {
         hasMood ? ", moods" : ""
       }`,
     });
-    await invalidateLibraryIndexCache(root);
+    await invalidateLibraryIndex(root);
     const title =
       meta?.title && String(meta.title).trim()
         ? String(meta.title).trim()
@@ -2476,7 +2717,7 @@ app.post("/api/track-info/prune-orphans", async (req, res) => {
           .slice(0, 12)
           .join(", ")}${r.removed.length > 12 ? "…" : ""}`,
       });
-      await invalidateLibraryIndexCache(root);
+      await invalidateLibraryIndex(root);
     }
     return sendOk(res, { albumPath, removed: r.removed, written: r.written });
   } catch (error) {
@@ -2543,7 +2784,7 @@ app.post("/api/studio/genre-auto-apply", async (req, res) => {
           errors.length ? `, ${errors.length} error(s)` : ""
         }`,
       });
-      await invalidateLibraryIndexCache(root);
+      await invalidateLibraryIndex(root);
     }
     return sendOk(res, {
       ok,
@@ -2571,7 +2812,7 @@ app.post("/api/studio/sanitize-track-titles", async (req, res) => {
           folder: null,
           detail: `library (${n} file${n === 1 ? "" : "s"})`,
         });
-        await invalidateLibraryIndexCache(root);
+        await invalidateLibraryIndex(root);
       }
       return sendOk(res, data);
     }
@@ -2595,7 +2836,7 @@ app.post("/api/studio/sanitize-track-titles", async (req, res) => {
         folder: albumPath,
         detail: `album (${n} file${n === 1 ? "" : "s"})`,
       });
-      await invalidateLibraryIndexCache(root);
+      await invalidateLibraryIndex(root);
     }
     return sendOk(res, { ...r, albumPath });
   } catch (error) {

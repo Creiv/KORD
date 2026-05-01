@@ -16,6 +16,7 @@ import type {
   ReactNode,
   RefObject,
 } from "react";
+import { AppConfirmProvider, useAppConfirm } from "./context/AppConfirmContext";
 import { PlayerProvider, usePlayer } from "./context/PlayerContext";
 import {
   ToolsActivityProvider,
@@ -35,8 +36,10 @@ import {
   fetchDashboard,
   fetchLibraryIndex,
   getSelectedAccountId,
+  clearYoutubeCookies,
   saveAppConfig,
   setSelectedAccountId,
+  uploadYoutubeCookies,
 } from "./lib/api";
 import type { Account, AccountsResponse, ActivityLogEntry } from "./lib/api";
 import { useDashboardSessionQueueVisibleCount } from "./hooks/useDashboardSessionQueueVisibleCount";
@@ -243,6 +246,11 @@ function initials(text: string) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() || "")
     .join("");
+}
+
+function versionedUrl(base: string, version?: number | null) {
+  if (!version || !Number.isFinite(version)) return base;
+  return `${base}${base.includes("?") ? "&" : "?"}v=${Math.floor(version)}`;
 }
 
 function formatDuration(seconds: number) {
@@ -495,20 +503,13 @@ function TrackFileMetaChip({ meta }: { meta?: TrackMeta | null }) {
 }
 
 function TrackRowArt({ relPath }: { relPath: string }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) {
-    return (
-      <div className="track-row__art track-row__art--fallback" aria-hidden>
-        <UiMusicNote className="track-row__art-fallback-ic" />
-      </div>
-    );
-  }
   return (
     <CoverImg
       className="track-row__art"
       src={coverUrlForTrackRelPath(relPath)}
       alt=""
-      onError={() => setFailed(true)}
+      fallbackClassName="track-row__art track-row__art--fallback"
+      fallback={<UiMusicNote className="track-row__art-fallback-ic" />}
     />
   );
 }
@@ -520,26 +521,16 @@ function PlayerBarTrackArtInner({
   relPath: string;
   version?: number | null;
 }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) {
-    return (
-      <div className="player-bar2__art fallback" aria-hidden>
-        <UiMusicNote className="player-bar2__art-fallback-ic" />
-      </div>
-    );
-  }
   const base = coverUrlForTrackRelPath(relPath);
-  const src =
-    version && Number.isFinite(version)
-      ? `${base}${base.includes("?") ? "&" : "?"}v=${Math.floor(version)}`
-      : base;
+  const src = versionedUrl(base, version);
   return (
     <CoverImg
       priority
       className="player-bar2__art"
       src={src}
       alt=""
-      onError={() => setFailed(true)}
+      fallbackClassName="player-bar2__art fallback"
+      fallback={<UiMusicNote className="player-bar2__art-fallback-ic" />}
     />
   );
 }
@@ -738,14 +729,14 @@ function AlbumCover({
 }) {
   if (album.coverRelPath) {
     const base = coverUrlForAlbumRelPath(album.relPath);
-    const src = album.updatedAt
-      ? `${base}${base.includes("?") ? "&" : "?"}v=${Math.floor(album.updatedAt)}`
-      : base;
+    const src = versionedUrl(base, album.updatedAt);
     return (
       <CoverImg
         className={`album-cover ${compact ? "is-compact" : ""}`}
         src={src}
         alt=""
+        fallbackClassName={`album-cover is-fallback ${compact ? "is-compact" : ""}`}
+        fallback={initials(album.artist)}
       />
     );
   }
@@ -1429,6 +1420,8 @@ function ArtistCard({
           className="artist-card__cover"
           src={coverUrlForAlbumRelPath(coverAlbumRelPath)}
           alt=""
+          fallbackClassName="artist-card__badge"
+          fallback={initials(artist.name)}
         />
       ) : (
         <div className="artist-card__badge">{initials(artist.name)}</div>
@@ -1799,8 +1792,16 @@ function ListenView({
               <CoverImg
                 priority
                 className="listen-stage__art"
-                src={coverUrlForTrackRelPath(p.current.relPath)}
+                src={versionedUrl(
+                  coverUrlForTrackRelPath(p.current.relPath),
+                  typeof (p.current as unknown as { updatedAt?: unknown })
+                    .updatedAt === "number"
+                    ? (p.current as unknown as { updatedAt: number }).updatedAt
+                    : null
+                )}
                 alt=""
+                fallbackClassName="listen-stage__art listen-stage__art--empty"
+                fallback={<UiMusicNote className="listen-stage__empty-ic" />}
               />
             ) : (
               <div
@@ -3408,6 +3409,7 @@ function PlaylistsViewNew({
   const p = usePlayer();
   const user = useUserState();
   const { t } = useI18n();
+  const { confirm: appConfirm } = useAppConfirm();
   const [name, setName] = useState("");
   const trackByPath = useMemo(
     () =>
@@ -3501,7 +3503,17 @@ function PlaylistsViewNew({
                     <button
                       type="button"
                       className="chip-btn danger"
-                      onClick={() => user.deletePlaylist(playlist.id)}
+                      onClick={() =>
+                        void (async () => {
+                          const ok = await appConfirm({
+                            message: t("playlists.deleteConfirm", {
+                              name: playlist.name,
+                            }),
+                            variant: "danger",
+                          });
+                          if (ok) user.deletePlaylist(playlist.id);
+                        })()
+                      }
                     >
                       {t("playlists.delete")}
                     </button>
@@ -3815,8 +3827,13 @@ function StatisticsView({
                       <span className="statistics-rank-row__pos">{i + 1}</span>
                       <CoverImg
                         className="statistics-rank-row__art"
-                        src={coverUrlForTrackRelPath(row.tr.relPath)}
+                        src={versionedUrl(
+                          coverUrlForTrackRelPath(row.tr.relPath),
+                          row.tr.updatedAt
+                        )}
                         alt=""
+                        fallbackClassName="statistics-rank-row__art statistics-rank-row__art--fallback"
+                        fallback={<UiMusicNote className="track-row__art-fallback-ic" />}
                       />
                       <div className="statistics-rank-row__text">
                         <div className="statistics-rank-row__title">
@@ -3881,6 +3898,8 @@ function StatisticsView({
                           className="statistics-rank-row__art"
                           src={coverUrlForAlbumRelPath(coverRel)}
                           alt=""
+                          fallbackClassName="statistics-rank-row__art statistics-rank-row__art--fallback"
+                          fallback={initials(row.ar.name)}
                         />
                       ) : (
                         <div
@@ -4065,12 +4084,22 @@ function SettingsView({
 }) {
   const user = useUserState();
   const { t, locale, setLocale } = useI18n();
+  const { confirm: appConfirm } = useAppConfirm();
   const [libLocked, setLibLocked] = useState(false);
   const [libraryRootWritable, setLibraryRootWritable] = useState(true);
   const [libraryRootLabel, setLibraryRootLabel] = useState<string | null>(null);
   const [libraryPath, setLibraryPath] = useState("");
   const [libraryBusy, setLibraryBusy] = useState(false);
   const [libraryErr, setLibraryErr] = useState<string | null>(null);
+  const [serverLocalAccess, setServerLocalAccess] = useState(false);
+  const [youtubeCookiesConfigured, setYoutubeCookiesConfigured] = useState(false);
+  const [youtubeCookiesWritable, setYoutubeCookiesWritable] = useState(false);
+  const [youtubeCookiesLockedByEnv, setYoutubeCookiesLockedByEnv] = useState(false);
+  const [youtubeCookiesLabel, setYoutubeCookiesLabel] = useState<string | null>(null);
+  const [youtubeCookiesBusy, setYoutubeCookiesBusy] = useState(false);
+  const [youtubeCookiesErr, setYoutubeCookiesErr] = useState<string | null>(null);
+  const [youtubeCookiesOk, setYoutubeCookiesOk] = useState<string | null>(null);
+  const youtubeCookiesInputRef = useRef<HTMLInputElement | null>(null);
   const [serverPort, setServerPort] = useState(3001);
   const [devClientPort, setDevClientPort] = useState(5173);
   const [lanAccessUrl, setLanAccessUrl] = useState<string | null>(null);
@@ -4110,6 +4139,15 @@ function SettingsView({
         setLibraryRootLabel(
           typeof c.libraryRootLabel === "string" && c.libraryRootLabel.trim()
             ? c.libraryRootLabel.trim()
+            : null,
+        );
+        setServerLocalAccess(Boolean(c.localAccess));
+        setYoutubeCookiesConfigured(Boolean(c.youtubeCookiesConfigured));
+        setYoutubeCookiesWritable(Boolean(c.youtubeCookiesWritable));
+        setYoutubeCookiesLockedByEnv(Boolean(c.youtubeCookiesLockedByEnv));
+        setYoutubeCookiesLabel(
+          typeof c.youtubeCookiesLabel === "string" && c.youtubeCookiesLabel.trim()
+            ? c.youtubeCookiesLabel.trim()
             : null,
         );
         setAccounts(a);
@@ -4217,11 +4255,69 @@ function SettingsView({
       .finally(() => setRestoreBusy(false));
   };
 
-  const removeAccount = (id: string) => {
+  const applyYoutubeCookieConfig = (c: {
+    youtubeCookiesConfigured?: boolean;
+    youtubeCookiesWritable?: boolean;
+    youtubeCookiesLockedByEnv?: boolean;
+    youtubeCookiesLabel?: string | null;
+  }) => {
+    setYoutubeCookiesConfigured(Boolean(c.youtubeCookiesConfigured));
+    setYoutubeCookiesWritable(Boolean(c.youtubeCookiesWritable));
+    setYoutubeCookiesLockedByEnv(Boolean(c.youtubeCookiesLockedByEnv));
+    setYoutubeCookiesLabel(
+      typeof c.youtubeCookiesLabel === "string" && c.youtubeCookiesLabel.trim()
+        ? c.youtubeCookiesLabel.trim()
+        : null,
+    );
+  };
+
+  const onYoutubeCookiesFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const f = event.target.files?.[0];
+    if (event.target) event.target.value = "";
+    if (!f) return;
+    setYoutubeCookiesErr(null);
+    setYoutubeCookiesOk(null);
+    setYoutubeCookiesBusy(true);
+    uploadYoutubeCookies(f)
+      .then((c) => {
+        applyYoutubeCookieConfig(c);
+        setYoutubeCookiesOk(t("settings.youtubeCookiesSaved"));
+        window.setTimeout(() => setYoutubeCookiesOk(null), 5000);
+      })
+      .catch((e: unknown) =>
+        setYoutubeCookiesErr(e instanceof Error ? e.message : String(e))
+      )
+      .finally(() => setYoutubeCookiesBusy(false));
+  };
+
+  const removeYoutubeCookies = () => {
+    setYoutubeCookiesErr(null);
+    setYoutubeCookiesOk(null);
+    setYoutubeCookiesBusy(true);
+    clearYoutubeCookies()
+      .then((c) => {
+        applyYoutubeCookieConfig(c);
+        setYoutubeCookiesOk(t("settings.youtubeCookiesCleared"));
+        window.setTimeout(() => setYoutubeCookiesOk(null), 5000);
+      })
+      .catch((e: unknown) =>
+        setYoutubeCookiesErr(e instanceof Error ? e.message : String(e))
+      )
+      .finally(() => setYoutubeCookiesBusy(false));
+  };
+
+  const removeAccount = async (id: string) => {
     if (id === accounts?.defaultAccountId) return;
     const account = accounts?.accounts.find((item) => item.id === id) || null;
     const name = account?.name || id;
-    if (!window.confirm(t("accounts.removeConfirm", { name }))) return;
+    if (
+      !(await appConfirm({
+        message: t("accounts.removeConfirm", { name }),
+        variant: "danger",
+      }))
+    ) {
+      return;
+    }
     setAccountErr(null);
     setAccountBusy(true);
     deleteApiAccount(id)
@@ -4533,6 +4629,65 @@ function SettingsView({
           )}
         </section>
       )}
+      {!isKordClientEmbed &&
+      serverLocalAccess &&
+      (youtubeCookiesWritable || youtubeCookiesLockedByEnv) ? (
+        <section className="surface-card settings-youtube-cookies-section">
+          <div className="section-head section-head--page-toolbar">
+            <div>
+              <p className="eyebrow">{t("settings.youtubeCookiesEyebrow")}</p>
+              <h2>{t("settings.youtubeCookiesHeading")}</h2>
+            </div>
+          </div>
+          <p className="subtle sm">{t("settings.youtubeCookiesLead")}</p>
+          <p className="subtle sm">
+            {youtubeCookiesConfigured
+              ? t("settings.youtubeCookiesActive", {
+                  name: youtubeCookiesLabel || "cookies.txt",
+                })
+              : t("settings.youtubeCookiesMissing")}
+          </p>
+          {youtubeCookiesLockedByEnv ? (
+            <p className="subtle sm">
+              {t("settings.youtubeCookiesEnvLocked")}
+            </p>
+          ) : (
+            <div className="row gap flex-wrap">
+              <input
+                ref={youtubeCookiesInputRef}
+                type="file"
+                accept=".txt,text/plain"
+                className="sr-only"
+                onChange={onYoutubeCookiesFileChange}
+              />
+              <button
+                type="button"
+                className="btn"
+                disabled={youtubeCookiesBusy}
+                onClick={() => youtubeCookiesInputRef.current?.click()}
+              >
+                {youtubeCookiesBusy
+                  ? t("settings.saving")
+                  : t("settings.youtubeCookiesChoose")}
+              </button>
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={youtubeCookiesBusy || !youtubeCookiesConfigured}
+                onClick={removeYoutubeCookies}
+              >
+                {t("settings.youtubeCookiesClear")}
+              </button>
+            </div>
+          )}
+          {youtubeCookiesOk ? (
+            <p className="subtle sm">{youtubeCookiesOk}</p>
+          ) : null}
+          {youtubeCookiesErr ? (
+            <p className="subtle sm warnline">{youtubeCookiesErr}</p>
+          ) : null}
+        </section>
+      ) : null}
       {isKordClientEmbed ? null : (
         <section className="surface-card settings-network-section">
           <div className="section-head section-head--page-toolbar">
@@ -4718,6 +4873,7 @@ function PlayerDock({
   const p = usePlayer();
   const user = useUserState();
   const { t } = useI18n();
+  const { alert: appAlert } = useAppConfirm();
   const exAlbums = useMemo(
     () => new Set(user.state.shuffleExcludedAlbumIds),
     [user.state.shuffleExcludedAlbumIds]
@@ -4809,12 +4965,12 @@ function PlayerDock({
   const openCastPicker = async () => {
     const audio = p.audioRef.current as RemotePlaybackAudio | null;
     if (!audio) {
-      window.alert(t("player.castUnsupported"));
+      void appAlert({ message: t("player.castUnsupported") });
       return;
     }
     const remote = audio?.remote;
     if (!remote?.prompt) {
-      window.alert(t("player.castUnsupported"));
+      void appAlert({ message: t("player.castUnsupported") });
       return;
     }
     try {
@@ -4824,7 +4980,7 @@ function PlayerDock({
     } catch (error) {
       const name = String((error as Error)?.name || "");
       if (name !== "AbortError" && name !== "NotAllowedError") {
-        window.alert(t("player.castFailed"));
+        void appAlert({ message: t("player.castFailed") });
       }
     }
   };
@@ -5091,7 +5247,9 @@ function Shell() {
   const p = usePlayer();
   const isMobileLayout = useMatchMedia("(max-width: 768px)");
   const user = useUserState();
+  const syncUserStateFromServer = user.syncUserStateFromServer;
   const { t } = useI18n();
+  const { alert: appAlert } = useAppConfirm();
   const toolsActivity = useToolsActivity();
   const [index, setIndex] = useState<LibraryIndex | null>(null);
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
@@ -5104,6 +5262,8 @@ function Shell() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const prevSectionForSearchRef = useRef<AppSection | null>(null);
   const syncTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshSeqRef = useRef(0);
+  const backgroundRefreshRef = useRef<Promise<void> | null>(null);
   const [syncTapAnim, setSyncTapAnim] = useState(false);
   const [installPrompt, setInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
@@ -5119,35 +5279,51 @@ function Shell() {
     }
   });
 
-  const refresh = useCallback(() => {
-    setLoading(true);
-    return Promise.all([fetchLibraryIndex(), fetchDashboard()])
-      .then(async ([libraryData, dashboardData]) => {
-        setIndex(libraryData);
-        setDashboard(dashboardData);
-        setError(null);
-        await user.syncUserStateFromServer();
-      })
-      .catch((err: unknown) => setError(String(err)))
-      .finally(() => setLoading(false));
-  }, [user.syncUserStateFromServer]);
+  const refreshLibrary = useCallback(
+    (mode: "manual" | "background" = "manual") => {
+      if (mode === "background" && backgroundRefreshRef.current) {
+        return backgroundRefreshRef.current;
+      }
+      const seq = ++refreshSeqRef.current;
+      if (mode === "manual") setLoading(true);
+      const task = Promise.all([fetchLibraryIndex(), fetchDashboard()])
+        .then(async ([libraryData, dashboardData]) => {
+          if (seq !== refreshSeqRef.current) return;
+          setIndex(libraryData);
+          setDashboard(dashboardData);
+          setError(null);
+          if (mode === "manual") await syncUserStateFromServer();
+        })
+        .catch((err: unknown) => {
+          if (seq === refreshSeqRef.current) setError(String(err));
+        })
+        .finally(() => {
+          if (mode === "manual") setLoading(false);
+          if (mode === "background" && backgroundRefreshRef.current === task) {
+            backgroundRefreshRef.current = null;
+          }
+        });
+      if (mode === "background") backgroundRefreshRef.current = task;
+      return task;
+    },
+    [syncUserStateFromServer]
+  );
 
-  const refreshQuiet = useCallback(() => {
-    void Promise.all([fetchLibraryIndex(), fetchDashboard()])
-      .then(([libraryData, dashboardData]) => {
-        setIndex(libraryData);
-        setDashboard(dashboardData);
-        setError(null);
-      })
-      .catch((err: unknown) => setError(String(err)));
-  }, []);
+  const refreshManual = useCallback(
+    () => refreshLibrary("manual"),
+    [refreshLibrary]
+  );
+
+  const refreshBackground = useCallback(() => {
+    void refreshLibrary("background");
+  }, [refreshLibrary]);
 
   const applyLibraryDelta = useCallback(
     (delta: LibraryEntityDelta, reconcile = true) => {
       setIndex((prev) => applyLibraryDeltaToIndex(prev, delta));
-      if (reconcile) refreshQuiet();
+      if (reconcile) refreshBackground();
     },
-    [refreshQuiet]
+    [refreshBackground]
   );
 
   const refreshAfterAlbumMetaSaved = useCallback(
@@ -5156,52 +5332,23 @@ function Shell() {
         applyLibraryDelta(delta);
         return;
       }
-      refreshQuiet();
+      refreshBackground();
     },
-    [applyLibraryDelta, refreshQuiet]
+    [applyLibraryDelta, refreshBackground]
   );
 
   const refreshAfterTrackMetaSaved = useCallback(
     (delta?: LibraryEntityDelta) => {
       if (delta) {
         applyLibraryDelta(delta);
-        void user.syncUserStateFromServer();
+        void syncUserStateFromServer();
         return;
       }
-      return Promise.all([
-        fetchLibraryIndex(),
-        fetchDashboard(),
-        user.syncUserStateFromServer(),
-      ])
-        .then(([libraryData, dashboardData]) => {
-          setIndex(libraryData);
-          setDashboard(dashboardData);
-          setError(null);
-        })
-        .catch((err: unknown) => setError(String(err)));
+      refreshBackground();
+      return syncUserStateFromServer();
     },
-    [applyLibraryDelta, user.syncUserStateFromServer]
+    [applyLibraryDelta, refreshBackground, syncUserStateFromServer]
   );
-
-  useEffect(() => {
-    let debouncePlaybackSync: ReturnType<typeof setTimeout> | undefined;
-    const PLAYBACK_REFRESH_MS = 400;
-    const onPlaybackSync = () => {
-      if (debouncePlaybackSync) window.clearTimeout(debouncePlaybackSync);
-      debouncePlaybackSync = window.setTimeout(() => {
-        debouncePlaybackSync = undefined;
-        void refreshQuiet();
-      }, PLAYBACK_REFRESH_MS);
-    };
-    window.addEventListener("kord-sync-library-after-play", onPlaybackSync);
-    return () => {
-      window.removeEventListener(
-        "kord-sync-library-after-play",
-        onPlaybackSync
-      );
-      if (debouncePlaybackSync) window.clearTimeout(debouncePlaybackSync);
-    };
-  }, [refreshQuiet]);
 
   const onSyncButtonClick = useCallback(() => {
     setSyncTapAnim(true);
@@ -5210,8 +5357,8 @@ function Shell() {
       setSyncTapAnim(false);
       syncTapTimerRef.current = null;
     }, 500);
-    void refresh();
-  }, [refresh]);
+    void refreshManual();
+  }, [refreshManual]);
 
   useEffect(
     () => () => {
@@ -5268,9 +5415,9 @@ function Shell() {
       if (choice.outcome === "dismissed") setInstallDismissed(true);
       return;
     }
-    window.alert(t("topbar.installIosHint"));
+    await appAlert({ message: t("topbar.installIosHint") });
     setInstallDismissed(true);
-  }, [installPrompt, t]);
+  }, [installPrompt, t, appAlert]);
 
   useLayoutEffect(() => {
     document.documentElement.dataset.playerDock =
@@ -5279,10 +5426,10 @@ function Shell() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void refresh();
+      void refreshManual();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [refresh]);
+  }, [refreshManual]);
 
   useEffect(() => {
     if (!index) return;
@@ -5471,7 +5618,7 @@ function Shell() {
             <ToolsView
               library={legacyLibrary}
               libraryIndex={index}
-              onRefreshLibrary={refresh}
+              onRefreshLibrary={refreshBackground}
               onLibraryDelta={(delta) => applyLibraryDelta(delta)}
             />
           </div>
@@ -5843,11 +5990,13 @@ export default function App() {
   return (
     <LibraryRootGate>
       <UserStateProvider>
-        <PlayerProvider>
-          <ToolsActivityProvider>
-            <Shell />
-          </ToolsActivityProvider>
-        </PlayerProvider>
+        <AppConfirmProvider>
+          <PlayerProvider>
+            <ToolsActivityProvider>
+              <Shell />
+            </ToolsActivityProvider>
+          </PlayerProvider>
+        </AppConfirmProvider>
       </UserStateProvider>
     </LibraryRootGate>
   );

@@ -33,6 +33,9 @@ export const EN: Record<string, string> = {
   "topbar.settingsTitle": "Settings",
   "common.open": "Open",
   "common.emDash": "—",
+  "app.dialogCancel": "Cancel",
+  "app.dialogOk": "OK",
+  "app.dialogConfirm": "Confirm",
   "loading.app": "Loading KORD…",
   "loading.splashTitle": "Welcome to KORD",
   "loading.splashLead":
@@ -291,6 +294,8 @@ export const EN: Record<string, string> = {
   "playlists.play": "Play",
   "playlists.addCurrent": "+ Current track",
   "playlists.delete": "Delete",
+  "playlists.deleteConfirm":
+    "Delete playlist “{{name}}”? This cannot be undone.",
   "playlists.detailEyebrow": "Playlist detail",
   "playlists.detailEmpty": "Add the current track or save a queue.",
   "playlists.pickOne": "Select a playlist to see its contents and actions.",
@@ -318,6 +323,18 @@ export const EN: Record<string, string> = {
   "settings.libPathPh": "/absolute/path",
   "settings.saveReload": "Save and reload",
   "settings.saving": "Saving…",
+  "settings.youtubeCookiesEyebrow": "Download",
+  "settings.youtubeCookiesHeading": "YouTube cookies",
+  "settings.youtubeCookiesLead":
+    "Optional cookies.txt used only by the server for yt-dlp. It can help with age verification or sign-in-required content.",
+  "settings.youtubeCookiesActive": "Active: {{name}}",
+  "settings.youtubeCookiesMissing": "No cookie file configured.",
+  "settings.youtubeCookiesEnvLocked":
+    "Active from KORD_YTDLP_COOKIES: remove the environment variable and restart the server to manage it in the app.",
+  "settings.youtubeCookiesChoose": "Choose cookies.txt",
+  "settings.youtubeCookiesClear": "Remove cookies",
+  "settings.youtubeCookiesSaved": "YouTube cookies saved on the server.",
+  "settings.youtubeCookiesCleared": "YouTube cookies removed.",
   "settings.networkEyebrow": "Network",
   "settings.networkHeading": "Ports and LAN",
   "settings.networkLead":
@@ -499,7 +516,7 @@ export const EN: Record<string, string> = {
   "tools.downloadTitle": "Download",
   "tools.dlSaveFolder": "Save folder (under Music)",
   "tools.dlLinkSection": "Link",
-  "tools.dlTypeSingle": "Single video",
+  "tools.dlTypeSingle": "Single",
   "tools.dlTypePlaylist": "Album or playlist",
   "tools.dlTypeReleases": "Artist Releases",
   "tools.dlYtVideoLabel": "YouTube video",
@@ -533,6 +550,8 @@ export const EN: Record<string, string> = {
   "tools.dlSelectAll": "Select all",
   "tools.dlSelectNone": "Select none",
   "tools.dlDownloadSelected": "Download selected",
+  "tools.dlReleaseSearchPh": "Search albums…",
+  "tools.dlReleaseSearchAria": "Search loaded albums",
   "tools.dlNeedLoadReleases":
     "Load the release list with the button above, then select albums.\n",
   "tools.dlNeedSelection": "Select at least one album.\n",
@@ -543,12 +562,17 @@ export const EN: Record<string, string> = {
   "tools.dlProgressTracksInAlbum": "Tracks (this album)",
   "tools.dlProgressTrackWait": "Resolving track list…",
   "tools.dlPathLabel": "Current folder",
+  "tools.dlFolderSearchPh": "Search folders…",
+  "tools.dlFolderSearchAria": "Search folders and subfolders",
+  "tools.dlFolderSearchEmpty": "No folders found.",
   "tools.dlDestLead":
     "Open an artist folder or a subfolder: the folder shown becomes the download destination (the Music root cannot be used).",
   "tools.dlSubfolders": "Subfolders",
   "tools.upFolderAria": "Up one level",
   "tools.dlNewSubLabel": "New subfolder here",
   "tools.dlEmptyFolders": "No subfolders. Create one here or choose an existing folder.",
+  "tools.dlMkdirBlockedInAlbum":
+    "You can’t create subfolders inside an album folder (Artist/Album). Go up to the artist folder.",
   "tools.dlReplaceFolder": "Replace files",
   "tools.dlReplaceHint":
     "Same track = same normalized file name (no extension, no leading track number, normalized spaces/dashes, some trailing suffixes like “official video” removed). Different titles are never merged. Duplicates are removed only if at least one path is new compared to before the download and several files share the same stem: one new file is kept (first in sort order) and the rest are deleted. If yt-dlp overwrites the same path, nothing extra is removed.",
@@ -560,10 +584,31 @@ export const EN: Record<string, string> = {
     "Pick a subfolder under Music, not the library root.",
   "tools.dlPlaylistManyConfirm":
     "This playlist has {{n}} items. Download them all?",
+  "tools.dlConfirmArtistFolderDl":
+    "Artist folder “{{path}}”: yt-dlp will create subfolders for albums/playlists (names come from metadata). If a folder with the same name already exists, files will be added or updated inside it. For a tidy library it’s often better to create the album folder yourself first and pick it as the destination.\n\nContinue?",
+  "tools.dlConfirmAlbumFolderTracks":
+    "Album folder “{{path}}”: tracks will be saved directly in this folder (no extra album subfolder).\n\nContinue?",
+  "tools.dlReleasesArtistConfirmLead":
+    "Artist folder “{{base}}”: {{count}} planned album paths (from release titles; yt-dlp may normalize names slightly):",
+  "tools.dlReleasesRowNew": "• {{path}} — new folder expected",
+  "tools.dlReleasesRowUpdate":
+    "• {{path}} — already in library; files will be added/updated there",
+  "tools.dlReleasesRowMore": "… and {{n}} more lines.",
+  "tools.dlReleasesFolderNameHint":
+    "Actual folder names depend on yt-dlp and may differ slightly from the titles shown.",
+  "tools.dlReleasesProceedQ": "Start downloading the selected releases?",
+  "tools.dlReleasesBlockedAlbumFolderHint":
+    "For Artist releases, pick the artist folder—not an album folder.",
+  "tools.dlReleasesBlockedAlbumFolderLog":
+    "Artist releases download: choose the artist folder (not an album folder).\n",
   "tools.dlPlaylistCountErr": "Could not count playlist items: {{e}}\n",
   "tools.cmdUsed": "Command used",
   "tools.cmdFallback":
     "Default: prefer m4a (AAC), else webm (Opus), else bestaudio — no ffmpeg or metadata post-processing. Optional cookies. playlist_index for lists.",
+  "tools.dlCookiesOn":
+    "YouTube cookies are configured on the server and may help with age-restricted content.",
+  "tools.dlCookiesOff":
+    "YouTube cookies are not configured; downloads still work, but age-restricted content may fail.",
   "tools.destination": "Destination",
   "tools.musicRoot": "Music",
   "tools.up": "Up",

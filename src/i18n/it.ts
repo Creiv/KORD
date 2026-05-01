@@ -34,6 +34,9 @@ export const IT: Record<string, string> = {
   "topbar.settingsTitle": "Impostazioni",
   "common.open": "Apri",
   "common.emDash": "—",
+  "app.dialogCancel": "Annulla",
+  "app.dialogOk": "OK",
+  "app.dialogConfirm": "Conferma",
   "loading.app": "Caricamento di KORD…",
   "loading.splashTitle": "Benvenuto in KORD",
   "loading.splashLead":
@@ -299,6 +302,8 @@ export const IT: Record<string, string> = {
   "playlists.play": "Play",
   "playlists.addCurrent": "+ Brano corrente",
   "playlists.delete": "Elimina",
+  "playlists.deleteConfirm":
+    "Eliminare la playlist «{{name}}»? L'operazione non è reversibile.",
   "playlists.detailEyebrow": "Dettaglio playlist",
   "playlists.detailEmpty":
     "Aggiungi il brano in riproduzione o salva una coda.",
@@ -327,6 +332,18 @@ export const IT: Record<string, string> = {
   "settings.libPathPh": "/percorso/assoluto",
   "settings.saveReload": "Salva e ricarica",
   "settings.saving": "Salvo…",
+  "settings.youtubeCookiesEyebrow": "Download",
+  "settings.youtubeCookiesHeading": "Cookie YouTube",
+  "settings.youtubeCookiesLead":
+    "File cookies.txt usato solo dal server per yt-dlp. È opzionale, ma può risolvere contenuti con age verification o accesso richiesto.",
+  "settings.youtubeCookiesActive": "Attivo: {{name}}",
+  "settings.youtubeCookiesMissing": "Nessun file cookie configurato.",
+  "settings.youtubeCookiesEnvLocked":
+    "Attivo da variabile KORD_YTDLP_COOKIES: per modificarlo dall'app, rimuovi la variabile e riavvia il server.",
+  "settings.youtubeCookiesChoose": "Scegli cookies.txt",
+  "settings.youtubeCookiesClear": "Rimuovi cookie",
+  "settings.youtubeCookiesSaved": "Cookie YouTube salvati sul server.",
+  "settings.youtubeCookiesCleared": "Cookie YouTube rimossi.",
   "settings.networkEyebrow": "Rete",
   "settings.networkHeading": "Porte e rete",
   "settings.networkLead":
@@ -509,7 +526,7 @@ export const IT: Record<string, string> = {
   "tools.downloadTitle": "Download",
   "tools.dlSaveFolder": "Cartella di salvataggio (sotto Musica)",
   "tools.dlLinkSection": "Link",
-  "tools.dlTypeSingle": "Video Singolo",
+  "tools.dlTypeSingle": "Singolo",
   "tools.dlTypePlaylist": "Album o Playlist",
   "tools.dlTypeReleases": "Uscite Artista",
   "tools.dlYtVideoLabel": "Da YT Video",
@@ -543,6 +560,8 @@ export const IT: Record<string, string> = {
   "tools.dlSelectAll": "Seleziona tutti",
   "tools.dlSelectNone": "Nessuno",
   "tools.dlDownloadSelected": "Scarica selezionati",
+  "tools.dlReleaseSearchPh": "Cerca album…",
+  "tools.dlReleaseSearchAria": "Cerca tra gli album caricati",
   "tools.dlNeedLoadReleases":
     "Carica prima l’elenco con il pulsante sopra, poi scegli gli album.\n",
   "tools.dlNeedSelection": "Seleziona almeno un album.\n",
@@ -553,6 +572,9 @@ export const IT: Record<string, string> = {
   "tools.dlProgressTracksInAlbum": "Brani (album attuale)",
   "tools.dlProgressTrackWait": "Rilevamento brani…",
   "tools.dlPathLabel": "Cartella attuale",
+  "tools.dlFolderSearchPh": "Cerca cartelle…",
+  "tools.dlFolderSearchAria": "Cerca cartelle e sottocartelle",
+  "tools.dlFolderSearchEmpty": "Nessuna cartella trovata.",
   "tools.dlDestLead":
     "Apri una cartella artista o una sottocartella: la cartella vista diventa la destinazione di download (non puoi scaricare nella root Musica).",
   "tools.dlSubfolders": "Sottocartelle",
@@ -560,6 +582,8 @@ export const IT: Record<string, string> = {
   "tools.dlNewSubLabel": "Nuova sottocartella qui",
   "tools.dlEmptyFolders":
     "Nessuna sottocartella. Creane una qui oppure scegli una cartella già presente.",
+  "tools.dlMkdirBlockedInAlbum":
+    "Non si possono creare sottocartelle dentro una cartella album (Artista/Album). Torna alla cartella artista.",
   "tools.dlReplaceFolder": "Sostituisci file",
   "tools.dlReplaceHint":
     "Stesso brano = stesso «nome file» dopo normalizzazione (no estensione, no numero traccia iniziale, spazi/trattini uniformati, rimossi alcuni suffissi tra parentesi tipo video ufficiale). Se i titoli restano diversi, non vengono uniti. Rimozione duplicati solo se almeno un percorso è nuovo rispetto a prima del download e più file hanno lo stesso stem: si tiene il primo file nuovo in ordine alfabetico e si eliminano gli altri. Se yt-dlp riscrive lo stesso file, non c’è duplicato da togliere.",
@@ -571,10 +595,31 @@ export const IT: Record<string, string> = {
     "Serve una sottocartella sotto Musica, non la root.",
   "tools.dlPlaylistManyConfirm":
     "Questa playlist contiene {{n}} file. Vuoi davvero scaricarli tutti?",
+  "tools.dlConfirmArtistFolderDl":
+    "Destinazione cartella artista «{{path}}»: yt-dlp creerà delle sottocartelle per album/playlist (nomi dai metadati). Se una cartella con lo stesso nome esiste già, i file verranno aggiunti o aggiornati dentro quella cartella. Per tenere tutto ordinato conviene spesso creare prima manualmente la sottocartella album e selezionarla come destinazione.\n\nContinuare?",
+  "tools.dlConfirmAlbumFolderTracks":
+    "Destinazione cartella album «{{path}}»: i brani verranno salvati direttamente in questa cartella (non viene creata un’ulteriore sottocartella album).\n\nContinuare?",
+  "tools.dlReleasesArtistConfirmLead":
+    "Cartella artista «{{base}}»: pianificati {{count}} percorsi album (nome derivato dal titolo della release; yt-dlp può normalizzarlo leggermente):",
+  "tools.dlReleasesRowNew": "• {{path}} — nuova cartella prevista",
+  "tools.dlReleasesRowUpdate":
+    "• {{path}} — già in libreria, i file verranno aggiunti/aggiornati lì",
+  "tools.dlReleasesRowMore": "… e altre {{n}} righe.",
+  "tools.dlReleasesFolderNameHint":
+    "I nomi effettivi delle cartelle dipendono da yt-dlp e possono differire leggermente dai titoli mostrati.",
+  "tools.dlReleasesProceedQ": "Avviare lo scaricamento degli album selezionati?",
+  "tools.dlReleasesBlockedAlbumFolderHint":
+    "Per Uscite artista scegli la cartella dell’artista, non una cartella album.",
+  "tools.dlReleasesBlockedAlbumFolderLog":
+    "Download da Uscite artista: seleziona la cartella artista (non una cartella album).\n",
   "tools.dlPlaylistCountErr": "Impossibile contare le voci: {{e}}\n",
   "tools.cmdUsed": "Comando usato",
   "tools.cmdFallback":
     "Predefinito: si preferisce m4a (AAC), altrimenti webm (Opus), poi bestaudio — senza ffmpeg né post-processi sui metadati. Cookie opzionali; playlist_index sulle playlist.",
+  "tools.dlCookiesOn":
+    "Cookie YouTube configurati sul server: possono aiutare con contenuti age restricted.",
+  "tools.dlCookiesOff":
+    "Cookie YouTube non configurati: il download funziona, ma contenuti age restricted possono fallire.",
   "tools.destination": "Destinazione",
   "tools.musicRoot": "Musica",
   "tools.up": "Su",
