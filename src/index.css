@@ -637,6 +637,59 @@
   --ghost-input-bg: rgba(220, 100, 120, 0.08);
 }
 
+:root[data-theme="prism"] {
+  --bg: #07090b;
+  --text: #f4f7f1;
+  --surface: rgba(16, 22, 22, 0.9);
+  --surface2: rgba(22, 32, 34, 0.94);
+  --surface3: rgba(31, 42, 44, 0.96);
+  --border: rgba(160, 255, 95, 0.18);
+  --border-strong: rgba(255, 79, 216, 0.36);
+  --muted: #aab7ae;
+  --muted-strong: #d9e6da;
+  --accent: #a3ff3f;
+  --accent2: #ff4fd8;
+  --warning: #ffd166;
+  --shadow-elev-1: 0 4px 28px rgba(0, 0, 0, 0.44);
+  --shadow-elev-2: 0 22px 56px rgba(0, 0, 0, 0.56);
+  --focus-ring: color-mix(in srgb, var(--accent) 54%, var(--accent2) 46%);
+  --page-glow-1: rgba(163, 255, 63, 0.12);
+  --page-glow-2: rgba(255, 79, 216, 0.1);
+  --page-lg-1: #050708;
+  --page-lg-2: #07090b;
+  --page-lg-3: #0c1010;
+  --shell-glow-1: rgba(255, 79, 216, 0.07);
+  --shell-lg-1: rgba(12, 16, 17, 0.98);
+  --shell-lg-2: rgba(5, 7, 8, 1);
+  --topbar-bg: rgba(10, 13, 14, 0.92);
+  --surface-elev-a: rgba(24, 34, 34, 0.95);
+  --surface-elev-b: rgba(12, 18, 18, 0.98);
+  --hero-rg-1: rgba(163, 255, 63, 0.12);
+  --hero-rg-2: rgba(255, 79, 216, 0.1);
+  --hero-lg-1: rgba(24, 34, 34, 0.94);
+  --hero-lg-2: rgba(10, 15, 16, 0.97);
+  --art-empty-1: rgba(163, 255, 63, 0.16);
+  --art-empty-2: rgba(255, 79, 216, 0.12);
+  --badge-1: rgba(163, 255, 63, 0.22);
+  --badge-2: rgba(255, 79, 216, 0.16);
+  --album-fb-1: rgba(163, 255, 63, 0.24);
+  --album-fb-2: rgba(255, 79, 216, 0.18);
+  --listen-viz-bg: rgba(3, 5, 6, 0.96);
+  --glass-1: rgba(22, 30, 30, 0.9);
+  --glass-2: rgba(11, 16, 17, 0.94);
+  --nav-active-cool: rgba(255, 79, 216, 0.1);
+  --segmented-1: rgba(163, 255, 63, 0.1);
+  --segmented-2: rgba(255, 79, 216, 0.08);
+  --chip-on: rgba(163, 255, 63, 0.12);
+  --codebox-bg: rgba(3, 5, 6, 0.96);
+  --textarea-bg: rgba(4, 7, 8, 0.96);
+  --text-on-accent: #071005;
+  --player-art-fb: rgba(163, 255, 63, 0.08);
+  --dirlist-hover-bg: rgba(163, 255, 63, 0.08);
+  --meta-strip-bg: rgba(255, 79, 216, 0.08);
+  --ghost-input-bg: rgba(163, 255, 63, 0.07);
+}
+
 html,
 body,
 #root {

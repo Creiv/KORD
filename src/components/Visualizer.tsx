@@ -1,15 +1,27 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { KordMascotOverlay } from "./KordMascotOverlay";
 import { usePlayer } from "../context/PlayerContext";
 import { binAmplitude, logBinT, sampleSpectrumLinear } from "../lib/freqMap";
 import type { VizMode } from "../lib/vizMode";
 
+/**
+ * Sensibilità: vedi blocchi commentati in testa nella versione precedente; parametri chiave —
+ * SPEC_GAMMA / SPEC_FLOOR, FFT_*, OSC_GAIN; `freqMap.binAmplitude` e `NYQUIST_TAIL` in freqMap.ts;
+ * buildSilkLayers gamma inline; ramo embers `bandAt`.
+ */
 const BARS = 64;
 const MIRROR_BARS = 48;
 const FFT_SPECTRUM = 2048;
 const FFT_OSC = 2048;
-const SOFT_N = 112;
+const SILK_SOFT_N = 112;
+const SILK_SOFT_N_EXPANDED = 74;
 const OSC_GAIN = 1;
+const OSC_SILK_GAP_STEPS = 8;
+const OSC_SILK_R_FRAC = 0.019;
+const OSC_SILK_R_MIN = 6;
+const OSC_SILK_R_MAX = 36;
+const OSC_SILK_TAPE = 0.52;
 const SPEC_GAMMA = 0.64;
 const SPEC_FLOOR = 0.028;
 
@@ -17,6 +29,57 @@ function barBassCalm(i: number, count: number): number {
   if (count <= 1) return 1;
   const t = i / (count - 1);
   return 0.56 + 0.44 * Math.pow(t, 1.22);
+}
+
+function smoothOscBox(
+  src: Float32Array,
+  dst: Float32Array,
+  pref: Float32Array,
+  n: number,
+  r: number,
+) {
+  if (n <= 0) return;
+  if (r <= 0) {
+    for (let i = 0; i < n; i += 1) dst[i] = src[i]!;
+    return;
+  }
+  let acc = 0;
+  pref[0] = 0;
+  for (let i = 0; i < n; i += 1) {
+    acc += src[i]!;
+    pref[i + 1] = acc;
+  }
+  for (let k = 0; k < n; k += 1) {
+    const lo = Math.max(0, k - r);
+    const hi = Math.min(n - 1, k + r);
+    const cnt = hi - lo + 1;
+    dst[k] = (pref[hi + 1]! - pref[lo]!) / cnt;
+  }
+}
+
+function oscUpsampledPolyline(
+  amp: Float32Array,
+  tSeg: number,
+  stepsPerGap: number,
+  w: number,
+  oscHalf: number,
+  midY: number,
+  xsOut: Float32Array,
+  ysOut: Float32Array,
+): number {
+  const fiMax = Math.max(1, tSeg - 1);
+  const nOut = Math.max(2, fiMax * stepsPerGap + 1);
+  const denom = Math.max(1e-9, nOut - 1);
+  for (let j = 0; j < nOut; j += 1) {
+    const fi = (j / denom) * fiMax;
+    const k0 =
+      fi >= fiMax ? Math.max(0, tSeg - 2) : Math.min(Math.floor(fi), tSeg - 2);
+    const frac = Math.min(1, Math.max(0, fi - k0));
+    const v = amp[k0]! * (1 - frac) + amp[k0 + 1]! * frac;
+    xsOut[j] = (j / denom) * w;
+    ysOut[j] = midY - v * oscHalf;
+  }
+  return nOut;
 }
 
 function softWavePath(
@@ -91,8 +154,16 @@ function buildSilkLayers(
   for (let k = 0; k < n; k++) {
     const u = k / Math.max(1, n - 1);
     xs[k] = u * w;
-    const barL = Math.min(SILK_SPEC_DIV, Math.floor(u * SILK_SPEC_DIV));
-    const barR = Math.min(SILK_SPEC_DIV, barL + 10);
+    const ux = Math.min(1 - 1e-6, Math.pow(u, 0.885));
+    const barL = Math.min(
+      SILK_SPEC_DIV - 12,
+      Math.max(0, Math.floor(ux * SILK_SPEC_DIV)),
+    );
+    const binSpan = Math.min(
+      SILK_SPEC_DIV - barL,
+      Math.max(8, Math.floor(ux * (SILK_SPEC_DIV - barL) * 1.08) + 8),
+    );
+    const barR = Math.min(SILK_SPEC_DIV, barL + binSpan);
     const xtL = logBinT(barL, BARS, fLen);
     const xtR = logBinT(barR, BARS, fLen);
     const specL = binAmplitude(sampleSpectrumLinear(fv, fLen, xtL), {
@@ -226,11 +297,12 @@ function mix(c1: RGB, c2: RGB, t: number): RGB {
   };
 }
 
-type P = { mode: VizMode };
 
-export function Visualizer({ mode }: P) {
+export function Visualizer({ mode }: { mode: VizMode }) {
   const { getAnalyser, isPlaying } = usePlayer();
+  const wrapRef = useRef<HTMLDivElement>(null);
   const cRef = useRef<HTMLCanvasElement>(null);
+  const [expanded, setExpanded] = useState(false);
   const freq = useRef(new Uint8Array(2048));
   const time = useRef(new Uint8Array(FFT_OSC));
   const tRef = useRef(0);
@@ -242,9 +314,39 @@ export function Visualizer({ mode }: P) {
   const softYs2Ref = useRef<Float32Array | null>(null);
   const softPulseRef = useRef(0);
   const kordBeatRef = useRef(0);
+  const oscWaveScratchRef = useRef<{
+    amp: Float32Array;
+    ampSm: Float32Array;
+    pref: Float32Array;
+    xs: Float32Array;
+    ys: Float32Array;
+  } | null>(null);
+  const oscSoftTapeRef = useRef<Float32Array | null>(null);
   const visibleRef = useRef(
     typeof document !== "undefined" ? !document.hidden : true,
   );
+
+  const toggleExpanded = useCallback(() => {
+    setExpanded((v) => !v);
+  }, []);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expanded]);
+
+  useEffect(() => {
+    if (!expanded || typeof document === "undefined") return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [expanded]);
 
   useEffect(() => {
     peaksBars.current.fill(0);
@@ -256,12 +358,17 @@ export function Visualizer({ mode }: P) {
       softYs2Ref.current = null;
     }
     if (mode !== "kord") kordBeatRef.current = 0;
+    if (mode !== "oscSoft") {
+      oscWaveScratchRef.current = null;
+      oscSoftTapeRef.current = null;
+    }
   }, [mode]);
 
   useEffect(() => {
     const an = getAnalyser();
     if (an) {
-      an.fftSize = mode === "osc" ? FFT_OSC : FFT_SPECTRUM;
+      an.fftSize =
+        mode === "osc" || mode === "oscSoft" ? FFT_OSC : FFT_SPECTRUM;
     }
   }, [getAnalyser, mode]);
 
@@ -271,18 +378,25 @@ export function Visualizer({ mode }: P) {
     const ctx = c.getContext("2d");
     if (!ctx) return;
     let raf = 0;
+    let backingScale = typeof window !== "undefined"
+      ? window.devicePixelRatio || 1
+      : 1;
     const dpr = () =>
       typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
 
     const size = () => {
       const p = c.parentElement;
-      const w = p ? p.clientWidth : 400;
-      const h = p ? Math.max(100, p.clientHeight || 200) : 200;
-      const s = dpr();
-      c.width = w * s;
-      c.height = h * s;
-      c.style.width = `${w}px`;
-      c.style.height = `${h}px`;
+      const lw = p ? p.clientWidth : 400;
+      const lh = p ? Math.max(100, p.clientHeight || 200) : 200;
+      let s = dpr();
+      if (expanded) {
+        s = Math.min(s, mode === "signals" ? 1.38 : 1.52);
+      }
+      backingScale = s;
+      c.width = lw * s;
+      c.height = lh * s;
+      c.style.width = `${lw}px`;
+      c.style.height = `${lh}px`;
       ctx.setTransform(s, 0, 0, s, 0, 0);
     };
     size();
@@ -340,14 +454,15 @@ export function Visualizer({ mode }: P) {
         lastTheme = tId;
         refreshPalette();
       }
-      const w = c.width / dpr();
-      const h = c.height / dpr();
+      const w = c.width / backingScale;
+      const h = c.height / backingScale;
+      const edgePad = expanded ? 0 : h * 0.04;
       const an = getAnalyser();
       const f = freq.current;
       const t = time.current;
 
       if (an) {
-        if (mode === "osc") {
+        if (mode === "osc" || mode === "oscSoft") {
           an.fftSize = FFT_OSC;
           const fLen0 = an.frequencyBinCount;
           if (freq.current.length < fLen0) {
@@ -384,25 +499,38 @@ export function Visualizer({ mode }: P) {
       ctx.fillRect(0, 0, w, h);
 
       if (mode === "osc") {
-        const tLen = an?.fftSize ?? 1024;
-        const padY = h * 0.04;
+        ctx.shadowBlur = 0;
+        ctx.shadowColor = "transparent";
+        ctx.globalAlpha = 1;
+
+        const tLenFull = an?.fftSize ?? 1024;
+        const narrowOsc = !expanded && w < 560;
+        const trim = narrowOsc ? Math.round(tLenFull * 0.2) : 0;
+        const i0 = Math.max(0, trim);
+        const i1 = Math.min(tLenFull - 1, tLenFull - 1 - trim);
+        const tSeg = Math.max(2, i1 - i0 + 1);
+        const padY = edgePad;
         const span = h - padY * 2;
         const midY = padY + span * 0.5;
+        const oscAmp = OSC_GAIN * (narrowOsc ? 1.14 : 1);
         const oscHalf = (span * 0.5) * 0.97;
         const oscSample = (b: number) =>
-          Math.max(
-            -1,
-            Math.min(1, ((b - 128) / 128) * OSC_GAIN),
-          );
+          Math.max(-1, Math.min(1, ((b - 128) / 128) * oscAmp));
+        const samp = (k: number) =>
+          tv[
+            Math.min(
+              i1,
+              i0 + Math.round((k / Math.max(1, tSeg - 1)) * (i1 - i0)),
+            )
+          ]!;
+        const xDen = Math.max(1, tSeg - 1);
+
         ctx.beginPath();
-        ctx.lineWidth = 1.75;
-        ctx.lineJoin = "round";
-        ctx.lineCap = "round";
-        for (let i = 0; i < tLen; i += 1) {
-          const v = oscSample(tv[i]!);
-          const x = (i / (tLen - 1)) * w;
+        for (let k = 0; k < tSeg; k += 1) {
+          const v = oscSample(samp(k));
+          const x = (k / xDen) * w;
           const y = midY - v * oscHalf;
-          if (i === 0) ctx.moveTo(x, y);
+          if (k === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }
         ctx.lineTo(w, midY);
@@ -415,25 +543,138 @@ export function Visualizer({ mode }: P) {
         fillG.addColorStop(1, rgba(pal.accent, 0.1));
         ctx.fillStyle = fillG;
         ctx.fill();
+
         ctx.beginPath();
-        for (let i = 0; i < tLen; i += 1) {
-          const v = oscSample(tv[i]!);
-          const x = (i / (tLen - 1)) * w;
+        for (let k = 0; k < tSeg; k += 1) {
+          const v = oscSample(samp(k));
+          const x = (k / xDen) * w;
           const y = midY - v * oscHalf;
-          if (i === 0) ctx.moveTo(x, y);
+          if (k === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }
         const gl = ctx.createLinearGradient(0, 0, w, 0);
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
         gl.addColorStop(0, rgba(pal.accent2, 0.55));
         gl.addColorStop(0.5, rgba(mid, 0.98));
         gl.addColorStop(1, rgba(pal.accent, 0.62));
         ctx.strokeStyle = gl;
+        ctx.lineWidth = narrowOsc ? 2.1 : 1.75;
+        ctx.stroke();
+        return;
+      }
+
+      if (mode === "oscSoft") {
+        ctx.shadowBlur = 0;
+        ctx.shadowColor = "transparent";
+        ctx.globalAlpha = 1;
+
+        const tLenFull = an?.fftSize ?? 1024;
+        const narrowOsc = !expanded && w < 560;
+        const trim = narrowOsc ? Math.round(tLenFull * 0.2) : 0;
+        const i0 = Math.max(0, trim);
+        const i1 = Math.min(tLenFull - 1, tLenFull - 1 - trim);
+        const tSeg = Math.max(2, i1 - i0 + 1);
+        const padY = edgePad;
+        const span = h - padY * 2;
+        const midY = padY + span * 0.5;
+        const oscAmp = OSC_GAIN * (narrowOsc ? 1.14 : 1);
+        const oscHalf = (span * 0.5) * 0.97;
+        const oscSample = (b: number) =>
+          Math.max(-1, Math.min(1, ((b - 128) / 128) * oscAmp));
+        const samp = (k: number) =>
+          tv[
+            Math.min(
+              i1,
+              i0 + Math.round((k / Math.max(1, tSeg - 1)) * (i1 - i0)),
+            )
+          ]!;
+
+        const fiMax = Math.max(1, tSeg - 1);
+        const nUps = Math.max(2, fiMax * OSC_SILK_GAP_STEPS + 1);
+        const rSilk = Math.min(
+          OSC_SILK_R_MAX,
+          Math.max(OSC_SILK_R_MIN, Math.round(tSeg * OSC_SILK_R_FRAC)),
+        );
+        let wx = oscWaveScratchRef.current;
+        const needPref = tSeg + 1;
+        if (
+          !wx ||
+          wx.amp.length < tSeg ||
+          wx.ampSm.length < tSeg ||
+          wx.pref.length < needPref ||
+          wx.xs.length < nUps ||
+          wx.ys.length < nUps
+        ) {
+          wx = {
+            amp: new Float32Array(Math.max(tSeg, 4096)),
+            ampSm: new Float32Array(Math.max(tSeg, 4096)),
+            pref: new Float32Array(Math.max(needPref, 4098)),
+            xs: new Float32Array(Math.max(nUps, 32768)),
+            ys: new Float32Array(Math.max(nUps, 32768)),
+          };
+          oscWaveScratchRef.current = wx;
+        }
+        const wa = wx.amp;
+        const wsm = wx.ampSm;
+        const pref = wx.pref;
+        for (let k = 0; k < tSeg; k += 1)
+          wa[k] = oscSample(samp(k));
+        smoothOscBox(wa, wsm, pref, tSeg, rSilk);
+        smoothOscBox(wsm, wa, pref, tSeg, rSilk);
+
+        let tape = oscSoftTapeRef.current;
+        if (!tape || tape.length !== tSeg) {
+          tape = new Float32Array(tSeg);
+          oscSoftTapeRef.current = tape;
+          tape.set(wa.subarray(0, tSeg));
+        } else {
+          const bt = OSC_SILK_TAPE;
+          for (let k = 0; k < tSeg; k += 1)
+            tape[k] = tape[k]! * (1 - bt) + wa[k]! * bt;
+        }
+
+        const nSilkPath = oscUpsampledPolyline(
+          tape,
+          tSeg,
+          OSC_SILK_GAP_STEPS,
+          w,
+          oscHalf,
+          midY,
+          wx.xs,
+          wx.ys,
+        );
+
+        ctx.beginPath();
+        softWavePath(ctx, wx.xs, wx.ys, nSilkPath);
+        ctx.lineTo(w, midY);
+        ctx.lineTo(0, midY);
+        ctx.closePath();
+        const mid = mix(pal.accent, pal.accent2, 0.48);
+        const fillG = ctx.createLinearGradient(0, padY, 0, h - padY);
+        fillG.addColorStop(0, rgba(pal.accent2, 0.22));
+        fillG.addColorStop(0.5, rgba(mid, 0.15));
+        fillG.addColorStop(1, rgba(pal.accent, 0.2));
+        ctx.fillStyle = fillG;
+        ctx.fill();
+
+        ctx.beginPath();
+        softWavePath(ctx, wx.xs, wx.ys, nSilkPath);
+        const gl = ctx.createLinearGradient(0, 0, w, 0);
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        gl.addColorStop(0, rgba(pal.accent2, 0.8));
+        gl.addColorStop(0.5, rgba(mid, 1));
+        gl.addColorStop(1, rgba(pal.accent, 0.84));
+        ctx.strokeStyle = gl;
+        ctx.lineWidth = (narrowOsc ? 2.1 : 1.75) * 1.12;
         ctx.stroke();
         return;
       }
 
       if (mode === "signals") {
-        const padY = h * 0.04;
+        const silkN = expanded ? SILK_SOFT_N_EXPANDED : SILK_SOFT_N;
+        const padY = edgePad;
         const span = h - padY * 2;
         const midY = padY + span * 0.5;
         const midRgb = mix(pal.accent, pal.accent2, 0.48);
@@ -455,20 +696,20 @@ export function Visualizer({ mode }: P) {
         let ys0 = softYs0Ref.current;
         let ys1 = softYs1Ref.current;
         let ys2 = softYs2Ref.current;
-        if (!xs || xs.length !== SOFT_N) {
-          xs = new Float32Array(SOFT_N);
+        if (!xs || xs.length !== silkN) {
+          xs = new Float32Array(silkN);
           softXsRef.current = xs;
         }
-        if (!ys0 || ys0.length !== SOFT_N) {
-          ys0 = new Float32Array(SOFT_N);
+        if (!ys0 || ys0.length !== silkN) {
+          ys0 = new Float32Array(silkN);
           softYs0Ref.current = ys0;
         }
-        if (!ys1 || ys1.length !== SOFT_N) {
-          ys1 = new Float32Array(SOFT_N);
+        if (!ys1 || ys1.length !== silkN) {
+          ys1 = new Float32Array(silkN);
           softYs1Ref.current = ys1;
         }
-        if (!ys2 || ys2.length !== SOFT_N) {
-          ys2 = new Float32Array(SOFT_N);
+        if (!ys2 || ys2.length !== silkN) {
+          ys2 = new Float32Array(silkN);
           softYs2Ref.current = ys2;
         }
 
@@ -477,7 +718,7 @@ export function Visualizer({ mode }: P) {
           ys0,
           ys1,
           ys2,
-          SOFT_N,
+          silkN,
           w,
           midY,
           span,
@@ -492,7 +733,7 @@ export function Visualizer({ mode }: P) {
         const clipPad = 5;
         const yTop = padY + clipPad;
         const yBot = h - padY - clipPad;
-        clampSilkBandsVertically(midY, yTop, yBot, ys0, ys1, ys2, SOFT_N);
+        clampSilkBandsVertically(midY, yTop, yBot, ys0, ys1, ys2, silkN);
 
         const gLow = ctx.createLinearGradient(0, midY - span * 0.2, 0, midY + span * 0.22);
         gLow.addColorStop(0, rgba(pal.accent2, 0.14));
@@ -509,9 +750,9 @@ export function Visualizer({ mode }: P) {
         ctx.rect(0, padY, w, Math.max(1, h - padY * 2));
         ctx.clip();
         ctx.globalAlpha = 0.92;
-        fillSilkRibbon(ctx, xs, ys1, ys2, SOFT_N, gLow);
+        fillSilkRibbon(ctx, xs, ys1, ys2, silkN, gLow);
         ctx.globalAlpha = 1;
-        fillSilkRibbon(ctx, xs, ys0, ys1, SOFT_N, gMid);
+        fillSilkRibbon(ctx, xs, ys0, ys1, silkN, gMid);
 
         const strokeLayer = (
           ys: Float32Array,
@@ -520,31 +761,33 @@ export function Visualizer({ mode }: P) {
           blur: number,
         ) => {
           ctx.save();
-          ctx.shadowColor = rgba(midRgb, alpha * 0.35);
-          ctx.shadowBlur = blur;
+          ctx.shadowBlur = expanded ? 0 : blur;
+          ctx.shadowColor = expanded
+            ? "transparent"
+            : rgba(midRgb, alpha * 0.35);
           ctx.beginPath();
-          softWavePath(ctx, xs, ys, SOFT_N);
+          softWavePath(ctx, xs, ys, silkN);
           const gl = ctx.createLinearGradient(0, 0, w, 0);
           gl.addColorStop(0, rgba(pal.accent2, 0.35 + alpha * 0.25));
           gl.addColorStop(0.5, rgba(midRgb, 0.55 + alpha * 0.35));
           gl.addColorStop(1, rgba(pal.accent, 0.38 + alpha * 0.22));
           ctx.strokeStyle = gl;
-          ctx.lineWidth = width;
+          ctx.lineWidth = width * (expanded ? 0.88 : 1);
           ctx.lineJoin = "round";
           ctx.lineCap = "round";
           ctx.stroke();
           ctx.restore();
         };
 
-        strokeLayer(ys2, 2.1, 0.25, 10);
-        strokeLayer(ys1, 2.45, 0.38, 14);
-        strokeLayer(ys0, 2.15, 0.32, 12);
+        strokeLayer(ys2, expanded ? 1.75 : 2.1, 0.25, 10);
+        strokeLayer(ys1, expanded ? 2 : 2.45, 0.38, 14);
+        strokeLayer(ys0, expanded ? 1.85 : 2.15, 0.32, 12);
         ctx.restore();
         return;
       }
 
       if (mode === "embers") {
-        const padY = h * 0.04;
+        const padY = edgePad;
         const span = h - padY * 2;
         const midY = padY + span * 0.5;
         const tick = tRef.current;
@@ -595,34 +838,54 @@ export function Visualizer({ mode }: P) {
         ctx.save();
         ctx.globalCompositeOperation = "screen";
 
-        for (let layer = 0; layer < 4; layer++) {
-          const frac = (layer + 0.5) / 4;
+        const eco = expanded ? 3 : 4;
+        for (let layer = 0; layer < eco; layer++) {
+          const frac = (layer + 0.5) / eco;
           const e = bandAt(frac * 0.82 + 0.06);
+          const shrink = expanded ? 0.74 : 1;
           const cx =
             w *
             (0.18 + frac * 0.64 + 0.07 * Math.sin(ph * 1.1 + layer * 1.05));
           const cy =
             midY +
             span * (0.22 * Math.sin(ph2 * 0.85 + layer * 0.95 + e * 2.2));
-          const rx = w * (0.38 + e * 0.24) * (0.55 + 0.45 * beat);
-          const ry = span * (0.48 + e * 0.38);
+          const rx =
+            w *
+            (0.32 + e * (expanded ? 0.17 : 0.24)) *
+            shrink *
+            (0.55 + 0.45 * beat);
+          const ry =
+            span * (0.34 + e * (expanded ? 0.29 : 0.38));
           const col = mix(
             pal.accent,
             pal.accent2,
             0.22 + frac * 0.58 + 0.08 * Math.sin(tick * 0.009 + layer),
           );
           const rad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(rx, ry));
-          const aCore = (0.11 + e * 0.5) * (0.42 + 0.58 * beat);
+          const aCore =
+            ((expanded ? 0.17 : 0.11) + e * (expanded ? 0.52 : 0.5)) *
+            (0.42 + 0.58 * beat);
           rad.addColorStop(0, rgba(col, aCore));
           rad.addColorStop(
-            0.48,
-            rgba(mix(col, pal.accent2, 0.38), aCore * 0.32),
+            expanded ? 0.35 : 0.48,
+            rgba(mix(col, pal.accent2, 0.38), expanded ? aCore * 0.38 : aCore * 0.32),
           );
-          rad.addColorStop(1, rgba(col, 0));
+          rad.addColorStop(
+            expanded ? 0.74 : 1,
+            expanded ? rgba(col, aCore * 0.02) : rgba(col, 0),
+          );
           ctx.fillStyle = rad;
           ctx.beginPath();
           if (typeof ctx.ellipse === "function") {
-            ctx.ellipse(cx, cy, rx, ry, layer * 0.28 + ph * 0.06, 0, TAU);
+            ctx.ellipse(
+              cx,
+              cy,
+              rx,
+              ry,
+              layer * (expanded ? 0.34 : 0.28) + ph * 0.06,
+              0,
+              TAU,
+            );
           } else {
             ctx.save();
             ctx.translate(cx, cy);
@@ -642,7 +905,7 @@ export function Visualizer({ mode }: P) {
       }
 
       if (mode === "kord") {
-        const padY = h * 0.04;
+        const padY = edgePad;
         const span = h - padY * 2;
         const midY = padY + span * 0.5;
         const padGrad = ctx.createLinearGradient(0, padY, 0, h - padY);
@@ -732,9 +995,9 @@ export function Visualizer({ mode }: P) {
           const x = 2 + i * bar;
           const bw = Math.max(1, bar * 0.75);
           const g2 = ctx.createLinearGradient(0, mid - he, 0, mid + he);
-          g2.addColorStop(0, rgba(pal.accent2, 0.52));
-          g2.addColorStop(0.5, rgba(midRgb, 0.62));
-          g2.addColorStop(1, rgba(pal.accent, 0.48));
+          g2.addColorStop(0, rgba(pal.accent2, 0.86));
+          g2.addColorStop(0.5, rgba(midRgb, 0.92));
+          g2.addColorStop(1, rgba(pal.accent, 0.78));
           ctx.fillStyle = g2;
           ctx.beginPath();
           if (ctx.roundRect) {
@@ -759,12 +1022,40 @@ export function Visualizer({ mode }: P) {
       document.removeEventListener("visibilitychange", onVis);
       ro.disconnect();
     };
-  }, [getAnalyser, isPlaying, mode]);
+  }, [getAnalyser, isPlaying, mode, expanded]);
 
-  return (
-    <div className="viz-wrap">
+  const wrap = (
+    <div
+      className={`viz-wrap ${expanded ? "is-expanded" : ""}`}
+      ref={wrapRef}
+      role="button"
+      tabIndex={0}
+      aria-label={
+        expanded
+          ? "Chiudi visualizzatore espanso"
+          : "Espandi visualizzatore"
+      }
+      onClick={() => toggleExpanded()}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          toggleExpanded();
+        }
+      }}
+    >
       <canvas className="viz-canvas" ref={cRef} />
       {mode === "kord" ? <KordMascotOverlay /> : null}
     </div>
   );
+
+  if (expanded && typeof document !== "undefined") {
+    return (
+      <>
+        <div className="listen-stage__viz-placeholder" aria-hidden />
+        {createPortal(wrap, document.body)}
+      </>
+    );
+  }
+
+  return wrap;
 }

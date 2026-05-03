@@ -571,14 +571,14 @@
   min-width: 0;
   min-height: 2.5rem;
   box-sizing: border-box;
-  border-radius: 12px;
+  border-radius: 10px;
   color: var(--muted-strong);
   border: 1px solid transparent;
   font: inherit;
   line-height: 0;
   flex-shrink: 0;
   transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease,
-    box-shadow 0.16s ease;
+    box-shadow 0.16s ease, transform 0.16s ease;
 }
 
 .topbar-nav__ic {
@@ -650,6 +650,7 @@
   background: rgba(255, 255, 255, 0.05);
   border-color: var(--border);
   color: var(--text);
+  transform: translateY(-1px);
 }
 
 .topbar-nav__btn.is-active {
@@ -660,7 +661,8 @@
     var(--nav-active-cool)
   );
   border-color: color-mix(in srgb, var(--accent) 35%, var(--border-strong) 65%);
-  box-shadow: var(--shadow-elev-1);
+  box-shadow: var(--shadow-elev-1),
+    inset 0 -2px 0 color-mix(in srgb, var(--accent2) 55%, transparent);
 }
 
 .topbar-nav__btn:focus-visible {
@@ -2850,6 +2852,30 @@
   max-height: var(--listen-art-size);
 }
 
+:root[data-player-dock="1"] {
+  --viz-expanded-bottom-clear: calc(var(--content-pad-bottom) - 0.85rem);
+}
+
+:root[data-player-dock="0"] {
+  --viz-expanded-bottom-clear: 0px;
+}
+
+@media (max-width: 768px) {
+  :root[data-player-dock="0"] {
+    --viz-expanded-bottom-clear: calc(
+      3.5rem + env(safe-area-inset-bottom, 0px)
+    );
+  }
+}
+
+.listen-stage__viz .listen-stage__viz-placeholder {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  pointer-events: none;
+  visibility: hidden;
+}
+
 .listen-stage__viz .viz-canvas {
   min-height: 0;
   flex: 1;
@@ -2862,6 +2888,60 @@
   flex-direction: column;
   position: relative;
   align-self: stretch;
+  cursor: zoom-in;
+  outline: none;
+}
+
+.viz-wrap:focus-visible {
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--accent2) 76%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--accent2) 18%, transparent);
+}
+
+.viz-wrap.is-expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 19;
+  box-sizing: border-box;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) max(
+      env(safe-area-inset-bottom, 0px),
+      var(--viz-expanded-bottom-clear, 0px)
+    )
+    env(safe-area-inset-left, 0px);
+  min-height: 100vh;
+  min-height: 100dvh;
+  background:
+    radial-gradient(
+      circle at 50% 50%,
+      color-mix(in srgb, var(--hero-rg-2) 94%, transparent),
+      transparent 55%
+    ),
+    linear-gradient(180deg, var(--page-lg-1) 0%, var(--page-lg-2) 100%);
+  cursor: zoom-out;
+}
+
+.viz-wrap.is-expanded .viz-canvas {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  border-radius: 0;
+  align-self: center;
+}
+
+.viz-wrap.is-expanded .viz-kord-wordmark {
+  padding-top: 0;
+}
+
+.viz-wrap.is-expanded .kord-wordmark-svg--viz {
+  max-height: 78%;
 }
 
 .viz-kord-wordmark {
@@ -3027,8 +3107,8 @@
 .library-filter-panel .segmented--joined {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.25rem 1.15rem;
+  align-items: center;
+  gap: 0.35rem;
   width: 100%;
   max-width: 100%;
 }
@@ -3041,43 +3121,36 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  padding: 0.12rem 0;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface2) 55%, transparent);
+  padding: 0.38rem 0.62rem;
   cursor: pointer;
   font-family: inherit;
-  font-weight: 800;
-  font-size: 1.32rem;
-  letter-spacing: -0.03em;
+  font-weight: 750;
+  font-size: clamp(0.92rem, 1vw, 1.05rem);
+  letter-spacing: 0;
   line-height: 1.2;
   color: color-mix(in srgb, var(--muted) 78%, var(--text) 22%);
-  transition: color 0.16s ease, opacity 0.16s ease;
+  transition: color 0.16s ease, opacity 0.16s ease, background 0.16s ease,
+    border-color 0.16s ease;
 }
 
 .library-filter-panel .segmented--joined button:hover:not(.is-on) {
   color: color-mix(in srgb, var(--muted-strong) 85%, var(--text) 15%);
+  border-color: color-mix(in srgb, var(--border-strong) 72%, transparent);
+  background: color-mix(in srgb, var(--surface3) 65%, transparent);
 }
 
 .library-filter-panel .segmented--joined button.is-on {
   color: var(--text);
-  background: transparent;
-  box-shadow: none;
+  background: linear-gradient(135deg, var(--segmented-1), var(--segmented-2));
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border-strong) 68%);
+  box-shadow: var(--shadow-elev-1);
 }
 
 .library-filter-panel .segmented--joined button.is-on::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -0.06rem;
-  height: 2px;
-  border-radius: 99px;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--accent) 85%, transparent),
-    color-mix(in srgb, var(--accent2) 85%, transparent)
-  );
+  content: none;
 }
 
 .library-filter-panel .segmented--joined button:focus-visible {
@@ -3090,8 +3163,8 @@
 .library-filter-panel .segmented--filter {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.25rem 1.15rem;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .library-filter-panel .segmented--filter button {
@@ -3099,15 +3172,15 @@
   flex: 0 0 auto;
   min-width: 0;
   margin: 0;
-  padding: 0.12rem 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
+  padding: 0.38rem 0.62rem;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface2) 55%, transparent);
   cursor: pointer;
   font-family: inherit;
-  font-weight: 800;
-  font-size: 1.32rem;
-  letter-spacing: -0.03em;
+  font-weight: 750;
+  font-size: clamp(0.92rem, 1vw, 1.05rem);
+  letter-spacing: 0;
   line-height: 1.2;
   color: color-mix(in srgb, var(--muted) 78%, var(--text) 22%);
   transition: color 0.16s ease;
@@ -3115,28 +3188,19 @@
 
 .library-filter-panel .segmented--filter button:hover:not(.is-on) {
   color: color-mix(in srgb, var(--muted-strong) 85%, var(--text) 15%);
+  border-color: color-mix(in srgb, var(--border-strong) 72%, transparent);
+  background: color-mix(in srgb, var(--surface3) 65%, transparent);
 }
 
 .library-filter-panel .segmented--filter button.is-on {
   color: var(--text);
-  background: transparent;
-  box-shadow: none;
-  border-color: transparent;
+  background: linear-gradient(135deg, var(--segmented-1), var(--segmented-2));
+  box-shadow: var(--shadow-elev-1);
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border-strong) 68%);
 }
 
 .library-filter-panel .segmented--filter button.is-on::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -0.06rem;
-  height: 2px;
-  border-radius: 99px;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--accent) 85%, transparent),
-    color-mix(in srgb, var(--accent2) 85%, transparent)
-  );
+  content: none;
 }
 
 .library-filter-panel .segmented--filter button:focus-visible {
@@ -3867,27 +3931,6 @@
   height: 1.2rem;
 }
 
-.player-bar2__ic--exclude {
-  color: var(--muted);
-  opacity: 0.42;
-}
-
-.player-bar2__ic--exclude:hover:not(:disabled):not(.is-on) {
-  opacity: 1;
-  color: var(--text);
-}
-
-.player-bar2__ic--exclude.is-on {
-  opacity: 1;
-  color: var(--accent2);
-}
-
-.player-bar2__ic--exclude.is-on:disabled {
-  cursor: not-allowed;
-  opacity: 1;
-  color: var(--accent2);
-}
-
 .player-bar2__ic {
   display: inline-flex;
   align-items: center;
@@ -3930,6 +3973,28 @@
   opacity: 0.38;
 }
 
+.player-bar2__ic.player-bar2__ic--exclude:not(.is-on) {
+  color: var(--muted);
+  opacity: 0.45;
+}
+
+.player-bar2__ic.player-bar2__ic--exclude:hover:not(:disabled):not(.is-on) {
+  opacity: 1;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.player-bar2__ic.player-bar2__ic--exclude.is-on {
+  color: var(--accent2);
+  opacity: 1;
+}
+
+.player-bar2__ic.player-bar2__ic--exclude.is-on:disabled {
+  cursor: not-allowed;
+  opacity: 1;
+  color: var(--accent2);
+}
+
 .player-bar2__ic:disabled {
   cursor: not-allowed;
   opacity: 0.34;
@@ -3937,6 +4002,14 @@
 
 .player-bar2__ic--cast.is-on {
   color: var(--accent2);
+}
+
+.player-bar2__ic--cast.is-unavailable {
+  opacity: 0.62;
+}
+
+.player-bar2__ic--cast.is-unavailable:hover {
+  opacity: 0.9;
 }
 
 .player-bar2__ic--play {

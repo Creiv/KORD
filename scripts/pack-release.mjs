@@ -3,11 +3,13 @@
  * Da npm:   npm run pack:linux:server -- 2.0.0
  */
 import { execSync } from "node:child_process"
+import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..")
 const configPath = path.join(root, "electron-builder.kord.cjs")
+const pkgPath = path.join(root, "package.json")
 const [,, flavor, platform, vArg] = process.argv
 const platforms = new Set(["linux", "win", "mac"])
 const flavors = new Set(["server", "client"])
@@ -20,7 +22,14 @@ if (!flavors.has(flavor) || !platforms.has(platform)) {
   process.exit(1)
 }
 
-let version = vArg && String(vArg).trim() ? String(vArg).trim() : "1.0.0"
+let pkgVersion = "1.0.0"
+try {
+  pkgVersion = JSON.parse(fs.readFileSync(pkgPath, "utf8")).version || pkgVersion
+} catch {
+  /* keep fallback for broken local package.json */
+}
+
+let version = vArg && String(vArg).trim() ? String(vArg).trim() : pkgVersion
 const segs = version.split(".")
 if (segs.length === 2) version = `${version}.0`
 

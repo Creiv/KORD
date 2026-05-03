@@ -1,4 +1,4 @@
-const NYQUIST_TAIL = 0.82
+const NYQUIST_TAIL = 0.74
 
 function spectrumDisplayTop(fLen: number): number {
   return Math.max(1, (fLen - 1) * NYQUIST_TAIL)
@@ -9,10 +9,11 @@ export function logBinT(barI: number, numBars: number, fLen: number): number {
   if (numBars <= 1) return 0
   const top = spectrumDisplayTop(fLen)
   if (barI <= 0) return 0
-  const t = barI / (numBars - 1)
+  const denom = Math.max(1, numBars - 1)
+  const frac = Math.min(barI / denom, 0.945)
   const lo = Math.log(1)
   const hi = Math.log(top + 1)
-  const v = Math.exp(lo + t * (hi - lo)) - 1
+  const v = Math.exp(lo + frac * (hi - lo)) - 1
   return Math.min(top, Math.max(0, v))
 }
 

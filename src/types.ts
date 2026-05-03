@@ -82,9 +82,17 @@ export const THEME_MODES = [
   "aubergine",
   "tangerine",
   "carmine",
+  "prism",
 ] as const;
 export type ThemeMode = (typeof THEME_MODES)[number];
-export type VizMode = "bars" | "mirror" | "osc" | "signals" | "embers" | "kord";
+export type VizMode =
+  | "bars"
+  | "mirror"
+  | "osc"
+  | "oscSoft"
+  | "signals"
+  | "embers"
+  | "kord";
 
 export const APP_LOCALES = ["en", "it"] as const;
 export type AppLocale = (typeof APP_LOCALES)[number];

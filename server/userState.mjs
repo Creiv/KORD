@@ -6,6 +6,8 @@ import { CONFIG_FILE } from "./musicRootConfig.mjs"
 
 /** Serie di readUserState sulla stessa coppia (library, account): evita race sulla migrazione lazy. */
 const readUserChains = new Map()
+/** Serie di mutazioni read -> merge -> write sulla stessa coppia (library, account). */
+const userStateMutationChains = new Map()
 
 function readUserMutexKey(musicRoot, accountId) {
   try {
@@ -14,6 +16,23 @@ function readUserMutexKey(musicRoot, accountId) {
     return `${String(musicRoot)}\0${String(accountId ?? "")}`
   }
 }
+
+async function withUserStateMutation(musicRoot, accountId, fn) {
+  const key = readUserMutexKey(musicRoot, accountId)
+  const prev = userStateMutationChains.get(key) ?? Promise.resolve()
+  const next = prev
+    .catch(() => {})
+    .then(() => fn())
+  userStateMutationChains.set(key, next)
+  try {
+    return await next
+  } finally {
+    if (userStateMutationChains.get(key) === next) {
+      userStateMutationChains.delete(key)
+    }
+  }
+}
+
 function isObj(v) {
   return Boolean(v) && typeof v === "object" && !Array.isArray(v)
 }
@@ -93,6 +112,7 @@ const THEME_MODES = new Set([
   "aubergine",
   "tangerine",
   "carmine",
+  "prism",
 ])
 
 function sanitizeSettings(settings) {
@@ -113,8 +133,10 @@ function sanitizeSettings(settings) {
     vizMode: (() => {
       let m = src.vizMode === "soft" ? "signals" : src.vizMode
       if (m === "horizon") m = "embers"
+      if (m === "prism") m = "bars"
       return m === "mirror" ||
         m === "osc" ||
+        m === "oscSoft" ||
         m === "bars" ||
         m === "signals" ||
         m === "embers" ||
@@ -187,34 +209,38 @@ export function stripClientControlledKeysFromPutPatch(patch) {
 }
 
 export async function mergeAndWriteUserStateWithRevision(musicRoot, accountId, expectedRevision, buildMergedFromPrevFresh) {
-  const prevFresh = await readUserState(musicRoot, accountId)
-  const cur = currentRevision(prevFresh)
-  const exp = Number(expectedRevision)
-  if (!Number.isFinite(exp) || exp !== cur) {
-    const err = new Error("USER_STATE_REVISION_CONFLICT")
-    err.code = "USER_STATE_REVISION_CONFLICT"
-    err.currentState = prevFresh
-    throw err
-  }
-  const merged = buildMergedFromPrevFresh(prevFresh)
-  const sanitized = sanitizeUserState({
-    ...merged,
-    revision: cur + 1,
+  return withUserStateMutation(musicRoot, accountId, async () => {
+    const prevFresh = await readUserStateImpl(musicRoot, accountId)
+    const cur = currentRevision(prevFresh)
+    const exp = Number(expectedRevision)
+    if (!Number.isFinite(exp) || exp !== cur) {
+      const err = new Error("USER_STATE_REVISION_CONFLICT")
+      err.code = "USER_STATE_REVISION_CONFLICT"
+      err.currentState = prevFresh
+      throw err
+    }
+    const merged = buildMergedFromPrevFresh(prevFresh)
+    const sanitized = sanitizeUserState({
+      ...merged,
+      revision: cur + 1,
+    })
+    return writeUserStatePersist(musicRoot, sanitized, accountId)
   })
-  return writeUserStatePersist(musicRoot, sanitized, accountId)
 }
 
 export async function mergeAndWriteUserStatePatch(musicRoot, accountId, patch) {
-  const prevFresh = await readUserState(musicRoot, accountId)
-  const merged = mergeUserStateForPut(
-    prevFresh,
-    stripRevisionFromPatch(isObj(patch) && !Array.isArray(patch) ? patch : {}),
-  )
-  const sanitized = sanitizeUserState({
-    ...merged,
-    revision: currentRevision(prevFresh) + 1,
+  return withUserStateMutation(musicRoot, accountId, async () => {
+    const prevFresh = await readUserStateImpl(musicRoot, accountId)
+    const merged = mergeUserStateForPut(
+      prevFresh,
+      stripRevisionFromPatch(isObj(patch) && !Array.isArray(patch) ? patch : {}),
+    )
+    const sanitized = sanitizeUserState({
+      ...merged,
+      revision: currentRevision(prevFresh) + 1,
+    })
+    return writeUserStatePersist(musicRoot, sanitized, accountId)
   })
-  return writeUserStatePersist(musicRoot, sanitized, accountId)
 }
 
 export function mergeUserStateForPut(prev, patch) {
@@ -386,10 +412,12 @@ async function writeUserStatePersist(musicRoot, sanitizedState, accountId = null
 
 /** Scrittura server-side monotona (test, merge mood retry). Bump revision da disco. */
 export async function writeUserState(musicRoot, input, accountId = null) {
-  const prev = await readUserState(musicRoot, accountId)
-  const sanitized = sanitizeUserState(input)
-  sanitized.revision = currentRevision(prev) + 1
-  return writeUserStatePersist(musicRoot, sanitized, accountId)
+  return withUserStateMutation(musicRoot, accountId, async () => {
+    const prev = await readUserStateImpl(musicRoot, accountId)
+    const sanitized = sanitizeUserState(input)
+    sanitized.revision = currentRevision(prev) + 1
+    return writeUserStatePersist(musicRoot, sanitized, accountId)
+  })
 }
 
 export async function writeUserTrackMoodsWithCAS(musicRoot, accountId, relPath, moodsList, maxRetries = 8) {

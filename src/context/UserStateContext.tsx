@@ -93,8 +93,10 @@ function normalizeSettings(raw: Partial<UserSettings>): UserSettings {
       let m: typeof raw.vizMode = raw.vizMode;
       if (legacy === "soft") m = "signals";
       else if (legacy === "horizon") m = "embers";
+      else if (legacy === "prism") m = "bars";
       return m === "mirror" ||
         m === "osc" ||
+        m === "oscSoft" ||
         m === "bars" ||
         m === "signals" ||
         m === "embers" ||
@@ -188,6 +190,37 @@ function mergeUserStatePatches(a: UserStatePatch, b: UserStatePatch): UserStateP
   return compactUserStatePatch(next);
 }
 
+function applyUserStatePatchLocal(
+  base: UserStateV1,
+  patch: UserStatePatch
+): UserStateV1 {
+  const compact = compactUserStatePatch(patch);
+  if (Object.keys(compact).length === 0) return base;
+  const next: UserStateV1 = { ...base };
+  for (const [key, value] of Object.entries(compact) as [
+    keyof UserStatePatch,
+    unknown,
+  ][]) {
+    if (value === undefined) continue;
+    if (key === "settings") {
+      next.settings = normalizeSettings({
+        ...next.settings,
+        ...(value as Partial<UserSettings>),
+      });
+      continue;
+    }
+    if (key === "trackMoods") {
+      next.trackMoods = {
+        ...(next.trackMoods || {}),
+        ...(value as Record<string, string[]>),
+      };
+      continue;
+    }
+    (next as unknown as Record<string, unknown>)[key] = value;
+  }
+  return normalizeUserState(next);
+}
+
 function userStateToPatch(state: UserStateV1, omitPlaylists = false): UserStatePatch {
   return compactUserStatePatch({
     favorites: state.favorites,
@@ -243,11 +276,13 @@ function legacyImport(): Partial<UserStateV1> {
       vizMode === "bars" ||
       vizMode === "mirror" ||
       vizMode === "osc" ||
+      vizMode === "oscSoft" ||
       vizMode === "signals" ||
       vizMode === "embers" ||
       vizMode === "kord" ||
       vizMode === "horizon" ||
-      vizMode === "soft"
+      vizMode === "soft" ||
+      vizMode === "prism"
         ? {
             ...defaultSettings(),
             vizMode:
@@ -255,7 +290,9 @@ function legacyImport(): Partial<UserStateV1> {
                 ? "signals"
                 : vizMode === "horizon"
                   ? "embers"
-                  : vizMode,
+                  : vizMode === "prism"
+                    ? "bars"
+                    : vizMode,
           }
         : undefined,
   };
@@ -337,6 +374,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
   const hydratedRef = useRef(false);
   const saveSeqRef = useRef(0);
   const pendingPatchRef = useRef<UserStatePatch>({});
+  const inFlightPatchRef = useRef<UserStatePatch>({});
   const flushTimerRef = useRef<number | null>(null);
   const flushPendingPatchRef = useRef<(() => void) | null>(null);
   const flushingRef = useRef(false);
@@ -414,6 +452,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     pendingPatchRef.current = {};
+    inFlightPatchRef.current = patch;
     flushingRef.current = true;
     const seq = ++saveSeqRef.current;
     setSaving(true);
@@ -433,6 +472,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
         setError(null);
         dirtyRef.current = hasNewerPending;
         if (patch.playlists) playlistDirtyRef.current = false;
+        inFlightPatchRef.current = {};
       })
       .catch((err: unknown) => {
         if (seq !== saveSeqRef.current) return;
@@ -440,6 +480,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
           patch,
           pendingPatchRef.current
         );
+        inFlightPatchRef.current = {};
         dirtyRef.current = true;
         setError(err instanceof Error ? err.message : String(err));
       })
@@ -484,14 +525,28 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
   }, [state.settings.locale]);
 
   const syncUserStateFromServer = useCallback(() => {
-    saveSeqRef.current += 1;
-    pendingPatchRef.current = {};
-    return fetchUserState()
+    return Promise.resolve()
+      .then(() => fetchUserState())
       .then((remote) => {
-        const merged = normalizeUserState(mergeLegacy(remote));
-        dirtyRef.current = false;
-        playlistDirtyRef.current = false;
-        setState(merged);
+        const mergedRemote = normalizeUserState(mergeLegacy(remote));
+        const localUnsaved = mergeUserStatePatches(
+          inFlightPatchRef.current,
+          pendingPatchRef.current
+        );
+        const hasLocalUnsaved = Object.keys(localUnsaved).length > 0;
+        setState((prev) => {
+          if (!hasLocalUnsaved) return mergedRemote;
+          const preserved = applyUserStatePatchLocal(mergedRemote, localUnsaved);
+          return {
+            ...preserved,
+            revision: Math.max(
+              Number(mergedRemote.revision || 1),
+              Number(prev.revision || 1)
+            ),
+          };
+        });
+        dirtyRef.current = hasLocalUnsaved;
+        playlistDirtyRef.current = hasLocalUnsaved && Boolean(localUnsaved.playlists);
         setError(null);
       })
       .catch((err: unknown) => {

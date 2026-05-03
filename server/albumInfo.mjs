@@ -3,6 +3,7 @@ import { normalizeTrackMoodsList } from "./trackMoods.mjs"
 import { existsSync } from "fs"
 import path from "path"
 import { normalizeStoredGenreString } from "./genres.mjs"
+import { atomicWriteFileUtf8 } from "./kordDataStore.mjs"
 
 const LIB_EXCLUDE = new Set([
   "kord",
@@ -109,6 +110,46 @@ const FILE_ALBUM = "kord-albuminfo.json"
 const FILE_ALBUM_WPP = "wpp-albuminfo.json"
 const FILE_TRACK = "kord-trackinfo.json"
 const FILE_TRACK_WPP = "wpp-trackinfo.json"
+const metaMutationChains = new Map()
+
+function metaMutationKey(fp) {
+  try {
+    return path.resolve(fp)
+  } catch {
+    return String(fp)
+  }
+}
+
+async function withMetaMutation(fp, fn) {
+  const key = metaMutationKey(fp)
+  const prev = metaMutationChains.get(key) ?? Promise.resolve()
+  const next = prev
+    .catch(() => {})
+    .then(() => fn())
+  metaMutationChains.set(key, next)
+  try {
+    return await next
+  } finally {
+    if (metaMutationChains.get(key) === next) {
+      metaMutationChains.delete(key)
+    }
+  }
+}
+
+async function readJsonObjectFile(fp) {
+  if (!existsSync(fp)) return {}
+  try {
+    const raw = await fs.readFile(fp, "utf8")
+    const j = JSON.parse(raw)
+    return j && typeof j === "object" && !Array.isArray(j) ? j : {}
+  } catch {
+    return {}
+  }
+}
+
+async function writeJsonObjectAtomic(fp, obj) {
+  await atomicWriteFileUtf8(fp, JSON.stringify(obj, null, 2))
+}
 
 function pickAlbumMetaPath(albumDir) {
   const k = path.join(albumDir, FILE_ALBUM)
@@ -212,41 +253,45 @@ export async function loadTrackJsonMetaMapFromDir(albumDir) {
 export async function saveAlbumManualMeta(albumDir, patch) {
   const readPath = pickAlbumMetaPath(albumDir)
   const writePath = path.join(albumDir, FILE_ALBUM)
-  let json = {}
-  if (existsSync(readPath)) {
-    try {
-      const raw = await fs.readFile(readPath, "utf8")
-      const j = JSON.parse(raw)
-      if (j && typeof j === "object") json = j
-    } catch {
-      json = {}
+  return withMetaMutation(writePath, async () => {
+    const json = await readJsonObjectFile(readPath)
+    const next = { ...json }
+    const str = (v, max) => {
+      if (v == null) return null
+      const s = String(v).trim()
+      return s ? s.slice(0, max) : null
     }
-  }
-  const next = { ...json }
-  const str = (v, max) => {
-    if (v == null) return null
-    const s = String(v).trim()
-    return s ? s.slice(0, max) : null
-  }
-  if (Object.prototype.hasOwnProperty.call(patch, "title")) {
-    next.title = str(patch.title, 500)
-  }
-  if (Object.prototype.hasOwnProperty.call(patch, "releaseDate")) {
-    next.releaseDate = str(patch.releaseDate, 64)
-    next.date = next.releaseDate
-  }
-  if (Object.prototype.hasOwnProperty.call(patch, "label")) {
-    next.label = str(patch.label, 300)
-  }
-  if (Object.prototype.hasOwnProperty.call(patch, "country")) {
-    next.country = str(patch.country, 64)
-  }
-  if (Object.prototype.hasOwnProperty.call(patch, "musicbrainzReleaseId")) {
-    next.musicbrainzReleaseId = str(patch.musicbrainzReleaseId, 200)
-  }
-  next.editedAt = new Date().toISOString()
-  await fs.writeFile(writePath, JSON.stringify(next, null, 2), "utf8")
-  return next
+    if (Object.prototype.hasOwnProperty.call(patch, "title")) {
+      next.title = str(patch.title, 500)
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "releaseDate")) {
+      next.releaseDate = str(patch.releaseDate, 64)
+      next.date = next.releaseDate
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "label")) {
+      next.label = str(patch.label, 300)
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "country")) {
+      next.country = str(patch.country, 64)
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "musicbrainzReleaseId")) {
+      next.musicbrainzReleaseId = str(patch.musicbrainzReleaseId, 200)
+    }
+    next.editedAt = new Date().toISOString()
+    await writeJsonObjectAtomic(writePath, next)
+    return next
+  })
+}
+
+export async function saveAlbumFetchedMeta(albumDir, payload) {
+  const readPath = pickAlbumMetaPath(albumDir)
+  const writePath = path.join(albumDir, FILE_ALBUM)
+  return withMetaMutation(writePath, async () => {
+    const json = await readJsonObjectFile(readPath)
+    const next = { ...json, ...payload }
+    await writeJsonObjectAtomic(writePath, next)
+    return next
+  })
 }
 
 /**
@@ -258,61 +303,72 @@ export async function saveAlbumManualMeta(albumDir, patch) {
 export async function saveTrackManualMeta(albumDir, fileName, patch) {
   const readPath = pickTrackMetaPath(albumDir)
   const writePath = path.join(albumDir, FILE_TRACK)
-  let json = {}
-  if (existsSync(readPath)) {
-    try {
-      const raw = await fs.readFile(readPath, "utf8")
-      const j = JSON.parse(raw)
-      if (j && typeof j === "object") json = j
-    } catch {
-      json = {}
+  return withMetaMutation(writePath, async () => {
+    const json = await readJsonObjectFile(readPath)
+    const prev =
+      json[fileName] && typeof json[fileName] === "object"
+        ? { ...json[fileName] }
+        : {}
+    const next = { ...prev }
+    const str = (v, max) => {
+      if (v == null) return null
+      const s = String(v).trim()
+      return s ? s.slice(0, max) : null
     }
-  }
-  const prev =
-    json[fileName] && typeof json[fileName] === "object"
-      ? { ...json[fileName] }
-      : {}
-  const next = { ...prev }
-  const str = (v, max) => {
-    if (v == null) return null
-    const s = String(v).trim()
-    return s ? s.slice(0, max) : null
-  }
-  if (Object.prototype.hasOwnProperty.call(patch, "title")) {
-    next.title = str(patch.title, 500)
-  }
-  if (Object.prototype.hasOwnProperty.call(patch, "releaseDate")) {
-    next.releaseDate = str(patch.releaseDate, 64)
-  }
-  if (Object.prototype.hasOwnProperty.call(patch, "genre")) {
-    const g = patch.genre
-    if (g === "" || g == null) {
-      next.genre = null
-    } else {
-      const norm = normalizeStoredGenreString(String(g))
-      next.genre = norm ? str(norm, 800) : null
+    if (Object.prototype.hasOwnProperty.call(patch, "title")) {
+      next.title = str(patch.title, 500)
     }
-  }
-  if (Object.prototype.hasOwnProperty.call(patch, "source")) {
-    next.source = str(patch.source, 200)
-  }
-  if (Object.prototype.hasOwnProperty.call(patch, "url")) {
-    next.url = str(patch.url, 2000)
-  }
-  for (const f of ["trackNumber", "discNumber"]) {
-    if (Object.prototype.hasOwnProperty.call(patch, f)) {
-      const v = patch[f]
-      if (v === "" || v == null) next[f] = null
-      else {
-        const n = Number(v)
-        next[f] = Number.isFinite(n) ? n : null
+    if (Object.prototype.hasOwnProperty.call(patch, "releaseDate")) {
+      next.releaseDate = str(patch.releaseDate, 64)
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "genre")) {
+      const g = patch.genre
+      if (g === "" || g == null) {
+        next.genre = null
+      } else {
+        const norm = normalizeStoredGenreString(String(g))
+        next.genre = norm ? str(norm, 800) : null
       }
     }
-  }
-  next.editedAt = new Date().toISOString()
-  json[fileName] = next
-  await fs.writeFile(writePath, JSON.stringify(json, null, 2), "utf8")
-  return next
+    if (Object.prototype.hasOwnProperty.call(patch, "source")) {
+      next.source = str(patch.source, 200)
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "url")) {
+      next.url = str(patch.url, 2000)
+    }
+    for (const f of ["trackNumber", "discNumber"]) {
+      if (Object.prototype.hasOwnProperty.call(patch, f)) {
+        const v = patch[f]
+        if (v === "" || v == null) next[f] = null
+        else {
+          const n = Number(v)
+          next[f] = Number.isFinite(n) ? n : null
+        }
+      }
+    }
+    next.editedAt = new Date().toISOString()
+    json[fileName] = next
+    await writeJsonObjectAtomic(writePath, json)
+    return next
+  })
+}
+
+export async function saveTrackFetchedMeta(albumDir, fileName, patch) {
+  const fpKord = path.join(albumDir, FILE_TRACK)
+  const readPath = pickTrackMetaPath(albumDir)
+  const writePath = fpKord
+  return withMetaMutation(writePath, async () => {
+    const json = await readJsonObjectFile(readPath)
+    const prev =
+      json[fileName] && typeof json[fileName] === "object"
+        ? { ...json[fileName] }
+        : {}
+    const row = { ...prev, ...patch }
+    delete row.durationMs
+    json[fileName] = row
+    await writeJsonObjectAtomic(writePath, json)
+    return row
+  })
 }
 
 function reEscape(s) {
@@ -478,31 +534,26 @@ export function sanitizeLocalTrackTitleDisplay(raw, opts) {
 export async function pruneOrphanTrackMetaInAlbumDir(albumDir) {
   const readPath = pickTrackMetaPath(albumDir)
   if (!existsSync(readPath)) return { removed: [], written: false }
-  let json = {}
-  try {
-    const raw = await fs.readFile(readPath, "utf8")
-    const j = JSON.parse(raw)
-    if (j && typeof j === "object" && !Array.isArray(j)) json = { ...j }
-  } catch {
-    return { removed: [], written: false }
-  }
-  const entries = await fs.readdir(albumDir, { withFileTypes: true })
-  const audioNames = new Set()
-  for (const e of entries) {
-    if (e.isFile() && AUDIO_RE.test(e.name)) audioNames.add(e.name)
-  }
-  const removed = []
-  const next = { ...json }
-  for (const k of Object.keys(next)) {
-    if (!audioNames.has(k)) {
-      removed.push(k)
-      delete next[k]
-    }
-  }
-  if (removed.length === 0) return { removed: [], written: false }
   const writePath = path.join(albumDir, FILE_TRACK)
-  await fs.writeFile(writePath, JSON.stringify(next, null, 2), "utf8")
-  return { removed, written: true }
+  return withMetaMutation(writePath, async () => {
+    const json = await readJsonObjectFile(readPath)
+    const entries = await fs.readdir(albumDir, { withFileTypes: true })
+    const audioNames = new Set()
+    for (const e of entries) {
+      if (e.isFile() && AUDIO_RE.test(e.name)) audioNames.add(e.name)
+    }
+    const removed = []
+    const next = { ...json }
+    for (const k of Object.keys(next)) {
+      if (!audioNames.has(k)) {
+        removed.push(k)
+        delete next[k]
+      }
+    }
+    if (removed.length === 0) return { removed: [], written: false }
+    await writeJsonObjectAtomic(writePath, next)
+    return { removed, written: true }
+  })
 }
 
 export async function sanitizeTrackTitlesInAlbumDir(albumDir, dryRun) {
@@ -510,40 +561,33 @@ export async function sanitizeTrackTitlesInAlbumDir(albumDir, dryRun) {
   const entries = await fs.readdir(albumDir, { withFileTypes: true })
   const readPath = pickTrackMetaPath(albumDir)
   const writePath = path.join(albumDir, FILE_TRACK)
-  let mut = {}
-  if (existsSync(readPath)) {
-    try {
-      const raw = await fs.readFile(readPath, "utf8")
-      const j = JSON.parse(raw)
-      if (j && typeof j === "object") mut = { ...j }
-    } catch {
-      mut = {}
+  return withMetaMutation(writePath, async () => {
+    const mut = await readJsonObjectFile(readPath)
+    const segs = path.normalize(albumDir).split(path.sep).filter(Boolean)
+    const artistFolder = segs.length >= 2 ? segs[segs.length - 2] : ""
+    for (const e of entries) {
+      if (!e.isFile() || !AUDIO_RE.test(e.name)) continue
+      const base = e.name.replace(AUDIO_RE, "").trim() || e.name
+      const existing =
+        mut[e.name] && typeof mut[e.name] === "object" ? { ...mut[e.name] } : {}
+      const trackArtist = String(existing.artist || "").trim()
+      const to = sanitizeLocalTrackTitleDisplay(base, {
+        artistFolder,
+        ...(trackArtist ? { trackArtist } : {}),
+      })
+      if (to === base) continue
+      changes.push({ fileName: e.name, from: base, to })
+      if (!dryRun) {
+        mut[e.name] = { ...existing, title: to }
+      }
     }
-  }
-  const segs = path.normalize(albumDir).split(path.sep).filter(Boolean)
-  const artistFolder = segs.length >= 2 ? segs[segs.length - 2] : ""
-  for (const e of entries) {
-    if (!e.isFile() || !AUDIO_RE.test(e.name)) continue
-    const base = e.name.replace(AUDIO_RE, "").trim() || e.name
-    const existing =
-      mut[e.name] && typeof mut[e.name] === "object" ? { ...mut[e.name] } : {}
-    const trackArtist = String(existing.artist || "").trim()
-    const to = sanitizeLocalTrackTitleDisplay(base, {
-      artistFolder,
-      ...(trackArtist ? { trackArtist } : {}),
-    })
-    if (to === base) continue
-    changes.push({ fileName: e.name, from: base, to })
-    if (!dryRun) {
-      mut[e.name] = { ...existing, title: to }
+    let written = false
+    if (!dryRun && changes.length) {
+      await writeJsonObjectAtomic(writePath, mut)
+      written = true
     }
-  }
-  let written = false
-  if (!dryRun && changes.length) {
-    await fs.writeFile(writePath, JSON.stringify(mut, null, 2), "utf8")
-    written = true
-  }
-  return { changes, written }
+    return { changes, written }
+  })
 }
 
 /**

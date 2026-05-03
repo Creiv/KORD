@@ -4129,7 +4129,7 @@ function SettingsView({
       return false;
     }
   });
-  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "1.8.0");
+  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "2.0.0");
 
   useEffect(() => {
     Promise.all([fetchConfig(), fetchAccounts()])
@@ -4459,6 +4459,7 @@ function SettingsView({
                     | "bars"
                     | "mirror"
                     | "osc"
+                    | "oscSoft"
                     | "signals"
                     | "embers"
                     | "kord",
@@ -4468,6 +4469,7 @@ function SettingsView({
               <option value="bars">{t("settings.vizBars")}</option>
               <option value="mirror">{t("settings.vizMirror")}</option>
               <option value="osc">{t("settings.vizOsc")}</option>
+              <option value="oscSoft">{t("settings.vizOscSoft")}</option>
               <option value="signals">{t("settings.vizSignals")}</option>
               <option value="embers">{t("settings.vizEmbers")}</option>
               <option value="kord">{t("settings.vizKord")}</option>
@@ -4884,6 +4886,7 @@ function PlayerDock({
   );
   const percent = p.duration > 0 ? (p.currentTime / p.duration) * 100 : 0;
   const cur = p.current;
+  const [castSupported, setCastSupported] = useState(false);
   const [castAvailable, setCastAvailable] = useState(false);
   const [castState, setCastState] = useState<
     "connecting" | "connected" | "disconnected"
@@ -4937,10 +4940,12 @@ function PlayerDock({
       const audio = p.audioRef.current as RemotePlaybackAudio | null;
       const remote = audio?.remote;
       if (!remote?.prompt) {
+        setCastSupported(false);
         setCastAvailable(false);
         setCastState("disconnected");
         return;
       }
+      setCastSupported(true);
       setCastAvailable(true);
       const syncState = () => {
         setCastState(remote.state || "disconnected");
@@ -4949,7 +4954,25 @@ function PlayerDock({
       remote.addEventListener("connecting", syncState);
       remote.addEventListener("connect", syncState);
       remote.addEventListener("disconnect", syncState);
+      let availabilityWatchId: number | null = null;
+      let availabilityWatchActive = true;
+      if (remote.watchAvailability) {
+        remote
+          .watchAvailability((available) => {
+            if (availabilityWatchActive) setCastAvailable(Boolean(available));
+          })
+          .then((id) => {
+            availabilityWatchId = id;
+          })
+          .catch(() => {
+            if (availabilityWatchActive) setCastAvailable(true);
+          });
+      }
       castRemoteCleanupRef.current = () => {
+        availabilityWatchActive = false;
+        if (availabilityWatchId != null && remote.cancelWatchAvailability) {
+          void remote.cancelWatchAvailability(availabilityWatchId);
+        }
         remote.removeEventListener("connecting", syncState);
         remote.removeEventListener("connect", syncState);
         remote.removeEventListener("disconnect", syncState);
@@ -4974,12 +4997,12 @@ function PlayerDock({
       return;
     }
     try {
-      if (cur) await p.prepareRemotePlayback(castBaseUrl);
+      if (cur) void p.prepareRemotePlayback(castBaseUrl);
       await remote.prompt();
       setCastState(remote.state || "disconnected");
     } catch (error) {
       const name = String((error as Error)?.name || "");
-      if (name !== "AbortError" && name !== "NotAllowedError") {
+      if (name !== "AbortError") {
         void appAlert({ message: t("player.castFailed") });
       }
     }
@@ -5189,32 +5212,30 @@ function PlayerDock({
             ) : null}
           </div>
           <div className="player-bar2__output">
-            <button
-              type="button"
-              className={`player-bar2__ic player-bar2__ic--cast ${
-                castState === "connected" ? "is-on" : ""
-              }`}
-              disabled={!cur || !castAvailable}
-              onClick={() => void openCastPicker()}
-              title={
-                castAvailable
-                  ? t("player.castTitle")
-                  : t("player.castUnsupported")
-              }
-              aria-label={
-                castAvailable
-                  ? t("player.castTitle")
-                  : t("player.castUnsupported")
-              }
-              aria-pressed={castState === "connected"}
-            >
-              <span
-                className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
-                aria-hidden
+            {castSupported ? (
+              <button
+                type="button"
+                className={`player-bar2__ic player-bar2__ic--cast ${
+                  castState === "connected" ? "is-on" : ""
+                } ${!castAvailable ? "is-unavailable" : ""}`}
+                disabled={!cur}
+                onClick={() => void openCastPicker()}
+                title={
+                  castAvailable ? t("player.castTitle") : t("player.castNoDevices")
+                }
+                aria-label={
+                  castAvailable ? t("player.castTitle") : t("player.castNoDevices")
+                }
+                aria-pressed={castState === "connected"}
               >
-                <UiCast />
-              </span>
-            </button>
+                <span
+                  className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
+                  aria-hidden
+                >
+                  <UiCast />
+                </span>
+              </button>
+            ) : null}
             <label className="volume2">
               <span className="sr-only">{t("player.volumeAria")}</span>
               <input

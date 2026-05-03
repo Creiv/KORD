@@ -31,9 +31,11 @@ import {
   fetchReleaseMetadata,
   fetchTrackMetadata,
   prepareTrackTitleForMeta,
+  saveAlbumFetchedMeta,
   saveAlbumManualMeta,
   sanitizeTrackTitlesFullLibrary,
   sanitizeTrackTitlesInAlbumDir,
+  saveTrackFetchedMeta,
   saveTrackManualMeta,
   pruneOrphanTrackMetaInAlbumDir,
 } from "./albumInfo.mjs";
@@ -2448,11 +2450,7 @@ app.post("/api/album-info/fetch", async (req, res) => {
     if (meta.error) return sendError(res, 404, meta.error);
     const payload = { ...meta, fetchedAt: new Date().toISOString() };
     delete payload.error;
-    await fs.writeFile(
-      path.join(full, "kord-albuminfo.json"),
-      JSON.stringify(payload, null, 2),
-      "utf8"
-    );
+    const savedMeta = await saveAlbumFetchedMeta(full, payload);
     void actLog(req, {
       kind: "library",
       action: "album_metadata_fetch",
@@ -2460,7 +2458,7 @@ app.post("/api/album-info/fetch", async (req, res) => {
       detail: "MusicBrainz / release metadata",
     });
     await invalidateLibraryIndex(root);
-    return res.json({ ok: true, albumPath, meta: payload });
+    return res.json({ ok: true, albumPath, meta: savedMeta });
   } catch (error) {
     return sendError(res, 500, String(error?.message || error));
   }
@@ -2581,13 +2579,10 @@ app.post("/api/track-info/fetch", async (req, res) => {
       titleRaw
     );
     if (meta.error) return sendError(res, 404, meta.error);
-    const prevRow =
-      existingTr && typeof existingTr === "object" ? { ...existingTr } : {};
-    const row = { ...prevRow, ...meta, fetchedAt: new Date().toISOString() };
-    delete row.durationMs;
-    json[fileName] = row;
-    const fpWrite = existsSync(fpWpp) && !existsSync(fpKord) ? fpWpp : fpKord;
-    await fs.writeFile(fpWrite, JSON.stringify(json, null, 2), "utf8");
+    const row = await saveTrackFetchedMeta(albumDir, fileName, {
+      ...meta,
+      fetchedAt: new Date().toISOString(),
+    });
     void actLog(req, {
       kind: "library",
       action: "track_metadata_fetch",
@@ -2597,7 +2592,7 @@ app.post("/api/track-info/fetch", async (req, res) => {
     await invalidateLibraryIndex(root);
     const fileMs = await getAudioFileDurationMs(fullTrackPath);
     const metaOut = {
-      ...json[fileName],
+      ...row,
       durationMs: Number.isFinite(fileMs) ? fileMs : null,
     };
     return res.json({ ok: true, relPath, meta: metaOut });

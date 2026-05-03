@@ -24,6 +24,7 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
   { id: "aubergine", label: "Dark Amethyst", bg: "#0e0e11", section: "#262630", accent: "#8b5cf6", accent2: "#c4b5fd" },
   { id: "tangerine", label: "Dark Citrus", bg: "#0e0e11", section: "#262630", accent: "#f97316", accent2: "#fbbf24" },
   { id: "carmine", label: "Dark Carmine", bg: "#0e0e11", section: "#262630", accent: "#e11d48", accent2: "#fb7185" },
+  { id: "prism", label: "Prism Engine", bg: "#07090b", section: "#162022", accent: "#a3ff3f", accent2: "#ff4fd8" },
 ];
 
 export function themeLabel(id: ThemeMode): string {

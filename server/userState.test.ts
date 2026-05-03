@@ -110,4 +110,27 @@ describe("userState", () => {
     expect(saved.settings.locale).toBe("it")
     expect(saved.revision).toBe(3)
   })
+
+  it("serializza PATCH concorrenti senza perdere campi indipendenti", async () => {
+    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kord-user-state-race-"))
+    await writeUserState(musicRoot, defaultUserState(), "raceacct")
+
+    await Promise.all([
+      mergeAndWriteUserStatePatch(musicRoot, "raceacct", {
+        favorites: ["artist/album/a.mp3"],
+      }),
+      mergeAndWriteUserStatePatch(musicRoot, "raceacct", {
+        trackPlayCounts: { "artist/album/b.mp3": 2 },
+      }),
+      mergeAndWriteUserStatePatch(musicRoot, "raceacct", {
+        settings: { locale: "it" },
+      }),
+    ])
+
+    const saved = await readUserState(musicRoot, "raceacct")
+    expect(saved.favorites).toEqual(["artist/album/a.mp3"])
+    expect(saved.trackPlayCounts).toEqual({ "artist/album/b.mp3": 2 })
+    expect(saved.settings.locale).toBe("it")
+    expect(saved.revision).toBe(5)
+  })
 })

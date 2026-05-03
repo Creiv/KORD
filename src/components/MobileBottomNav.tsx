@@ -5,8 +5,8 @@ import "./mobile-bottom-nav.css";
 import { KordNavIcon, UiClose } from "./KordUiIcons";
 
 const MORE_KEYS: { id: AppSection; labelKey: string }[] = [
+  { id: "queue", labelKey: "nav.queue" },
   { id: "settings", labelKey: "nav.settings" },
-  { id: "studio", labelKey: "nav.studio" },
   { id: "playlists", labelKey: "nav.playlists" },
   { id: "favorites", labelKey: "nav.favorites" },
   { id: "recent", labelKey: "nav.recent" },
@@ -17,7 +17,7 @@ const PRIMARY: { id: AppSection; labelKey: string }[] = [
   { id: "dashboard", labelKey: "nav.dashboard" },
   { id: "ascolta", labelKey: "nav.listen" },
   { id: "libreria", labelKey: "nav.library" },
-  { id: "queue", labelKey: "nav.queue" },
+  { id: "studio", labelKey: "nav.studio" },
 ];
 
 export function MobileBottomNav({
