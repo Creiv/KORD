@@ -496,6 +496,7 @@ type UserStateContextValue = {
   toggleShuffleExcludedTrack: (relPath: string) => void;
   setShuffleTracksExcludedBulk: (relPaths: readonly string[], exclude: boolean) => void;
   rehydrateShuffleExclusionsFromIndex: (index: LibraryIndex) => void;
+  stripUserStateForRelPaths: (deletedRelPaths: string[]) => void;
   syncUserStateFromServer: () => Promise<void>;
 };
 
@@ -869,6 +870,55 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
     [commit]
   );
 
+  const stripUserStateForRelPaths = useCallback(
+    (deletedRelPaths: string[]) => {
+      const deleted = new Set(deletedRelPaths.filter(Boolean));
+      if (!deleted.size) return;
+      commit(
+        (prev) => {
+          const nextQueueTracks = prev.queue.tracks.filter(
+            (tr) => !deleted.has(tr.relPath)
+          );
+          const oldCurrent = prev.queue.tracks[prev.queue.currentIndex];
+          const nextCurrent = oldCurrent
+            ? nextQueueTracks.findIndex((tr) => tr.relPath === oldCurrent.relPath)
+            : -1;
+          return {
+            ...prev,
+            favorites: prev.favorites.filter((rel) => !deleted.has(rel)),
+            shuffleExcludedTrackRelPaths:
+              prev.shuffleExcludedTrackRelPaths.filter((rel) => !deleted.has(rel)),
+            trackPlayCounts: Object.fromEntries(
+              Object.entries(prev.trackPlayCounts || {}).filter(
+                ([rel]) => !deleted.has(rel)
+              )
+            ) as UserStateV1["trackPlayCounts"],
+            recent: prev.recent.filter((tr) => !deleted.has(tr.relPath)),
+            playlists: prev.playlists.map((pl) => ({
+              ...pl,
+              tracks: pl.tracks.filter((tr) => !deleted.has(tr.relPath)),
+            })),
+            queue: {
+              tracks: nextQueueTracks,
+              currentIndex:
+                nextQueueTracks.length === 0
+                  ? 0
+                  : Math.max(
+                      0,
+                      Math.min(
+                        nextCurrent >= 0 ? nextCurrent : 0,
+                        nextQueueTracks.length - 1
+                      )
+                    ),
+            },
+          };
+        },
+        { immediate: true }
+      );
+    },
+    [commit]
+  );
+
   const setQueueSnapshot = useCallback(
     (queue: QueueState) => {
       commit((prev) => ({
@@ -1082,6 +1132,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       toggleShuffleExcludedTrack,
       setShuffleTracksExcludedBulk,
       rehydrateShuffleExclusionsFromIndex,
+      stripUserStateForRelPaths,
       syncUserStateFromServer,
     }),
     [
@@ -1107,6 +1158,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       toggleFavorite,
       toggleShuffleExcludedAlbum,
       toggleShuffleExcludedTrack,
+      stripUserStateForRelPaths,
       syncUserStateFromServer,
       updateSettings,
     ]

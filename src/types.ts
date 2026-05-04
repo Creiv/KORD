@@ -15,6 +15,7 @@ export type TrackMeta = {
   discNumber: number | null;
   source: string | null;
   url: string | null;
+  lyrics?: string | null;
 };
 
 export type LibTrack = {

@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components -- hook + provider */
 import {
   createContext,
+  Fragment,
   useCallback,
   useContext,
   useEffect,
@@ -10,6 +11,7 @@ import {
   type CSSProperties,
   type FormEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import { deleteAudioRelPaths, saveTrackInfoManual } from "../lib/api";
 import { useI18n } from "../i18n/useI18n";
 import { usePlayer } from "../context/PlayerContext";
@@ -99,6 +101,8 @@ function TrackMetaEditorModal({
   const [genres, setGenres] = useState<string[]>([]);
   const [moods, setMoods] = useState<TrackMoodId[]>([]);
   const [newGenre, setNewGenre] = useState("");
+  const [lyricsOpen, setLyricsOpen] = useState(false);
+  const [lyricsValue, setLyricsValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -115,6 +119,8 @@ function TrackMetaEditorModal({
       setReleaseDate(toDateInputValue(m?.releaseDate ?? null));
       setGenres(parseTrackGenres(m?.genre));
       setMoods(im);
+      setLyricsValue(String(m?.lyrics || ""));
+      setLyricsOpen(false);
       initialMoodsSigRef.current = trackMoodsSignature(im);
       setNewGenre("");
       setErr(null);
@@ -214,13 +220,90 @@ function TrackMetaEditorModal({
     }
   }, [onClose, onSaved, p, stripUserStateForRelPaths, t, track, appConfirm]);
 
+  const saveLyrics = useCallback(async () => {
+    if (!track) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const patch = {
+        lyrics: lyricsValue.trim() ? lyricsValue : null,
+      };
+      const saved = await saveTrackInfoManual(track.relPath, patch);
+      await Promise.resolve(
+        onSaved({
+          relPath: saved.relPath,
+          track:
+            saved.track ??
+            ({
+              relPath: saved.relPath,
+              title: track.title,
+              meta: {
+                ...(track.meta || {}),
+                ...(saved.meta as EnrichedTrack["meta"]),
+                lyrics: patch.lyrics,
+              } as EnrichedTrack["meta"],
+            } satisfies LibraryEntityDelta["track"]),
+          album: saved.album,
+        })
+      );
+      setLyricsOpen(false);
+    } catch (er: unknown) {
+      setErr(er instanceof Error ? er.message : String(er));
+    } finally {
+      setBusy(false);
+    }
+  }, [lyricsValue, onSaved, track]);
+
   if (!track) return null;
 
+  const lyricsPortal = lyricsOpen
+    ? createPortal(
+      <div
+        className="meta-edit-backdrop meta-edit-backdrop--lyrics-portal"
+        role="presentation"
+        onClick={(ev) => {
+          if (ev.target === ev.currentTarget) setLyricsOpen(false);
+        }}
+      >
+        <div
+          className="meta-edit-dialog surface-card meta-edit-lyrics-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("trackMeta.editLyrics")}
+        >
+          <textarea
+            className="log meta-edit-lyrics-textarea"
+            rows={14}
+            value={lyricsValue}
+            onChange={(ev) => setLyricsValue(ev.target.value)}
+            placeholder={t("trackMeta.lyricsPlaceholder")}
+          />
+          <div className="meta-edit-actions">
+            <span className="meta-edit-actions__spacer" aria-hidden />
+            <button
+              type="button"
+              className="btn"
+              disabled={busy || deleteBusy}
+              onClick={() => {
+                void saveLyrics();
+              }}
+            >
+              {busy ? t("trackMeta.editSaving") : t("trackMeta.saveLyrics")}
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    )
+    : null;
+
   return (
+    <Fragment>
     <div
       className="meta-edit-backdrop"
       role="presentation"
       onClick={(ev) => {
+        if (lyricsOpen) return;
         if (ev.target === ev.currentTarget) onClose();
       }}
     >
@@ -347,6 +430,16 @@ function TrackMetaEditorModal({
               })}
             </div>
           </div>
+          <div className="meta-edit-lyrics-row">
+            <button
+              type="button"
+              className="btn secondary meta-edit-lyrics-btn"
+              disabled={busy || deleteBusy}
+              onClick={() => setLyricsOpen(true)}
+            >
+              {t("trackMeta.editLyrics")}
+            </button>
+          </div>
           {err ? <p className="subtle sm warnline">{err}</p> : null}
           <div className="meta-edit-actions">
             <button
@@ -370,6 +463,8 @@ function TrackMetaEditorModal({
         </form>
       </div>
     </div>
+    {lyricsPortal}
+    </Fragment>
   );
 }
 

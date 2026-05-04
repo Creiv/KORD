@@ -261,7 +261,8 @@ body,
     min-height: 32px;
   }
 
-  .listen-stage {
+  .listen-page .listen-stage,
+  .listen-page .listen-dashboard-row {
     align-items: stretch;
     gap: 0.75rem;
   }

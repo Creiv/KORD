@@ -64,4 +64,18 @@ describe("musicLibrary", () => {
 
     expect(index.tracks[0]?.meta?.durationMs).toBe(2000)
   })
+
+  it("includes lyrics from kord-trackinfo in index track meta", async () => {
+    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kord-library-lyrics-"))
+    const albumDir = path.join(musicRoot, "Artist One", "Album One")
+    await fs.mkdir(albumDir, { recursive: true })
+    await fs.writeFile(path.join(albumDir, "01 Song.mp3"), "")
+    await fs.writeFile(
+      path.join(albumDir, "kord-trackinfo.json"),
+      JSON.stringify({ "01 Song.mp3": { lyrics: "  Line one\nLine two  " } }, null, 2),
+    )
+
+    const index = await buildLibraryIndex(musicRoot)
+    expect(index.tracks[0]?.meta?.lyrics).toBe("Line one\nLine two")
+  })
 })

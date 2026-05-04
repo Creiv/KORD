@@ -236,6 +236,10 @@ export async function loadTrackJsonMetaMapFromDir(albumDir) {
         title: t,
         releaseDate: v.releaseDate || v.date || null,
         genre: v.genre || null,
+        lyrics:
+          v.lyrics != null && String(v.lyrics).trim()
+            ? String(v.lyrics).trim()
+            : null,
         durationMs: Number.isFinite(v.durationMs) ? v.durationMs : null,
         trackNumber: Number.isFinite(v.trackNumber) ? v.trackNumber : null,
         discNumber: Number.isFinite(v.discNumber) ? v.discNumber : null,
@@ -329,6 +333,9 @@ export async function saveTrackManualMeta(albumDir, fileName, patch) {
         const norm = normalizeStoredGenreString(String(g))
         next.genre = norm ? str(norm, 800) : null
       }
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "lyrics")) {
+      next.lyrics = str(patch.lyrics, 20000)
     }
     if (Object.prototype.hasOwnProperty.call(patch, "source")) {
       next.source = str(patch.source, 200)

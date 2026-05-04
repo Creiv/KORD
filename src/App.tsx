@@ -82,6 +82,7 @@ import {
   UiKeyboardArrowDown,
   UiKeyboardArrowUp,
   UiMusicNote,
+  UiNote,
   UiPause,
   UiPlayArrow,
   UiPlayCircle,
@@ -1724,6 +1725,47 @@ function DashboardView({
   );
 }
 
+type ParsedLrcLine = {
+  atSec: number;
+  text: string;
+};
+
+function parseLrcLyrics(raw: string): ParsedLrcLine[] {
+  const out: ParsedLrcLine[] = [];
+  const rows = String(raw || "").split(/\r?\n/);
+  for (const row of rows) {
+    const text = row.replace(/\[[^\]]*]/g, "").trim();
+    const tags = [...row.matchAll(/\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g)];
+    for (const m of tags) {
+      const mm = Number(m[1] || 0);
+      const ss = Number(m[2] || 0);
+      const fracRaw = String(m[3] || "");
+      const frac =
+        fracRaw.length === 0
+          ? 0
+          : fracRaw.length === 1
+            ? Number(fracRaw) / 10
+            : fracRaw.length === 2
+              ? Number(fracRaw) / 100
+              : Number(fracRaw) / 1000;
+      const atSec = mm * 60 + ss + frac;
+      if (Number.isFinite(atSec)) out.push({ atSec, text });
+    }
+  }
+  out.sort((a, b) => a.atSec - b.atSec);
+  return out;
+}
+
+function currentLrcLineIndex(lines: ParsedLrcLine[], currentTime: number): number {
+  if (!lines.length) return -1;
+  let idx = -1;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (currentTime >= lines[i]!.atSec) idx = i;
+    else break;
+  }
+  return idx;
+}
+
 function ListenView({
   index,
   onOpenSection,
@@ -1782,9 +1824,62 @@ function ListenView({
     listenQueueStart,
     listenQueueStart + 6
   );
-  const recentTracks = user.state.recent.slice(0, 6);
+  const recentTracks = useMemo(() => {
+    const curRel = cur?.relPath;
+    return user.state.recent
+      .filter((tr) => !curRel || tr.relPath !== curRel)
+      .slice(0, 6);
+  }, [user.state.recent, cur?.relPath]);
+  const [listenRecentPanel, setListenRecentPanel] = useState<"recent" | "lyrics">(
+    "recent",
+  );
+  const currentLyricsRaw = String(cur?.meta?.lyrics || "").trim();
+  const parsedLrc = useMemo(
+    () => parseLrcLyrics(currentLyricsRaw),
+    [currentLyricsRaw]
+  );
+  const currentLrcIdx = useMemo(
+    () => currentLrcLineIndex(parsedLrc, p.currentTime),
+    [parsedLrc, p.currentTime]
+  );
+  const hasLyrics = currentLyricsRaw.length > 0;
+  const hasLrcLyrics = parsedLrc.length > 0;
+  const lrcScrollRef = useRef<HTMLDivElement>(null);
+  const lrcCurrentLineRef = useRef<HTMLParagraphElement | null>(null);
+  useEffect(() => {
+    if (!hasLyrics) {
+      setListenRecentPanel("recent");
+      return;
+    }
+    setListenRecentPanel("lyrics");
+  }, [hasLyrics, cur?.relPath]);
+  useLayoutEffect(() => {
+    if (!hasLrcLyrics || listenRecentPanel !== "lyrics") return;
+    const wrap = lrcScrollRef.current;
+    if (!wrap) return;
+    if (currentLrcIdx < 0) {
+      wrap.scrollTop = 0;
+      return;
+    }
+    const line = lrcCurrentLineRef.current;
+    if (!line) return;
+    const reduce =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const lineTop = line.offsetTop;
+    const lineH = line.offsetHeight;
+    const half = wrap.clientHeight / 2;
+    const target = lineTop + lineH / 2 - half;
+    const max = Math.max(0, wrap.scrollHeight - wrap.clientHeight);
+    const next = Math.max(0, Math.min(target, max));
+    wrap.scrollTo({
+      top: next,
+      behavior: reduce ? "auto" : "smooth",
+    });
+  }, [currentLrcIdx, listenRecentPanel, hasLrcLyrics, parsedLrc.length]);
   return (
     <div className="view-stack">
+      <div className="listen-page">
       <section className="listen-stage">
         <div className="listen-stage__meta">
           <div className="listen-stage__head">
@@ -1915,81 +2010,174 @@ function ListenView({
           <Visualizer mode={user.state.settings.vizMode} />
         </div>
       </section>
-
-      <section className="dashboard-grid">
-        <section className="surface-card">
-          <div className="section-head section-head--page-toolbar">
-            <SectionHeadLead
-              eyebrow={t("listen.queueEyebrow")}
-              title={t("listen.queueHeading")}
-              icon={<UiNavList className="section-head__ic" />}
-            />
-            <button
-              type="button"
-              className="text-btn"
-              onClick={() => onOpenSection("queue")}
-            >
-              {t("listen.manageQueue")}
-            </button>
-          </div>
-          {p.queue.length === 0 ? (
-            <div className="panel-empty panel-empty--actions">
-              <p>{t("listen.queueEmpty")}</p>
-              <button
-                type="button"
-                className="ghost-btn"
-                onClick={runRandomIntelligent}
-              >
-                {t("listen.smartShuffle")}
-              </button>
-            </div>
-          ) : (
-            <div className="list-stack">
-              {listenQueuePreview.map((track, i) => {
-                const index = listenQueueStart + i;
-                return (
-                  <TrackListRow
-                    key={`${track.relPath}-${index}`}
-                    track={track}
-                    active={index === p.currentIndex}
-                    onPlay={() => p.playTrack(track, p.queue, index)}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        <section className="surface-card">
-          <div className="section-head section-head--page-toolbar">
-            <SectionHeadLead
-              eyebrow={t("listen.recentEyebrow")}
-              title={t("listen.recentHeading")}
-              icon={<UiHistory className="section-head__ic" />}
-            />
-            <button
-              type="button"
-              className="text-btn"
-              onClick={() => onOpenSection("recent")}
-            >
-              {t("listen.recentSeeAll")}
-            </button>
-          </div>
-          {recentTracks.length ? (
-            <div className="list-stack">
-              {recentTracks.map((track) => (
-                <TrackListRow
-                  key={track.relPath}
-                  track={track}
-                  onPlay={() => playFromLibraryCard(track)}
+      <div className="listen-dashboard-row">
+            <section className="surface-card listen-queue-panel">
+              <div className="section-head section-head--page-toolbar">
+                <SectionHeadLead
+                  eyebrow={t("listen.queueEyebrow")}
+                  title={t("listen.queueHeading")}
+                  icon={<UiNavList className="section-head__ic" />}
                 />
-              ))}
-            </div>
-          ) : (
-            <p className="panel-empty">{t("listen.recentEmpty")}</p>
-          )}
-        </section>
-      </section>
+                <button
+                  type="button"
+                  className="text-btn"
+                  onClick={() => onOpenSection("queue")}
+                >
+                  {t("listen.manageQueue")}
+                </button>
+              </div>
+              <div className="listen-queue-panel__body">
+                {p.queue.length === 0 ? (
+                  <div className="panel-empty panel-empty--actions">
+                    <p>{t("listen.queueEmpty")}</p>
+                    <button
+                      type="button"
+                      className="ghost-btn"
+                      onClick={runRandomIntelligent}
+                    >
+                      {t("listen.smartShuffle")}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="list-stack listen-queue-panel__list">
+                    {listenQueuePreview.map((track, i) => {
+                      const index = listenQueueStart + i;
+                      return (
+                        <TrackListRow
+                          key={`${track.relPath}-${index}`}
+                          track={track}
+                          active={index === p.currentIndex}
+                          onPlay={() => p.playTrack(track, p.queue, index)}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="surface-card listen-recent-panel">
+              <div className="section-head section-head--page-toolbar listen-recent-panel__head">
+                <div className="section-head__lead listen-recent-panel__lead">
+                  <span className="section-head__icon-wrap" aria-hidden>
+                    {listenRecentPanel === "recent" ? (
+                      <UiHistory className="section-head__ic" />
+                    ) : (
+                      <UiNote className="section-head__ic" />
+                    )}
+                  </span>
+                  <div className="section-head__text">
+                    <p className="eyebrow">
+                      {listenRecentPanel === "recent"
+                        ? t("listen.recentEyebrow")
+                        : t("listen.recentLyricsEyebrow")}
+                    </p>
+                    {listenRecentPanel === "recent" ? (
+                      <h2>{t("listen.recentHeading")}</h2>
+                    ) : null}
+                    <div
+                      className="section-nav-tabs listen-recent-panel__nav"
+                      role="tablist"
+                      aria-label={t("listen.recentPanelTabsAria")}
+                    >
+                      <button
+                        type="button"
+                        role="tab"
+                        aria-selected={listenRecentPanel === "recent"}
+                        className={
+                          listenRecentPanel === "recent"
+                            ? "section-nav-tab is-on"
+                            : "section-nav-tab"
+                        }
+                        onClick={() => setListenRecentPanel("recent")}
+                      >
+                        {t("listen.recentTabRecent")}
+                      </button>
+                      <button
+                        type="button"
+                        role="tab"
+                        aria-selected={listenRecentPanel === "lyrics"}
+                        className={
+                          listenRecentPanel === "lyrics"
+                            ? "section-nav-tab is-on"
+                            : "section-nav-tab"
+                        }
+                        disabled={!hasLyrics}
+                        onClick={() => {
+                          if (hasLyrics) setListenRecentPanel("lyrics");
+                        }}
+                      >
+                        {t("listen.recentLyricsPlainTitle")}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                {listenRecentPanel === "recent" ? (
+                  <button
+                    type="button"
+                    className="text-btn"
+                    onClick={() => onOpenSection("recent")}
+                  >
+                    {t("listen.recentSeeAll")}
+                  </button>
+                ) : null}
+              </div>
+              <div className="listen-recent-panel__body">
+                {listenRecentPanel === "recent" ? (
+                  recentTracks.length ? (
+                    <div className="list-stack listen-recent-panel__list">
+                      {recentTracks.map((track) => (
+                        <TrackListRow
+                          key={track.relPath}
+                          track={track}
+                          onPlay={() => playFromLibraryCard(track)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="panel-empty">{t("listen.recentEmpty")}</p>
+                  )
+                ) : hasLyrics ? (
+                  <div
+                    className="listen-recent-lyrics"
+                    role="region"
+                    aria-live="polite"
+                    aria-label={
+                      hasLrcLyrics
+                        ? t("listen.recentLyricsTitle")
+                        : t("listen.recentLyricsPlainTitle")
+                    }
+                  >
+                    {hasLrcLyrics ? (
+                      <div
+                        ref={lrcScrollRef}
+                        className="listen-recent-lyrics__lrc"
+                      >
+                        {parsedLrc.map((row, idx) => (
+                          <p
+                            key={`${row.atSec}-${idx}`}
+                            ref={idx === currentLrcIdx ? lrcCurrentLineRef : undefined}
+                            className={
+                              idx === currentLrcIdx
+                                ? "listen-recent-lyrics__line is-current"
+                                : "listen-recent-lyrics__line"
+                            }
+                          >
+                            {row.text || "…"}
+                          </p>
+                        ))}
+                      </div>
+                    ) : (
+                      <pre className="listen-recent-lyrics__plain">{currentLyricsRaw}</pre>
+                    )}
+                  </div>
+                ) : (
+                  <p className="panel-empty subtle sm">{t("listen.recentLyricsNone")}</p>
+                )}
+              </div>
+            </section>
+      </div>
+      </div>
     </div>
   );
 }
@@ -4129,7 +4317,7 @@ function SettingsView({
       return false;
     }
   });
-  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "2.0.0");
+  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "2.1.0");
 
   useEffect(() => {
     Promise.all([fetchConfig(), fetchAccounts()])

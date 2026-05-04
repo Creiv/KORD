@@ -1061,6 +1061,7 @@ export type FetchedTrackMeta = {
   title?: string
   releaseDate: string | null
   genre: string | null
+  lyrics?: string | null
   durationMs: number | null
   trackNumber: number | null
   discNumber: number | null
@@ -1128,6 +1129,7 @@ export type TrackMetaSavePatch = {
   title?: string | null;
   releaseDate?: string | null;
   genre?: string | null;
+  lyrics?: string | null;
   /** fino a 3 id canonici; `null` o `[]` azzera. */
   moods?: string[] | null;
   /** compat salvataggi vecchi */

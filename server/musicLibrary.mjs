@@ -102,6 +102,10 @@ function trackFromFile({
       mtime: numOrNull(st.mtimeMs),
       releaseDate: trackMeta?.releaseDate || null,
       genre: trackMeta?.genre || null,
+      lyrics:
+        trackMeta?.lyrics != null && String(trackMeta.lyrics).trim()
+          ? String(trackMeta.lyrics).trim()
+          : null,
       moods: [],
       durationMs: numOrNull(fileDurationMs),
       trackNumber: numOrNull(

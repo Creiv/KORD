@@ -2412,7 +2412,7 @@ app.post("/api/artwork/apply", async (req, res) => {
     if (!statSync(full).isDirectory())
       return sendError(res, 400, "Not a directory");
     const response = await fetch(imageUrl, {
-      headers: { "User-Agent": "Kord/2.0" },
+      headers: { "User-Agent": "Kord/2.1" },
     });
     if (!response.ok) return sendError(res, 400, "Image download failed");
     const type = (response.headers.get("content-type") || "").toLowerCase();
@@ -2636,6 +2636,7 @@ app.post("/api/track-info/save", async (req, res) => {
       "title",
       "releaseDate",
       "genre",
+      "lyrics",
       "trackNumber",
       "discNumber",
       "source",
