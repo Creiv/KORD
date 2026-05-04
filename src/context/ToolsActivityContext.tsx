@@ -40,8 +40,6 @@ type Ctx = {
   setTrackScanProg: Dispatch<SetStateAction<Prog>>
   titleSanBusy: boolean
   setTitleSanBusy: Dispatch<SetStateAction<boolean>>
-  genreAutoBusy: boolean
-  setGenreAutoBusy: Dispatch<SetStateAction<boolean>>
   trackPruneBusy: boolean
   setTrackPruneBusy: Dispatch<SetStateAction<boolean>>
   trackPruneProg: Prog
@@ -68,7 +66,6 @@ export function ToolsActivityProvider({ children }: { children: ReactNode }) {
   const [trackAllBusy, setTrackAllBusy] = useState(false)
   const [trackScanProg, setTrackScanProg] = useState<Prog>(null)
   const [titleSanBusy, setTitleSanBusy] = useState(false)
-  const [genreAutoBusy, setGenreAutoBusy] = useState(false)
   const [trackPruneBusy, setTrackPruneBusy] = useState(false)
   const [trackPruneProg, setTrackPruneProg] = useState<Prog>(null)
   const stopMetaAll = useRef(false)
@@ -85,7 +82,6 @@ export function ToolsActivityProvider({ children }: { children: ReactNode }) {
       trackMetaBusy ||
       trackAllBusy ||
       titleSanBusy ||
-      genreAutoBusy ||
       trackPruneBusy,
     [
       dlBusy,
@@ -96,7 +92,6 @@ export function ToolsActivityProvider({ children }: { children: ReactNode }) {
       trackMetaBusy,
       trackAllBusy,
       titleSanBusy,
-      genreAutoBusy,
       trackPruneBusy,
     ],
   )
@@ -129,8 +124,6 @@ export function ToolsActivityProvider({ children }: { children: ReactNode }) {
       setTrackScanProg,
       titleSanBusy,
       setTitleSanBusy,
-      genreAutoBusy,
-      setGenreAutoBusy,
       trackPruneBusy,
       setTrackPruneBusy,
       trackPruneProg,
@@ -154,7 +147,6 @@ export function ToolsActivityProvider({ children }: { children: ReactNode }) {
       trackAllBusy,
       trackScanProg,
       titleSanBusy,
-      genreAutoBusy,
       trackPruneBusy,
       trackPruneProg,
       toolsAnyBusy,

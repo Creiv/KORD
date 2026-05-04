@@ -4479,16 +4479,6 @@ function SettingsView({
               <option value="kord">{t("settings.vizKord")}</option>
             </select>
           </label>
-          <label className="setting-card checkbox">
-            <input
-              type="checkbox"
-              checked={user.state.settings.restoreSession}
-              onChange={(event) =>
-                user.updateSettings({ restoreSession: event.target.checked })
-              }
-            />
-            <span>{t("settings.restoreSession")}</span>
-          </label>
         </div>
       </section>
       <section className="surface-card">

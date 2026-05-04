@@ -1209,19 +1209,3 @@ export async function sanitizeTrackTitles(
   return unwrap<SanitizeTrackTitlesAll | SanitizeTrackTitlesOneAlbum>(response)
 }
 
-export type GenreAutoApplyBatchRes = {
-  ok: number
-  errorCount: number
-  errors: { relPath: string; err: string }[]
-}
-
-export async function applyGenreAutoBatch(
-  items: { relPath: string; genre: string }[],
-): Promise<GenreAutoApplyBatchRes> {
-  const response = await apiFetch("/api/studio/genre-auto-apply", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ items }),
-  })
-  return unwrap<GenreAutoApplyBatchRes>(response)
-}

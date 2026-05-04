@@ -126,7 +126,7 @@ function shuffleTailFromCurrent<T>(items: T[], currentIdx: number): T[] {
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const user = useUserState();
   const userReady = user.ready;
-  const restoreSession = user.state.settings.restoreSession;
+  const restoreSession = true;
   const persistedQueue = user.state.queue;
   const pushRecent = user.pushRecent;
   const incrementTrackPlayCount = user.incrementTrackPlayCount;

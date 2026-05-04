@@ -1,17 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePlayer } from "../context/PlayerContext";
 import { useToolsActivity } from "../context/ToolsActivityContext";
-import { useUserState } from "../context/UserStateContext";
 import { useAppConfirm } from "../context/AppConfirmContext";
 import { useI18n } from "../i18n/useI18n";
 import {
   applyArtwork,
   createMusicSubdir,
   coverUrlForAlbumRelPath,
-  deleteAudioRelPaths,
   fetchConfig,
   fetchAlbumInfo,
-  fetchLibraryIndex,
   fetchLibraryCatalog,
   fetchMyLibrarySelection,
   patchMyLibrarySelection,
@@ -24,8 +21,6 @@ import {
   newStudioDownloadId,
   runYtdlpDownload,
   cancelStudioDownload,
-  applyGenreAutoBatch,
-  saveTrackInfoManual,
   sanitizeTrackTitles,
   searchArtwork,
   searchMusicDirs,
@@ -49,18 +44,8 @@ import type {
   LibraryResponse,
   LibrarySelectionV1,
 } from "../types";
-import {
-  buildFolderReplaceSnapshotForFolder,
-  buildFolderReplaceTrackMetaPatches,
-  computePostDownloadRedundantRemovals,
-  type FolderReplaceSnapshot,
-} from "../lib/downloadFolderReplace";
 import { ytdlpLogDetailForUser } from "../lib/ytdlpLogFilter";
 import { formatTrackGenresForDisplay } from "../lib/genres";
-import {
-  computeGenreAutoAssignments,
-  type GenreAutoAssignment,
-} from "../lib/genreAutoAssign";
 import {
   studioDownloadSourceForArtistUrl,
   urlMatchesStudioDlMode,
@@ -340,11 +325,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
   const { t, sortLocale } = useI18n();
   const { confirm: appConfirm } = useAppConfirm();
   const {
-    state: userState,
-    stripUserStateForRelPaths,
-    remapUserStateAfterDownloadReplace,
-  } = useUserState();
-  const {
     log,
     setLog,
     metaLog,
@@ -371,8 +351,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
     setTrackScanProg,
     titleSanBusy,
     setTitleSanBusy,
-    genreAutoBusy,
-    setGenreAutoBusy,
     trackPruneBusy,
     setTrackPruneBusy,
     trackPruneProg,
@@ -381,10 +359,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
     stopTrackAll,
     stopTrackPrune,
   } = useToolsActivity();
-  const [genreAutoProg, setGenreAutoProg] = useState<{
-    current: number;
-    total: number;
-  } | null>(null);
   const [preset, setPreset] = useState<string | null>(null);
   const [ytCookiesConfigured, setYtCookiesConfigured] = useState(false);
   const [url, setUrl] = useState("");
@@ -469,7 +443,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
   const dlActiveDownloadIdRef = useRef<string | null>(null);
   const dlBatchStopRef = useRef(false);
   const studioDlRunLatchRef = useRef(false);
-  const [dlReplaceMode, setDlReplaceMode] = useState(false);
   const [dlTrackProg, setDlTrackProg] = useState<{
     current: number;
     total: number;
@@ -489,10 +462,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
     null | "album" | "track"
   >(null);
   const [metaOptionalOpen, setMetaOptionalOpen] = useState(false);
-  const [genreApplyScopeOpen, setGenreApplyScopeOpen] = useState(false);
-  const [genreApplyConfirmList, setGenreApplyConfirmList] = useState<
-    GenreAutoAssignment[] | null
-  >(null);
   const [studioPane, setStudioPane] = useState<StudioPane>(() => {
     return readStoredStudioPane() ?? "catalog";
   });
@@ -504,17 +473,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
       /* ignore */
     }
   }, [studioPane]);
-
-  useEffect(() => {
-    if (!genreApplyScopeOpen && genreApplyConfirmList == null) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      if (genreApplyConfirmList != null) setGenreApplyConfirmList(null);
-      else setGenreApplyScopeOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [genreApplyScopeOpen, genreApplyConfirmList]);
 
   useEffect(() => {
     if (!metaScanChoiceOpen) return;
@@ -686,21 +644,15 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
       metaAllBusy ||
       trackMetaBusy ||
       trackAllBusy ||
-      genreAutoBusy ||
       trackPruneBusy ||
-      titleSanBusy ||
-      genreApplyScopeOpen ||
-      genreApplyConfirmList != null,
+      titleSanBusy,
     [
       metaBusy,
       metaAllBusy,
       trackMetaBusy,
       trackAllBusy,
-      genreAutoBusy,
       trackPruneBusy,
       titleSanBusy,
-      genreApplyScopeOpen,
-      genreApplyConfirmList,
     ]
   );
 
@@ -1207,104 +1159,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
     onRefreshLibrary();
   };
 
-  const runGenreAutoPreview = useCallback(() => {
-    if (!libraryIndex) {
-      setMetaLog((s) => s + t("tools.genreAutoNoIndex"));
-      return;
-    }
-    const list = computeGenreAutoAssignments(libraryIndex);
-    if (list.length === 0) {
-      setMetaLog((s) => s + t("tools.genreAutoPreviewEmpty"));
-      return;
-    }
-    const maxLines = 150;
-    const lines = list.slice(0, maxLines).map((row) =>
-      t("tools.genreAutoLine", {
-        path: row.relPath,
-        genre: row.genreSerialized,
-        support: String(row.support),
-        total: String(row.total),
-        confidence: String(Math.round(row.confidence * 100)),
-        source:
-          row.source === "album"
-            ? t("tools.genreAutoSourceAlbum")
-            : t("tools.genreAutoSourceArtist"),
-      })
-    );
-    let tail = "";
-    if (list.length > maxLines) {
-      tail = t("tools.genreAutoMore", { n: list.length - maxLines });
-    }
-    setMetaLog(
-      (s) =>
-        s +
-        t("tools.genreAutoPreviewHead", { n: list.length }) +
-        lines.join("") +
-        tail
-    );
-  }, [libraryIndex, setMetaLog, t]);
-
-  const executeGenreAutoBatch = useCallback(
-    async (list: GenreAutoAssignment[]) => {
-      setGenreApplyConfirmList(null);
-      setGenreAutoBusy(true);
-      setGenreAutoProg(null);
-      try {
-        const data = await applyGenreAutoBatch(
-          list.map((row) => ({
-            relPath: row.relPath,
-            genre: row.genreSerialized,
-          }))
-        );
-        setMetaLog((s) => s + t("tools.genreAutoApplyDone", { n: data.ok }));
-        for (const e of data.errors) {
-          setMetaLog(
-            (s) =>
-              s +
-              t("tools.genreAutoApplyErr", {
-                path: e.relPath,
-                err: e.err,
-              })
-          );
-        }
-        onRefreshLibrary();
-      } catch (e) {
-        setMetaLog(
-          (s) =>
-            s + t("tools.sharedErr", { e: String((e as Error)?.message || e) })
-        );
-      } finally {
-        setGenreAutoProg(null);
-        setGenreAutoBusy(false);
-      }
-    },
-    [onRefreshLibrary, setMetaLog, t]
-  );
-
-  const beginGenreApplyFlow = useCallback(() => {
-    if (!libraryIndex) {
-      setMetaLog((s) => s + t("tools.genreAutoNoIndex"));
-      return;
-    }
-    setGenreApplyScopeOpen(true);
-  }, [libraryIndex, setMetaLog, t]);
-
-  const pickGenreApplyScopeAndConfirm = useCallback(
-    (rescanAll: boolean) => {
-      if (!libraryIndex) return;
-      setGenreApplyScopeOpen(false);
-      const list = computeGenreAutoAssignments(libraryIndex, {
-        scope: rescanAll ? "all" : "missing",
-      });
-      if (list.length === 0) {
-        setMetaLog((s) => s + t("tools.genreAutoPreviewEmpty"));
-        return;
-      }
-      setGenreApplyConfirmList(list);
-    },
-    [libraryIndex, setMetaLog, t]
-  );
-
   const runSanitizeTitles = async (scope: "album" | "all", dryRun: boolean) => {
     if (scope === "album" && !metaAlbumPath.trim()) {
       setMetaLog((s) => s + t("tools.sanitizePickAlbum"));
@@ -1405,34 +1259,19 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
       try {
         setDlBusy(true);
         setDlProg(null);
-        let indexBefore: LibraryIndex | null = null;
-        let replaceSnap: FolderReplaceSnapshot | null = null;
         const studioDlKind: StudioDownloadKind =
           dlUrlMode === "playlist" ? "download_playlist" : "download_single";
         const normDl = normalizeDownloadDestPath(dlPath);
+        const artistFolderTarget = !relPathLooksLikeAlbumFolderDest(normDl);
         if (
           !(await appConfirm({
-            message: relPathLooksLikeAlbumFolderDest(normDl)
-              ? t("tools.dlConfirmAlbumFolderTracks", { path: normDl })
-              : t("tools.dlConfirmArtistFolderDl", { path: normDl }),
+            variant: artistFolderTarget ? "danger" : "warning",
+            message: artistFolderTarget
+              ? t("tools.dlConfirmArtistFolderDl", { path: normDl })
+              : t("tools.dlConfirmAlbumFolderTracks", { path: normDl }),
           }))
         ) {
           return;
-        }
-        if (dlReplaceMode && hasValidDownloadDest) {
-          if (
-            !(await appConfirm({
-              message: t("tools.dlReplaceConfirm", { path: dlPath }),
-            }))
-          ) {
-            return;
-          }
-          indexBefore = await fetchLibraryIndex();
-          replaceSnap = buildFolderReplaceSnapshotForFolder(
-            userState,
-            indexBefore,
-            dlPath
-          );
         }
         if (dlUrlMode === "playlist") {
           try {
@@ -1492,9 +1331,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
             );
           });
           await onRefreshLibrary();
-          if (replaceSnap && indexBefore) {
-            await runReplaceAfterDownload(indexBefore, replaceSnap);
-          }
         } catch (e) {
           setLog(
             (x) =>
@@ -1509,59 +1345,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
       }
     })();
   };
-
-  const runReplaceAfterDownload = useCallback(
-    async (indexBefore: LibraryIndex, replaceSnap: FolderReplaceSnapshot) => {
-      let toDelete: string[] = [];
-      try {
-        const indexAfter = await fetchLibraryIndex();
-        toDelete = computePostDownloadRedundantRemovals(
-          indexBefore,
-          indexAfter,
-          dlPath
-        ).toDelete;
-        if (toDelete.length > 0) {
-          await deleteAudioRelPaths(toDelete);
-          setLog(
-            (x) =>
-              x +
-              t("tools.dlReplaceRemovedDupes", { n: toDelete.length }) +
-              "\n"
-          );
-          await onRefreshLibrary();
-        }
-        const indexFinal = await fetchLibraryIndex();
-        stripUserStateForRelPaths(toDelete);
-        remapUserStateAfterDownloadReplace(replaceSnap, indexFinal, dlPath);
-        const metaPatches = buildFolderReplaceTrackMetaPatches(
-          replaceSnap,
-          indexFinal,
-          dlPath
-        );
-        if (metaPatches.length > 0) {
-          await Promise.all(
-            metaPatches.map(({ relPath, patch }) =>
-              saveTrackInfoManual(relPath, patch)
-            )
-          );
-          await onRefreshLibrary();
-        }
-      } catch (e) {
-        setLog(
-          (x) =>
-            x + t("tools.sharedErr", { e: String((e as Error)?.message || e) })
-        );
-      }
-    },
-    [
-      dlPath,
-      onRefreshLibrary,
-      setLog,
-      stripUserStateForRelPaths,
-      remapUserStateAfterDownloadReplace,
-      t,
-    ]
-  );
 
   const loadReleasesCatalog = () => {
     if (!url.trim()) return;
@@ -1658,8 +1441,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
         dlBatchStopRef.current = false;
         setDlTrackProg({ current: 0, total: 0 });
         setDlProg({ current: 1, total: list.length });
-        let indexBefore: LibraryIndex | null = null;
-        let replaceSnap: FolderReplaceSnapshot | null = null;
         const studioDlKind: StudioDownloadKind =
           studioDownloadSourceForArtistUrl(url) === "music"
             ? "download_ytmusic"
@@ -1670,6 +1451,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
         }
         if (
           !(await appConfirm({
+            variant: "warning",
             message: buildReleasesArtistFolderConfirm({
               dlPath,
               entries: list,
@@ -1679,21 +1461,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
           }))
         ) {
           return;
-        }
-        if (dlReplaceMode && hasValidDownloadDest) {
-          if (
-            !(await appConfirm({
-              message: t("tools.dlReplaceConfirm", { path: dlPath }),
-            }))
-          ) {
-            return;
-          }
-          indexBefore = await fetchLibraryIndex();
-          replaceSnap = buildFolderReplaceSnapshotForFolder(
-            userState,
-            indexBefore,
-            dlPath
-          );
         }
         setLog(
           (x) =>
@@ -1774,9 +1541,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
           }
           setLog((x) => x + releaseBatchSummaryLine(batchResults));
           await onRefreshLibrary();
-          if (replaceSnap && indexBefore) {
-            await runReplaceAfterDownload(indexBefore, replaceSnap);
-          }
         } finally {
           dlActiveDownloadIdRef.current = null;
         }
@@ -2350,30 +2114,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                     )}
                   </div>
 
-                  <div className="tools-dl-dest__actions">
-                    <div className="tools-dl-dest__actions-row">
-                      <label
-                        className={`tools-dl-dest__replace${
-                          !hasValidDownloadDest ? " tools-dl-dest__replace--off" : ""
-                        }`}
-                        title={
-                          !hasValidDownloadDest
-                            ? t("tools.dlReplaceRootTitle")
-                            : t("tools.dlReplaceHint")
-                        }
-                      >
-                        <input
-                          type="checkbox"
-                          checked={dlReplaceMode}
-                          disabled={!hasValidDownloadDest}
-                          onChange={(e) => {
-                            setDlReplaceMode(e.target.checked);
-                          }}
-                        />
-                        <span>{t("tools.dlReplaceFolder")}</span>
-                      </label>
-                    </div>
-                  </div>
                   {hasValidDownloadDest ? (
                     <div className="tools-dl-dest__picked" role="status">
                       {t("tools.destLine", {
@@ -2993,34 +2733,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                         </div>
                       </div>
                     ) : null}
-                    {genreAutoBusy &&
-                    genreAutoProg &&
-                    genreAutoProg.total > 0 ? (
-                      <div className="dl-progress-wrap">
-                        <div className="dl-progress-top">
-                          <span>{t("tools.genreAutoProgress")}</span>
-                          <span>
-                            {genreAutoProg.current}/{genreAutoProg.total}
-                          </span>
-                        </div>
-                        <div className="dl-progress-rail">
-                          <div
-                            className="dl-progress-fill"
-                            style={{
-                              width: `${Math.max(
-                                2,
-                                Math.min(
-                                  100,
-                                  (genreAutoProg.current /
-                                    genreAutoProg.total) *
-                                    100
-                                )
-                              )}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    ) : null}
                     {trackPruneBusy &&
                     trackPruneProg &&
                     trackPruneProg.total > 0 ? (
@@ -3124,36 +2836,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                     </button>
                     {metaOptionalOpen ? (
                       <div className="studio-meta-optional__body studio-action-groups">
-                        <div className="studio-action-group">
-                          <span className="studio-action-group-label">
-                            {t("tools.metaOptionalGenres")}
-                          </span>
-                          <p className="subtle sm studio-hint-line">
-                            {t("tools.genreAutoHint")}
-                          </p>
-                          <div className="studio-action-row studio-meta-equal-btns">
-                            <button
-                              type="button"
-                              className="btn secondary"
-                              disabled={!libraryIndex || studioMetaBusy}
-                              onClick={runGenreAutoPreview}
-                            >
-                              {genreAutoBusy
-                                ? "…"
-                                : t("tools.genreAutoPreview")}
-                            </button>
-                            <button
-                              type="button"
-                              className="btn"
-                              disabled={!libraryIndex || studioMetaBusy}
-                              onClick={() => beginGenreApplyFlow()}
-                            >
-                              {genreAutoBusy
-                                ? t("tools.scanning")
-                                : t("tools.genreAutoApply")}
-                            </button>
-                          </div>
-                        </div>
                         <div className="studio-action-group">
                           <span className="studio-action-group-label">
                             {t("tools.metaOptionalTitles")}
@@ -3441,109 +3123,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                 onClick={() => setMetaScanChoiceOpen(null)}
               >
                 {t("tools.scanChoiceCancel")}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-      {genreApplyScopeOpen ? (
-        <div
-          className="meta-edit-backdrop"
-          role="presentation"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setGenreApplyScopeOpen(false);
-          }}
-        >
-          <div
-            className="meta-edit-dialog surface-card studio-scan-choice"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="genre-apply-scope-title"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <h4
-              className="studio-scan-choice__title"
-              id="genre-apply-scope-title"
-            >
-              {t("tools.genreApplyScopeTitle")}
-            </h4>
-            <p className="subtle sm studio-scan-choice__hint">
-              {t("tools.genreApplyScopeHint")}
-            </p>
-            <div className="studio-scan-choice__actions">
-              <button
-                type="button"
-                className="btn secondary"
-                onClick={() => pickGenreApplyScopeAndConfirm(true)}
-              >
-                {t("tools.genreApplyScopeAll")}
-              </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => pickGenreApplyScopeAndConfirm(false)}
-              >
-                {t("tools.genreApplyScopeMissing")}
-              </button>
-              <button
-                type="button"
-                className="btn ghost-btn"
-                onClick={() => setGenreApplyScopeOpen(false)}
-              >
-                {t("tools.scanChoiceCancel")}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-      {genreApplyConfirmList ? (
-        <div
-          className="meta-edit-backdrop"
-          role="presentation"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setGenreApplyConfirmList(null);
-          }}
-        >
-          <div
-            className="meta-edit-dialog surface-card studio-genre-confirm"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="genre-apply-confirm-title"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <p
-              className="eyebrow studio-genre-confirm__eyebrow"
-              id="genre-apply-confirm-title"
-            >
-              {t("tools.genreApplyConfirmEyebrow")}
-            </p>
-            <div className="studio-genre-confirm__metric" aria-live="polite">
-              <span className="studio-genre-confirm__num">
-                {genreApplyConfirmList.length}
-              </span>
-              <span className="studio-genre-confirm__unit">
-                {t("tools.genreApplyConfirmFilesLabel")}
-              </span>
-            </div>
-            <p className="subtle sm studio-genre-confirm__detail">
-              {t("tools.genreApplyConfirmDetail")}
-            </p>
-            <div className="studio-genre-confirm__actions">
-              <button
-                type="button"
-                className="btn ghost-btn"
-                onClick={() => setGenreApplyConfirmList(null)}
-              >
-                {t("tools.scanChoiceCancel")}
-              </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={() =>
-                  void executeGenreAutoBatch(genreApplyConfirmList)
-                }
-              >
-                {t("tools.genreApplyConfirmWrite")}
               </button>
             </div>
           </div>

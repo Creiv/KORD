@@ -611,9 +611,9 @@ export const IT: Record<string, string> = {
   "tools.dlPlaylistManyConfirm":
     "Questa playlist contiene {{n}} file. Vuoi davvero scaricarli tutti?",
   "tools.dlConfirmArtistFolderDl":
-    "Destinazione cartella artista «{{path}}»: yt-dlp creerà delle sottocartelle per album/playlist (nomi dai metadati). Se una cartella con lo stesso nome esiste già, i file verranno aggiunti o aggiornati dentro quella cartella. Per tenere tutto ordinato conviene spesso creare prima manualmente la sottocartella album e selezionarla come destinazione.\n\nContinuare?",
+    "Destinazione cartella artista «{{path}}»: verrà creata automaticamente una sottocartella album/playlist dentro questa cartella, con nome derivato dai metadati. Se esiste già, i file verranno aggiornati lì.\n\nContinuare?",
   "tools.dlConfirmAlbumFolderTracks":
-    "Destinazione cartella album «{{path}}»: i brani verranno salvati direttamente in questa cartella (non viene creata un’ulteriore sottocartella album).\n\nContinuare?",
+    "Destinazione cartella album «{{path}}»: i brani verranno salvati direttamente in questa cartella.\n\nConfermi questa cartella?",
   "tools.dlReleasesArtistConfirmLead":
     "Cartella artista «{{base}}»: pianificati {{count}} percorsi album (nome derivato dal titolo della release; yt-dlp può normalizzarlo leggermente):",
   "tools.dlReleasesRowNew": "• {{path}} — nuova cartella prevista",

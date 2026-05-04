@@ -17,7 +17,7 @@ export type AppConfirmOptions = {
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  variant?: "default" | "danger";
+  variant?: "default" | "danger" | "warning";
 };
 
 export type AppAlertOptions = {
@@ -183,7 +183,9 @@ export function AppConfirmProvider({ children }: { children: ReactNode }) {
                     className={
                       current.options.variant === "danger"
                         ? "btn app-dialog__btn--danger"
-                        : "btn"
+                        : current.options.variant === "warning"
+                          ? "btn app-dialog__btn--warning"
+                          : "btn"
                     }
                     data-app-dialog-primary="1"
                     onClick={() => dismiss(true)}

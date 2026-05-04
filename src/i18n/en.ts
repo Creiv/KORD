@@ -600,9 +600,9 @@ export const EN: Record<string, string> = {
   "tools.dlPlaylistManyConfirm":
     "This playlist has {{n}} items. Download them all?",
   "tools.dlConfirmArtistFolderDl":
-    "Artist folder “{{path}}”: yt-dlp will create subfolders for albums/playlists (names come from metadata). If a folder with the same name already exists, files will be added or updated inside it. For a tidy library it’s often better to create the album folder yourself first and pick it as the destination.\n\nContinue?",
+    "Artist folder “{{path}}”: an album/playlist subfolder will be created automatically inside this folder, using metadata-based naming. If it already exists, files will be updated there.\n\nContinue?",
   "tools.dlConfirmAlbumFolderTracks":
-    "Album folder “{{path}}”: tracks will be saved directly in this folder (no extra album subfolder).\n\nContinue?",
+    "Album folder “{{path}}”: tracks will be saved directly in this folder.\n\nConfirm this folder?",
   "tools.dlReleasesArtistConfirmLead":
     "Artist folder “{{base}}”: {{count}} planned album paths (from release titles; yt-dlp may normalize names slightly):",
   "tools.dlReleasesRowNew": "• {{path}} — new folder expected",

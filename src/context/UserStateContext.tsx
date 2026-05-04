@@ -20,11 +20,6 @@ import { bumpTrackExclusionEpoch, setShuffleExclusionSnapshot } from "../lib/ran
 import { normalizeShuffleAlbumKeysWithIndex } from "../lib/shuffleExclusionKeys";
 import { DEFAULT_CUSTOM_THEME } from "../lib/themeCatalog";
 import {
-  applyRemapToUserState,
-  applyStripToUserStateForPathsOnly,
-  type FolderReplaceSnapshot,
-} from "../lib/downloadFolderReplace";
-import {
   APP_LOCALES,
   THEME_MODES,
   type AppLocale,
@@ -501,12 +496,6 @@ type UserStateContextValue = {
   toggleShuffleExcludedTrack: (relPath: string) => void;
   setShuffleTracksExcludedBulk: (relPaths: readonly string[], exclude: boolean) => void;
   rehydrateShuffleExclusionsFromIndex: (index: LibraryIndex) => void;
-  stripUserStateForRelPaths: (deletedRelPaths: string[]) => void;
-  remapUserStateAfterDownloadReplace: (
-    snapshot: FolderReplaceSnapshot,
-    indexAfter: LibraryIndex,
-    folderRelPrefix: string
-  ) => void;
   syncUserStateFromServer: () => Promise<void>;
 };
 
@@ -822,31 +811,6 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
     [commit]
   );
 
-  const stripUserStateForRelPaths = useCallback(
-    (deletedRelPaths: string[]) => {
-      commit(
-        (prev) => applyStripToUserStateForPathsOnly(prev, deletedRelPaths),
-        { immediate: true }
-      );
-    },
-    [commit]
-  );
-
-  const remapUserStateAfterDownloadReplace = useCallback(
-    (
-      snapshot: FolderReplaceSnapshot,
-      indexAfter: LibraryIndex,
-      folderRelPrefix: string
-    ) => {
-      commit(
-        (prev) =>
-          applyRemapToUserState(prev, snapshot, indexAfter, folderRelPrefix),
-        { immediate: true }
-      );
-    },
-    [commit]
-  );
-
   const toggleShuffleExcludedAlbum = useCallback(
     (albumId: string) => {
       commit(
@@ -1118,8 +1082,6 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       toggleShuffleExcludedTrack,
       setShuffleTracksExcludedBulk,
       rehydrateShuffleExclusionsFromIndex,
-      stripUserStateForRelPaths,
-      remapUserStateAfterDownloadReplace,
       syncUserStateFromServer,
     }),
     [
@@ -1132,7 +1094,6 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       incrementTrackPlayCount,
       pushRecent,
       rehydrateShuffleExclusionsFromIndex,
-      remapUserStateAfterDownloadReplace,
       rehydrateTrackListsFromLibrary,
       ready,
       removeTrackFromPlaylist,
@@ -1146,7 +1107,6 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       toggleFavorite,
       toggleShuffleExcludedAlbum,
       toggleShuffleExcludedTrack,
-      stripUserStateForRelPaths,
       syncUserStateFromServer,
       updateSettings,
     ]
