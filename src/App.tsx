@@ -5066,6 +5066,12 @@ function SettingsView({
         <p className="settings-colophon__subtle subtle sm">
           {t("settings.colophonLine2")}
         </p>
+        <p className="settings-colophon__subtle subtle sm">
+          {t("settings.colophonLine3")}
+        </p>
+        <p className="settings-colophon__subtle subtle sm">
+          {t("settings.colophonLine4")}
+        </p>
       </footer>
     </div>
   );

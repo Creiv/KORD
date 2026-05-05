@@ -1577,12 +1577,14 @@
   color: var(--muted);
   font-weight: 500;
   letter-spacing: 0.01em;
+  max-width: 90vw;
+  margin-inline: auto;
 }
 
 .settings-colophon__subtle {
   margin: 0;
   line-height: 1.4;
-  max-width: 40rem;
+  max-width: 90vw;
   margin-inline: auto;
   opacity: 0.9;
 }

@@ -95,6 +95,11 @@ export const EN: Record<string, string> = {
   "trackMeta.fieldLyrics": "Lyrics",
   "trackMeta.editLyrics": "Edit lyrics",
   "trackMeta.saveLyrics": "Save lyrics",
+  "trackMeta.fetchLrc": "Auto LRC",
+  "trackMeta.fetchLrcBusy": "Fetching…",
+  "trackMeta.fetchLrcEmpty": "No LRC text found for this track.",
+  "trackMeta.fetchLrcPlainFound":
+    "No LRC found: fetched unsynced lyrics instead.",
   "trackMeta.lyricsPlaceholder":
     "[00:49.82]Preso dalla sassaiola della calca che mi odia",
   "trackMeta.moodMaxHint": "Up to {{n}} moods per track; each has its own color.",
@@ -392,6 +397,10 @@ export const EN: Record<string, string> = {
   "settings.colophonLine1": "Kord {{version}} by Creiv",
   "settings.colophonLine2":
     "Private, non‑commercial use only. Not for resale or redistribution. Your library and account data stay on this device.",
+  "settings.colophonLine3":
+    "KORD and its creators assume no responsibility for content users download or manage.",
+  "settings.colophonLine4":
+    "This tool is designed for legal/no-copyright music libraries (or any content used with proper rights). Each user is solely responsible for their own actions.",
   "settings.uiEyebrow": "Interface preferences",
   "settings.uiHeading": "Theme and visualizer",
   "settings.theme": "Theme",

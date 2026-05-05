@@ -12,15 +12,16 @@ import {
   type FormEvent,
 } from "react";
 import { createPortal } from "react-dom";
-import { deleteAudioRelPaths, saveTrackInfoManual } from "../lib/api";
+import {
+  deleteAudioRelPaths,
+  fetchTrackLyrics,
+  saveTrackInfoManual,
+} from "../lib/api";
 import { useI18n } from "../i18n/useI18n";
 import { usePlayer } from "../context/PlayerContext";
 import { useUserState } from "../context/UserStateContext";
 import { useAppConfirm } from "../context/AppConfirmContext";
-import {
-  parseTrackGenres,
-  serializeTrackGenres,
-} from "../lib/genres";
+import { parseTrackGenres, serializeTrackGenres } from "../lib/genres";
 import {
   MAX_TRACK_MOODS,
   parseTrackMoods,
@@ -33,7 +34,7 @@ import type { EnrichedTrack, LibraryEntityDelta } from "../types";
 import { UiClose } from "./KordUiIcons";
 
 const TrackMetaEditContext = createContext<(track: EnrichedTrack) => void>(
-  () => {},
+  () => {}
 );
 
 export function useOpenTrackMetaEdit() {
@@ -67,10 +68,7 @@ export function TrackMetaEditGlyph() {
   );
 }
 
-function addGenreToken(
-  current: string[],
-  token: string,
-): string[] {
+function addGenreToken(current: string[], token: string): string[] {
   const t = token.trim();
   if (!t) return current;
   const k = t.toLowerCase();
@@ -103,10 +101,13 @@ function TrackMetaEditorModal({
   const [newGenre, setNewGenre] = useState("");
   const [lyricsOpen, setLyricsOpen] = useState(false);
   const [lyricsValue, setLyricsValue] = useState("");
+  const [lyricsFetchBusy, setLyricsFetchBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [lyricsErr, setLyricsErr] = useState<string | null>(null);
   const initialMoodsSigRef = useRef("");
+  const initialLyricsRef = useRef("");
   const p = usePlayer();
   const { stripUserStateForRelPaths } = useUserState();
 
@@ -119,17 +120,20 @@ function TrackMetaEditorModal({
       setReleaseDate(toDateInputValue(m?.releaseDate ?? null));
       setGenres(parseTrackGenres(m?.genre));
       setMoods(im);
-      setLyricsValue(String(m?.lyrics || ""));
+      const lyr = String(m?.lyrics || "");
+      setLyricsValue(lyr);
       setLyricsOpen(false);
       initialMoodsSigRef.current = trackMoodsSignature(im);
+      initialLyricsRef.current = lyr;
       setNewGenre("");
       setErr(null);
+      setLyricsErr(null);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [track]);
 
   const availableFromLibrary = genreOptions.filter(
-    (g) => !genres.some((s) => s.toLowerCase() === g.toLowerCase()),
+    (g) => !genres.some((s) => s.toLowerCase() === g.toLowerCase())
   );
 
   const removeGenre = useCallback((i: number) => {
@@ -188,7 +192,7 @@ function TrackMetaEditorModal({
         setBusy(false);
       }
     },
-    [track, title, releaseDate, genres, moods, onClose, onSaved],
+    [track, title, releaseDate, genres, moods, onClose, onSaved]
   );
 
   const runDelete = useCallback(async () => {
@@ -204,7 +208,9 @@ function TrackMetaEditorModal({
     setDeleteBusy(true);
     setErr(null);
     try {
-      const { deleted, affectedAlbums } = await deleteAudioRelPaths([track.relPath]);
+      const { deleted, affectedAlbums } = await deleteAudioRelPaths([
+        track.relPath,
+      ]);
       if (!deleted.length) {
         setErr(t("trackMeta.deleteFailed"));
         return;
@@ -223,7 +229,7 @@ function TrackMetaEditorModal({
   const saveLyrics = useCallback(async () => {
     if (!track) return;
     setBusy(true);
-    setErr(null);
+    setLyricsErr(null);
     try {
       const patch = {
         lyrics: lyricsValue.trim() ? lyricsValue : null,
@@ -248,222 +254,292 @@ function TrackMetaEditorModal({
       );
       setLyricsOpen(false);
     } catch (er: unknown) {
-      setErr(er instanceof Error ? er.message : String(er));
+      setLyricsErr(er instanceof Error ? er.message : String(er));
     } finally {
       setBusy(false);
     }
   }, [lyricsValue, onSaved, track]);
 
+  const cancelLyrics = useCallback(() => {
+    setLyricsValue(initialLyricsRef.current);
+    setLyricsOpen(false);
+  }, []);
+
+  const fetchLyricsLrc = useCallback(async () => {
+    if (!track) return;
+    setLyricsFetchBusy(true);
+    setLyricsErr(null);
+    try {
+      const fetched = await fetchTrackLyrics(track.relPath);
+      const synced = String(fetched.syncedLyrics || "").trim();
+      const plain = String(fetched.plainLyrics || "").trim();
+      const next = synced || plain;
+      if (!next) {
+        setLyricsErr(t("trackMeta.fetchLrcEmpty"));
+        return;
+      }
+      if (!synced && plain) {
+        setLyricsErr(t("trackMeta.fetchLrcPlainFound"));
+      }
+      setLyricsValue(next);
+    } catch (er: unknown) {
+      setLyricsErr(er instanceof Error ? er.message : String(er));
+    } finally {
+      setLyricsFetchBusy(false);
+    }
+  }, [t, track]);
+
   if (!track) return null;
 
   const lyricsPortal = lyricsOpen
     ? createPortal(
-      <div
-        className="meta-edit-backdrop meta-edit-backdrop--lyrics-portal"
-        role="presentation"
-        onClick={(ev) => {
-          if (ev.target === ev.currentTarget) setLyricsOpen(false);
-        }}
-      >
         <div
-          className="meta-edit-dialog surface-card meta-edit-lyrics-dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-label={t("trackMeta.editLyrics")}
+          className="meta-edit-backdrop meta-edit-backdrop--lyrics-portal"
+          role="presentation"
+          onClick={(ev) => {
+            if (ev.target === ev.currentTarget) setLyricsOpen(false);
+          }}
         >
-          <textarea
-            className="log meta-edit-lyrics-textarea"
-            rows={14}
-            value={lyricsValue}
-            onChange={(ev) => setLyricsValue(ev.target.value)}
-            placeholder={t("trackMeta.lyricsPlaceholder")}
-          />
-          <div className="meta-edit-actions">
-            <span className="meta-edit-actions__spacer" aria-hidden />
-            <button
-              type="button"
-              className="btn"
-              disabled={busy || deleteBusy}
-              onClick={() => {
-                void saveLyrics();
-              }}
-            >
-              {busy ? t("trackMeta.editSaving") : t("trackMeta.saveLyrics")}
-            </button>
+          <div
+            className="meta-edit-dialog surface-card meta-edit-lyrics-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("trackMeta.editLyrics")}
+          >
+            <textarea
+              className="log meta-edit-lyrics-textarea"
+              rows={14}
+              value={lyricsValue}
+              onChange={(ev) => setLyricsValue(ev.target.value)}
+              placeholder={t("trackMeta.lyricsPlaceholder")}
+            />
+            {lyricsErr ? (
+              <p className="subtle sm warnline mt-1">{lyricsErr}</p>
+            ) : null}
+            <div className="meta-edit-actions">
+              <button
+                type="button"
+                className="ghost-btn"
+                disabled={busy || deleteBusy || lyricsFetchBusy}
+                onClick={cancelLyrics}
+              >
+                {t("trackMeta.editCancel")}
+              </button>
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={busy || deleteBusy || lyricsFetchBusy}
+                onClick={() => {
+                  void fetchLyricsLrc();
+                }}
+              >
+                {lyricsFetchBusy
+                  ? t("trackMeta.fetchLrcBusy")
+                  : t("trackMeta.fetchLrc")}
+              </button>
+              <span className="meta-edit-actions__spacer" aria-hidden />
+              <button
+                type="button"
+                className="btn"
+                disabled={busy || deleteBusy || lyricsFetchBusy}
+                onClick={() => {
+                  void saveLyrics();
+                }}
+              >
+                {busy ? t("trackMeta.editSaving") : t("trackMeta.saveLyrics")}
+              </button>
+            </div>
           </div>
-        </div>
-      </div>,
-      document.body,
-    )
+        </div>,
+        document.body
+      )
     : null;
 
   return (
     <Fragment>
-    <div
-      className="meta-edit-backdrop"
-      role="presentation"
-      onClick={(ev) => {
-        if (lyricsOpen) return;
-        if (ev.target === ev.currentTarget) onClose();
-      }}
-    >
       <div
-        className="meta-edit-dialog surface-card"
-        role="dialog"
-        aria-labelledby="meta-edit-title"
-        aria-modal="true"
+        className="meta-edit-backdrop"
+        role="presentation"
+        onClick={(ev) => {
+          if (lyricsOpen) return;
+          if (ev.target === ev.currentTarget) onClose();
+        }}
       >
-        <div className="section-head">
-          <div>
-            <p className="eyebrow">{t("trackMeta.editEyebrow")}</p>
-            <h2 id="meta-edit-title">{t("trackMeta.editHeading")}</h2>
-            <p className="subtle sm meta-edit-path">{track.relPath}</p>
+        <div
+          className="meta-edit-dialog surface-card"
+          role="dialog"
+          aria-labelledby="meta-edit-title"
+          aria-modal="true"
+        >
+          <div className="section-head">
+            <div>
+              <p className="eyebrow">{t("trackMeta.editEyebrow")}</p>
+              <h2 id="meta-edit-title">{t("trackMeta.editHeading")}</h2>
+              <p className="subtle sm meta-edit-path">{track.relPath}</p>
+            </div>
+            <button type="button" className="text-btn" onClick={onClose}>
+              {t("trackMeta.editClose")}
+            </button>
           </div>
-          <button type="button" className="text-btn" onClick={onClose}>
-            {t("trackMeta.editClose")}
-          </button>
-        </div>
-        <form className="meta-edit-form" onSubmit={submit}>
-          <label className="meta-edit-field">
-            <span>{t("trackMeta.fieldTitle")}</span>
-            <input
-              className="ghost-input w-full"
-              value={title}
-              onChange={(ev) => setTitle(ev.target.value)}
-              autoComplete="off"
-            />
-          </label>
-          <label className="meta-edit-field">
-            <span>{t("trackMeta.fieldReleaseDate")}</span>
-            <input
-              className="ghost-input w-full"
-              type="date"
-              value={releaseDate}
-              onChange={(ev) => setReleaseDate(ev.target.value)}
-            />
-          </label>
-          <div className="meta-edit-field">
-            <span>{t("trackMeta.fieldGenre")}</span>
-            <div className="meta-edit-genre-chips" role="list">
-              {genres.map((g, i) => (
-                <span key={`${g}-${i}`} className="meta-edit-genre-chip" role="listitem">
-                  <span className="meta-edit-genre-chip__text">{g}</span>
-                  <button
-                    type="button"
-                    className="meta-edit-genre-chip__x"
-                    onClick={() => removeGenre(i)}
-                    aria-label={t("trackMeta.fieldGenreRemoveAria", { g })}
-                  >
-                    <UiClose className="meta-edit-genre-chip__x-ic" />
-                  </button>
-                </span>
-              ))}
-            </div>
-            <div className="meta-edit-genre-add">
-              <label className="sr-only" htmlFor={pickId}>
-                {t("trackMeta.fieldGenrePick")}
-              </label>
-              <select
-                key={`${genres.length}-${availableFromLibrary.length}`}
-                id={pickId}
-                className="ghost-input w-full meta-edit-genre-select"
-                defaultValue=""
-                onChange={(ev) => {
-                  const v = ev.target.value;
-                  if (v) setGenres((prev) => addGenreToken(prev, v));
-                }}
-              >
-                <option value="">{t("trackMeta.fieldGenrePickPlaceholder")}</option>
-                {availableFromLibrary.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="meta-edit-genre-custom">
+          <form className="meta-edit-form" onSubmit={submit}>
+            <label className="meta-edit-field">
+              <span>{t("trackMeta.fieldTitle")}</span>
               <input
-                className="ghost-input"
-                value={newGenre}
-                onChange={(ev) => setNewGenre(ev.target.value)}
-                onKeyDown={(ev) => {
-                  if (ev.key === "Enter") {
-                    ev.preventDefault();
-                    addNewGenre();
-                  }
-                }}
-                placeholder={t("trackMeta.fieldGenreNewPlaceholder")}
+                className="ghost-input w-full"
+                value={title}
+                onChange={(ev) => setTitle(ev.target.value)}
                 autoComplete="off"
               />
+            </label>
+            <label className="meta-edit-field">
+              <span>{t("trackMeta.fieldReleaseDate")}</span>
+              <input
+                className="ghost-input w-full"
+                type="date"
+                value={releaseDate}
+                onChange={(ev) => setReleaseDate(ev.target.value)}
+              />
+            </label>
+            <div className="meta-edit-field">
+              <span>{t("trackMeta.fieldGenre")}</span>
+              <div className="meta-edit-genre-chips" role="list">
+                {genres.map((g, i) => (
+                  <span
+                    key={`${g}-${i}`}
+                    className="meta-edit-genre-chip"
+                    role="listitem"
+                  >
+                    <span className="meta-edit-genre-chip__text">{g}</span>
+                    <button
+                      type="button"
+                      className="meta-edit-genre-chip__x"
+                      onClick={() => removeGenre(i)}
+                      aria-label={t("trackMeta.fieldGenreRemoveAria", { g })}
+                    >
+                      <UiClose className="meta-edit-genre-chip__x-ic" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="meta-edit-genre-add">
+                <label className="sr-only" htmlFor={pickId}>
+                  {t("trackMeta.fieldGenrePick")}
+                </label>
+                <select
+                  key={`${genres.length}-${availableFromLibrary.length}`}
+                  id={pickId}
+                  className="ghost-input w-full meta-edit-genre-select"
+                  defaultValue=""
+                  onChange={(ev) => {
+                    const v = ev.target.value;
+                    if (v) setGenres((prev) => addGenreToken(prev, v));
+                  }}
+                >
+                  <option value="">
+                    {t("trackMeta.fieldGenrePickPlaceholder")}
+                  </option>
+                  {availableFromLibrary.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="meta-edit-genre-custom">
+                <input
+                  className="ghost-input"
+                  value={newGenre}
+                  onChange={(ev) => setNewGenre(ev.target.value)}
+                  onKeyDown={(ev) => {
+                    if (ev.key === "Enter") {
+                      ev.preventDefault();
+                      addNewGenre();
+                    }
+                  }}
+                  placeholder={t("trackMeta.fieldGenreNewPlaceholder")}
+                  autoComplete="off"
+                />
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  onClick={addNewGenre}
+                  disabled={!newGenre.trim()}
+                >
+                  {t("trackMeta.fieldGenreAdd")}
+                </button>
+              </div>
+            </div>
+            <div className="meta-edit-field">
+              <span>{t("trackMeta.fieldMood")}</span>
+              <p className="subtle sm meta-edit-field-hint">
+                {t("trackMeta.moodMaxHint", { n: MAX_TRACK_MOODS })}
+              </p>
+              <div
+                className="meta-edit-mood-grid"
+                role="group"
+                aria-label={t("trackMeta.fieldMood")}
+              >
+                {TRACK_MOOD_IDS.map((id) => {
+                  const on = moods.includes(id);
+                  const c = TRACK_MOOD_COLORS[id];
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      className={`meta-edit-mood-btn meta-edit-mood-btn--color${
+                        on ? " meta-edit-mood-btn--on" : ""
+                      }`}
+                      style={{ "--mood-c": c } as CSSProperties}
+                      aria-pressed={on}
+                      title={t(`trackMeta.mood.${id}`)}
+                      onClick={() => toggleMood(id)}
+                    >
+                      <TrackMoodGlyph mood={id} />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="meta-edit-lyrics-row">
               <button
                 type="button"
-                className="ghost-btn"
-                onClick={addNewGenre}
-                disabled={!newGenre.trim()}
+                className="btn secondary meta-edit-lyrics-btn"
+                disabled={busy || deleteBusy}
+                onClick={() => setLyricsOpen(true)}
               >
-                {t("trackMeta.fieldGenreAdd")}
+                {t("trackMeta.editLyrics")}
               </button>
             </div>
-          </div>
-          <div className="meta-edit-field">
-            <span>{t("trackMeta.fieldMood")}</span>
-            <p className="subtle sm meta-edit-field-hint">{t("trackMeta.moodMaxHint", { n: MAX_TRACK_MOODS })}</p>
-            <div className="meta-edit-mood-grid" role="group" aria-label={t("trackMeta.fieldMood")}>
-              {TRACK_MOOD_IDS.map((id) => {
-                const on = moods.includes(id);
-                const c = TRACK_MOOD_COLORS[id];
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    className={`meta-edit-mood-btn meta-edit-mood-btn--color${
-                      on ? " meta-edit-mood-btn--on" : ""
-                    }`}
-                    style={{ "--mood-c": c } as CSSProperties}
-                    aria-pressed={on}
-                    title={t(`trackMeta.mood.${id}`)}
-                    onClick={() => toggleMood(id)}
-                  >
-                    <TrackMoodGlyph mood={id} />
-                  </button>
-                );
-              })}
+            {err ? <p className="subtle sm warnline">{err}</p> : null}
+            <div className="meta-edit-actions">
+              <button
+                type="button"
+                className="ghost-btn danger"
+                disabled={busy || deleteBusy}
+                onClick={() => {
+                  void runDelete();
+                }}
+              >
+                {deleteBusy
+                  ? t("trackMeta.deleting")
+                  : t("trackMeta.deleteFile")}
+              </button>
+              <span className="meta-edit-actions__spacer" aria-hidden />
+              <button type="button" className="ghost-btn" onClick={onClose}>
+                {t("trackMeta.editCancel")}
+              </button>
+              <button
+                type="submit"
+                className="btn"
+                disabled={busy || deleteBusy}
+              >
+                {busy ? t("trackMeta.editSaving") : t("trackMeta.editSave")}
+              </button>
             </div>
-          </div>
-          <div className="meta-edit-lyrics-row">
-            <button
-              type="button"
-              className="btn secondary meta-edit-lyrics-btn"
-              disabled={busy || deleteBusy}
-              onClick={() => setLyricsOpen(true)}
-            >
-              {t("trackMeta.editLyrics")}
-            </button>
-          </div>
-          {err ? <p className="subtle sm warnline">{err}</p> : null}
-          <div className="meta-edit-actions">
-            <button
-              type="button"
-              className="ghost-btn danger"
-              disabled={busy || deleteBusy}
-              onClick={() => {
-                void runDelete();
-              }}
-            >
-              {deleteBusy ? t("trackMeta.deleting") : t("trackMeta.deleteFile")}
-            </button>
-            <span className="meta-edit-actions__spacer" aria-hidden />
-            <button type="button" className="ghost-btn" onClick={onClose}>
-              {t("trackMeta.editCancel")}
-            </button>
-            <button type="submit" className="btn" disabled={busy || deleteBusy}>
-              {busy ? t("trackMeta.editSaving") : t("trackMeta.editSave")}
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
-    {lyricsPortal}
+      {lyricsPortal}
     </Fragment>
   );
 }

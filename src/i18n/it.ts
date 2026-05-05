@@ -100,6 +100,11 @@ export const IT: Record<string, string> = {
   "trackMeta.fieldLyrics": "Lyrics",
   "trackMeta.editLyrics": "Modifica lyrics",
   "trackMeta.saveLyrics": "Salva lyrics",
+  "trackMeta.fetchLrc": "Auto LRC",
+  "trackMeta.fetchLrcBusy": "Cerco…",
+  "trackMeta.fetchLrcEmpty": "Nessun testo LRC trovato per questo brano.",
+  "trackMeta.fetchLrcPlainFound":
+    "Nessun LRC trovato: ho recuperato il testo non sincronizzato.",
   "trackMeta.lyricsPlaceholder":
     "[00:49.82]Preso dalla sassaiola della calca che mi odia",
   "trackMeta.moodMaxHint": "Fino a {{n}} mood per brano; ognuno ha il suo colore.",
@@ -402,6 +407,10 @@ export const IT: Record<string, string> = {
   "settings.colophonLine1": "Kord {{version}} by Creiv",
   "settings.colophonLine2":
     "Solo per uso privato e non commerciale; non destinato alla vendita o alla redistribuzione. Libreria e dati di account restano su questo dispositivo.",
+  "settings.colophonLine3":
+    "KORD e i suoi creatori non si assumono alcuna responsabilità per i contenuti scaricati o gestiti dagli utenti.",
+  "settings.colophonLine4":
+    "Lo strumento è pensato per librerie con contenuti leciti/no copyright (o comunque con diritti d'uso disponibili). Ogni utente è l'unico responsabile delle proprie azioni.",
   "settings.uiEyebrow": "Preferenze interfaccia",
   "settings.uiHeading": "Tema e visualizer",
   "settings.theme": "Tema",

@@ -30,6 +30,7 @@ import {
 import {
   fetchReleaseMetadata,
   fetchTrackMetadata,
+  fetchTrackLyricsLrcLib,
   loadAlbumJsonMetaFromDir,
   loadTrackJsonMetaMapFromDir,
   prepareTrackTitleForMeta,
@@ -2642,6 +2643,78 @@ app.post("/api/track-info/fetch", async (req, res) => {
       durationMs: Number.isFinite(fileMs) ? fileMs : null,
     };
     return res.json({ ok: true, relPath, meta: metaOut });
+  } catch (error) {
+    return sendError(res, 500, String(error?.message || error));
+  }
+});
+
+app.post("/api/track-lyrics/fetch", async (req, res) => {
+  const root = getMusicRoot();
+  const relPath = safeRelSeg(String(req.body?.relPath || ""));
+  if (!relPath) return sendError(res, 400, "relPath is required");
+  try {
+    const fullTrackPath = path.join(root, relPath.replaceAll("/", path.sep));
+    if (
+      !underRoot(fullTrackPath, root) ||
+      !existsSync(fullTrackPath) ||
+      !isAudioFile(fullTrackPath)
+    ) {
+      return sendError(res, 404, "Track not found");
+    }
+    const parts = relPath.split("/").filter(Boolean);
+    const fileName = parts[parts.length - 1];
+    const artistFolder = parts[0] || "";
+    const albumFolder = parts.length >= 3 ? parts[1] : "";
+    const albumRel = albumFolderFromRelPath(relPath);
+    if (!albumRel) return sendError(res, 400, "Invalid track path");
+    const albumDir = path.join(root, albumRel.replaceAll("/", path.sep));
+    if (!underRoot(albumDir, root) || !existsSync(albumDir))
+      return sendError(res, 404, "Album folder not found");
+    const titleRaw =
+      String(fileName)
+        .replace(/\.(mp3|flac|m4a|ogg|opus|wav|aac|webm)$/i, "")
+        .trim() || fileName;
+    const fpKord = path.join(albumDir, "kord-trackinfo.json");
+    const fpWpp = path.join(albumDir, "wpp-trackinfo.json");
+    const fpRead = existsSync(fpKord) ? fpKord : existsSync(fpWpp) ? fpWpp : null;
+    let json = {};
+    if (fpRead) {
+      try {
+        json = JSON.parse(await fs.readFile(fpRead, "utf8")) || {};
+      } catch {
+        json = {};
+      }
+    }
+    const existingTr = json[fileName];
+    const artistFromTrackInfo =
+      existingTr &&
+      typeof existingTr === "object" &&
+      typeof existingTr.artist === "string"
+        ? String(existingTr.artist).trim()
+        : "";
+    const artist = artistFromTrackInfo || artistFolder;
+    const title = prepareTrackTitleForMeta(artist, titleRaw) || titleRaw;
+    const durMs = await getAudioFileDurationMs(fullTrackPath);
+    const lyric = await fetchTrackLyricsLrcLib(
+      artist,
+      title,
+      albumFolder,
+      Number.isFinite(durMs) ? durMs : null,
+    );
+    if (lyric?.error) return sendError(res, 404, lyric.error);
+    const synced = lyric?.syncedLyrics || null;
+    const plain = lyric?.plainLyrics || null;
+    void actLog(req, {
+      kind: "library",
+      action: "track_lyrics_fetch",
+      folder: albumRel,
+      detail: fileName,
+    });
+    return sendOk(res, {
+      relPath,
+      syncedLyrics: synced,
+      plainLyrics: plain,
+    });
   } catch (error) {
     return sendError(res, 500, String(error?.message || error));
   }

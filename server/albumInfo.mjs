@@ -25,6 +25,10 @@ const ITUNES_HEADERS = {
 }
 
 const MB_UA = "Kord/1.0 (https://github.com/local)"
+const LRCLIB_HEADERS = {
+  "User-Agent": MB_UA,
+  Accept: "application/json",
+}
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
@@ -1352,5 +1356,47 @@ export async function fetchTrackMetadata(artist, title, album, titleFromFile) {
     error: parts.length
       ? [...new Set(parts)].join(" · ")
       : "No results",
+  }
+}
+
+export async function fetchTrackLyricsLrcLib(artist, title, album, durationMs) {
+  const ar = String(artist || "").trim()
+  const tt = String(title || "").trim()
+  const al = String(album || "").trim()
+  if (!ar || !tt) return { error: "Missing artist or title" }
+  const qp = new URLSearchParams()
+  qp.set("artist_name", ar)
+  qp.set("track_name", tt)
+  if (al) qp.set("album_name", al)
+  // LRCLIB expects duration in seconds (int). We store/compute ms locally.
+  const durMs = Number(durationMs)
+  if (Number.isFinite(durMs) && durMs > 0) {
+    const durSec = Math.max(1, Math.round(durMs / 1000))
+    qp.set("duration", String(durSec))
+  }
+  const url = `https://lrclib.net/api/get?${qp.toString()}`
+  let r = await fetch(url, { headers: LRCLIB_HEADERS })
+  for (let t = 0; t < 2 && (r.status === 503 || r.status === 429); t += 1) {
+    await sleep(1100)
+    r = await fetch(url, { headers: LRCLIB_HEADERS })
+  }
+  if (r.status === 404) return { ok: false, syncedLyrics: null, plainLyrics: null }
+  if (!r.ok) {
+    let detail = ""
+    try {
+      detail = String(await r.text()).trim()
+    } catch {
+      detail = ""
+    }
+    const short = detail ? detail.slice(0, 220) : ""
+    return { error: `LRCLIB ${r.status}${short ? `: ${short}` : ""}` }
+  }
+  const j = (await r.json()) || {}
+  const synced = typeof j.syncedLyrics === "string" ? j.syncedLyrics.trim() : ""
+  const plain = typeof j.plainLyrics === "string" ? j.plainLyrics.trim() : ""
+  return {
+    ok: true,
+    syncedLyrics: synced || null,
+    plainLyrics: plain || null,
   }
 }

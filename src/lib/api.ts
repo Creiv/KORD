@@ -1126,6 +1126,18 @@ export async function fetchTrackInfo(
   return json as { ok: true; relPath: string; meta: FetchedTrackMeta }
 }
 
+export async function fetchTrackLyrics(
+  relPath: string,
+): Promise<{ ok: true; relPath: string; syncedLyrics: string | null; plainLyrics: string | null }> {
+  await ensureSelectedAccountId()
+  const response = await apiFetch("/api/track-lyrics/fetch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ relPath }),
+  })
+  return unwrap<{ ok: true; relPath: string; syncedLyrics: string | null; plainLyrics: string | null }>(response)
+}
+
 export type TrackMetaSavePatch = {
   title?: string | null;
   releaseDate?: string | null;

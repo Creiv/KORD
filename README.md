@@ -11,6 +11,12 @@ Kord **1.7** ships with the behavior and packaging described below. **`package.j
 - **End users & operators:** start at [Requirements](#requirements), [How to run](#how-to-run), and [Builds and installers](#builds-and-installers).
 - **Developers:** see [For developers](#for-developers-and-contributors) and [`package.json` scripts](#common-scripts).
 
+## Disclaimer
+
+- **KORD and its creators assume no responsibility** for what users choose to download, import, or manage through this tool.
+- KORD is designed for **legal / no-copyright music libraries** (or any content used with the necessary rights and permissions).
+- **Each user is solely responsible** for their own actions and for compliance with applicable copyright and local laws.
+
 ## What you get
 
 - **Dashboard, Listen, Library, Studio, Queue, Playlists, Favorites, Recent, Settings** — a single shell with client-side routing and deep links.
