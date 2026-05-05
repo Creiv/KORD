@@ -169,6 +169,7 @@ function sanitizeSettings(settings) {
         m === "bars" ||
         m === "signals" ||
         m === "embers" ||
+        m === "karaoke" ||
         m === "kord"
         ? m
         : "bars"

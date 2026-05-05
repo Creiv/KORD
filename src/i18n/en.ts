@@ -22,6 +22,8 @@ export const EN: Record<string, string> = {
   "topbar.installApp": "Install app",
   "topbar.installIosHint":
     "To install KORD: open the browser Share menu and choose “Add to Home Screen”.",
+  "topbar.installSecureContextHint":
+    "Browsers install PWAs only from HTTPS or localhost. From an HTTP IP they can create only a browser shortcut: use HTTPS on the KORD server or open it from localhost on the host device.",
   "topbar.refresh": "Refresh",
   "topbar.refreshTitle": "Reload library and dashboard",
   "topbar.toolsBusyTitle": "Tools: download or metadata running in background",
@@ -116,6 +118,9 @@ export const EN: Record<string, string> = {
   "albumMeta.editHeading": "Edit album data",
   "albumMeta.fieldTitle": "Album name",
   "albumMeta.fieldReleaseDate": "Release date",
+  "albumMeta.fieldGenre": "Album genres",
+  "albumMeta.fieldGenreHint":
+    "On save, these genres are written to every track in the album and remain editable track by track.",
   "albumMeta.fieldLabel": "Label",
   "albumMeta.fieldCountry": "Country",
   "albumMeta.deleteAlbum": "Delete album",
@@ -398,6 +403,7 @@ export const EN: Record<string, string> = {
   "settings.vizSignals": "Signals",
   "settings.vizEmbers": "Atmosphere",
   "settings.vizKord": "KORD",
+  "settings.vizKaraoke": "Karaoke",
   "settings.vizPrism": "Prism",
   "settings.restoreSession": "Restore listening session on launch",
   "settings.language": "Language",

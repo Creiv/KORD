@@ -1051,6 +1051,7 @@ export type FetchedAlbumMeta = {
 export type AlbumMetaSavePatch = {
   title?: string | null
   releaseDate?: string | null
+  genre?: string | null
   label?: string | null
   country?: string | null
   musicbrainzReleaseId?: string | null
@@ -1093,13 +1094,13 @@ export async function fetchAlbumInfo(
 export async function saveAlbumInfoManual(
   albumPath: string,
   patch: AlbumMetaSavePatch,
-): Promise<{ albumPath: string; meta: Record<string, unknown>; album?: LibraryEntityDelta["album"] }> {
+): Promise<{ albumPath: string; meta: Record<string, unknown>; album?: LibraryEntityDelta["album"]; tracks?: LibraryEntityDelta["tracks"] }> {
   const response = await apiFetch("/api/album-info/save", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ albumPath, patch }),
   })
-  const data = await unwrap<{ albumPath: string; meta: Record<string, unknown>; album?: LibraryEntityDelta["album"] }>(
+  const data = await unwrap<{ albumPath: string; meta: Record<string, unknown>; album?: LibraryEntityDelta["album"]; tracks?: LibraryEntityDelta["tracks"] }>(
     response,
   )
   return data
@@ -1210,4 +1211,3 @@ export async function sanitizeTrackTitles(
   })
   return unwrap<SanitizeTrackTitlesAll | SanitizeTrackTitlesOneAlbum>(response)
 }
-

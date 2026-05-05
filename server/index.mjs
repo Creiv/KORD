@@ -30,6 +30,8 @@ import {
 import {
   fetchReleaseMetadata,
   fetchTrackMetadata,
+  loadAlbumJsonMetaFromDir,
+  loadTrackJsonMetaMapFromDir,
   prepareTrackTitleForMeta,
   saveAlbumFetchedMeta,
   saveAlbumManualMeta,
@@ -39,6 +41,7 @@ import {
   saveTrackManualMeta,
   pruneOrphanTrackMetaInAlbumDir,
 } from "./albumInfo.mjs";
+import { normalizeStoredGenreString, parseTrackGenres } from "./genres.mjs";
 import { getAudioFileDurationMs } from "./audioDuration.mjs";
 import {
   buildCatalogFromIndex,
@@ -2488,6 +2491,7 @@ app.post("/api/album-info/save", async (req, res) => {
     const allowed = [
       "title",
       "releaseDate",
+      "genre",
       "label",
       "country",
       "musicbrainzReleaseId",
@@ -2498,7 +2502,40 @@ app.post("/api/album-info/save", async (req, res) => {
     }
     if (!Object.keys(safe).length)
       return sendError(res, 400, "No valid fields in patch");
+    const genreTouched = Object.prototype.hasOwnProperty.call(safe, "genre");
+    const prevAlbumGenre = genreTouched
+      ? normalizeStoredGenreString((await loadAlbumJsonMetaFromDir(full))?.genre) || null
+      : null;
     const meta = await saveAlbumManualMeta(full, safe);
+    const touchedTracks = [];
+    if (genreTouched) {
+      const prevAlbumGenres = new Set(
+        parseTrackGenres(prevAlbumGenre).map((g) => g.toLowerCase())
+      );
+      const nextAlbumGenres = parseTrackGenres(meta?.genre);
+      const trackMetaMap = await loadTrackJsonMetaMapFromDir(full);
+      const entries = await fs.readdir(full, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isFile() || !isAudioFile(entry.name)) continue;
+        const existingGenres = parseTrackGenres(trackMetaMap?.[entry.name]?.genre);
+        const mergedGenres = existingGenres.filter(
+          (g) => !prevAlbumGenres.has(g.toLowerCase())
+        );
+        for (const g of nextAlbumGenres) {
+          if (!mergedGenres.some((x) => x.toLowerCase() === g.toLowerCase())) {
+            mergedGenres.push(g);
+          }
+        }
+        const relPath = `${albumPath}/${entry.name}`.replaceAll(path.sep, "/");
+        const row = await saveTrackManualMeta(full, entry.name, {
+          genre: normalizeStoredGenreString(mergedGenres.join("; ")) || null,
+        });
+        touchedTracks.push({
+          relPath,
+          meta: row,
+        });
+      }
+    }
     void actLog(req, {
       kind: "library",
       action: "album_metadata_save",
@@ -2514,6 +2551,7 @@ app.post("/api/album-info/save", async (req, res) => {
         name: meta?.title && String(meta.title).trim() ? String(meta.title).trim() : path.basename(albumPath),
         title: meta?.title ?? null,
         releaseDate: meta?.releaseDate ?? null,
+        genre: meta?.genre ?? null,
         label: meta?.label ?? null,
         country: meta?.country ?? null,
         musicbrainzReleaseId: meta?.musicbrainzReleaseId ?? null,
@@ -2522,6 +2560,7 @@ app.post("/api/album-info/save", async (req, res) => {
         expectedTracks: Array.isArray(meta?.expectedTracks) ? meta.expectedTracks : null,
         hasAlbumMeta: true,
       },
+      tracks: touchedTracks,
     });
   } catch (error) {
     return sendError(res, 500, String(error?.message || error));

@@ -206,6 +206,7 @@ export async function loadAlbumJsonMetaFromDir(albumDir) {
     return {
       title: j.title || j.name || null,
       releaseDate: j.date || j.releaseDate || null,
+      genre: normalizeStoredGenreString(j.genre) || null,
       label: j.label || null,
       country: j.country || null,
       musicbrainzReleaseId: j.musicbrainzReleaseId || null,
@@ -271,6 +272,15 @@ export async function saveAlbumManualMeta(albumDir, patch) {
     if (Object.prototype.hasOwnProperty.call(patch, "releaseDate")) {
       next.releaseDate = str(patch.releaseDate, 64)
       next.date = next.releaseDate
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "genre")) {
+      const g = patch.genre
+      if (g === "" || g == null) {
+        next.genre = null
+      } else {
+        const norm = normalizeStoredGenreString(String(g))
+        next.genre = norm ? str(norm, 800) : null
+      }
     }
     if (Object.prototype.hasOwnProperty.call(patch, "label")) {
       next.label = str(patch.label, 300)

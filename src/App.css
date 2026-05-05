@@ -2972,7 +2972,7 @@
 .viz-lyrics-overlay__prev,
 .viz-lyrics-overlay__current {
   margin: 0;
-  max-width: min(90vw, 980px);
+  max-width: 90vw;
   text-wrap: balance;
   line-height: 1.2;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.62), 0 6px 26px rgba(0, 0, 0, 0.55);
@@ -2988,6 +2988,75 @@
   font-size: clamp(1.12rem, 2.2vw, 2.05rem);
   font-weight: 800;
   color: color-mix(in srgb, var(--accent) 76%, var(--text) 24%);
+}
+
+.viz-wrap.is-karaoke .viz-canvas {
+  filter: saturate(0.88) brightness(0.58);
+}
+
+.viz-karaoke-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-rows: minmax(0, 0.7fr) auto auto auto minmax(0, 1.3fr);
+  align-content: center;
+  justify-items: center;
+  gap: clamp(0.35rem, 1.2vh, 0.9rem);
+  padding: clamp(1rem, 4vw, 3rem);
+  text-align: center;
+  pointer-events: none;
+}
+
+.viz-karaoke-overlay__line {
+  margin: 0;
+  max-width: 90vw;
+  text-wrap: balance;
+  line-height: 1.12;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, 0.72), 0 10px 34px rgba(0, 0, 0, 0.62);
+}
+
+.viz-karaoke-overlay__line--prev {
+  grid-row: 2;
+}
+
+.viz-karaoke-overlay__line--current {
+  grid-row: 3;
+}
+
+.viz-karaoke-overlay__line--next {
+  grid-row: 4;
+}
+
+.viz-karaoke-overlay__line--prev,
+.viz-karaoke-overlay__line--next {
+  font-size: clamp(0.95rem, 2.2vw, 1.8rem);
+  color: color-mix(in srgb, var(--text) 58%, transparent);
+  opacity: 0.56;
+}
+
+.viz-karaoke-overlay__line--current {
+  font-size: clamp(1.55rem, 5vw, 4.8rem);
+  font-weight: 850;
+  color: color-mix(in srgb, var(--accent) 82%, var(--text) 18%);
+}
+
+.viz-wrap.is-expanded .viz-karaoke-overlay__line--current {
+  font-size: clamp(2.2rem, 6.8vw, 7.2rem);
+}
+
+.viz-wrap:not(.is-expanded) .viz-karaoke-overlay {
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.9rem;
+}
+
+.viz-wrap:not(.is-expanded) .viz-karaoke-overlay__line--current {
+  font-size: clamp(1.9rem, 3.6vw, 2.7rem);
+  font-weight: 800;
+  color: color-mix(in srgb, var(--accent) 74%, var(--text) 26%);
 }
 
 .viz-wrap.is-expanded .viz-kord-wordmark {
@@ -6404,9 +6473,14 @@
 }
 
 .listen-recent-panel__nav {
-  margin-top: 0.35rem;
-  padding-bottom: 0.55rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
+  margin-top: 0.08rem;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+/* Make the "Recent / Lyrics" tabs behave like a normal section title row. */
+.listen-recent-panel__head .section-nav-tab {
+  font-size: 1.28rem;
 }
 
 .listen-dashboard-row .track-row {
@@ -6430,7 +6504,7 @@
 }
 
 .listen-recent-panel__body {
-  margin-top: 0.65rem;
+  margin-top: 0;
 }
 
 .listen-recent-lyrics {

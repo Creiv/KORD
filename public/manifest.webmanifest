@@ -2,9 +2,11 @@
   "name": "KORD",
   "short_name": "KORD",
   "description": "KORD - local hub for listening, organizing, and maintaining a personal music library.",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "fullscreen"],
   "background_color": "#0f1117",
   "theme_color": "#0f1117",
   "icons": [

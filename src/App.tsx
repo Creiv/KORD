@@ -154,6 +154,18 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
 
+function isStandaloneDisplayMode(): boolean {
+  try {
+    return (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.matchMedia("(display-mode: fullscreen)").matches ||
+      Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+    );
+  } catch {
+    return false;
+  }
+}
+
 type RouteState = {
   section: AppSection;
   artist: string | null;
@@ -428,6 +440,22 @@ function applyLibraryDeltaToIndex(
             }
           : track
       ),
+    };
+  }
+  if (delta.tracks?.length) {
+    const patches = new Map(delta.tracks.map((track) => [track.relPath, track]));
+    next = {
+      ...next,
+      tracks: next.tracks.map((track) => {
+        const patch = patches.get(track.relPath);
+        if (!patch) return track;
+        return {
+          ...track,
+          ...patch,
+          title: patch.title || track.title,
+          meta: { ...(track.meta || {}), ...(patch.meta || {}) } as TrackMeta,
+        };
+      }),
     };
   }
   return recomputeLibraryStats(next);
@@ -1847,11 +1875,10 @@ function ListenView({
   const lrcScrollRef = useRef<HTMLDivElement>(null);
   const lrcCurrentLineRef = useRef<HTMLParagraphElement | null>(null);
   useEffect(() => {
-    if (!hasLyrics) {
-      setListenRecentPanel("recent");
-      return;
-    }
-    setListenRecentPanel("lyrics");
+    const timer = window.setTimeout(() => {
+      setListenRecentPanel(hasLyrics ? "lyrics" : "recent");
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [hasLyrics, cur?.relPath]);
   useLayoutEffect(() => {
     if (!hasLrcLyrics || listenRecentPanel !== "lyrics") return;
@@ -2072,9 +2099,6 @@ function ListenView({
                         ? t("listen.recentEyebrow")
                         : t("listen.recentLyricsEyebrow")}
                     </p>
-                    {listenRecentPanel === "recent" ? (
-                      <h2>{t("listen.recentHeading")}</h2>
-                    ) : null}
                     <div
                       className="section-nav-tabs listen-recent-panel__nav"
                       role="tablist"
@@ -4654,6 +4678,7 @@ function SettingsView({
                     | "oscSoft"
                     | "signals"
                     | "embers"
+                    | "karaoke"
                     | "kord",
                 })
               }
@@ -4664,6 +4689,7 @@ function SettingsView({
               <option value="oscSoft">{t("settings.vizOscSoft")}</option>
               <option value="signals">{t("settings.vizSignals")}</option>
               <option value="embers">{t("settings.vizEmbers")}</option>
+              <option value="karaoke">{t("settings.vizKaraoke")}</option>
               <option value="kord">{t("settings.vizKord")}</option>
             </select>
           </label>
@@ -5471,16 +5497,7 @@ function Shell() {
   const [installPrompt, setInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [installDismissed, setInstallDismissed] = useState(false);
-  const [standalone, setStandalone] = useState(() => {
-    try {
-      return (
-        window.matchMedia("(display-mode: standalone)").matches ||
-        Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
-      );
-    } catch {
-      return false;
-    }
-  });
+  const [standalone, setStandalone] = useState(() => isStandaloneDisplayMode());
 
   const refreshLibrary = useCallback(
     (mode: "manual" | "background" = "manual") => {
@@ -5578,16 +5595,19 @@ function Shell() {
       setStandalone(true);
     };
     const standaloneQuery = window.matchMedia("(display-mode: standalone)");
-    const onStandaloneChange = (event: MediaQueryListEvent) => {
-      setStandalone(event.matches);
+    const fullscreenQuery = window.matchMedia("(display-mode: fullscreen)");
+    const onStandaloneChange = () => {
+      setStandalone(isStandaloneDisplayMode());
     };
     window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
     window.addEventListener("appinstalled", onInstalled);
     standaloneQuery.addEventListener?.("change", onStandaloneChange);
+    fullscreenQuery.addEventListener?.("change", onStandaloneChange);
     return () => {
       window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
       window.removeEventListener("appinstalled", onInstalled);
       standaloneQuery.removeEventListener?.("change", onStandaloneChange);
+      fullscreenQuery.removeEventListener?.("change", onStandaloneChange);
     };
   }, []);
 
@@ -5604,7 +5624,7 @@ function Shell() {
     isMobileLayout &&
     !standalone &&
     !installDismissed &&
-    (installPrompt != null || isIosBrowser);
+    (installPrompt != null || isIosBrowser || !window.isSecureContext);
 
   const installApp = useCallback(async () => {
     if (installPrompt) {
@@ -5615,9 +5635,13 @@ function Shell() {
       if (choice.outcome === "dismissed") setInstallDismissed(true);
       return;
     }
-    await appAlert({ message: t("topbar.installIosHint") });
+    await appAlert({
+      message: isIosBrowser
+        ? t("topbar.installIosHint")
+        : t("topbar.installSecureContextHint"),
+    });
     setInstallDismissed(true);
-  }, [installPrompt, t, appAlert]);
+  }, [installPrompt, isIosBrowser, t, appAlert]);
 
   useLayoutEffect(() => {
     document.documentElement.dataset.playerDock =
@@ -5901,7 +5925,10 @@ function Shell() {
       genreOptions={libraryGenreOptions}
       onSaved={refreshAfterTrackMetaSaved}
     >
-      <AlbumMetaEditProvider onSaved={refreshAfterAlbumMetaSaved}>
+      <AlbumMetaEditProvider
+        genreOptions={libraryGenreOptions}
+        onSaved={refreshAfterAlbumMetaSaved}
+      >
         <div className="app-shell">
           <div className="main-shell">
             <header className="topbar2 topbar2--toolbar" role="banner">

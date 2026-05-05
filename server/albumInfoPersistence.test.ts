@@ -47,4 +47,14 @@ describe("albumInfo persistence", () => {
     expect(json.country).toBe("IT")
     expect(json.fetchedAt).toBe("2026-05-02T00:00:00.000Z")
   })
+
+  it("normalizza i generi salvati sui metadati album", async () => {
+    const albumDir = await fs.mkdtemp(path.join(os.tmpdir(), "kord-album-genre-"))
+
+    await saveAlbumManualMeta(albumDir, { genre: "Rock / Pop, Rock; Synth" })
+
+    const raw = await fs.readFile(path.join(albumDir, "kord-albuminfo.json"), "utf8")
+    const json = JSON.parse(raw)
+    expect(json.genre).toBe("Rock; Pop; Synth")
+  })
 })

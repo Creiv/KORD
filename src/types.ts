@@ -27,6 +27,7 @@ export type LibTrack = {
 export type AlbumMeta = {
   title?: string | null;
   releaseDate: string | null;
+  genre?: string | null;
   label: string | null;
   country: string | null;
   musicbrainzReleaseId: string | null;
@@ -94,6 +95,7 @@ export type VizMode =
   | "oscSoft"
   | "signals"
   | "embers"
+  | "karaoke"
   | "kord";
 
 export const APP_LOCALES = ["en", "it"] as const;
@@ -169,6 +171,7 @@ export type LibraryAlbumIndex = {
   trackCount: number;
   coverRelPath: string | null;
   releaseDate: string | null;
+  genre?: string | null;
   label: string | null;
   country: string | null;
   musicbrainzReleaseId: string | null;
@@ -243,6 +246,7 @@ export type LibraryEntityDelta = {
   coverVersion?: number;
   album?: Partial<LibraryAlbumIndex> & { relPath?: string };
   track?: Partial<LibraryTrackIndex> & { relPath: string };
+  tracks?: (Partial<LibraryTrackIndex> & { relPath: string })[];
   deleted?: string[];
   deletedFolder?: string;
   affectedAlbums?: string[];

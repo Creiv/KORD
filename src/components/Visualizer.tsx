@@ -299,7 +299,7 @@ function mix(c1: RGB, c2: RGB, t: number): RGB {
 
 
 export function Visualizer({ mode }: { mode: VizMode }) {
-  const { getAnalyser, isPlaying, current, currentTime } = usePlayer();
+  const { getAnalyser, isPlaying, current, currentTime, duration } = usePlayer();
   const currentLyricsRaw = String(current?.meta?.lyrics || "").trim();
   const parsedLrc = useMemo(() => {
     const out: { atSec: number; text: string }[] = [];
@@ -339,6 +339,42 @@ export function Visualizer({ mode }: { mode: VizMode }) {
     currentLrcIdx >= 0 ? parsedLrc[currentLrcIdx]?.text?.trim() || "" : "";
   const previousLrcText =
     currentLrcIdx > 0 ? parsedLrc[currentLrcIdx - 1]?.text?.trim() || "" : "";
+  const nextLrcText =
+    currentLrcIdx >= 0 ? parsedLrc[currentLrcIdx + 1]?.text?.trim() || "" : "";
+  const plainLyricsLines = useMemo(
+    () =>
+      currentLyricsRaw
+        .split(/\r?\n/)
+        .map((line) => line.replace(/\[[^\]]*]/g, "").trim())
+        .filter(Boolean),
+    [currentLyricsRaw],
+  );
+  const plainLyricsIdx = useMemo(() => {
+    if (!plainLyricsLines.length) return -1;
+    const safeDuration = Number.isFinite(duration) && duration > 0 ? duration : 180;
+    const progress = Math.min(0.999, Math.max(0, currentTime / safeDuration));
+    return Math.min(plainLyricsLines.length - 1, Math.floor(progress * plainLyricsLines.length));
+  }, [currentTime, duration, plainLyricsLines.length]);
+  const karaokeHasLrc = parsedLrc.length > 0;
+  const karaokeIdx = karaokeHasLrc ? currentLrcIdx : plainLyricsIdx;
+  const karaokeCurrent =
+    karaokeHasLrc
+      ? currentLrcText
+      : karaokeIdx >= 0
+        ? plainLyricsLines[karaokeIdx] || ""
+        : current?.title || "";
+  const karaokePrevious =
+    karaokeHasLrc
+      ? previousLrcText
+      : karaokeIdx > 0
+        ? plainLyricsLines[karaokeIdx - 1] || ""
+        : "";
+  const karaokeNext =
+    karaokeHasLrc
+      ? nextLrcText
+      : karaokeIdx >= 0
+        ? plainLyricsLines[karaokeIdx + 1] || ""
+        : "";
   const wrapRef = useRef<HTMLDivElement>(null);
   const cRef = useRef<HTMLCanvasElement>(null);
   const [expanded, setExpanded] = useState(false);
@@ -1065,7 +1101,9 @@ export function Visualizer({ mode }: { mode: VizMode }) {
 
   const wrap = (
     <div
-      className={`viz-wrap ${expanded ? "is-expanded" : ""}`}
+      className={`viz-wrap ${expanded ? "is-expanded" : ""}${
+        mode === "karaoke" ? " is-karaoke" : ""
+      }`}
       ref={wrapRef}
       role="button"
       tabIndex={0}
@@ -1084,7 +1122,23 @@ export function Visualizer({ mode }: { mode: VizMode }) {
     >
       <canvas className="viz-canvas" ref={cRef} />
       {mode === "kord" ? <KordMascotOverlay /> : null}
-      {expanded && currentLrcText ? (
+      {mode === "karaoke" && karaokeCurrent ? (
+        <div className="viz-karaoke-overlay" aria-live="polite">
+          {expanded && karaokePrevious ? (
+            <p className="viz-karaoke-overlay__line viz-karaoke-overlay__line--prev">
+              {karaokePrevious}
+            </p>
+          ) : null}
+          <p className="viz-karaoke-overlay__line viz-karaoke-overlay__line--current">
+            {karaokeCurrent}
+          </p>
+          {expanded && karaokeNext ? (
+            <p className="viz-karaoke-overlay__line viz-karaoke-overlay__line--next">
+              {karaokeNext}
+            </p>
+          ) : null}
+        </div>
+      ) : expanded && currentLrcText ? (
         <div className="viz-lyrics-overlay" aria-live="polite">
           {previousLrcText ? (
             <p className="viz-lyrics-overlay__prev">{previousLrcText}</p>

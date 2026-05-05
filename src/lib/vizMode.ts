@@ -5,6 +5,7 @@ export type VizMode =
   | "oscSoft"
   | "signals"
   | "embers"
+  | "karaoke"
   | "kord";
 
 const KEY = "kord-viz";
@@ -22,6 +23,7 @@ export const VIZ_OPTIONS: { id: VizMode; label: string; hint: string }[] = [
     label: "Atmosfera",
     hint: "Sfondo tema e luce a ritmo",
   },
+  { id: "karaoke", label: "Karaoke", hint: "Lyrics grandi e sincronizzati" },
   { id: "kord", label: "KORD", hint: "Logo animato" },
 ];
 

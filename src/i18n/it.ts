@@ -22,6 +22,8 @@ export const IT: Record<string, string> = {
   "topbar.installApp": "Installa app",
   "topbar.installIosHint":
     "Per installare KORD: apri il menu Condividi del browser e scegli “Aggiungi alla schermata Home”.",
+  "topbar.installSecureContextHint":
+    "Il browser installa le PWA solo da HTTPS o localhost. Su un IP in HTTP può creare solo un collegamento che si apre nel browser: usa HTTPS sul server KORD oppure aprilo da localhost sul dispositivo host.",
   "topbar.refresh": "Aggiorna",
   "topbar.refreshTitle": "Ricarica libreria e dashboard",
   "topbar.toolsBusyTitle":
@@ -121,6 +123,9 @@ export const IT: Record<string, string> = {
   "albumMeta.editHeading": "Modifica dati album",
   "albumMeta.fieldTitle": "Nome album",
   "albumMeta.fieldReleaseDate": "Data uscita",
+  "albumMeta.fieldGenre": "Generi album",
+  "albumMeta.fieldGenreHint":
+    "Quando salvi, questi generi vengono scritti su ogni brano dell'album e poi restano modificabili brano per brano.",
   "albumMeta.fieldLabel": "Etichetta",
   "albumMeta.fieldCountry": "Paese",
   "albumMeta.deleteAlbum": "Elimina album",
@@ -408,6 +413,7 @@ export const IT: Record<string, string> = {
   "settings.vizSignals": "Segnali",
   "settings.vizEmbers": "Atmosfera",
   "settings.vizKord": "KORD",
+  "settings.vizKaraoke": "Karaoke",
   "settings.vizPrism": "Prisma",
   "settings.restoreSession": "Ripristina la sessione di ascolto all’apertura",
   "settings.language": "Lingua",

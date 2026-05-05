@@ -264,6 +264,7 @@ export async function buildLibraryIndex(musicRoot) {
         coverRelPath,
         title: albumMeta?.title || null,
         releaseDate: albumMeta?.releaseDate || null,
+        genre: albumMeta?.genre || null,
         label: albumMeta?.label || null,
         country: albumMeta?.country || null,
         musicbrainzReleaseId: albumMeta?.musicbrainzReleaseId || null,
