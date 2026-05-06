@@ -50,6 +50,10 @@ function toDateInputValue(raw: string | null | undefined): string {
   return "";
 }
 
+function hasLrcTimecodes(text: string): boolean {
+  return /\[(?:\d{1,2}):(?:\d{2})(?:[.:]\d{1,3})?\]/.test(text);
+}
+
 export function TrackMetaEditGlyph() {
   return (
     <svg
@@ -102,7 +106,7 @@ function TrackMetaEditorModal({
   const [lyricsOpen, setLyricsOpen] = useState(false);
   const [lyricsValue, setLyricsValue] = useState("");
   const [lyricsFetchBusy, setLyricsFetchBusy] = useState(false);
-  const [lyricsAutoStatus, setLyricsAutoStatus] = useState<
+  const [, setLyricsAutoStatus] = useState<
     "idle" | "okLrc" | "okPlain" | "missing" | "error"
   >("idle");
   const [busy, setBusy] = useState(false);
@@ -339,6 +343,9 @@ function TrackMetaEditorModal({
   }, [onSaved, t, track]);
 
   if (!track) return null;
+  const currentLyrics = lyricsValue.trim();
+  const lyricsDotStatus: "idle" | "okLrc" | "okPlain" =
+    !currentLyrics ? "idle" : hasLrcTimecodes(currentLyrics) ? "okLrc" : "okPlain";
 
   const lyricsPortal = lyricsOpen
     ? createPortal(
@@ -568,9 +575,9 @@ function TrackMetaEditorModal({
                   {lyricsFetchBusy ? t("trackMeta.fetchLrcBusy") : t("trackMeta.fetchLrc")}
                 </button>
                 <span
-                  className={`meta-edit-lyrics-status-dot meta-edit-lyrics-status-dot--${lyricsAutoStatus}`}
-                  title={t(`trackMeta.lyricsAutoStatus.${lyricsAutoStatus}`)}
-                  aria-label={t(`trackMeta.lyricsAutoStatus.${lyricsAutoStatus}`)}
+                  className={`meta-edit-lyrics-status-dot meta-edit-lyrics-status-dot--${lyricsDotStatus}`}
+                  title={t(`trackMeta.lyricsAutoStatus.${lyricsDotStatus}`)}
+                  aria-label={t(`trackMeta.lyricsAutoStatus.${lyricsDotStatus}`)}
                 />
               </div>
             </div>

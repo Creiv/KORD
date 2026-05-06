@@ -108,6 +108,13 @@ const GLYPHS: Record<TrackMoodId, FC> = {
       <path d="M22 10v4" />
     </svg>
   ),
+  motivational_drive: () => (
+    <svg {...common} aria-hidden>
+      <path d="M4 19h16" />
+      <path d="m6 15 4-4 3 2 5-6" />
+      <path d="m15 7h3v3" />
+    </svg>
+  ),
 };
 
 export function TrackMoodGlyph({

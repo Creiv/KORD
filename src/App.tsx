@@ -631,6 +631,8 @@ function TrackListRow({
   metaRight,
   extraActions,
   showTrackBadgeRow = false,
+  listIndex,
+  autoFocusActive = true,
 }: {
   track: EnrichedTrack;
   /** If omitted, row is active when it matches the current track (`relPath`). Queue uses explicit index. */
@@ -640,6 +642,10 @@ function TrackListRow({
   extraActions?: ReactNode;
   /** Terza riga (badge traccia/disco…): solo nella lista brani dell’album. */
   showTrackBadgeRow?: boolean;
+  /** Posizione nella lista (1-based). */
+  listIndex?: number;
+  /** Disabilita auto-focus/scroll quando la riga è attiva. */
+  autoFocusActive?: boolean;
 }) {
   const p = usePlayer();
   const user = useUserState();
@@ -674,10 +680,52 @@ function TrackListRow({
     active !== undefined
       ? active
       : Boolean(p.current && p.current.relPath === track.relPath);
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const mainBtnRef = useRef<HTMLButtonElement | null>(null);
+  const prevActiveRef = useRef(false);
+  useLayoutEffect(() => {
+    if (!autoFocusActive || !rowActive || prevActiveRef.current) {
+      prevActiveRef.current = rowActive;
+      return;
+    }
+    prevActiveRef.current = true;
+    const raf = window.requestAnimationFrame(() => {
+      rowRef.current?.scrollIntoView({
+        block: "center",
+        inline: "nearest",
+        behavior: "smooth",
+      });
+      mainBtnRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [rowActive, autoFocusActive]);
   return (
-    <div className={`track-row ${rowActive ? "is-active" : ""}`}>
+    <div
+      ref={rowRef}
+      className={`track-row ${rowActive ? "is-active" : ""}`}
+    >
+      <span
+        className={`track-row__idx-wrap ${rowActive ? "is-current" : ""}`}
+        aria-hidden
+      >
+        <span className="track-row__idx-num">{listIndex ?? ""}</span>
+        <button
+          type="button"
+          className="track-row__idx-play"
+          onClick={onPlay}
+          title={t("player.playTitle")}
+          aria-label={t("player.playTitle")}
+        >
+          <UiPlayArrow />
+        </button>
+      </span>
       <TrackRowArt relPath={track.relPath} />
-      <button type="button" className="track-row__main" onClick={onPlay}>
+      <button
+        ref={mainBtnRef}
+        type="button"
+        className="track-row__main"
+        onClick={onPlay}
+      >
         <span className="track-row__title-row">
           <span className="track-row__title-lead">
             <span className="track-row__title">{track.title}</span>
@@ -1709,6 +1757,7 @@ function DashboardView({
                   <TrackListRow
                     key={track.relPath}
                     track={track}
+                    listIndex={i + 1}
                     active={i === p.currentIndex}
                     onPlay={() => p.playTrack(track, p.queue, i)}
                   />
@@ -1752,12 +1801,6 @@ function DashboardView({
                   <AlbumCover album={album} compact />
                   <div className="album-card__text">
                     <div className="album-card__title">{album.name}</div>
-                    <div className="album-card__meta">
-                      {album.artist}
-                      {album.releaseDate
-                        ? ` · ${fmtDate(album.releaseDate)}`
-                        : ""}
-                    </div>
                     <AlbumCardTracksMetaLine album={album} />
                     <DraggableBadgeCluster>
                       <LibraryAlbumMetaChips album={album} />
@@ -1789,10 +1832,11 @@ function DashboardView({
             <p className="panel-empty">{t("dashboard.favoritesEmpty")}</p>
           ) : (
             <div className="list-stack">
-              {favoriteTracksSorted.slice(0, 5).map((track) => (
+              {favoriteTracksSorted.slice(0, 5).map((track, index) => (
                 <TrackListRow
                   key={track.relPath}
                   track={track}
+                  listIndex={index + 1}
                   onPlay={() => playFromLibraryCard(track)}
                 />
               ))}
@@ -1954,6 +1998,7 @@ function ListenView({
   const hasLrcLyrics = parsedLrc.length > 0;
   const lrcScrollRef = useRef<HTMLDivElement>(null);
   const lrcCurrentLineRef = useRef<HTMLParagraphElement | null>(null);
+  const vizFocusRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setListenRecentPanel(hasLyrics ? "lyrics" : "recent");
@@ -1984,6 +2029,18 @@ function ListenView({
       behavior: reduce ? "auto" : "smooth",
     });
   }, [currentLrcIdx, listenRecentPanel, hasLrcLyrics, parsedLrc.length]);
+  useLayoutEffect(() => {
+    if (!cur?.relPath) return;
+    const raf = window.requestAnimationFrame(() => {
+      vizFocusRef.current?.focus({ preventScroll: true });
+      vizFocusRef.current?.scrollIntoView({
+        block: "center",
+        inline: "nearest",
+        behavior: "smooth",
+      });
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [cur?.relPath]);
   return (
     <div className="view-stack">
       <div className="listen-page">
@@ -2143,13 +2200,13 @@ function ListenView({
               </div>
             </div>
           </div>
-          <div className="listen-stage__viz">
+          <div className="listen-stage__viz" ref={vizFocusRef} tabIndex={-1}>
             <Visualizer mode={user.state.settings.vizMode} />
           </div>
         </section>
         <div className="listen-dashboard-row">
           <section className="surface-card listen-queue-panel">
-            <div className="section-head section-head--page-toolbar">
+            <div className="section-head section-head--page-toolbar library-genre-tracklist-headrow">
               <SectionHeadLead
                 eyebrow={t("listen.queueEyebrow")}
                 title={t("listen.queueHeading")}
@@ -2183,6 +2240,8 @@ function ListenView({
                       <TrackListRow
                         key={`${track.relPath}-${index}`}
                         track={track}
+                        listIndex={index + 1}
+                        autoFocusActive={false}
                         active={index === p.currentIndex}
                         onPlay={() => p.playTrack(track, p.queue, index)}
                       />
@@ -2260,10 +2319,14 @@ function ListenView({
                     hasLrcLyrics ? "is-on" : "is-off"
                   }`}
                   aria-label={
-                    hasLrcLyrics ? t("trackRow.lyricsLrc") : t("trackRow.lyricsMissing")
+                    hasLrcLyrics
+                      ? t("trackRow.lyricsLrc")
+                      : t("trackRow.lyricsMissing")
                   }
                   title={
-                    hasLrcLyrics ? t("trackRow.lyricsLrc") : t("trackRow.lyricsMissing")
+                    hasLrcLyrics
+                      ? t("trackRow.lyricsLrc")
+                      : t("trackRow.lyricsMissing")
                   }
                 >
                   {hasLrcLyrics ? "✓ " : "✕ "}LRC
@@ -2274,10 +2337,12 @@ function ListenView({
               {listenRecentPanel === "recent" ? (
                 recentTracks.length ? (
                   <div className="list-stack listen-recent-panel__list">
-                    {recentTracks.map((track) => (
+                    {recentTracks.map((track, index) => (
                       <TrackListRow
                         key={track.relPath}
                         track={track}
+                        listIndex={index + 1}
+                        autoFocusActive={false}
                         onPlay={() => playFromLibraryCard(track)}
                       />
                     ))}
@@ -2477,7 +2542,7 @@ function LibraryView({
       }
     }
     return Array.from(byLower.values()).sort((a, b) =>
-      a.localeCompare(b, sortLocale, { numeric: true }),
+      a.localeCompare(b, sortLocale, { numeric: true })
     );
   }, [albumTracks, sortLocale]);
 
@@ -2511,7 +2576,7 @@ function LibraryView({
         setAlbumGenreBusy(false);
       }
     },
-    [album?.relPath, albumTracks, onRefreshLibrary],
+    [album?.relPath, albumTracks, onRefreshLibrary]
   );
 
   const albumGenreOptions = useMemo(() => {
@@ -2535,7 +2600,7 @@ function LibraryView({
       await applyAlbumGenreToAllTracks(token, "add");
       setAlbumGenrePickerOpen(false);
     },
-    [applyAlbumGenreToAllTracks],
+    [applyAlbumGenreToAllTracks]
   );
 
   const removeAlbumGenre = useCallback(
@@ -2550,7 +2615,7 @@ function LibraryView({
       }
       await applyAlbumGenreToAllTracks(genreToken, "remove");
     },
-    [appConfirm, applyAlbumGenreToAllTracks, t],
+    [appConfirm, applyAlbumGenreToAllTracks, t]
   );
 
   const artistShuffleEligible = useMemo(() => {
@@ -3058,10 +3123,11 @@ function LibraryView({
             <div className="subsection">
               <h3>{t("library.subTracks")}</h3>
               <div className="list-stack">
-                {searchResults.tracks.slice(0, 50).map((track) => (
+                {searchResults.tracks.slice(0, 50).map((track, index) => (
                   <TrackListRow
                     key={track.relPath}
                     track={track}
+                    listIndex={index + 1}
                     onPlay={() => playFromLibraryCard(track)}
                   />
                 ))}
@@ -3151,7 +3217,11 @@ function LibraryView({
                 <div className="album-track-genres-inline">
                   <div className="meta-edit-genre-chips" role="list">
                     {albumTrackGenres.map((g) => (
-                      <span key={g} className="meta-edit-genre-chip" role="listitem">
+                      <span
+                        key={g}
+                        className="meta-edit-genre-chip"
+                        role="listitem"
+                      >
                         <span className="meta-edit-genre-chip__text">{g}</span>
                         <button
                           type="button"
@@ -3160,7 +3230,9 @@ function LibraryView({
                           onClick={() => {
                             void removeAlbumGenre(g);
                           }}
-                          aria-label={t("trackMeta.fieldGenreRemoveAria", { g })}
+                          aria-label={t("trackMeta.fieldGenreRemoveAria", {
+                            g,
+                          })}
                         >
                           <UiClose className="meta-edit-genre-chip__x-ic" />
                         </button>
@@ -3178,10 +3250,16 @@ function LibraryView({
                           aria-label={t("trackMeta.fieldGenreAdd")}
                           title={t("trackMeta.fieldGenreAdd")}
                         >
-                          <UiAdd className="meta-edit-genre-chip__add-ic" aria-hidden />
+                          <UiAdd
+                            className="meta-edit-genre-chip__add-ic"
+                            aria-hidden
+                          />
                         </button>
                         {albumGenrePickerOpen ? (
-                          <div className="meta-edit-genre-option-list" role="listbox">
+                          <div
+                            className="meta-edit-genre-option-list"
+                            role="listbox"
+                          >
                             {albumGenreOptions.map((g) => (
                               <button
                                 key={g}
@@ -3229,6 +3307,7 @@ function LibraryView({
               <TrackListRow
                 key={track.relPath}
                 track={track}
+                listIndex={trIndex + 1}
                 showTrackBadgeRow
                 onPlay={() => p.playTrack(track, albumTracks, trIndex)}
               />
@@ -3276,44 +3355,57 @@ function LibraryView({
           </div>
         </section>
         <section className="surface-card">
-          <div className="library-filter-panel library-sort-panel">
-            <div
-              className="segmented segmented--joined"
-              role="group"
-              aria-label={t("library.artistAlbumsSortAria")}
-            >
-              <button
-                type="button"
-                className={artistAlbumSort === "date" ? "is-on" : ""}
-                onClick={() => user.updateSettings({ artistAlbumSort: "date" })}
-              >
-                <span className="segmented__btn-inner">
-                  <UiDateRange className="segmented__ic" aria-hidden />
-                  <span>{t("library.sortDate")}</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                className={artistAlbumSort === "name" ? "is-on" : ""}
-                onClick={() => user.updateSettings({ artistAlbumSort: "name" })}
-              >
-                <span className="segmented__btn-inner">
-                  <UiSortByAlpha className="segmented__ic" aria-hidden />
-                  <span>{t("library.sortName")}</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                className={artistAlbumSort === "plays" ? "is-on" : ""}
-                onClick={() =>
-                  user.updateSettings({ artistAlbumSort: "plays" })
-                }
-              >
-                <span className="segmented__btn-inner">
-                  <UiBarChart className="segmented__ic" aria-hidden />
-                  <span>{t("library.sortByPlays")}</span>
-                </span>
-              </button>
+          <div className="library-filter-panel library-sort-panel library-genre-tracklist-toolbar">
+            <div className="section-head section-head--page-toolbar library-genre-tracklist-headrow">
+              <div>
+                <p className="eyebrow">{t("library.overviewEyebrow")}</p>
+                <h2>
+                  {artistAlbums.length}{" "}
+                  {artistAlbums.length === 1
+                    ? t("library.unitAlbumFound")
+                    : t("library.unitAlbumFoundPlural")}
+                </h2>
+              </div>
+              <div className="section-head__tools">
+                <div
+                  className="segmented segmented--joined"
+                  role="group"
+                  aria-label={t("library.artistAlbumsSortAria")}
+                >
+                  <button
+                    type="button"
+                    className={artistAlbumSort === "date" ? "is-on" : ""}
+                    onClick={() => user.updateSettings({ artistAlbumSort: "date" })}
+                  >
+                    <span className="segmented__btn-inner">
+                      <UiDateRange className="segmented__ic" aria-hidden />
+                      <span>{t("library.sortDate")}</span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={artistAlbumSort === "name" ? "is-on" : ""}
+                    onClick={() => user.updateSettings({ artistAlbumSort: "name" })}
+                  >
+                    <span className="segmented__btn-inner">
+                      <UiSortByAlpha className="segmented__ic" aria-hidden />
+                      <span>{t("library.sortName")}</span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={artistAlbumSort === "plays" ? "is-on" : ""}
+                    onClick={() =>
+                      user.updateSettings({ artistAlbumSort: "plays" })
+                    }
+                  >
+                    <span className="segmented__btn-inner">
+                      <UiBarChart className="segmented__ic" aria-hidden />
+                      <span>{t("library.sortByPlays")}</span>
+                    </span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
           <div className="album-grid album-grid--artist">
@@ -3504,70 +3596,7 @@ function LibraryView({
       </section>
       <section className="surface-card">
         {selectedGenreKey ? (
-          <div className="library-filter-panel library-filter-panel--tight library-sort-panel">
-            <div
-              className="segmented segmented--joined"
-              role="group"
-              aria-label={t("library.sortOverviewAria")}
-            >
-              <button
-                type="button"
-                className={libOverviewSort === "name" ? "is-on" : ""}
-                onClick={() => user.updateSettings({ libOverviewSort: "name" })}
-              >
-                <span className="segmented__btn-inner">
-                  <UiSortByAlpha className="segmented__ic" aria-hidden />
-                  <span>{t("library.sortByName")}</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                className={libOverviewSort === "plays" ? "is-on" : ""}
-                onClick={() =>
-                  user.updateSettings({ libOverviewSort: "plays" })
-                }
-              >
-                <span className="segmented__btn-inner">
-                  <UiBarChart className="segmented__ic" aria-hidden />
-                  <span>{t("library.sortByPlays")}</span>
-                </span>
-              </button>
-            </div>
-          </div>
-        ) : libBrowse === "artists" || libBrowse === "genres" ? (
-          <div className="library-filter-panel library-sort-panel">
-            <div
-              className="segmented segmented--joined"
-              role="group"
-              aria-label={t("library.sortOverviewAria")}
-            >
-              <button
-                type="button"
-                className={libOverviewSort === "name" ? "is-on" : ""}
-                onClick={() => user.updateSettings({ libOverviewSort: "name" })}
-              >
-                <span className="segmented__btn-inner">
-                  <UiSortByAlpha className="segmented__ic" aria-hidden />
-                  <span>{t("library.sortByName")}</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                className={libOverviewSort === "plays" ? "is-on" : ""}
-                onClick={() =>
-                  user.updateSettings({ libOverviewSort: "plays" })
-                }
-              >
-                <span className="segmented__btn-inner">
-                  <UiBarChart className="segmented__ic" aria-hidden />
-                  <span>{t("library.sortByPlays")}</span>
-                </span>
-              </button>
-            </div>
-          </div>
-        ) : null}
-        {selectedGenreKey ? (
-          <>
+          <div className="library-filter-panel library-filter-panel--tight library-sort-panel library-genre-tracklist-toolbar">
             <div className="section-head section-head--page-toolbar">
               <div>
                 <p className="eyebrow">{t("library.tracklistEyebrow")}</p>
@@ -3583,12 +3612,136 @@ function LibraryView({
                     : t("library.unitTrackPlural")}
                 </h2>
               </div>
+              <div className="section-head__tools">
+                <div
+                  className="segmented segmented--joined"
+                  role="group"
+                  aria-label={t("library.sortOverviewAria")}
+                >
+                  <button
+                    type="button"
+                    className={libOverviewSort === "name" ? "is-on" : ""}
+                    onClick={() => user.updateSettings({ libOverviewSort: "name" })}
+                  >
+                    <span className="segmented__btn-inner">
+                      <UiSortByAlpha className="segmented__ic" aria-hidden />
+                      <span>{t("library.sortByName")}</span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={libOverviewSort === "plays" ? "is-on" : ""}
+                    onClick={() =>
+                      user.updateSettings({ libOverviewSort: "plays" })
+                    }
+                  >
+                    <span className="segmented__btn-inner">
+                      <UiBarChart className="segmented__ic" aria-hidden />
+                      <span>{t("library.sortByPlays")}</span>
+                    </span>
+                  </button>
+                </div>
+              </div>
             </div>
+          </div>
+        ) : libBrowse === "artists" || libBrowse === "genres" ? (
+          <div
+            className={`library-filter-panel library-sort-panel ${
+              libBrowse === "artists" || libBrowse === "genres"
+                ? "library-genre-tracklist-toolbar"
+                : ""
+            }`}
+          >
+            {libBrowse === "artists" || libBrowse === "genres" ? (
+              <div className="section-head section-head--page-toolbar library-genre-tracklist-headrow">
+                <div>
+                  <p className="eyebrow">{t("library.overviewEyebrow")}</p>
+                  <h2>
+                    {libBrowse === "artists"
+                      ? sortedOverviewArtists.length
+                      : sortedGenreBrowseList.length}{" "}
+                    {libBrowse === "artists"
+                      ? sortedOverviewArtists.length === 1
+                        ? t("library.unitArtist")
+                        : t("library.unitArtistPlural")
+                      : sortedGenreBrowseList.length === 1
+                      ? t("library.unitGenre")
+                      : t("library.unitGenrePlural")}
+                  </h2>
+                </div>
+                <div className="section-head__tools">
+                  <div
+                    className="segmented segmented--joined"
+                    role="group"
+                    aria-label={t("library.sortOverviewAria")}
+                  >
+                    <button
+                      type="button"
+                      className={libOverviewSort === "name" ? "is-on" : ""}
+                      onClick={() => user.updateSettings({ libOverviewSort: "name" })}
+                    >
+                      <span className="segmented__btn-inner">
+                        <UiSortByAlpha className="segmented__ic" aria-hidden />
+                        <span>{t("library.sortByName")}</span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className={libOverviewSort === "plays" ? "is-on" : ""}
+                      onClick={() =>
+                        user.updateSettings({ libOverviewSort: "plays" })
+                      }
+                    >
+                      <span className="segmented__btn-inner">
+                        <UiBarChart className="segmented__ic" aria-hidden />
+                        <span>{t("library.sortByPlays")}</span>
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="library-filter-group">
+                <div
+                  className="segmented segmented--joined"
+                  role="group"
+                  aria-label={t("library.sortOverviewAria")}
+                >
+                  <button
+                    type="button"
+                    className={libOverviewSort === "name" ? "is-on" : ""}
+                    onClick={() => user.updateSettings({ libOverviewSort: "name" })}
+                  >
+                    <span className="segmented__btn-inner">
+                      <UiSortByAlpha className="segmented__ic" aria-hidden />
+                      <span>{t("library.sortByName")}</span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={libOverviewSort === "plays" ? "is-on" : ""}
+                    onClick={() =>
+                      user.updateSettings({ libOverviewSort: "plays" })
+                    }
+                  >
+                    <span className="segmented__btn-inner">
+                      <UiBarChart className="segmented__ic" aria-hidden />
+                      <span>{t("library.sortByPlays")}</span>
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : null}
+        {selectedGenreKey ? (
+          <>
             <div className="list-stack">
-              {sortedGenreTracks.map((track) => (
+              {sortedGenreTracks.map((track, index) => (
                 <TrackListRow
                   key={track.relPath}
                   track={track}
+                  listIndex={index + 1}
                   onPlay={() => playFromLibraryCard(track)}
                 />
               ))}
@@ -3704,10 +3857,11 @@ function LibraryView({
                   </div>
                 </div>
                 <div className="list-stack">
-                  {sortedMoodTracks.map((track) => (
+                  {sortedMoodTracks.map((track, index) => (
                     <TrackListRow
                       key={track.relPath}
                       track={track}
+                      listIndex={index + 1}
                       onPlay={() => playFromLibraryCard(track)}
                     />
                   ))}
@@ -3828,6 +3982,7 @@ function QueueViewNew({
               <TrackListRow
                 key={`${track.relPath}-${index}`}
                 track={track}
+                listIndex={index + 1}
                 active={index === p.currentIndex}
                 onPlay={() => p.playTrack(track, p.queue, index)}
                 extraActions={
@@ -4045,6 +4200,7 @@ function PlaylistsViewNew({
                         <TrackListRow
                           key={`${track.relPath}-${index}`}
                           track={enriched}
+                          listIndex={index + 1}
                           onPlay={() => {
                             const queue = playlistToEnrichedList(
                               activePlaylist,
@@ -4135,6 +4291,7 @@ function TrackCollectionView({
               <TrackListRow
                 key={`${track.relPath}-${index}`}
                 track={track}
+                listIndex={index + 1}
                 onPlay={() => playFromLibraryCard(track)}
               />
             ))}
@@ -4147,13 +4304,15 @@ function TrackCollectionView({
 
 const STATISTICS_TOP_N = 3;
 
+type StatisticsMetricMode = "plays" | "favorites" | "blocked";
+
 function computeStatisticsRankings(
   index: LibraryIndex,
-  counts: Record<string, number>,
+  scoreByTrackRelPath: Record<string, number>,
   sortLocale: string
 ) {
   const trackRows = index.tracks
-    .map((tr) => ({ tr, n: counts[tr.relPath] ?? 0 }))
+    .map((tr) => ({ tr, n: scoreByTrackRelPath[tr.relPath] ?? 0 }))
     .filter((x) => x.n > 0)
     .sort(
       (a, b) =>
@@ -4165,7 +4324,7 @@ function computeStatisticsRankings(
     .map((ar) => {
       let n = 0;
       for (const tr of index.tracks) {
-        if (tr.artist === ar.name) n += counts[tr.relPath] ?? 0;
+        if (tr.artist === ar.name) n += scoreByTrackRelPath[tr.relPath] ?? 0;
       }
       return { ar, n };
     })
@@ -4179,7 +4338,7 @@ function computeStatisticsRankings(
   const albumRows = index.albums
     .map((al) => {
       let n = 0;
-      for (const rel of al.tracks) n += counts[rel] ?? 0;
+      for (const rel of al.tracks) n += scoreByTrackRelPath[rel] ?? 0;
       return { al, n };
     })
     .filter((x) => x.n > 0)
@@ -4192,7 +4351,7 @@ function computeStatisticsRankings(
 
   const genreMap = new Map<string, { label: string; n: number }>();
   for (const tr of index.tracks) {
-    const n = counts[tr.relPath] ?? 0;
+    const n = scoreByTrackRelPath[tr.relPath] ?? 0;
     if (n <= 0) continue;
     for (const raw of parseTrackGenres(tr.meta?.genre)) {
       const key = raw.toLowerCase();
@@ -4210,12 +4369,12 @@ function computeStatisticsRankings(
     )
     .slice(0, STATISTICS_TOP_N);
 
-  let totalPlays = 0;
+  let totalScore = 0;
   for (const tr of index.tracks) {
-    totalPlays += counts[tr.relPath] ?? 0;
+    totalScore += scoreByTrackRelPath[tr.relPath] ?? 0;
   }
   const touchedTracks = index.tracks.filter(
-    (tr) => (counts[tr.relPath] ?? 0) > 0
+    (tr) => (scoreByTrackRelPath[tr.relPath] ?? 0) > 0
   );
   const artistsTouched = new Set(touchedTracks.map((tr) => tr.artist)).size;
   const albumsTouched = new Set(touchedTracks.map((tr) => tr.albumId)).size;
@@ -4226,7 +4385,7 @@ function computeStatisticsRankings(
     topAlbums: albumRows.slice(0, STATISTICS_TOP_N),
     topGenres,
     overview: {
-      totalPlays,
+      totalScore,
       tracksWithPlays: touchedTracks.length,
       artistsTouched,
       albumsTouched,
@@ -4246,8 +4405,50 @@ function StatisticsView({
   const user = useUserState();
   const { t, sortLocale } = useI18n();
   const counts = user.state.trackPlayCounts || {};
+  const [metricMode, setMetricMode] = useState<StatisticsMetricMode>("plays");
+  const favoritesSet = useMemo(
+    () => new Set(user.state.favorites ?? []),
+    [user.state.favorites]
+  );
+  const blockedTrackSet = useMemo(
+    () => new Set(user.state.shuffleExcludedTrackRelPaths ?? []),
+    [user.state.shuffleExcludedTrackRelPaths]
+  );
+  const blockedAlbumSet = useMemo(
+    () => new Set(user.state.shuffleExcludedAlbumIds ?? []),
+    [user.state.shuffleExcludedAlbumIds]
+  );
+  const scoreByTrackRelPath = useMemo(() => {
+    const scoreMap: Record<string, number> = {};
+    for (const tr of index.tracks) {
+      if (metricMode === "plays") {
+        scoreMap[tr.relPath] = counts[tr.relPath] ?? 0;
+        continue;
+      }
+      if (metricMode === "favorites") {
+        scoreMap[tr.relPath] = favoritesSet.has(tr.relPath) ? 1 : 0;
+        continue;
+      }
+      scoreMap[tr.relPath] =
+        blockedTrackSet.has(tr.relPath) || blockedAlbumSet.has(tr.albumId)
+          ? 1
+          : 0;
+    }
+    return scoreMap;
+  }, [
+    index,
+    metricMode,
+    counts,
+    favoritesSet,
+    blockedTrackSet,
+    blockedAlbumSet,
+  ]);
   const data = useMemo(
-    () => computeStatisticsRankings(index, counts, sortLocale),
+    () => computeStatisticsRankings(index, scoreByTrackRelPath, sortLocale),
+    [index, scoreByTrackRelPath, sortLocale]
+  );
+  const overviewData = useMemo(
+    () => computeStatisticsRankings(index, counts, sortLocale).overview,
     [index, counts, sortLocale]
   );
   const artistCoverById = useMemo(
@@ -4269,16 +4470,53 @@ function StatisticsView({
       index.artists.find((a) => a.name === tr.artist)?.id ?? tr.artist;
     onOpenAlbum(arId, tr.album);
   };
+  const modeLabel =
+    metricMode === "plays"
+      ? t("statistics.modePlays")
+      : metricMode === "favorites"
+      ? t("statistics.modeFavorites")
+      : t("statistics.modeBlocked");
+  const metricTabs = [
+    { id: "plays" as const, label: t("statistics.modePlays") },
+    { id: "favorites" as const, label: t("statistics.modeFavorites") },
+    { id: "blocked" as const, label: t("statistics.modeBlocked") },
+  ];
+  const formatMetricValue = (n: number) => {
+    if (metricMode === "plays") return t("trackRow.playCount", { n });
+    if (metricMode === "favorites") return t("statistics.favoriteCount", { n });
+    return t("statistics.blockedCount", { n });
+  };
 
   return (
     <div className="view-stack statistics-page">
       <section className="surface-card surface-card--toolbar-only">
         <div className="section-head section-head--page-toolbar">
-          <SectionHeadLead
-            eyebrow={t("statistics.pageEyebrow")}
-            title={t("statistics.pageTitle")}
-            icon={<UiBarChart className="section-head__ic" />}
-          />
+          <div className="section-head__lead">
+            <span className="section-head__icon-wrap" aria-hidden>
+              <UiBarChart className="section-head__ic" />
+            </span>
+            <div className="section-head__text">
+              <p className="eyebrow">{t("statistics.pageEyebrow")}</p>
+              <div
+                className="section-nav-tabs"
+                role="group"
+                aria-label={t("statistics.metricSwitcherAria")}
+              >
+                {metricTabs.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    className={`section-nav-tab${
+                      metricMode === opt.id ? " is-on" : ""
+                    }`}
+                    onClick={() => setMetricMode(opt.id)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -4286,6 +4524,7 @@ function StatisticsView({
         <section className="surface-card statistics-section">
           <div className="statistics-section__head">
             <h3>{t("statistics.sectionTracks")}</h3>
+            <span className="statistics-section__mode">{modeLabel}</span>
           </div>
           {data.topTracks.length === 0 ? (
             <p className="panel-empty statistics-section__empty">
@@ -4343,7 +4582,7 @@ function StatisticsView({
                             </span>
                           </>
                         ) : null}
-                        {t("trackRow.playCount", { n: row.n })}
+                        {formatMetricValue(row.n)}
                       </div>
                     </button>
                   </li>
@@ -4356,6 +4595,7 @@ function StatisticsView({
         <section className="surface-card statistics-section">
           <div className="statistics-section__head">
             <h3>{t("statistics.sectionArtists")}</h3>
+            <span className="statistics-section__mode">{modeLabel}</span>
           </div>
           {data.topArtists.length === 0 ? (
             <p className="panel-empty statistics-section__empty">
@@ -4398,7 +4638,7 @@ function StatisticsView({
                         </div>
                       </div>
                       <div className="statistics-rank-row__plays">
-                        {t("trackRow.playCount", { n: row.n })}
+                        {formatMetricValue(row.n)}
                       </div>
                     </button>
                   </li>
@@ -4411,6 +4651,7 @@ function StatisticsView({
         <section className="surface-card statistics-section">
           <div className="statistics-section__head">
             <h3>{t("statistics.sectionAlbums")}</h3>
+            <span className="statistics-section__mode">{modeLabel}</span>
           </div>
           {data.topAlbums.length === 0 ? (
             <p className="panel-empty statistics-section__empty">
@@ -4429,9 +4670,15 @@ function StatisticsView({
                     onClick={() => onOpenAlbum(row.al.artistId, row.al.name)}
                   >
                     <span className="statistics-rank-row__pos">{i + 1}</span>
-                    <div className="statistics-rank-row__art statistics-rank-row__art--album">
-                      <AlbumCover album={row.al} compact />
-                    </div>
+                    <CoverImg
+                      className="statistics-rank-row__art"
+                      src={coverUrlForAlbumRelPath(row.al.relPath)}
+                      alt=""
+                      fallbackClassName="statistics-rank-row__art statistics-rank-row__art--fallback"
+                      fallback={
+                        <UiMusicNote className="track-row__art-fallback-ic" />
+                      }
+                    />
                     <div className="statistics-rank-row__text">
                       <div className="statistics-rank-row__title">
                         {row.al.name}
@@ -4441,7 +4688,7 @@ function StatisticsView({
                       </div>
                     </div>
                     <div className="statistics-rank-row__plays">
-                      {t("trackRow.playCount", { n: row.n })}
+                      {formatMetricValue(row.n)}
                     </div>
                   </button>
                 </li>
@@ -4453,6 +4700,7 @@ function StatisticsView({
         <section className="surface-card statistics-section statistics-section--genres">
           <div className="statistics-section__head">
             <h3>{t("statistics.sectionGenres")}</h3>
+            <span className="statistics-section__mode">{modeLabel}</span>
           </div>
           {data.topGenres.length === 0 ? (
             <p className="panel-empty statistics-section__empty">
@@ -4462,21 +4710,15 @@ function StatisticsView({
             <ol className="statistics-rank-list">
               {data.topGenres.map((row, i) => (
                 <li key={row.key}>
-                  <div className="statistics-rank-row statistics-rank-row--static">
+                  <div className="statistics-rank-row statistics-rank-row--static statistics-rank-row--genre-simple">
                     <span className="statistics-rank-row__pos">{i + 1}</span>
-                    <div
-                      className="statistics-rank-row__art statistics-rank-row__art--fallback statistics-rank-row__art--genre"
-                      aria-hidden
-                    >
-                      G
-                    </div>
                     <div className="statistics-rank-row__text">
                       <div className="statistics-rank-row__title">
                         {row.label}
                       </div>
                     </div>
                     <div className="statistics-rank-row__plays">
-                      {t("trackRow.playCount", { n: row.n })}
+                      {formatMetricValue(row.n)}
                     </div>
                   </div>
                 </li>
@@ -4488,29 +4730,32 @@ function StatisticsView({
         <section className="surface-card statistics-section statistics-section--overview">
           <div className="statistics-section__head">
             <h3>{t("statistics.sectionOverview")}</h3>
+            <span className="statistics-section__mode">
+              {t("statistics.modeAll")}
+            </span>
           </div>
           <div className="stats-grid statistics-overview-grid">
             <div className="metric-card statistics-metric">
               <span>{t("statistics.overviewTotalPlays")}</span>
-              <strong>{data.overview.totalPlays}</strong>
+              <strong>{overviewData.totalScore}</strong>
             </div>
             <div className="metric-card statistics-metric">
               <span>{t("statistics.overviewTracksWithPlays")}</span>
-              <strong>{data.overview.tracksWithPlays}</strong>
+              <strong>{overviewData.tracksWithPlays}</strong>
             </div>
             <div className="metric-card statistics-metric">
               <span>{t("statistics.overviewArtistsTouched")}</span>
-              <strong>{data.overview.artistsTouched}</strong>
+              <strong>{overviewData.artistsTouched}</strong>
             </div>
             <div className="metric-card statistics-metric">
               <span>{t("statistics.overviewAlbumsTouched")}</span>
-              <strong>{data.overview.albumsTouched}</strong>
+              <strong>{overviewData.albumsTouched}</strong>
             </div>
-            <div className="metric-card statistics-metric statistics-metric--summary-wide">
+            <div className="metric-card statistics-metric statistics-metric--summary-wide statistics-metric--compact-row">
               <span>{t("statistics.overviewFavoritesTotal")}</span>
               <strong>{totalFavorites}</strong>
             </div>
-            <div className="metric-card statistics-metric statistics-metric--summary-wide">
+            <div className="metric-card statistics-metric statistics-metric--summary-wide statistics-metric--compact-row">
               <span>{t("statistics.overviewBlockedTotal")}</span>
               <strong>{totalShuffleBlocks}</strong>
             </div>
@@ -5246,109 +5491,116 @@ function SettingsView({
               <h2>{t("settings.networkHeading")}</h2>
             </div>
           </div>
-          <div
-            className="settings-network-section__body"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-start",
-              textAlign: "left",
-              gap: "0.4rem",
-            }}
-          >
-            {lanAccessUrl ? (
-              <p className="subtle sm">
-                {t("settings.networkUrlHint", { url: lanAccessUrl })}
-              </p>
-            ) : (
-              <p className="subtle sm">{t("settings.networkNoUrl")}</p>
-            )}
-            <div
-              className="row gap"
-              style={{
-                marginTop: "0.5rem",
-                flexDirection: "row",
-                alignItems: "flex-start",
-                flexWrap: "wrap",
-              }}
-            >
-              <button
-                type="button"
-                className="btn secondary sm"
-                disabled={remoteAccessBusy}
-                onMouseEnter={() => setRemoteLoginHover(true)}
-                onMouseLeave={() => setRemoteLoginHover(false)}
-                onClick={() => {
-                  if (remoteAccess?.cloudflareLoggedIn) {
-                    logoutRemoteCloudflareLogin();
-                  } else {
-                    runRemoteCloudflareLogin();
-                  }
+          <div className="settings-network-section__body">
+            <div className="settings-network-main">
+              {lanAccessUrl ? (
+                <p className="subtle sm">
+                  {t("settings.networkUrlHint", { url: lanAccessUrl })}
+                </p>
+              ) : (
+                <p className="subtle sm">{t("settings.networkNoUrl")}</p>
+              )}
+              <div
+                className="row gap"
+                style={{
+                  marginTop: "0.5rem",
+                  flexDirection: "row",
+                  alignItems: "flex-start",
+                  flexWrap: "wrap",
                 }}
-                style={
-                  remoteAccess?.cloudflareLoggedIn
-                    ? {
-                        minWidth: "11.5rem",
-                        backgroundColor: remoteLoginHover
-                          ? "#c62828"
-                          : "#2e7d32",
-                        color: "#fff",
-                        borderColor: remoteLoginHover ? "#c62828" : "#2e7d32",
-                      }
-                    : { minWidth: "11.5rem" }
-                }
               >
-                {remoteAccess?.cloudflareLoggedIn
-                  ? remoteLoginHover
-                    ? t("settings.remoteLogout")
-                    : t("settings.remoteLoginDone")
-                  : t("settings.remoteLogin")}
-              </button>
-              <button
-                type="button"
-                className="btn sm"
-                disabled={remoteAccessBusy}
-                onMouseEnter={() => setRemoteShareHover(true)}
-                onMouseLeave={() => setRemoteShareHover(false)}
-                onClick={toggleRemoteAccess}
-                style={
-                  remoteAccess?.status === "starting"
-                    ? {
-                        minWidth: "11.5rem",
-                        background: "#f0be67",
-                        color: "#1a1a1a",
-                        border: "1px solid #f0be67",
-                      }
+                <button
+                  type="button"
+                  className="btn secondary sm"
+                  disabled={remoteAccessBusy}
+                  onMouseEnter={() => setRemoteLoginHover(true)}
+                  onMouseLeave={() => setRemoteLoginHover(false)}
+                  onClick={() => {
+                    if (remoteAccess?.cloudflareLoggedIn) {
+                      logoutRemoteCloudflareLogin();
+                    } else {
+                      runRemoteCloudflareLogin();
+                    }
+                  }}
+                  style={
+                    remoteAccess?.cloudflareLoggedIn
+                      ? {
+                          minWidth: "11.5rem",
+                          backgroundColor: remoteLoginHover
+                            ? "#c62828"
+                            : "#2e7d32",
+                          color: "#fff",
+                          borderColor: remoteLoginHover ? "#c62828" : "#2e7d32",
+                        }
+                      : { minWidth: "11.5rem" }
+                  }
+                >
+                  {remoteAccess?.cloudflareLoggedIn
+                    ? remoteLoginHover
+                      ? t("settings.remoteLogout")
+                      : t("settings.remoteLoginDone")
+                    : t("settings.remoteLogin")}
+                </button>
+                <button
+                  type="button"
+                  className="btn sm"
+                  disabled={remoteAccessBusy}
+                  onMouseEnter={() => setRemoteShareHover(true)}
+                  onMouseLeave={() => setRemoteShareHover(false)}
+                  onClick={toggleRemoteAccess}
+                  style={
+                    remoteAccess?.status === "starting"
+                      ? {
+                          minWidth: "11.5rem",
+                          background: "#f0be67",
+                          color: "#1a1a1a",
+                          border: "1px solid #f0be67",
+                        }
+                      : remoteAccess?.status === "running"
+                      ? {
+                          minWidth: "11.5rem",
+                          background: remoteShareHover ? "#c62828" : "#2e7d32",
+                          color: "#fff",
+                          border: `1px solid ${
+                            remoteShareHover ? "#c62828" : "#2e7d32"
+                          }`,
+                        }
+                      : { minWidth: "11.5rem" }
+                  }
+                >
+                  {remoteAccess?.status === "starting"
+                    ? "Starting"
                     : remoteAccess?.status === "running"
-                    ? {
-                        minWidth: "11.5rem",
-                        background: remoteShareHover ? "#c62828" : "#2e7d32",
-                        color: "#fff",
-                        border: `1px solid ${
-                          remoteShareHover ? "#c62828" : "#2e7d32"
-                        }`,
-                      }
-                    : { minWidth: "11.5rem" }
-                }
-              >
-                {remoteAccess?.status === "starting"
-                  ? "Starting"
-                  : remoteAccess?.status === "running"
-                  ? remoteShareHover
-                    ? t("settings.remoteStopSharing")
-                    : t("settings.remoteShared")
-                  : t("settings.remoteStart")}
-              </button>
+                    ? remoteShareHover
+                      ? t("settings.remoteStopSharing")
+                      : t("settings.remoteShared")
+                    : t("settings.remoteStart")}
+                </button>
+              </div>
+              {remoteAccess?.publicUrl ? (
+                <p className="subtle sm">
+                  {t("settings.remoteUrl", { url: remoteAccess.publicUrl })}
+                </p>
+              ) : null}
+              {remoteAccessErr || remoteAccess?.error ? (
+                <p className="subtle sm warnline">
+                  {remoteAccessErr || remoteAccess?.error}
+                </p>
+              ) : null}
             </div>
             {remoteAccess?.publicUrl ? (
-              <p className="subtle sm">
-                {t("settings.remoteUrl", { url: remoteAccess.publicUrl })}
-              </p>
-            ) : null}
-            {remoteAccessErr || remoteAccess?.error ? (
-              <p className="subtle sm warnline">
-                {remoteAccessErr || remoteAccess?.error}
-              </p>
+              <div className="settings-network-qr">
+                <img
+                  className="settings-network-qr__img"
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
+                    remoteAccess.publicUrl
+                  )}`}
+                  alt={t("settings.remoteQrAlt", {
+                    url: remoteAccess.publicUrl,
+                  })}
+                  loading="lazy"
+                />
+              </div>
             ) : null}
           </div>
         </section>

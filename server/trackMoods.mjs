@@ -13,6 +13,7 @@ export const TRACK_MOOD_IDS = [
   "nostalgia_retro",
   "fun_quirky",
   "soulful_groovy",
+  "motivational_drive",
 ]
 
 export const MAX_TRACK_MOODS = 3
@@ -22,7 +23,8 @@ const SET = new Set(TRACK_MOOD_IDS)
 /** @param {unknown} v */
 export function normalizeTrackMood(v) {
   if (v == null) return null
-  const s = String(v).trim()
+  const raw = String(v).trim()
+  const s = raw === "uplifting_happy" ? "motivational_drive" : raw
   if (!s) return null
   return SET.has(s) ? s : null
 }

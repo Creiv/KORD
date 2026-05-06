@@ -1606,17 +1606,67 @@
   .settings-page .settings-network-section {
     grid-column: 2 / 3;
   }
-
-  .settings-network-section__body {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.65rem 1.25rem;
-    align-items: start;
-  }
 }
 
-.settings-network-section__body > p {
+.settings-network-section__body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+  text-align: left;
+}
+
+.settings-network-main {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.settings-network-main > p {
   margin: 0;
+}
+
+.settings-network-qr {
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface2) 76%, transparent);
+  width: fit-content;
+  align-self: flex-end;
+}
+
+.settings-network-qr__img {
+  width: 124px;
+  height: 124px;
+  display: block;
+  border-radius: 0.45rem;
+}
+
+@media (min-width: 901px) {
+  .settings-network-section {
+    position: relative;
+  }
+
+  .settings-network-section__body {
+    display: block;
+    min-height: 0;
+  }
+
+  .settings-network-section .section-head {
+    padding-right: 152px;
+  }
+
+  .settings-network-main {
+    padding-right: 152px;
+  }
+
+  .settings-network-qr {
+    position: absolute;
+    top: 1.2rem;
+    right: 1.2rem;
+    margin-top: 0;
+    align-self: auto;
+  }
 }
 
 .activity-log-table {
@@ -1709,6 +1759,10 @@
 }
 
 .statistics-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
   margin: 0 0 1rem;
   padding-bottom: 0.85rem;
   border-bottom: 1px solid
@@ -1721,6 +1775,19 @@
   font-weight: 800;
   letter-spacing: -0.025em;
   line-height: 1.2;
+}
+
+.statistics-section__mode {
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent2) 65%, var(--muted) 35%);
+  background: color-mix(in srgb, var(--accent2) 12%, var(--surface3) 88%);
+  border: 1px solid color-mix(in srgb, var(--accent2) 28%, var(--border) 72%);
+  border-radius: 999px;
+  padding: 0.28rem 0.55rem;
+  white-space: nowrap;
 }
 
 .statistics-section__empty {
@@ -1793,6 +1860,10 @@
 
 .statistics-rank-row--static:active {
   transform: none;
+}
+
+.statistics-rank-row--genre-simple {
+  grid-template-columns: 2rem minmax(0, 1fr) auto;
 }
 
 .statistics-rank-row__pos {
@@ -1943,6 +2014,23 @@
   font-size: clamp(1.65rem, 4.5vw, 1.95rem);
 }
 
+.statistics-overview-grid .statistics-metric--compact-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem 0.85rem;
+  padding-block: 0.8rem;
+}
+
+.statistics-overview-grid .statistics-metric--compact-row span {
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.statistics-overview-grid .statistics-metric--compact-row strong {
+  font-size: 1.05rem;
+  justify-self: end;
+}
+
 @media (min-width: 561px) {
   .statistics-overview-grid .statistics-metric--summary-wide {
     grid-column: span 2;
@@ -1981,6 +2069,24 @@
     justify-self: start;
     max-width: 100%;
   }
+
+  .statistics-rank-row--genre-simple {
+    grid-template-columns: 1.75rem minmax(0, 1fr);
+  }
+
+  .statistics-rank-row--genre-simple .statistics-rank-row__pos {
+    grid-row: 1 / span 2;
+  }
+
+  .statistics-rank-row--genre-simple .statistics-rank-row__text {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .statistics-rank-row--genre-simple .statistics-rank-row__plays {
+    grid-column: 2;
+    grid-row: 2;
+  }
 }
 
 .track-row {
@@ -1989,9 +2095,63 @@
   align-items: center;
   gap: 0.75rem 0.8rem;
   padding: 0.7rem 1rem;
+  padding-left: 2.75rem;
+  position: relative;
   border-radius: var(--radius-lg);
   transition: background 0.16s ease, border-color 0.16s ease,
     box-shadow 0.16s ease;
+}
+
+.track-row__idx-wrap {
+  position: absolute;
+  left: 0.58rem;
+  top: 50%;
+  width: 1.9rem;
+  height: 1.9rem;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+}
+
+.track-row__idx-num {
+  font-size: 0.75rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--muted) 86%, var(--text) 14%);
+  line-height: 1;
+  transition: opacity 0.12s ease;
+}
+
+.track-row__idx-play {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+}
+
+.track-row__idx-play svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.track-row:hover .track-row__idx-num,
+.track-row__idx-wrap.is-current .track-row__idx-num {
+  opacity: 0;
+}
+
+.track-row:hover .track-row__idx-play,
+.track-row__idx-wrap.is-current .track-row__idx-play {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .playlist-row {
@@ -3274,6 +3434,31 @@
   .library-filter-group:last-child
   .segmented--joined {
   justify-content: flex-end;
+}
+
+.library-genre-tracklist-headrow {
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0;
+  gap: 0.75rem 1rem;
+}
+
+.library-filter-panel.library-sort-panel.library-genre-tracklist-toolbar {
+  align-items: stretch;
+}
+
+.library-filter-panel.library-sort-panel.library-genre-tracklist-toolbar
+  .library-genre-tracklist-headrow {
+  width: 100%;
+}
+
+.library-genre-tracklist-headrow > :first-child {
+  margin: 0;
+}
+
+.library-genre-tracklist-headrow .eyebrow,
+.library-genre-tracklist-headrow h2 {
+  margin: 0;
 }
 
 .library-filter-group {
@@ -5883,6 +6068,7 @@
   .track-row {
     grid-template-columns: 40px minmax(0, 1fr) auto;
     gap: 0.5rem 0.5rem;
+    padding-left: 2.45rem;
   }
 
   .track-row__art {
@@ -6441,7 +6627,7 @@
 
 .meta-edit-mood-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(2.6rem, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0.4rem;
   margin-top: 0.35rem;
   max-width: 100%;
@@ -6638,17 +6824,6 @@
 /* Make the "Recent / Lyrics" tabs behave like a normal section title row. */
 .listen-recent-panel__head .section-nav-tab {
   font-size: 1.28rem;
-}
-
-.listen-dashboard-row .track-row {
-  padding: 0.62rem 0.72rem;
-  gap: 0.55rem 0.55rem;
-  grid-template-columns: 44px minmax(0, 1fr) auto;
-}
-
-.listen-dashboard-row .track-row__art {
-  width: 44px;
-  height: 44px;
 }
 
 .listen-recent-panel .section-nav-tab:disabled {
