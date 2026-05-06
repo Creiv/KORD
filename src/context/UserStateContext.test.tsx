@@ -214,4 +214,76 @@ describe("UserStateProvider", () => {
     )
     expect(screen.getByTestId("race-error")).toHaveTextContent("ok")
   })
+
+  it("non sovrascrive lo stato remoto con fallback se il bootstrap fallisce", async () => {
+    const remoteState = {
+      version: 1,
+      revision: 2,
+      favorites: ["Artist One/Album One/01 Song.mp3"],
+      recent: [],
+      playlists: [],
+      queue: { tracks: [], currentIndex: 0 },
+      shuffleExcludedAlbumIds: [],
+      shuffleExcludedTrackRelPaths: [],
+      trackPlayCounts: {},
+      settings: {
+        theme: "midnight",
+        vizMode: "bars",
+        restoreSession: true,
+        defaultTab: "dashboard",
+        locale: "en",
+        libBrowse: "artists",
+        libOverviewSort: "name",
+        artistAlbumSort: "date",
+      },
+      migratedLegacy: true,
+    }
+
+    let userStateGetCalls = 0
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === "/api/accounts") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              ok: true,
+              data: {
+                defaultAccountId: "default",
+                accounts: [{ id: "default", name: "Default" }],
+                lockedByEnv: false,
+              },
+              error: null,
+            }),
+          ),
+        )
+      }
+      if (url.startsWith("/api/user-state") && init?.method === "PATCH") {
+        return Promise.reject(new Error("PATCH should not be called on bootstrap error"))
+      }
+      if (url.startsWith("/api/user-state")) {
+        userStateGetCalls += 1
+        if (userStateGetCalls === 1) {
+          return Promise.reject(new Error("Network error"))
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ ok: true, data: remoteState, error: null })),
+        )
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url}`))
+    })
+    globalThis.fetch = fetchMock as typeof fetch
+
+    render(
+      <UserStateProvider>
+        <Probe />
+      </UserStateProvider>,
+    )
+
+    await waitFor(() => expect(screen.getByTestId("favorites")).toHaveTextContent("0"))
+    await waitFor(
+      () => expect(screen.getByTestId("favorites")).toHaveTextContent("1"),
+      { timeout: 2500 },
+    )
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(false)
+  })
 })

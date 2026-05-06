@@ -522,42 +522,93 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    fetchUserState()
-      .then((remote) => {
-        if (!active) return;
-        if (!remote.migratedLegacy) playlistDirtyRef.current = true;
-        let merged = normalizeUserState(mergeLegacy(remote));
-        const fromLocal = readLegacyLocalShuffleMigrated();
-        if (fromLocal.albumKeys.length > 0 || fromLocal.trackPaths.length > 0) {
-          merged = normalizeUserState({
-            ...merged,
-            shuffleExcludedAlbumIds: uniqStrings([
-              ...merged.shuffleExcludedAlbumIds,
-              ...fromLocal.albumKeys,
-            ]),
-            shuffleExcludedTrackRelPaths: uniqStrings([
-              ...merged.shuffleExcludedTrackRelPaths,
-              ...fromLocal.trackPaths,
-            ]),
+    let retryTimer: number | null = null;
+    let retryAttempts = 0;
+
+    const clearRetry = () => {
+      if (retryTimer != null) {
+        window.clearTimeout(retryTimer);
+        retryTimer = null;
+      }
+    };
+
+    const applyRemote = (remote: UserStateV1) => {
+      if (!active) return;
+      clearRetry();
+
+      if (!remote.migratedLegacy) playlistDirtyRef.current = true;
+      let merged = normalizeUserState(mergeLegacy(remote));
+
+      const fromLocal = readLegacyLocalShuffleMigrated();
+      if (fromLocal.albumKeys.length > 0 || fromLocal.trackPaths.length > 0) {
+        merged = normalizeUserState({
+          ...merged,
+          shuffleExcludedAlbumIds: uniqStrings([
+            ...merged.shuffleExcludedAlbumIds,
+            ...fromLocal.albumKeys,
+          ]),
+          shuffleExcludedTrackRelPaths: uniqStrings([
+            ...merged.shuffleExcludedTrackRelPaths,
+            ...fromLocal.trackPaths,
+          ]),
+        });
+        clearLegacyLocalShuffle();
+      }
+
+      const needsInitialPersist =
+        fromLocal.albumKeys.length > 0 ||
+        fromLocal.trackPaths.length > 0 ||
+        !remote.migratedLegacy;
+      if (needsInitialPersist) {
+        pendingPatchRef.current = mergeUserStatePatches(
+          pendingPatchRef.current,
+          userStateToPatch(merged)
+        );
+      }
+
+      const localUnsaved = mergeUserStatePatches(
+        inFlightPatchRef.current,
+        pendingPatchRef.current
+      );
+      const hasLocalUnsaved = Object.keys(localUnsaved).length > 0;
+      dirtyRef.current = needsInitialPersist || hasLocalUnsaved;
+
+      setState((prev) => {
+        if (!hasLocalUnsaved) return merged;
+        const preserved = applyUserStatePatchLocal(merged, localUnsaved);
+        return {
+          ...preserved,
+          revision: Math.max(
+            Number(merged.revision || 1),
+            Number(prev.revision || 1)
+          ),
+        };
+      });
+      setError(null);
+      setReady(true);
+      hydratedRef.current = true;
+    };
+
+    const scheduleRetry = () => {
+      if (!active) return;
+      if (retryAttempts >= 6) return;
+      clearRetry();
+      const delay = Math.min(2500, 600 * Math.pow(1.6, retryAttempts));
+      retryAttempts += 1;
+      retryTimer = window.setTimeout(() => {
+        retryTimer = null;
+        fetchUserState()
+          .then((remote) => applyRemote(remote))
+          .catch((err: unknown) => {
+            if (!active) return;
+            if (isLibraryRequiredError(err)) return;
+            scheduleRetry();
           });
-          clearLegacyLocalShuffle();
-        }
-        const needsInitialPersist =
-          fromLocal.albumKeys.length > 0 ||
-          fromLocal.trackPaths.length > 0 ||
-          !remote.migratedLegacy;
-        dirtyRef.current = needsInitialPersist;
-        if (needsInitialPersist) {
-          pendingPatchRef.current = mergeUserStatePatches(
-            pendingPatchRef.current,
-            userStateToPatch(merged)
-          );
-        }
-        setState(merged);
-        setError(null);
-        setReady(true);
-        hydratedRef.current = true;
-      })
+      }, delay);
+    };
+
+    fetchUserState()
+      .then((remote) => applyRemote(remote))
       .catch((err: unknown) => {
         if (!active) return;
         const fallback = mergeLegacy(defaultUserState());
@@ -566,19 +617,18 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
         setError(isLibraryRequiredError(err) ? null : String(err));
         setReady(true);
         hydratedRef.current = true;
-        if (isLibraryRequiredError(err)) {
-          dirtyRef.current = false;
-          pendingPatchRef.current = {};
-          return;
-        }
-        dirtyRef.current = true;
-        pendingPatchRef.current = mergeUserStatePatches(
-          pendingPatchRef.current,
-          userStateToPatch(fallback)
-        );
+
+        // IMPORTANT: non accodare patch col fallback (vuoto). Un errore transient
+        // durante il reload potrebbe altrimenti sovrascrivere lo user-state remoto.
+        dirtyRef.current = false;
+        pendingPatchRef.current = {};
+        inFlightPatchRef.current = {};
+
+        if (!isLibraryRequiredError(err)) scheduleRetry();
       });
     return () => {
       active = false;
+      clearRetry();
     };
   }, []);
 
