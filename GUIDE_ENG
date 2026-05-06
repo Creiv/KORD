@@ -1,4 +1,4 @@
-# KORD - Complete beginner guide
+# KORD 2.2 - Complete beginner guide
 
 This guide is written for people who have never used KORD before.
 It takes you from first launch to daily usage with clear, practical steps.
@@ -253,6 +253,13 @@ Shortcuts:
 
 ## Network
 - API port and estimated LAN URL.
+
+## External sharing (Cloudflare)
+- in Settings > Network you can log into Cloudflare and start external sharing;
+- when sharing is active, KORD shows a public HTTPS URL for access outside your LAN;
+- with `trycloudflare` mode, the URL is temporary and may change after each restart;
+- so if you restart the server/app, it is normal to get a different `https://...trycloudflare.com` link;
+- for a permanent URL, use a named Cloudflare tunnel with your own domain (advanced setup).
 
 ## Download cookies
 - YouTube cookies management on server side (if used).

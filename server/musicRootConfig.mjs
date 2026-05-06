@@ -40,6 +40,8 @@ const state = {
   accounts: [],
   youtubeCookiesPath: null,
   youtubeCookiesFromEnv: false,
+  cloudflareLoggedIn: false,
+  cloudflareTunnelEnabled: false,
 };
 
 function readEnv() {
@@ -124,6 +126,14 @@ function resolveYoutubeCookiesFromBootstrap(file) {
   return null;
 }
 
+function resolveCloudflareLoggedInFromBootstrap(file) {
+  return Boolean(file.cloudflareLoggedIn === true);
+}
+
+function resolveCloudflareTunnelEnabledFromBootstrap(file) {
+  return Boolean(file.cloudflareTunnelEnabled === true);
+}
+
 function configNeedsPersistRewrite(file) {
   if (Number(file.schemaVersion) === 2) return false;
   const raw = Array.isArray(file.accounts) ? file.accounts : [];
@@ -185,6 +195,8 @@ function persistBootstrapOnlySync() {
         {
           musicRoot: state.path,
           schemaVersion: BOOTSTRAP_SCHEMA_VERSION,
+          cloudflareLoggedIn: Boolean(state.cloudflareLoggedIn),
+          cloudflareTunnelEnabled: Boolean(state.cloudflareTunnelEnabled),
           ...(state.youtubeCookiesPath && !state.youtubeCookiesFromEnv
             ? { youtubeCookiesPath: state.youtubeCookiesPath }
             : {}),
@@ -231,6 +243,8 @@ function applyConfigFileToState() {
     state.youtubeCookiesPath = resolveYoutubeCookiesFromBootstrap(file);
     state.youtubeCookiesFromEnv = false;
   }
+  state.cloudflareLoggedIn = resolveCloudflareLoggedInFromBootstrap(file);
+  state.cloudflareTunnelEnabled = resolveCloudflareTunnelEnabledFromBootstrap(file);
   if (fromEnv) {
     state.path = fromEnv.path;
     state.fromEnv = true;
@@ -391,6 +405,8 @@ export function getConfigSnapshot(includeMusicRoot) {
       state.youtubeCookiesPath && fs.existsSync(state.youtubeCookiesPath)
     ),
     youtubeCookiesLockedByEnv: state.youtubeCookiesFromEnv,
+    cloudflareLoggedIn: Boolean(state.cloudflareLoggedIn),
+    cloudflareTunnelEnabled: Boolean(state.cloudflareTunnelEnabled),
     youtubeCookiesLabel: state.youtubeCookiesPath
       ? path.basename(state.youtubeCookiesPath)
       : null,
@@ -462,6 +478,8 @@ async function writeMergedConfigBootstrap() {
       {
         musicRoot: state.path,
         schemaVersion: BOOTSTRAP_SCHEMA_VERSION,
+        cloudflareLoggedIn: Boolean(state.cloudflareLoggedIn),
+        cloudflareTunnelEnabled: Boolean(state.cloudflareTunnelEnabled),
         ...(state.youtubeCookiesPath && !state.youtubeCookiesFromEnv
           ? { youtubeCookiesPath: state.youtubeCookiesPath }
           : {}),
@@ -471,6 +489,26 @@ async function writeMergedConfigBootstrap() {
     ),
     "utf8",
   );
+}
+
+export function getCloudflareLoggedIn() {
+  return Boolean(state.cloudflareLoggedIn);
+}
+
+export async function setCloudflareLoggedIn(value) {
+  state.cloudflareLoggedIn = Boolean(value);
+  await writeMergedConfigBootstrap();
+  return Boolean(state.cloudflareLoggedIn);
+}
+
+export function getCloudflareTunnelEnabled() {
+  return Boolean(state.cloudflareTunnelEnabled);
+}
+
+export async function setCloudflareTunnelEnabled(value) {
+  state.cloudflareTunnelEnabled = Boolean(value);
+  await writeMergedConfigBootstrap();
+  return Boolean(state.cloudflareTunnelEnabled);
 }
 
 export async function setPersistedMusicRoot(absolute) {

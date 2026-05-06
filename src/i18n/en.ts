@@ -363,6 +363,13 @@ export const EN: Record<string, string> = {
   "settings.networkUrlHint": "Estimated address on your network: {{url}}",
   "settings.networkNoUrl":
     "No LAN IPv4 detected — find this machine’s address manually.",
+  "settings.remoteLogin": "Cloudflare login",
+  "settings.remoteLoginDone": "Login done",
+  "settings.remoteLogout": "Logout",
+  "settings.remoteStart": "Start external access",
+  "settings.remoteShared": "Server shared",
+  "settings.remoteStopSharing": "Stop sharing",
+  "settings.remoteUrl": "Public URL: {{url}}",
   "settings.shortcutsEyebrow": "Shortcuts",
   "settings.shortcutsHeading": "Quick use",
   "settings.shortcutOr": "or",

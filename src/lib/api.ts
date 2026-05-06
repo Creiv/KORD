@@ -364,6 +364,18 @@ export type AppConfig = {
   devClientPort: number
   lanAccessUrl: string | null
   defaultAccountId?: string
+  remoteAccess?: RemoteAccessState
+}
+
+export type RemoteAccessState = {
+  enabled: boolean
+  status: "stopped" | "starting" | "running" | "error"
+  provider: string
+  publicUrl: string | null
+  error: string | null
+  startedAt: string | null
+  cloudflaredPath: string
+  cloudflareLoggedIn: boolean
 }
 
 export type Account = {
@@ -383,6 +395,39 @@ export async function fetchConfig(): Promise<AppConfig> {
   const data = await unwrap<AppConfig>(response)
   rememberAvailableAccount(data)
   return data
+}
+
+export async function fetchRemoteAccessState(): Promise<RemoteAccessState> {
+  const response = await apiFetch("/api/remote-access", { cache: "no-store" })
+  return unwrap<RemoteAccessState>(response)
+}
+
+export async function startRemoteAccess(): Promise<RemoteAccessState> {
+  const response = await apiFetch("/api/remote-access/start", {
+    method: "POST",
+  })
+  return unwrap<RemoteAccessState>(response)
+}
+
+export async function stopRemoteAccess(): Promise<RemoteAccessState> {
+  const response = await apiFetch("/api/remote-access/stop", {
+    method: "POST",
+  })
+  return unwrap<RemoteAccessState>(response)
+}
+
+export async function getRemoteAccessLoginUrl(): Promise<{ loginUrl: string; note: string }> {
+  const response = await apiFetch("/api/remote-access/login", {
+    method: "POST",
+  })
+  return unwrap<{ loginUrl: string; note: string }>(response)
+}
+
+export async function logoutRemoteAccessLogin(): Promise<RemoteAccessState> {
+  const response = await apiFetch("/api/remote-access/logout", {
+    method: "POST",
+  })
+  return unwrap<RemoteAccessState>(response)
 }
 
 export async function saveAppConfig(

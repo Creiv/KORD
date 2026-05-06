@@ -372,6 +372,13 @@ export const IT: Record<string, string> = {
   "settings.networkUrlHint": "Indirizzo stimato sulla tua rete: {{url}}",
   "settings.networkNoUrl":
     "Nessun IPv4 LAN rilevato: controlla l'indirizzo del computer manualmente.",
+  "settings.remoteLogin": "Login Cloudflare",
+  "settings.remoteLoginDone": "Login effettuato",
+  "settings.remoteLogout": "Logout",
+  "settings.remoteStart": "Avvia accesso esterno",
+  "settings.remoteShared": "Server condiviso",
+  "settings.remoteStopSharing": "Ferma condivisione",
+  "settings.remoteUrl": "URL pubblico: {{url}}",
   "settings.shortcutsEyebrow": "Scorciatoie",
   "settings.shortcutsHeading": "Uso rapido",
   "settings.shortcutOr": "oppure",

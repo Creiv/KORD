@@ -33,15 +33,25 @@ import {
   uploadKordDataRestore,
   fetchActivityLog,
   fetchConfig,
+  fetchRemoteAccessState,
   fetchDashboard,
   fetchLibraryIndex,
   getSelectedAccountId,
+  getRemoteAccessLoginUrl,
+  logoutRemoteAccessLogin,
   clearYoutubeCookies,
   saveAppConfig,
   setSelectedAccountId,
+  startRemoteAccess,
+  stopRemoteAccess,
   uploadYoutubeCookies,
 } from "./lib/api";
-import type { Account, AccountsResponse, ActivityLogEntry } from "./lib/api";
+import type {
+  Account,
+  AccountsResponse,
+  ActivityLogEntry,
+  RemoteAccessState,
+} from "./lib/api";
 import { useDashboardSessionQueueVisibleCount } from "./hooks/useDashboardSessionQueueVisibleCount";
 import { useDashboardUpdatedAlbumsGrid } from "./hooks/useDashboardUpdatedAlbumsGrid";
 import { useLibraryCardPlayback } from "./hooks/useLibraryCardPlayback";
@@ -4312,9 +4322,12 @@ function SettingsView({
   const [youtubeCookiesErr, setYoutubeCookiesErr] = useState<string | null>(null);
   const [youtubeCookiesOk, setYoutubeCookiesOk] = useState<string | null>(null);
   const youtubeCookiesInputRef = useRef<HTMLInputElement | null>(null);
-  const [serverPort, setServerPort] = useState(3001);
-  const [devClientPort, setDevClientPort] = useState(5173);
   const [lanAccessUrl, setLanAccessUrl] = useState<string | null>(null);
+  const [remoteAccess, setRemoteAccess] = useState<RemoteAccessState | null>(null);
+  const [remoteLoginHover, setRemoteLoginHover] = useState(false);
+  const [remoteShareHover, setRemoteShareHover] = useState(false);
+  const [remoteAccessBusy, setRemoteAccessBusy] = useState(false);
+  const [remoteAccessErr, setRemoteAccessErr] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<AccountsResponse | null>(null);
   const [selectedAccountId, setSelectedAccountIdState] = useState<
     string | null
@@ -4341,7 +4354,7 @@ function SettingsView({
       return false;
     }
   });
-  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "2.1.0");
+  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "2.2.0");
 
   useEffect(() => {
     Promise.all([fetchConfig(), fetchAccounts()])
@@ -4366,9 +4379,8 @@ function SettingsView({
         const selected = getSelectedAccountId() || a.defaultAccountId;
         setSelectedAccountIdState(selected);
         setLibraryPath(String(c.musicRoot ?? ""));
-        setServerPort(c.serverPort);
-        setDevClientPort(c.devClientPort);
         setLanAccessUrl(c.lanAccessUrl);
+        setRemoteAccess(c.remoteAccess || null);
         setLibraryErr(null);
         setAccountErr(null);
       })
@@ -4545,6 +4557,68 @@ function SettingsView({
       )
       .finally(() => setAccountBusy(false));
   };
+
+  const runRemoteCloudflareLogin = () => {
+    setRemoteAccessErr(null);
+    setRemoteAccessBusy(true);
+    getRemoteAccessLoginUrl()
+      .then((d) => {
+        if (d.loginUrl) {
+          window.open(d.loginUrl, "_blank", "noopener,noreferrer");
+        }
+      })
+      .catch((e: unknown) =>
+        setRemoteAccessErr(e instanceof Error ? e.message : String(e))
+      )
+      .finally(() => setRemoteAccessBusy(false));
+  };
+
+  const logoutRemoteCloudflareLogin = () => {
+    setRemoteAccessErr(null);
+    setRemoteAccessBusy(true);
+    logoutRemoteAccessLogin()
+      .then((s) => setRemoteAccess(s))
+      .catch((e: unknown) =>
+        setRemoteAccessErr(e instanceof Error ? e.message : String(e))
+      )
+      .finally(() => setRemoteAccessBusy(false));
+  };
+
+  const refreshRemoteState = () => {
+    fetchRemoteAccessState()
+      .then((s) => {
+        setRemoteAccess(s);
+        if (s.status !== "error") setRemoteAccessErr(null);
+      })
+      .catch((e: unknown) =>
+        setRemoteAccessErr(e instanceof Error ? e.message : String(e))
+      );
+  };
+
+  const toggleRemoteAccess = () => {
+    setRemoteAccessErr(null);
+    setRemoteAccessBusy(true);
+    const op =
+      remoteAccess?.status === "running" || remoteAccess?.status === "starting"
+        ? stopRemoteAccess()
+        : startRemoteAccess();
+    op
+      .then((s) => {
+        setRemoteAccess(s);
+      })
+      .catch((e: unknown) =>
+        setRemoteAccessErr(e instanceof Error ? e.message : String(e))
+      )
+      .finally(() => setRemoteAccessBusy(false));
+  };
+
+  useEffect(() => {
+    if (isKordClientEmbed) return;
+    const timer = window.setInterval(() => {
+      refreshRemoteState();
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [isKordClientEmbed]);
 
   return (
     <div className="dashboard-grid settings-page">
@@ -4906,13 +4980,16 @@ function SettingsView({
               <h2>{t("settings.networkHeading")}</h2>
             </div>
           </div>
-          <div className="settings-network-section__body">
-            <p className="subtle sm">
-              {t("settings.networkLead", {
-                port: serverPort,
-                devPort: devClientPort,
-              })}
-            </p>
+          <div
+            className="settings-network-section__body"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+              textAlign: "left",
+              gap: "0.4rem",
+            }}
+          >
             {lanAccessUrl ? (
               <p className="subtle sm">
                 {t("settings.networkUrlHint", { url: lanAccessUrl })}
@@ -4920,6 +4997,89 @@ function SettingsView({
             ) : (
               <p className="subtle sm">{t("settings.networkNoUrl")}</p>
             )}
+            <div
+              className="row gap"
+              style={{
+                marginTop: "0.5rem",
+                flexDirection: "row",
+                alignItems: "flex-start",
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                type="button"
+                className="btn secondary sm"
+                disabled={remoteAccessBusy}
+                onMouseEnter={() => setRemoteLoginHover(true)}
+                onMouseLeave={() => setRemoteLoginHover(false)}
+                onClick={() => {
+                  if (remoteAccess?.cloudflareLoggedIn) {
+                    logoutRemoteCloudflareLogin();
+                  } else {
+                    runRemoteCloudflareLogin();
+                  }
+                }}
+                style={
+                  remoteAccess?.cloudflareLoggedIn
+                    ? {
+                        minWidth: "11.5rem",
+                        backgroundColor: remoteLoginHover ? "#c62828" : "#2e7d32",
+                        color: "#fff",
+                        borderColor: remoteLoginHover ? "#c62828" : "#2e7d32",
+                      }
+                    : { minWidth: "11.5rem" }
+                }
+              >
+                {remoteAccess?.cloudflareLoggedIn
+                  ? remoteLoginHover
+                    ? t("settings.remoteLogout")
+                    : t("settings.remoteLoginDone")
+                  : t("settings.remoteLogin")}
+              </button>
+              <button
+                type="button"
+                className="btn sm"
+                disabled={remoteAccessBusy}
+                onMouseEnter={() => setRemoteShareHover(true)}
+                onMouseLeave={() => setRemoteShareHover(false)}
+                onClick={toggleRemoteAccess}
+                style={
+                  remoteAccess?.status === "starting"
+                    ? {
+                        minWidth: "11.5rem",
+                        background: "#f0be67",
+                        color: "#1a1a1a",
+                        border: "1px solid #f0be67",
+                      }
+                    : remoteAccess?.status === "running"
+                    ? {
+                        minWidth: "11.5rem",
+                        background: remoteShareHover ? "#c62828" : "#2e7d32",
+                        color: "#fff",
+                        border: `1px solid ${remoteShareHover ? "#c62828" : "#2e7d32"}`,
+                      }
+                    : { minWidth: "11.5rem" }
+                }
+              >
+                {remoteAccess?.status === "starting"
+                  ? "Starting"
+                  : remoteAccess?.status === "running"
+                  ? remoteShareHover
+                    ? t("settings.remoteStopSharing")
+                    : t("settings.remoteShared")
+                  : t("settings.remoteStart")}
+              </button>
+            </div>
+            {remoteAccess?.publicUrl ? (
+              <p className="subtle sm">
+                {t("settings.remoteUrl", { url: remoteAccess.publicUrl })}
+              </p>
+            ) : null}
+            {remoteAccessErr || remoteAccess?.error ? (
+              <p className="subtle sm warnline">
+                {remoteAccessErr || remoteAccess?.error}
+              </p>
+            ) : null}
           </div>
         </section>
       )}
@@ -5117,7 +5277,7 @@ function PlayerDock({
     const el = event.target as HTMLElement;
     if (
       el.closest(
-        "button, input, .volume2, .player-bar2__byline, label.volume2, .progress2"
+        "button, input, .player-bar2__byline, .progress2"
       )
     ) {
       return;
@@ -5201,24 +5361,16 @@ function PlayerDock({
 
   const openCastPicker = async () => {
     const audio = p.audioRef.current as RemotePlaybackAudio | null;
-    if (!audio) {
-      void appAlert({ message: t("player.castUnsupported") });
-      return;
-    }
+    if (!audio) return;
     const remote = audio?.remote;
-    if (!remote?.prompt) {
-      void appAlert({ message: t("player.castUnsupported") });
-      return;
-    }
+    if (!remote?.prompt) return;
     try {
       if (cur) void p.prepareRemotePlayback(castBaseUrl);
       await remote.prompt();
       setCastState(remote.state || "disconnected");
     } catch (error) {
       const name = String((error as Error)?.name || "");
-      if (name !== "AbortError") {
-        void appAlert({ message: t("player.castFailed") });
-      }
+      if (name !== "AbortError") return;
     }
   };
 
@@ -5426,41 +5578,36 @@ function PlayerDock({
             ) : null}
           </div>
           <div className="player-bar2__output">
-            {castSupported ? (
-              <button
-                type="button"
-                className={`player-bar2__ic player-bar2__ic--cast ${
-                  castState === "connected" ? "is-on" : ""
-                } ${!castAvailable ? "is-unavailable" : ""}`}
-                disabled={!cur}
-                onClick={() => void openCastPicker()}
-                title={
-                  castAvailable ? t("player.castTitle") : t("player.castNoDevices")
-                }
-                aria-label={
-                  castAvailable ? t("player.castTitle") : t("player.castNoDevices")
-                }
-                aria-pressed={castState === "connected"}
+            <button
+              type="button"
+              className={`player-bar2__ic player-bar2__ic--cast ${
+                castState === "connected" ? "is-on" : ""
+              } ${!castSupported || !castAvailable ? "is-unavailable" : ""}`}
+              disabled={!cur || !castSupported}
+              onClick={() => void openCastPicker()}
+              title={
+                !castSupported
+                  ? t("player.castUnsupported")
+                  : castAvailable
+                  ? t("player.castTitle")
+                  : t("player.castNoDevices")
+              }
+              aria-label={
+                !castSupported
+                  ? t("player.castUnsupported")
+                  : castAvailable
+                  ? t("player.castTitle")
+                  : t("player.castNoDevices")
+              }
+              aria-pressed={castState === "connected"}
+            >
+              <span
+                className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
+                aria-hidden
               >
-                <span
-                  className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
-                  aria-hidden
-                >
-                  <UiCast />
-                </span>
-              </button>
-            ) : null}
-            <label className="volume2">
-              <span className="sr-only">{t("player.volumeAria")}</span>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.01}
-                value={p.volume}
-                onChange={(event) => p.setVolume(Number(event.target.value))}
-              />
-            </label>
+                <UiCast />
+              </span>
+            </button>
           </div>
         </div>
         <div className="player-bar2__row player-bar2__row--seek">

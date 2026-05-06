@@ -21,6 +21,10 @@ import {
   getMusicRootForAccountStrict,
   setPersistedYoutubeCookiesFile,
   clearPersistedYoutubeCookiesFile,
+  getCloudflareLoggedIn,
+  getCloudflareTunnelEnabled,
+  setCloudflareLoggedIn,
+  setCloudflareTunnelEnabled,
   setPersistedMusicRoot,
   updateAccount,
   isMusicRootFromEnv,
@@ -95,6 +99,7 @@ import {
 } from "./libraryIndexCache.mjs";
 
 const execFileAsync = promisify(execFile);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /** Evita scan disco duplicate quando più richieste parallele leggono lo stesso root (es. /api/library-index + /api/dashboard all'avvio UI). */
 const libraryIndexFlight = new Map();
@@ -116,6 +121,117 @@ const STUDIO_DOWNLOAD_KINDS = new Set([
 ]);
 
 const PORT = Number(process.env.PORT) || 3001;
+const DEFAULT_CLOUDFLARED_BIN = process.platform === "win32" ? "cloudflared.exe" : "cloudflared";
+const CF_URL_REGEX = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/i;
+
+const remoteAccessState = {
+  enabled: getCloudflareTunnelEnabled(),
+  status: "stopped",
+  provider: "cloudflare-quick",
+  publicUrl: null,
+  error: null,
+  startedAt: null,
+  cloudflaredPath: null,
+  cloudflareLoggedIn: getCloudflareLoggedIn(),
+};
+let cloudflaredChild = null;
+
+function resolveBundledCloudflaredPath() {
+  const name = process.platform === "win32" ? "cloudflared.exe" : "cloudflared";
+  return path.join(__dirname, "bin", name);
+}
+
+function resolveCloudflaredPath() {
+  const configured = String(process.env.KORD_CLOUDFLARED_BIN || "").trim();
+  if (configured) return configured;
+  const bundled = resolveBundledCloudflaredPath();
+  if (existsSync(bundled)) return bundled;
+  return DEFAULT_CLOUDFLARED_BIN;
+}
+
+function remoteSnapshot() {
+  return {
+    enabled: remoteAccessState.enabled,
+    status: remoteAccessState.status,
+    provider: remoteAccessState.provider,
+    publicUrl: remoteAccessState.publicUrl,
+    error: remoteAccessState.error,
+    startedAt: remoteAccessState.startedAt,
+    cloudflaredPath: remoteAccessState.cloudflaredPath,
+    cloudflareLoggedIn: remoteAccessState.cloudflareLoggedIn,
+  };
+}
+
+function markRemoteError(err) {
+  remoteAccessState.status = "error";
+  const msg = String(err?.message || err || "cloudflared error");
+  if (msg.includes("ENOENT")) {
+    remoteAccessState.error =
+      "Cloudflared non trovato. Reinstalla KORD oppure configura KORD_CLOUDFLARED_BIN.";
+    return;
+  }
+  remoteAccessState.error = msg;
+}
+
+function stopRemoteAccess() {
+  remoteAccessState.enabled = false;
+  void setCloudflareTunnelEnabled(false);
+  remoteAccessState.status = "stopped";
+  remoteAccessState.publicUrl = null;
+  remoteAccessState.error = null;
+  remoteAccessState.startedAt = null;
+  if (cloudflaredChild && !cloudflaredChild.killed) {
+    try {
+      cloudflaredChild.kill("SIGTERM");
+    } catch {
+      /* ignore */
+    }
+  }
+  cloudflaredChild = null;
+}
+
+function startRemoteAccess() {
+  if (cloudflaredChild && !cloudflaredChild.killed) return;
+  remoteAccessState.enabled = true;
+  void setCloudflareTunnelEnabled(true);
+  remoteAccessState.status = "starting";
+  remoteAccessState.publicUrl = null;
+  remoteAccessState.error = null;
+  remoteAccessState.startedAt = new Date().toISOString();
+  const cloudflaredPath = resolveCloudflaredPath();
+  remoteAccessState.cloudflaredPath = cloudflaredPath;
+  const target = `http://127.0.0.1:${PORT}`;
+  const args = ["tunnel", "--url", target, "--no-autoupdate"];
+  const child = spawn(cloudflaredPath, args, {
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true,
+    env: { ...process.env },
+  });
+  cloudflaredChild = child;
+  const onLine = (line) => {
+    const str = String(line || "");
+    const match = str.match(CF_URL_REGEX);
+    if (match?.[0]) {
+      remoteAccessState.status = "running";
+      remoteAccessState.publicUrl = match[0];
+      remoteAccessState.error = null;
+    }
+  };
+  child.stdout?.on("data", onLine);
+  child.stderr?.on("data", onLine);
+  child.on("error", (err) => {
+    markRemoteError(err);
+    cloudflaredChild = null;
+  });
+  child.on("exit", () => {
+    if (remoteAccessState.enabled) {
+      markRemoteError("Tunnel terminato");
+    } else {
+      remoteAccessState.status = "stopped";
+    }
+    cloudflaredChild = null;
+  });
+}
 /**
  * Solo formati audio già muxati: niente merge, niente postprocessori che richiedono ffmpeg
  * (--add-metadata / -x / estrazione usano ffmpeg e non sono supportati in produzione).
@@ -663,6 +779,7 @@ function buildConfigPayload(req) {
     if (root)
       snap.libraryRootLabel = path.basename(path.resolve(String(root)));
   }
+  snap.remoteAccess = remoteSnapshot();
   return snap;
 }
 
@@ -1047,6 +1164,74 @@ app.post(
 
 app.get("/api/config", (req, res) => {
   return sendOk(res, buildConfigPayload(req));
+});
+
+app.get("/api/remote-access", (req, res) => {
+  return sendOk(res, remoteSnapshot());
+});
+
+app.post("/api/remote-access/login", (req, res) => {
+  if (!isLocalRequest(req)) {
+    return sendError(res, 403, "Remote access settings are local-only.");
+  }
+  const url = "https://dash.cloudflare.com/";
+  setCloudflareLoggedIn(true)
+    .then((ok) => {
+      remoteAccessState.cloudflareLoggedIn = ok;
+      return sendOk(res, {
+        loginUrl: url,
+        note: "Apri Cloudflare Dashboard e completa il login.",
+      });
+    })
+    .catch((error) => sendError(res, 500, String(error?.message || error)));
+});
+
+app.post("/api/remote-access/logout", (req, res) => {
+  if (!isLocalRequest(req)) {
+    return sendError(res, 403, "Remote access settings are local-only.");
+  }
+  setCloudflareLoggedIn(false)
+    .then((ok) => {
+      remoteAccessState.cloudflareLoggedIn = ok;
+      return sendOk(res, remoteSnapshot());
+    })
+    .catch((error) => sendError(res, 500, String(error?.message || error)));
+});
+
+app.post("/api/remote-access/start", (req, res) => {
+  if (!isLocalRequest(req)) {
+    return sendError(res, 403, "Remote access settings are local-only.");
+  }
+  if (remoteAccessState.status === "running" || remoteAccessState.status === "starting") {
+    return sendOk(res, remoteSnapshot());
+  }
+  try {
+    startRemoteAccess();
+    void actLog(req, {
+      kind: "server",
+      action: "remote-access",
+      folder: null,
+      detail: "start",
+    });
+    return sendOk(res, remoteSnapshot());
+  } catch (error) {
+    markRemoteError(error);
+    return sendError(res, 500, String(error?.message || error));
+  }
+});
+
+app.post("/api/remote-access/stop", (req, res) => {
+  if (!isLocalRequest(req)) {
+    return sendError(res, 403, "Remote access settings are local-only.");
+  }
+  stopRemoteAccess();
+  void actLog(req, {
+    kind: "server",
+    action: "remote-access",
+    folder: null,
+    detail: "stop",
+  });
+  return sendOk(res, remoteSnapshot());
 });
 
 app.put("/api/config", async (req, res) => {
@@ -2416,7 +2601,7 @@ app.post("/api/artwork/apply", async (req, res) => {
     if (!statSync(full).isDirectory())
       return sendError(res, 400, "Not a directory");
     const response = await fetch(imageUrl, {
-      headers: { "User-Agent": "Kord/2.1" },
+      headers: { "User-Agent": "Kord/2.2" },
     });
     if (!response.ok) return sendError(res, 400, "Image download failed");
     const type = (response.headers.get("content-type") || "").toLowerCase();
@@ -2890,7 +3075,7 @@ app.post("/api/studio/sanitize-track-titles", async (req, res) => {
 });
 
 const distPath = path.join(
-  path.dirname(fileURLToPath(import.meta.url)),
+  __dirname,
   "..",
   "dist"
 );
@@ -2919,10 +3104,24 @@ async function startListening() {
     console.log(
       `[music-server] http://${LISTEN_HOST}:${PORT} -> ${getMusicRoot()}`
     );
+    if (remoteAccessState.enabled) {
+      try {
+        startRemoteAccess();
+      } catch (error) {
+        markRemoteError(error);
+      }
+    }
   });
   httpServer.on("error", (err) => {
     console.error("[music-server] listen", err);
     process.exit(1);
+  });
+}
+
+for (const sig of ["SIGINT", "SIGTERM"]) {
+  process.on(sig, () => {
+    stopRemoteAccess();
+    process.exit(0);
   });
 }
 

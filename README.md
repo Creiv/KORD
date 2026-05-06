@@ -2,7 +2,7 @@
 
 **Kord** is a local music hub: browse your library, play tracks with a persistent queue, manage playlists, and keep metadata organized. This repository provides a full-stack web app, an **Electron** desktop shell, and separate **packaged** builds for a **desktop server** and a **lightweight client** for remote use on the same network.
 
-Kord **1.7** ships with the behavior and packaging described below. **`package.json`** is the single source for the exact semver of a given commit.
+Kord **2.2** ships with the behavior and packaging described below. **`package.json`** is the single source for the exact semver of a given commit.
 
 ---
 
@@ -69,6 +69,14 @@ The HTTP API **listens on all interfaces** (`0.0.0.0`) **by default**, so other 
 
 **Kord Client** (remote Electron shell) has no embedded server — it connects to whichever base URL you enter.
 
+### External sharing with Cloudflare
+
+From **Settings → Network** you can enable external sharing through Cloudflare and get a public HTTPS URL.
+
+- In quick mode (`trycloudflare`), the generated URL is temporary.
+- It is normal for that URL to change after each app/server restart.
+- For a stable URL, use a named Cloudflare tunnel with your own domain.
+
 Development with **only** Vite (`npm run dev` on `:5173`) does not expose the dev server on the LAN unless you set **`KORD_LISTEN_ON_LAN=1`** (see `vite.config.ts`). The backend on **`3001`** is what remote devices use once it is reachable (packaged server or `node server/index.mjs`).
 
 On **Linux**, Chromium may warn about **sandbox**; **`ELECTRON_DISABLE_SANDBOX=1`** is an escape hatch where your distro restricts user namespaces ([Electron / sandbox notes](https://www.electronjs.org/docs/latest/tutorial/sandbox-option)).
@@ -77,7 +85,7 @@ On **Linux**, Chromium may warn about **sandbox**; **`ELECTRON_DISABLE_SANDBOX=1
 
 ## Builds and installers
 
-### Release 1.7
+### Release 2.2
 
 Produce a fresh UI bundle:
 
@@ -94,7 +102,7 @@ npm run build
 
 ### Kord Server / Kord Client (versioned artifacts)
 
-Use **`pack:<os>:server`** / **`pack:<os>:client`** (`linux`, `win`, **or** `mac`). These scripts use **`electron-builder.kord.cjs`**, optionally pass a semver as the **last argument** (e.g. `npm run pack:linux:server -- 1.7.0`; see **`scripts/pack-release.mjs`**).
+Use **`pack:<os>:server`** / **`pack:<os>:client`** (`linux`, `win`, **or** `mac`). These scripts use **`electron-builder.kord.cjs`**, optionally pass a semver as the **last argument** (e.g. `npm run pack:linux:server -- 2.2.0`; see **`scripts/pack-release.mjs`**).
 
 **Server** flavor runs `npm run build`, then **`scripts/fetch-ytdlp.mjs`** for the **target OS**, then packages. Prefer this when shipping Studio downloads with a bundled **yt-dlp**.
 
@@ -159,7 +167,7 @@ npm run lint
 
 ---
 
-## Release 1.7 — notes for publishers
+## Release 2.2 — notes for publishers
 
 - **LAN / firewall:** default bind is **all interfaces**; restrict with **`KORD_LISTEN_HOST=127.0.0.1`** if the machine must not accept remote connections on the API port.
 - **`pack:*:server`** is the intended path for a **standalone Studio** with bundled **yt-dlp** (remove binaries for other platforms from `server/bin/` before packing if you want a smaller installer).

@@ -18,9 +18,10 @@ import {
   setMediaSessionPosition,
 } from "../lib/mediaSession";
 import { fisherYatesShuffle } from "../lib/smartShuffle";
-import { getVolume, setVolumePref } from "../lib/persisted";
 import { useUserState } from "./UserStateContext";
 import type { EnrichedTrack, LibAlbum, LibraryIndex, RepeatMode } from "../types";
+
+const FIXED_VOLUME = 1;
 
 type Ctx = {
   audioRef: React.RefObject<HTMLAudioElement | null>;
@@ -142,7 +143,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolumeState] = useState(getVolume);
+  const [volume] = useState(FIXED_VOLUME);
   const [repeat, setRepeat] = useState<RepeatMode>("all");
   const [shuffle, setShuffleState] = useState(false);
   const queueRef = useRef(queue);
@@ -350,9 +351,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }, [isPlaying, pause, play]);
 
   const setVolume = useCallback((next: number) => {
-    const value = Math.min(1, Math.max(0, next));
-    setVolumeState(value);
-    setVolumePref(value);
+    void next;
   }, []);
 
   const seek = useCallback((time: number) => {

@@ -1,4 +1,4 @@
-# KORD - Guida completa per iniziare da zero
+# KORD 2.2 - Guida completa per iniziare da zero
 
 Questa guida e pensata per chi non ha mai usato KORD.
 Ti accompagna dal primo avvio all'uso quotidiano, in modo pratico e senza dare nulla per scontato.
@@ -253,6 +253,13 @@ Scorciatoie:
 
 ## Rete
 - porta API e URL LAN stimato.
+
+## Condivisione esterna (Cloudflare)
+- in Impostazioni > Rete puoi fare login Cloudflare e avviare la condivisione esterna;
+- quando il server e condiviso, KORD mostra un URL pubblico HTTPS da usare fuori LAN;
+- con modalita `trycloudflare` l'URL e temporaneo e puo cambiare a ogni riavvio;
+- quindi, se riavvii server/app, e normale vedere un nuovo link `https://...trycloudflare.com`;
+- per avere sempre lo stesso URL serve un tunnel nominato Cloudflare con dominio tuo (configurazione avanzata).
 
 ## Download cookies
 - gestione cookies YouTube lato server (se usati).

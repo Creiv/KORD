@@ -150,6 +150,13 @@
         <span>Kord</span>
         <h1>Connetti</h1>
       </div>
+      <div class="row">
+        <label for="mode">Tipo connessione</label>
+        <select id="mode">
+          <option value="local">IP locale</option>
+          <option value="public">URL pubblico</option>
+        </select>
+      </div>
       <div class="row split">
         <div class="field">
           <label for="host">IP o hostname</label>
@@ -175,6 +182,16 @@
           />
         </div>
       </div>
+      <div class="row hidden" id="public-wrap">
+        <label for="public-url">URL pubblico</label>
+        <input
+          id="public-url"
+          type="text"
+          placeholder="https://nome.trycloudflare.com"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
       <div class="row hidden" id="accounts-wrap">
         <label for="acc">Account</label>
         <select id="acc"></select>
@@ -194,9 +211,13 @@
       const E = (id) => document.getElementById(id);
       const hostIn = E("host");
       const portIn = E("port");
+      const modeSel = E("mode");
+      const publicWrap = E("public-wrap");
+      const publicUrlIn = E("public-url");
       const accSel = E("acc");
       const errEl = E("err");
       const accountsWrap = E("accounts-wrap");
+      const localWrap = document.querySelector(".row.split");
       const btnProbe = E("btn-probe");
       const btnOpen = E("btn-open");
       let lastBase = "";
@@ -217,13 +238,38 @@
         const withP = /^https?:\/\//i.test(t) ? t : `http://${t}`;
         try {
           const u = new URL(withP);
-          return { h: u.hostname, p: u.port || "3001" };
+          return {
+            full: `${u.protocol}//${u.host}`,
+            h: u.hostname,
+            p: u.port || "3001",
+            protocol: u.protocol,
+          };
         } catch {
           return null;
         }
       }
 
+      function guessModeFromBase(raw) {
+        const p = parseBaseUrl(raw);
+        if (!p) return "local";
+        if (p.protocol === "https:") return "public";
+        if (String(p.h || "").includes("trycloudflare.com")) return "public";
+        return "local";
+      }
+
+      function syncModeUi() {
+        const isPublic = modeSel.value === "public";
+        localWrap.classList.toggle("hidden", isPublic);
+        publicWrap.classList.toggle("hidden", !isPublic);
+      }
+
       function buildRaw() {
+        if (modeSel.value === "public") {
+          const raw = publicUrlIn.value.trim();
+          if (!raw) return "";
+          const parsed = parseBaseUrl(raw);
+          return parsed ? parsed.full : "";
+        }
         const h = hostIn.value.trim();
         const ps = portIn.value.trim();
         if (!h || !ps) return "";
@@ -238,28 +284,54 @@
         btnProbe.disabled = !raw;
       }
 
+      function setActionState(mode) {
+        if (mode === "open") {
+          btnProbe.classList.add("hidden");
+          btnOpen.classList.remove("hidden");
+          return;
+        }
+        btnOpen.classList.add("hidden");
+        btnProbe.classList.remove("hidden");
+      }
+
       const params = new URLSearchParams(window.location.search);
       const fromUrl = params.get("base");
       if (fromUrl) {
         const p = parseBaseUrl(decodeURIComponent(fromUrl));
         if (p) {
-          hostIn.value = p.h;
-          portIn.value = p.p;
+          if (guessModeFromBase(p.full) === "public") {
+            modeSel.value = "public";
+            publicUrlIn.value = p.full;
+          } else {
+            modeSel.value = "local";
+            hostIn.value = p.h;
+            portIn.value = p.p;
+          }
         }
       }
       if (!fromUrl) {
         hostIn.value = "192.168.1.100";
         portIn.value = "3001";
+        modeSel.value = "local";
       }
+      syncModeUi();
 
-      [hostIn, portIn].forEach((el) => {
+      [hostIn, portIn, publicUrlIn].forEach((el) => {
         el.addEventListener("input", () => {
           updateProbeButton();
           showErr("");
           accountsWrap.classList.add("hidden");
-          btnOpen.classList.add("hidden");
+          setActionState("probe");
         });
       });
+      modeSel.addEventListener("change", () => {
+        syncModeUi();
+        updateProbeButton();
+        showErr("");
+        accountsWrap.classList.add("hidden");
+        setActionState("probe");
+      });
+      setActionState("probe");
       updateProbeButton();
 
       window.kordClientConnect
@@ -268,8 +340,15 @@
           if (s && s.baseUrl && !fromUrl) {
             const p = parseBaseUrl(s.baseUrl);
             if (p) {
-              hostIn.value = p.h;
-              portIn.value = p.p;
+              if (guessModeFromBase(p.full) === "public") {
+                modeSel.value = "public";
+                publicUrlIn.value = p.full;
+              } else {
+                modeSel.value = "local";
+                hostIn.value = p.h;
+                portIn.value = p.p;
+              }
+              syncModeUi();
             }
             updateProbeButton();
           }
@@ -281,7 +360,9 @@
         btnProbe.disabled = true;
         const raw = buildRaw();
         if (!raw) {
-          if (!hostIn.value.trim()) showErr("Inserisci un indirizzo IP o hostname.");
+          if (modeSel.value === "public") {
+            showErr("Inserisci un URL pubblico valido (https://...).");
+          } else if (!hostIn.value.trim()) showErr("Inserisci un indirizzo IP o hostname.");
           else if (!portIn.value.trim() || !/^\d+$/.test(portIn.value.trim()))
             showErr("Inserisci un numero di porta (es. 3001).");
           else
@@ -313,7 +394,7 @@
           accSel.value = snap.defaultAccountId;
         }
         accountsWrap.classList.remove("hidden");
-        btnOpen.classList.remove("hidden");
+        setActionState("open");
         btnOpen.disabled = false;
       });
 
