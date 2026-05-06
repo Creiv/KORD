@@ -36,6 +36,7 @@ import {
   fetchRemoteAccessState,
   fetchDashboard,
   fetchLibraryIndex,
+  saveTrackInfoManual,
   getSelectedAccountId,
   getRemoteAccessLoginUrl,
   logoutRemoteAccessLogin,
@@ -58,7 +59,11 @@ import { useLibraryCardPlayback } from "./hooks/useLibraryCardPlayback";
 import { useMatchMedia } from "./hooks/useMatchMedia";
 import { buildRandomArtistCoverMap } from "./lib/artistCover";
 import { buildGenreCoverPreviewMap } from "./lib/genreCovers";
-import { parseTrackGenres, trackBelongsToGenreKey } from "./lib/genres";
+import {
+  parseTrackGenres,
+  serializeTrackGenres,
+  trackBelongsToGenreKey,
+} from "./lib/genres";
 import {
   parseTrackMoods,
   TRACK_MOOD_COLORS,
@@ -93,6 +98,7 @@ import {
   UiKeyboardArrowUp,
   UiMusicNote,
   UiNote,
+  UiLyrics,
   UiPause,
   UiPlayArrow,
   UiPlayCircle,
@@ -151,7 +157,9 @@ import { KordWordmarkSvg } from "./components/KordWordmarkSvg";
 type RemotePlaybackHandle = EventTarget & {
   state?: "connecting" | "connected" | "disconnected";
   prompt?: () => Promise<void>;
-  watchAvailability?: (callback: (available: boolean) => void) => Promise<number>;
+  watchAvailability?: (
+    callback: (available: boolean) => void
+  ) => Promise<number>;
   cancelWatchAvailability?: (id: number) => Promise<void>;
 };
 
@@ -343,10 +351,15 @@ function recomputeLibraryStats(index: LibraryIndex): LibraryIndex {
     albumCount: index.albums.length,
     trackCount: index.tracks.length,
     favoriteCapableCount: index.tracks.length,
-    albumsWithoutCover: index.albums.filter((album) => !album.loose && !album.hasCover).length,
-    albumsWithoutMeta: index.albums.filter((album) => !album.loose && !album.hasAlbumMeta).length,
+    albumsWithoutCover: index.albums.filter(
+      (album) => !album.loose && !album.hasCover
+    ).length,
+    albumsWithoutMeta: index.albums.filter(
+      (album) => !album.loose && !album.hasAlbumMeta
+    ).length,
     tracksWithoutMeta: index.tracks.filter(
-      (track) => !parseTrackGenres(track.meta?.genre).length && !track.meta?.releaseDate
+      (track) =>
+        !parseTrackGenres(track.meta?.genre).length && !track.meta?.releaseDate
     ).length,
     looseAlbumCount: index.albums.filter((album) => album.loose).length,
   };
@@ -378,12 +391,19 @@ function applyLibraryDeltaToIndex(
       }))
       .filter((artist) => artist.albums.length > 0)
       .map((artist) => {
-        const artistAlbums = albums.filter((album) => artist.albums.includes(album.id));
+        const artistAlbums = albums.filter((album) =>
+          artist.albums.includes(album.id)
+        );
         return {
           ...artist,
           albumCount: artistAlbums.length,
-          trackCount: artistAlbums.reduce((sum, album) => sum + album.trackCount, 0),
-          coverRelPath: artistAlbums.find((album) => album.coverRelPath)?.coverRelPath || null,
+          trackCount: artistAlbums.reduce(
+            (sum, album) => sum + album.trackCount,
+            0
+          ),
+          coverRelPath:
+            artistAlbums.find((album) => album.coverRelPath)?.coverRelPath ||
+            null,
         };
       });
     next = recomputeLibraryStats({
@@ -405,13 +425,18 @@ function applyLibraryDeltaToIndex(
           : album
       ),
       tracks: next.tracks.map((track) =>
-        track.relPath.startsWith(albumPrefix) ? { ...track, updatedAt: now } : track
+        track.relPath.startsWith(albumPrefix)
+          ? { ...track, updatedAt: now }
+          : track
       ),
       artists: next.artists.map((artist) => {
         const ownsAlbum = next.albums.some(
-          (album) => album.relPath === delta.albumPath && album.artistId === artist.id
+          (album) =>
+            album.relPath === delta.albumPath && album.artistId === artist.id
         );
-        return ownsAlbum ? { ...artist, coverRelPath: coverRelPath || artist.coverRelPath } : artist;
+        return ownsAlbum
+          ? { ...artist, coverRelPath: coverRelPath || artist.coverRelPath }
+          : artist;
       }),
     };
   }
@@ -430,7 +455,9 @@ function applyLibraryDeltaToIndex(
           : album
       ),
       tracks: next.tracks.map((track) =>
-        track.albumMeta && track.albumId === next.albums.find((album) => album.relPath === patch.relPath)?.id
+        track.albumMeta &&
+        track.albumId ===
+          next.albums.find((album) => album.relPath === patch.relPath)?.id
           ? { ...track, album: patch.name || patch.title || track.album }
           : track
       ),
@@ -446,14 +473,19 @@ function applyLibraryDeltaToIndex(
               ...track,
               ...patch,
               title: patch.title || track.title,
-              meta: { ...(track.meta || {}), ...(patch.meta || {}) } as TrackMeta,
+              meta: {
+                ...(track.meta || {}),
+                ...(patch.meta || {}),
+              } as TrackMeta,
             }
           : track
       ),
     };
   }
   if (delta.tracks?.length) {
-    const patches = new Map(delta.tracks.map((track) => [track.relPath, track]));
+    const patches = new Map(
+      delta.tracks.map((track) => [track.relPath, track])
+    );
     next = {
       ...next,
       tracks: next.tracks.map((track) => {
@@ -574,8 +606,15 @@ function PlayerBarTrackArtInner({
   );
 }
 
-function PlayerBarTrackArt({ relPath, version }: { relPath: string; version?: number | null }) {
-  const cacheKey = version && Number.isFinite(version) ? Math.floor(version) : null;
+function PlayerBarTrackArt({
+  relPath,
+  version,
+}: {
+  relPath: string;
+  version?: number | null;
+}) {
+  const cacheKey =
+    version && Number.isFinite(version) ? Math.floor(version) : null;
   return (
     <PlayerBarTrackArtInner
       key={`${relPath}:${cacheKey ?? ""}`}
@@ -620,6 +659,9 @@ function TrackListRow({
   const inQ = p.isTrackInQueue(track.relPath);
   const fav = user.isFavorite(track.relPath);
   const playCount = user.getTrackPlayCount(track.relPath);
+  const lyricsRaw = String(track.meta?.lyrics || "").trim();
+  const hasLyrics = lyricsRaw.length > 0;
+  const hasLrcLyrics = hasLyrics && parseLrcLyrics(lyricsRaw).length > 0;
   const durationStr = formatDurationMs(track.meta?.durationMs);
   const infoLine =
     metaRight ||
@@ -658,6 +700,31 @@ function TrackListRow({
         </span>
         <span className="track-row__meta">
           {track.artist} · {track.album}
+          <span className="track-row__meta-sep" aria-hidden>
+            {" "}
+            ·{" "}
+          </span>
+          <span
+            className={`track-row__lyrics-inline ${
+              hasLrcLyrics ? "is-lrc" : hasLyrics ? "is-plain" : "is-off"
+            }`}
+            title={
+              hasLrcLyrics
+                ? t("trackRow.lyricsLrc")
+                : hasLyrics
+                ? t("trackRow.lyricsPlain")
+                : t("trackRow.lyricsMissing")
+            }
+            aria-label={
+              hasLrcLyrics
+                ? t("trackRow.lyricsLrc")
+                : hasLyrics
+                ? t("trackRow.lyricsPlain")
+                : t("trackRow.lyricsMissing")
+            }
+          >
+            <UiLyrics />
+          </span>
         </span>
         {showTrackBadgeRow ? (
           <span className="track-row__badges">{infoLine}</span>
@@ -774,7 +841,9 @@ function AlbumCover({
         className={`album-cover ${compact ? "is-compact" : ""}`}
         src={src}
         alt=""
-        fallbackClassName={`album-cover is-fallback ${compact ? "is-compact" : ""}`}
+        fallbackClassName={`album-cover is-fallback ${
+          compact ? "is-compact" : ""
+        }`}
         fallback={initials(album.artist)}
       />
     );
@@ -1782,10 +1851,10 @@ function parseLrcLyrics(raw: string): ParsedLrcLine[] {
         fracRaw.length === 0
           ? 0
           : fracRaw.length === 1
-            ? Number(fracRaw) / 10
-            : fracRaw.length === 2
-              ? Number(fracRaw) / 100
-              : Number(fracRaw) / 1000;
+          ? Number(fracRaw) / 10
+          : fracRaw.length === 2
+          ? Number(fracRaw) / 100
+          : Number(fracRaw) / 1000;
       const atSec = mm * 60 + ss + frac;
       if (Number.isFinite(atSec)) out.push({ atSec, text });
     }
@@ -1794,7 +1863,10 @@ function parseLrcLyrics(raw: string): ParsedLrcLine[] {
   return out;
 }
 
-function currentLrcLineIndex(lines: ParsedLrcLine[], currentTime: number): number {
+function currentLrcLineIndex(
+  lines: ParsedLrcLine[],
+  currentTime: number
+): number {
   if (!lines.length) return -1;
   let idx = -1;
   for (let i = 0; i < lines.length; i += 1) {
@@ -1828,9 +1900,7 @@ function ListenView({
   const albumShuffleExcluded = cur
     ? isTrackAlbumShuffleExcluded(cur, exAlbums)
     : false;
-  const trackShuffleExcluded = cur
-    ? exTracksSet.has(cur.relPath)
-    : false;
+  const trackShuffleExcluded = cur ? exTracksSet.has(cur.relPath) : false;
   const shuffleExcluded = albumShuffleExcluded || trackShuffleExcluded;
   const playCount = cur ? user.getTrackPlayCount(cur.relPath) : 0;
   const listenDurationStr = cur ? formatDurationMs(cur.meta?.durationMs) : null;
@@ -1868,9 +1938,9 @@ function ListenView({
       .filter((tr) => !curRel || tr.relPath !== curRel)
       .slice(0, 6);
   }, [user.state.recent, cur?.relPath]);
-  const [listenRecentPanel, setListenRecentPanel] = useState<"recent" | "lyrics">(
-    "recent",
-  );
+  const [listenRecentPanel, setListenRecentPanel] = useState<
+    "recent" | "lyrics"
+  >("recent");
   const currentLyricsRaw = String(cur?.meta?.lyrics || "").trim();
   const parsedLrc = useMemo(
     () => parseLrcLyrics(currentLyricsRaw),
@@ -1917,300 +1987,352 @@ function ListenView({
   return (
     <div className="view-stack">
       <div className="listen-page">
-      <section className="listen-stage">
-        <div className="listen-stage__meta">
-          <div className="listen-stage__head">
-            {p.current?.relPath ? (
-              <CoverImg
-                priority
-                className="listen-stage__art"
-                src={versionedUrl(
-                  coverUrlForTrackRelPath(p.current.relPath),
-                  typeof (p.current as unknown as { updatedAt?: unknown })
-                    .updatedAt === "number"
-                    ? (p.current as unknown as { updatedAt: number }).updatedAt
-                    : null
-                )}
-                alt=""
-                fallbackClassName="listen-stage__art listen-stage__art--empty"
-                fallback={<UiMusicNote className="listen-stage__empty-ic" />}
-              />
-            ) : (
-              <div
-                className="listen-stage__art listen-stage__art--empty"
-                aria-hidden
-              >
-                <UiMusicNote className="listen-stage__empty-ic" />
-              </div>
-            )}
-            <div className="listen-stage__text">
-              <div className="listen-stage__eyebrow-row">
-                <p className="eyebrow">{t("listen.currentEyebrow")}</p>
-                {cur ? (
-                  <div className="listen-stage__eyebrow-actions">
-                    <button
-                      type="button"
-                      className={`listen-stage__fav ${
-                        user.isFavorite(cur.relPath) ? "is-on" : ""
-                      }`}
-                      onClick={() => {
-                        user.toggleFavorite(cur.relPath);
-                      }}
-                      title={t("trackRow.favTitle")}
-                      aria-pressed={user.isFavorite(cur.relPath)}
-                      aria-label={t("trackRow.favAria")}
-                    >
-                      <span className="listen-stage__fav-ic" aria-hidden>
-                        <UiFavorite />
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      className="track-row__ic track-row__ic--meta"
-                      onClick={() => openTrackMetaEdit(cur)}
-                      title={t("trackRow.editMetaTitle")}
-                      aria-label={t("trackRow.editMetaAria")}
-                    >
-                      <span className="track-row__ic-glyph track-row__ic-glyph--svg">
-                        <TrackMetaEditGlyph />
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      className={`track-row__ic track-row__ic--exclude ${
-                        shuffleExcluded ? "is-on" : ""
-                      }`}
-                      disabled={albumShuffleExcluded}
-                      title={
-                        albumShuffleExcluded
-                          ? t("trackRow.excludeLockedByAlbumTitle")
-                          : t("trackRow.excludeTitle")
-                      }
-                      onClick={() => {
-                        if (albumShuffleExcluded) return;
-                        user.toggleShuffleExcludedTrack(cur.relPath);
-                      }}
-                      aria-pressed={shuffleExcluded}
-                      aria-label={
-                        albumShuffleExcluded
-                          ? t("trackRow.excludeLockedByAlbumAria")
-                          : t("trackRow.excludeTitle")
-                      }
-                    >
-                      <span
-                        className="track-row__ic-glyph track-row__ic-glyph--svg"
-                        aria-hidden
+        <section className="listen-stage">
+          <div className="listen-stage__meta">
+            <div className="listen-stage__head">
+              {p.current?.relPath ? (
+                <CoverImg
+                  priority
+                  className="listen-stage__art"
+                  src={versionedUrl(
+                    coverUrlForTrackRelPath(p.current.relPath),
+                    typeof (p.current as unknown as { updatedAt?: unknown })
+                      .updatedAt === "number"
+                      ? (p.current as unknown as { updatedAt: number })
+                          .updatedAt
+                      : null
+                  )}
+                  alt=""
+                  fallbackClassName="listen-stage__art listen-stage__art--empty"
+                  fallback={<UiMusicNote className="listen-stage__empty-ic" />}
+                />
+              ) : (
+                <div
+                  className="listen-stage__art listen-stage__art--empty"
+                  aria-hidden
+                >
+                  <UiMusicNote className="listen-stage__empty-ic" />
+                </div>
+              )}
+              <div className="listen-stage__text">
+                <div className="listen-stage__eyebrow-row">
+                  <p className="eyebrow">{t("listen.currentEyebrow")}</p>
+                  {cur ? (
+                    <div className="listen-stage__eyebrow-actions">
+                      <button
+                        type="button"
+                        className={`listen-stage__fav ${
+                          user.isFavorite(cur.relPath) ? "is-on" : ""
+                        }`}
+                        onClick={() => {
+                          user.toggleFavorite(cur.relPath);
+                        }}
+                        title={t("trackRow.favTitle")}
+                        aria-pressed={user.isFavorite(cur.relPath)}
+                        aria-label={t("trackRow.favAria")}
                       >
-                        <ExcludeShuffleIcon />
+                        <span className="listen-stage__fav-ic" aria-hidden>
+                          <UiFavorite />
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="track-row__ic track-row__ic--meta"
+                        onClick={() => openTrackMetaEdit(cur)}
+                        title={t("trackRow.editMetaTitle")}
+                        aria-label={t("trackRow.editMetaAria")}
+                      >
+                        <span className="track-row__ic-glyph track-row__ic-glyph--svg">
+                          <TrackMetaEditGlyph />
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`track-row__ic track-row__ic--exclude ${
+                          shuffleExcluded ? "is-on" : ""
+                        }`}
+                        disabled={albumShuffleExcluded}
+                        title={
+                          albumShuffleExcluded
+                            ? t("trackRow.excludeLockedByAlbumTitle")
+                            : t("trackRow.excludeTitle")
+                        }
+                        onClick={() => {
+                          if (albumShuffleExcluded) return;
+                          user.toggleShuffleExcludedTrack(cur.relPath);
+                        }}
+                        aria-pressed={shuffleExcluded}
+                        aria-label={
+                          albumShuffleExcluded
+                            ? t("trackRow.excludeLockedByAlbumAria")
+                            : t("trackRow.excludeTitle")
+                        }
+                      >
+                        <span
+                          className="track-row__ic-glyph track-row__ic-glyph--svg"
+                          aria-hidden
+                        >
+                          <ExcludeShuffleIcon />
+                        </span>
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+                <h1 className="listen-stage__title">
+                  {p.current?.title || t("listen.noTrack")}
+                </h1>
+                {cur ? (
+                  <p className="listen-stage__sub listen-stage__sub--with-stats">
+                    <span className="listen-stage__sub-lead">
+                      {cur.artist} · {cur.album}
+                      <span className="track-row__meta-sep" aria-hidden>
+                        {" "}
+                        ·{" "}
                       </span>
-                    </button>
+                      <span
+                        className={`track-row__lyrics-inline ${
+                          hasLrcLyrics
+                            ? "is-lrc"
+                            : hasLyrics
+                            ? "is-plain"
+                            : "is-off"
+                        } listen-stage__lyrics-inline`}
+                        title={
+                          hasLrcLyrics
+                            ? t("trackRow.lyricsLrc")
+                            : hasLyrics
+                            ? t("trackRow.lyricsPlain")
+                            : t("trackRow.lyricsMissing")
+                        }
+                        aria-label={
+                          hasLrcLyrics
+                            ? t("trackRow.lyricsLrc")
+                            : hasLyrics
+                            ? t("trackRow.lyricsPlain")
+                            : t("trackRow.lyricsMissing")
+                        }
+                      >
+                        <UiLyrics />
+                      </span>
+                      {listenDurationStr ? ` · ${listenDurationStr}` : ""}
+                    </span>
+                    <span className="listen-stage__sub-sep" aria-hidden>
+                      {" "}
+                      ·{" "}
+                    </span>
+                    <span
+                      className="track-row__plays listen-stage__sub-plays"
+                      aria-label={t("trackRow.playCount", { n: playCount })}
+                    >
+                      ({playCount})
+                    </span>
+                    <TrackFileMetaChip meta={cur.meta} />
+                  </p>
+                ) : (
+                  <p className="listen-stage__sub">
+                    {t("listen.openLibraryHint")}
+                  </p>
+                )}
+                {cur ? (
+                  <div className="listen-stage__detail">
+                    <p className="track-row__badges listen-stage__meta-badges">
+                      {listenInfoLine}
+                    </p>
                   </div>
                 ) : null}
               </div>
-              <h1 className="listen-stage__title">
-                {p.current?.title || t("listen.noTrack")}
-              </h1>
-              {cur ? (
-                <p className="listen-stage__sub listen-stage__sub--with-stats">
-                  <span className="listen-stage__sub-lead">
-                    {cur.artist} · {cur.album}
-                    {listenDurationStr ? ` · ${listenDurationStr}` : ""}
-                  </span>
-                  <span className="listen-stage__sub-sep" aria-hidden>
-                    {" "}
-                    ·{" "}
-                  </span>
-                  <span
-                    className="track-row__plays listen-stage__sub-plays"
-                    aria-label={t("trackRow.playCount", { n: playCount })}
-                  >
-                    ({playCount})
-                  </span>
-                  <TrackFileMetaChip meta={cur.meta} />
-                </p>
-              ) : (
-                <p className="listen-stage__sub">
-                  {t("listen.openLibraryHint")}
-                </p>
-              )}
-              {cur ? (
-                <div className="listen-stage__detail">
-                  <p className="track-row__badges listen-stage__meta-badges">
-                    {listenInfoLine}
-                  </p>
-                </div>
-              ) : null}
             </div>
           </div>
-        </div>
-        <div className="listen-stage__viz">
-          <Visualizer mode={user.state.settings.vizMode} />
-        </div>
-      </section>
-      <div className="listen-dashboard-row">
-            <section className="surface-card listen-queue-panel">
-              <div className="section-head section-head--page-toolbar">
-                <SectionHeadLead
-                  eyebrow={t("listen.queueEyebrow")}
-                  title={t("listen.queueHeading")}
-                  icon={<UiNavList className="section-head__ic" />}
-                />
+          <div className="listen-stage__viz">
+            <Visualizer mode={user.state.settings.vizMode} />
+          </div>
+        </section>
+        <div className="listen-dashboard-row">
+          <section className="surface-card listen-queue-panel">
+            <div className="section-head section-head--page-toolbar">
+              <SectionHeadLead
+                eyebrow={t("listen.queueEyebrow")}
+                title={t("listen.queueHeading")}
+                icon={<UiNavList className="section-head__ic" />}
+              />
+              <button
+                type="button"
+                className="text-btn"
+                onClick={() => onOpenSection("queue")}
+              >
+                {t("listen.manageQueue")}
+              </button>
+            </div>
+            <div className="listen-queue-panel__body">
+              {p.queue.length === 0 ? (
+                <div className="panel-empty panel-empty--actions">
+                  <p>{t("listen.queueEmpty")}</p>
+                  <button
+                    type="button"
+                    className="ghost-btn"
+                    onClick={runRandomIntelligent}
+                  >
+                    {t("listen.smartShuffle")}
+                  </button>
+                </div>
+              ) : (
+                <div className="list-stack listen-queue-panel__list">
+                  {listenQueuePreview.map((track, i) => {
+                    const index = listenQueueStart + i;
+                    return (
+                      <TrackListRow
+                        key={`${track.relPath}-${index}`}
+                        track={track}
+                        active={index === p.currentIndex}
+                        onPlay={() => p.playTrack(track, p.queue, index)}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="surface-card listen-recent-panel">
+            <div className="section-head section-head--page-toolbar listen-recent-panel__head">
+              <div className="section-head__lead listen-recent-panel__lead">
+                <span className="section-head__icon-wrap" aria-hidden>
+                  {listenRecentPanel === "recent" ? (
+                    <UiHistory className="section-head__ic" />
+                  ) : (
+                    <UiNote className="section-head__ic" />
+                  )}
+                </span>
+                <div className="section-head__text">
+                  <p className="eyebrow">
+                    {listenRecentPanel === "recent"
+                      ? t("listen.recentEyebrow")
+                      : t("listen.recentLyricsEyebrow")}
+                  </p>
+                  <div
+                    className="section-nav-tabs listen-recent-panel__nav"
+                    role="tablist"
+                    aria-label={t("listen.recentPanelTabsAria")}
+                  >
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={listenRecentPanel === "recent"}
+                      className={
+                        listenRecentPanel === "recent"
+                          ? "section-nav-tab is-on"
+                          : "section-nav-tab"
+                      }
+                      onClick={() => setListenRecentPanel("recent")}
+                    >
+                      {t("listen.recentTabRecent")}
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={listenRecentPanel === "lyrics"}
+                      className={
+                        listenRecentPanel === "lyrics"
+                          ? "section-nav-tab is-on"
+                          : "section-nav-tab"
+                      }
+                      disabled={!hasLyrics}
+                      onClick={() => {
+                        if (hasLyrics) setListenRecentPanel("lyrics");
+                      }}
+                    >
+                      {t("listen.recentLyricsPlainTitle")}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {listenRecentPanel === "recent" ? (
                 <button
                   type="button"
                   className="text-btn"
-                  onClick={() => onOpenSection("queue")}
+                  onClick={() => onOpenSection("recent")}
                 >
-                  {t("listen.manageQueue")}
+                  {t("listen.recentSeeAll")}
                 </button>
-              </div>
-              <div className="listen-queue-panel__body">
-                {p.queue.length === 0 ? (
-                  <div className="panel-empty panel-empty--actions">
-                    <p>{t("listen.queueEmpty")}</p>
-                    <button
-                      type="button"
-                      className="ghost-btn"
-                      onClick={runRandomIntelligent}
-                    >
-                      {t("listen.smartShuffle")}
-                    </button>
+              ) : (
+                <span
+                  className={`listen-recent-panel__lrc-state ${
+                    hasLrcLyrics ? "is-on" : "is-off"
+                  }`}
+                  aria-label={
+                    hasLrcLyrics ? t("trackRow.lyricsLrc") : t("trackRow.lyricsMissing")
+                  }
+                  title={
+                    hasLrcLyrics ? t("trackRow.lyricsLrc") : t("trackRow.lyricsMissing")
+                  }
+                >
+                  {hasLrcLyrics ? "✓ " : "✕ "}LRC
+                </span>
+              )}
+            </div>
+            <div className="listen-recent-panel__body">
+              {listenRecentPanel === "recent" ? (
+                recentTracks.length ? (
+                  <div className="list-stack listen-recent-panel__list">
+                    {recentTracks.map((track) => (
+                      <TrackListRow
+                        key={track.relPath}
+                        track={track}
+                        onPlay={() => playFromLibraryCard(track)}
+                      />
+                    ))}
                   </div>
                 ) : (
-                  <div className="list-stack listen-queue-panel__list">
-                    {listenQueuePreview.map((track, i) => {
-                      const index = listenQueueStart + i;
-                      return (
-                        <TrackListRow
-                          key={`${track.relPath}-${index}`}
-                          track={track}
-                          active={index === p.currentIndex}
-                          onPlay={() => p.playTrack(track, p.queue, index)}
-                        />
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <section className="surface-card listen-recent-panel">
-              <div className="section-head section-head--page-toolbar listen-recent-panel__head">
-                <div className="section-head__lead listen-recent-panel__lead">
-                  <span className="section-head__icon-wrap" aria-hidden>
-                    {listenRecentPanel === "recent" ? (
-                      <UiHistory className="section-head__ic" />
-                    ) : (
-                      <UiNote className="section-head__ic" />
-                    )}
-                  </span>
-                  <div className="section-head__text">
-                    <p className="eyebrow">
-                      {listenRecentPanel === "recent"
-                        ? t("listen.recentEyebrow")
-                        : t("listen.recentLyricsEyebrow")}
-                    </p>
+                  <p className="panel-empty">{t("listen.recentEmpty")}</p>
+                )
+              ) : hasLyrics ? (
+                <div
+                  className="listen-recent-lyrics"
+                  role="region"
+                  aria-live="polite"
+                  aria-label={
+                    hasLrcLyrics
+                      ? t("listen.recentLyricsTitle")
+                      : t("listen.recentLyricsPlainTitle")
+                  }
+                >
+                  {hasLrcLyrics ? (
                     <div
-                      className="section-nav-tabs listen-recent-panel__nav"
-                      role="tablist"
-                      aria-label={t("listen.recentPanelTabsAria")}
+                      ref={lrcScrollRef}
+                      className="listen-recent-lyrics__lrc"
                     >
-                      <button
-                        type="button"
-                        role="tab"
-                        aria-selected={listenRecentPanel === "recent"}
-                        className={
-                          listenRecentPanel === "recent"
-                            ? "section-nav-tab is-on"
-                            : "section-nav-tab"
-                        }
-                        onClick={() => setListenRecentPanel("recent")}
-                      >
-                        {t("listen.recentTabRecent")}
-                      </button>
-                      <button
-                        type="button"
-                        role="tab"
-                        aria-selected={listenRecentPanel === "lyrics"}
-                        className={
-                          listenRecentPanel === "lyrics"
-                            ? "section-nav-tab is-on"
-                            : "section-nav-tab"
-                        }
-                        disabled={!hasLyrics}
-                        onClick={() => {
-                          if (hasLyrics) setListenRecentPanel("lyrics");
-                        }}
-                      >
-                        {t("listen.recentLyricsPlainTitle")}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                {listenRecentPanel === "recent" ? (
-                  <button
-                    type="button"
-                    className="text-btn"
-                    onClick={() => onOpenSection("recent")}
-                  >
-                    {t("listen.recentSeeAll")}
-                  </button>
-                ) : null}
-              </div>
-              <div className="listen-recent-panel__body">
-                {listenRecentPanel === "recent" ? (
-                  recentTracks.length ? (
-                    <div className="list-stack listen-recent-panel__list">
-                      {recentTracks.map((track) => (
-                        <TrackListRow
-                          key={track.relPath}
-                          track={track}
-                          onPlay={() => playFromLibraryCard(track)}
-                        />
+                      {parsedLrc.map((row, idx) => (
+                        <p
+                          key={`${row.atSec}-${idx}`}
+                          ref={
+                            idx === currentLrcIdx
+                              ? lrcCurrentLineRef
+                              : undefined
+                          }
+                          className={
+                            idx === currentLrcIdx
+                              ? "listen-recent-lyrics__line is-current"
+                              : "listen-recent-lyrics__line"
+                          }
+                        >
+                          {row.text || "…"}
+                        </p>
                       ))}
                     </div>
                   ) : (
-                    <p className="panel-empty">{t("listen.recentEmpty")}</p>
-                  )
-                ) : hasLyrics ? (
-                  <div
-                    className="listen-recent-lyrics"
-                    role="region"
-                    aria-live="polite"
-                    aria-label={
-                      hasLrcLyrics
-                        ? t("listen.recentLyricsTitle")
-                        : t("listen.recentLyricsPlainTitle")
-                    }
-                  >
-                    {hasLrcLyrics ? (
-                      <div
-                        ref={lrcScrollRef}
-                        className="listen-recent-lyrics__lrc"
-                      >
-                        {parsedLrc.map((row, idx) => (
-                          <p
-                            key={`${row.atSec}-${idx}`}
-                            ref={idx === currentLrcIdx ? lrcCurrentLineRef : undefined}
-                            className={
-                              idx === currentLrcIdx
-                                ? "listen-recent-lyrics__line is-current"
-                                : "listen-recent-lyrics__line"
-                            }
-                          >
-                            {row.text || "…"}
-                          </p>
-                        ))}
-                      </div>
-                    ) : (
-                      <pre className="listen-recent-lyrics__plain">{currentLyricsRaw}</pre>
-                    )}
-                  </div>
-                ) : (
-                  <p className="panel-empty subtle sm">{t("listen.recentLyricsNone")}</p>
-                )}
-              </div>
-            </section>
-      </div>
+                    <pre className="listen-recent-lyrics__plain">
+                      {currentLyricsRaw}
+                    </pre>
+                  )}
+                </div>
+              ) : (
+                <p className="panel-empty subtle sm">
+                  {t("listen.recentLyricsNone")}
+                </p>
+              )}
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );
@@ -2229,6 +2351,7 @@ function LibraryView({
   onSearchFocus,
   showSearchBar,
   onSearchBarClose,
+  onRefreshLibrary,
 }: {
   index: LibraryIndex;
   route: RouteState;
@@ -2242,11 +2365,13 @@ function LibraryView({
   onSearchFocus: () => void;
   showSearchBar: boolean;
   onSearchBarClose: () => void;
+  onRefreshLibrary: () => Promise<void>;
 }) {
   const p = usePlayer();
   const user = useUserState();
   const playFromLibraryCard = useLibraryCardPlayback(index.tracks);
   const { t, sortLocale } = useI18n();
+  const { confirm: appConfirm } = useAppConfirm();
   const openAlbumMetaEdit = useOpenAlbumMetaEdit();
   const { libBrowse, libOverviewSort, artistAlbumSort } = user.state.settings;
   const [mode, setMode] = useState<"all" | "artists" | "albums" | "tracks">(
@@ -2260,9 +2385,7 @@ function LibraryView({
     () => new Set(user.state.shuffleExcludedTrackRelPaths),
     [user.state.shuffleExcludedTrackRelPaths]
   );
-  const [selectedGenreKey, setSelectedGenreKey] = useState<string | null>(
-    null
-  );
+  const [selectedGenreKey, setSelectedGenreKey] = useState<string | null>(null);
   const [moodFilterIds, setMoodFilterIds] = useState<TrackMoodId[]>([]);
   const [moodMatchMode, setMoodMatchMode] = useState<"any" | "all">("any");
   const normalizedQuery = query.trim().toLowerCase();
@@ -2340,6 +2463,94 @@ function LibraryView({
             .filter((track): track is LibraryTrackIndex => Boolean(track))
         : [],
     [album, index.tracks]
+  );
+  const [albumGenrePickerOpen, setAlbumGenrePickerOpen] = useState(false);
+  const [albumGenreBusy, setAlbumGenreBusy] = useState(false);
+  const [albumGenreErr, setAlbumGenreErr] = useState<string | null>(null);
+
+  const albumTrackGenres = useMemo(() => {
+    const byLower = new Map<string, string>();
+    for (const tr of albumTracks) {
+      for (const g of parseTrackGenres(tr.meta?.genre)) {
+        const low = g.toLowerCase();
+        if (!byLower.has(low)) byLower.set(low, g);
+      }
+    }
+    return Array.from(byLower.values()).sort((a, b) =>
+      a.localeCompare(b, sortLocale, { numeric: true }),
+    );
+  }, [albumTracks, sortLocale]);
+
+  const applyAlbumGenreToAllTracks = useCallback(
+    async (genreToken: string, mode: "add" | "remove") => {
+      const albumPath = album?.relPath;
+      if (!albumPath || albumTracks.length === 0) return;
+      const token = genreToken.trim();
+      if (!token) return;
+      setAlbumGenreBusy(true);
+      setAlbumGenreErr(null);
+      try {
+        for (const tr of albumTracks) {
+          const cur = parseTrackGenres(tr.meta?.genre);
+          const low = token.toLowerCase();
+          const next =
+            mode === "add"
+              ? cur.some((g) => g.toLowerCase() === low)
+                ? cur
+                : [...cur, token]
+              : cur.filter((g) => g.toLowerCase() !== low);
+          const nextSerialized = serializeTrackGenres(next);
+          await saveTrackInfoManual(tr.relPath, {
+            genre: nextSerialized || null,
+          });
+        }
+        await onRefreshLibrary();
+      } catch (e: unknown) {
+        setAlbumGenreErr(e instanceof Error ? e.message : String(e));
+      } finally {
+        setAlbumGenreBusy(false);
+      }
+    },
+    [album?.relPath, albumTracks, onRefreshLibrary],
+  );
+
+  const albumGenreOptions = useMemo(() => {
+    const albumKeys = new Set(albumTrackGenres.map((g) => g.toLowerCase()));
+    const byLower = new Map<string, string>();
+    for (const tr of index.tracks) {
+      for (const g of parseTrackGenres(tr.meta?.genre)) {
+        const low = g.toLowerCase();
+        if (!byLower.has(low)) byLower.set(low, g);
+      }
+    }
+    return Array.from(byLower.values())
+      .filter((g) => !albumKeys.has(g.toLowerCase()))
+      .sort((a, b) => a.localeCompare(b, sortLocale, { numeric: true }));
+  }, [albumTrackGenres, index.tracks, sortLocale]);
+
+  const addAlbumGenreBySelection = useCallback(
+    async (genreToken: string) => {
+      const token = genreToken.trim();
+      if (!token) return;
+      await applyAlbumGenreToAllTracks(token, "add");
+      setAlbumGenrePickerOpen(false);
+    },
+    [applyAlbumGenreToAllTracks],
+  );
+
+  const removeAlbumGenre = useCallback(
+    async (genreToken: string) => {
+      if (
+        !(await appConfirm({
+          message: t("albumMeta.removeGenreAllConfirm", { g: genreToken }),
+          variant: "danger",
+        }))
+      ) {
+        return;
+      }
+      await applyAlbumGenreToAllTracks(genreToken, "remove");
+    },
+    [appConfirm, applyAlbumGenreToAllTracks, t],
   );
 
   const artistShuffleEligible = useMemo(() => {
@@ -2455,12 +2666,7 @@ function LibraryView({
         !excludedTracks.has(tr.relPath) &&
         !isTrackAlbumShuffleExcluded(tr, excludedAlbums)
     );
-  }, [
-    selectedGenreKey,
-    tracksInSelectedGenre,
-    excludedTracks,
-    excludedAlbums,
-  ]);
+  }, [selectedGenreKey, tracksInSelectedGenre, excludedTracks, excludedAlbums]);
 
   const genreToolbarBulkAllExcluded = useMemo(() => {
     if (!tracksInSelectedGenre.length) return false;
@@ -2891,13 +3097,11 @@ function LibraryView({
                   </button>
                   <div className="page-toolbar__textcol album-hero__toolbar-text">
                     <p className="eyebrow">{t("library.albumDetailEyebrow")}</p>
-                    <p className="subtle sm album-hero__toolbar-meta">
-                      {artist.name}
-                      {album.releaseDate
-                        ? ` · ${fmtDate(album.releaseDate)}`
-                        : ""}
-                      {album.label ? ` · ${album.label}` : ""}
-                    </p>
+                    <div className="lib-badge-cluster lib-badge-cluster--toolbar-left">
+                      <LibraryAlbumMetaChips album={album} variant="hero" />
+                      <LibraryAlbumFavoriteChips album={album} variant="hero" />
+                      <LibraryAlbumExcludeChips album={album} variant="hero" />
+                    </div>
                   </div>
                 </div>
                 <div className="section-head__tools">
@@ -2939,10 +3143,65 @@ function LibraryView({
               </div>
               <div className="album-hero__titleblock">
                 <h1 className="album-hero__h1">{album.name}</h1>
-                <div className="lib-badge-cluster lib-badge-cluster--title-left">
-                  <LibraryAlbumMetaChips album={album} variant="hero" />
-                  <LibraryAlbumFavoriteChips album={album} variant="hero" />
-                  <LibraryAlbumExcludeChips album={album} variant="hero" />
+                <p className="subtle sm album-hero__title-meta">
+                  {artist.name}
+                  {album.releaseDate ? ` · ${fmtDate(album.releaseDate)}` : ""}
+                  {album.label ? ` · ${album.label}` : ""}
+                </p>
+                <div className="album-track-genres-inline">
+                  <div className="meta-edit-genre-chips" role="list">
+                    {albumTrackGenres.map((g) => (
+                      <span key={g} className="meta-edit-genre-chip" role="listitem">
+                        <span className="meta-edit-genre-chip__text">{g}</span>
+                        <button
+                          type="button"
+                          className="meta-edit-genre-chip__x"
+                          disabled={albumGenreBusy}
+                          onClick={() => {
+                            void removeAlbumGenre(g);
+                          }}
+                          aria-label={t("trackMeta.fieldGenreRemoveAria", { g })}
+                        >
+                          <UiClose className="meta-edit-genre-chip__x-ic" />
+                        </button>
+                      </span>
+                    ))}
+                    {albumGenreOptions.length > 0 ? (
+                      <div className="meta-edit-genre-add">
+                        <button
+                          type="button"
+                          className="meta-edit-genre-chip meta-edit-genre-chip--add"
+                          disabled={albumGenreBusy}
+                          onClick={() => {
+                            setAlbumGenrePickerOpen((prev) => !prev);
+                          }}
+                          aria-label={t("trackMeta.fieldGenreAdd")}
+                          title={t("trackMeta.fieldGenreAdd")}
+                        >
+                          <UiAdd className="meta-edit-genre-chip__add-ic" aria-hidden />
+                        </button>
+                        {albumGenrePickerOpen ? (
+                          <div className="meta-edit-genre-option-list" role="listbox">
+                            {albumGenreOptions.map((g) => (
+                              <button
+                                key={g}
+                                type="button"
+                                className="meta-edit-genre-option-item"
+                                onClick={() => {
+                                  void addAlbumGenreBySelection(g);
+                                }}
+                              >
+                                {g}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                  {albumGenreErr ? (
+                    <p className="subtle sm warnline">{albumGenreErr}</p>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -4055,7 +4314,9 @@ function StatisticsView({
                         )}
                         alt=""
                         fallbackClassName="statistics-rank-row__art statistics-rank-row__art--fallback"
-                        fallback={<UiMusicNote className="track-row__art-fallback-ic" />}
+                        fallback={
+                          <UiMusicNote className="track-row__art-fallback-ic" />
+                        }
                       />
                       <div className="statistics-rank-row__text">
                         <div className="statistics-rank-row__title">
@@ -4314,16 +4575,24 @@ function SettingsView({
   const [libraryBusy, setLibraryBusy] = useState(false);
   const [libraryErr, setLibraryErr] = useState<string | null>(null);
   const [serverLocalAccess, setServerLocalAccess] = useState(false);
-  const [youtubeCookiesConfigured, setYoutubeCookiesConfigured] = useState(false);
+  const [youtubeCookiesConfigured, setYoutubeCookiesConfigured] =
+    useState(false);
   const [youtubeCookiesWritable, setYoutubeCookiesWritable] = useState(false);
-  const [youtubeCookiesLockedByEnv, setYoutubeCookiesLockedByEnv] = useState(false);
-  const [youtubeCookiesLabel, setYoutubeCookiesLabel] = useState<string | null>(null);
+  const [youtubeCookiesLockedByEnv, setYoutubeCookiesLockedByEnv] =
+    useState(false);
+  const [youtubeCookiesLabel, setYoutubeCookiesLabel] = useState<string | null>(
+    null
+  );
   const [youtubeCookiesBusy, setYoutubeCookiesBusy] = useState(false);
-  const [youtubeCookiesErr, setYoutubeCookiesErr] = useState<string | null>(null);
+  const [youtubeCookiesErr, setYoutubeCookiesErr] = useState<string | null>(
+    null
+  );
   const [youtubeCookiesOk, setYoutubeCookiesOk] = useState<string | null>(null);
   const youtubeCookiesInputRef = useRef<HTMLInputElement | null>(null);
   const [lanAccessUrl, setLanAccessUrl] = useState<string | null>(null);
-  const [remoteAccess, setRemoteAccess] = useState<RemoteAccessState | null>(null);
+  const [remoteAccess, setRemoteAccess] = useState<RemoteAccessState | null>(
+    null
+  );
   const [remoteLoginHover, setRemoteLoginHover] = useState(false);
   const [remoteShareHover, setRemoteShareHover] = useState(false);
   const [remoteAccessBusy, setRemoteAccessBusy] = useState(false);
@@ -4364,16 +4633,17 @@ function SettingsView({
         setLibraryRootLabel(
           typeof c.libraryRootLabel === "string" && c.libraryRootLabel.trim()
             ? c.libraryRootLabel.trim()
-            : null,
+            : null
         );
         setServerLocalAccess(Boolean(c.localAccess));
         setYoutubeCookiesConfigured(Boolean(c.youtubeCookiesConfigured));
         setYoutubeCookiesWritable(Boolean(c.youtubeCookiesWritable));
         setYoutubeCookiesLockedByEnv(Boolean(c.youtubeCookiesLockedByEnv));
         setYoutubeCookiesLabel(
-          typeof c.youtubeCookiesLabel === "string" && c.youtubeCookiesLabel.trim()
+          typeof c.youtubeCookiesLabel === "string" &&
+            c.youtubeCookiesLabel.trim()
             ? c.youtubeCookiesLabel.trim()
-            : null,
+            : null
         );
         setAccounts(a);
         const selected = getSelectedAccountId() || a.defaultAccountId;
@@ -4491,7 +4761,7 @@ function SettingsView({
     setYoutubeCookiesLabel(
       typeof c.youtubeCookiesLabel === "string" && c.youtubeCookiesLabel.trim()
         ? c.youtubeCookiesLabel.trim()
-        : null,
+        : null
     );
   };
 
@@ -4602,10 +4872,9 @@ function SettingsView({
       remoteAccess?.status === "running" || remoteAccess?.status === "starting"
         ? stopRemoteAccess()
         : startRemoteAccess();
-    op
-      .then((s) => {
-        setRemoteAccess(s);
-      })
+    op.then((s) => {
+      setRemoteAccess(s);
+    })
       .catch((e: unknown) =>
         setRemoteAccessErr(e instanceof Error ? e.message : String(e))
       )
@@ -4715,7 +4984,7 @@ function SettingsView({
           </div>
         </div>
         <div className="settings-grid settings-ui-section__grid">
-          <label className="setting-card">
+          <label className="settings-ui-inline-control">
             <span>{t("settings.language")}</span>
             <select
               value={locale}
@@ -4728,7 +4997,7 @@ function SettingsView({
               ))}
             </select>
           </label>
-          <div className="setting-card">
+          <div className="settings-ui-inline-control">
             <span>{t("settings.theme")}</span>
             <ThemePicker
               value={user.state.settings.theme}
@@ -4739,7 +5008,7 @@ function SettingsView({
               }
             />
           </div>
-          <label className="setting-card">
+          <label className="settings-ui-inline-control">
             <span>{t("settings.visualizer")}</span>
             <select
               value={user.state.settings.vizMode}
@@ -4833,10 +5102,7 @@ function SettingsView({
             libLocked ? (
               <p className="subtle sm">
                 {t("settings.libLocked", {
-                  path:
-                    libraryPath.trim() ||
-                    libraryRootLabel ||
-                    "—",
+                  path: libraryPath.trim() || libraryRootLabel || "—",
                 })}
               </p>
             ) : (
@@ -4894,18 +5160,20 @@ function SettingsView({
                       saveAppConfig({ musicRoot: libraryPath.trim() })
                         .then(() => {
                           window.location.replace(
-                            new URL("/", window.location.href).href,
+                            new URL("/", window.location.href).href
                           );
                         })
                         .catch((e: unknown) =>
                           setLibraryErr(
-                            e instanceof Error ? e.message : String(e),
-                          ),
+                            e instanceof Error ? e.message : String(e)
+                          )
                         )
                         .finally(() => setLibraryBusy(false));
                     }}
                   >
-                    {libraryBusy ? t("settings.saving") : t("settings.saveReload")}
+                    {libraryBusy
+                      ? t("settings.saving")
+                      : t("settings.saveReload")}
                   </button>
                 </div>
               )}
@@ -4932,9 +5200,7 @@ function SettingsView({
               : t("settings.youtubeCookiesMissing")}
           </p>
           {youtubeCookiesLockedByEnv ? (
-            <p className="subtle sm">
-              {t("settings.youtubeCookiesEnvLocked")}
-            </p>
+            <p className="subtle sm">{t("settings.youtubeCookiesEnvLocked")}</p>
           ) : (
             <div className="row gap flex-wrap">
               <input
@@ -5023,7 +5289,9 @@ function SettingsView({
                   remoteAccess?.cloudflareLoggedIn
                     ? {
                         minWidth: "11.5rem",
-                        backgroundColor: remoteLoginHover ? "#c62828" : "#2e7d32",
+                        backgroundColor: remoteLoginHover
+                          ? "#c62828"
+                          : "#2e7d32",
                         color: "#fff",
                         borderColor: remoteLoginHover ? "#c62828" : "#2e7d32",
                       }
@@ -5056,7 +5324,9 @@ function SettingsView({
                         minWidth: "11.5rem",
                         background: remoteShareHover ? "#c62828" : "#2e7d32",
                         color: "#fff",
-                        border: `1px solid ${remoteShareHover ? "#c62828" : "#2e7d32"}`,
+                        border: `1px solid ${
+                          remoteShareHover ? "#c62828" : "#2e7d32"
+                        }`,
                       }
                     : { minWidth: "11.5rem" }
                 }
@@ -5249,7 +5519,6 @@ function PlayerDock({
   const p = usePlayer();
   const user = useUserState();
   const { t } = useI18n();
-  const { alert: appAlert } = useAppConfirm();
   const exAlbums = useMemo(
     () => new Set(user.state.shuffleExcludedAlbumIds),
     [user.state.shuffleExcludedAlbumIds]
@@ -5269,17 +5538,11 @@ function PlayerDock({
   const albumShuffleExcluded = Boolean(
     cur && isTrackAlbumShuffleExcluded(cur, exAlbums)
   );
-  const trackShuffleExcluded = Boolean(
-    cur && exTracksSet.has(cur.relPath)
-  );
+  const trackShuffleExcluded = Boolean(cur && exTracksSet.has(cur.relPath));
   const shuffleExcluded = albumShuffleExcluded || trackShuffleExcluded;
   const openListenFromTopBar = (event: ReactMouseEvent<HTMLDivElement>) => {
     const el = event.target as HTMLElement;
-    if (
-      el.closest(
-        "button, input, .player-bar2__byline, .progress2"
-      )
-    ) {
+    if (el.closest("button, input, .player-bar2__byline, .progress2")) {
       return;
     }
     onGoToAscolta();
@@ -5945,8 +6208,7 @@ function Shell() {
         <SettingsView onOpenSection={(section) => navigate({ section })} />
       );
     }
-    if (loading && !index)
-      return <KordSplashLoader />;
+    if (loading && !index) return <KordSplashLoader />;
     if (error && !index)
       return <div className="panel-empty danger">{error}</div>;
     if (!index) return <div className="panel-empty">{t("empty.noData")}</div>;
@@ -5982,6 +6244,7 @@ function Shell() {
             onSearchFocus={ensureLibrarySectionForSearch}
             showSearchBar={librarySearchBarOpen}
             onSearchBarClose={closeLibrarySearch}
+            onRefreshLibrary={refreshBackground}
             onOpenArtist={(artist) =>
               navigate({
                 section: "libreria",
@@ -6078,10 +6341,7 @@ function Shell() {
       genreOptions={libraryGenreOptions}
       onSaved={refreshAfterTrackMetaSaved}
     >
-      <AlbumMetaEditProvider
-        genreOptions={libraryGenreOptions}
-        onSaved={refreshAfterAlbumMetaSaved}
-      >
+      <AlbumMetaEditProvider onSaved={refreshAfterAlbumMetaSaved}>
         <div className="app-shell">
           <div className="main-shell">
             <header className="topbar2 topbar2--toolbar" role="banner">
@@ -6326,7 +6586,9 @@ function LibraryRootGate({ children }: { children: React.ReactNode }) {
         className="dashboard-grid"
         style={{ padding: "2rem", maxWidth: "28rem", margin: "10vh auto" }}
       >
-        <p className="subtle sm">{translate(table, "gate.checkingLibrary", undefined)}</p>
+        <p className="subtle sm">
+          {translate(table, "gate.checkingLibrary", undefined)}
+        </p>
       </div>
     );
   }
@@ -6348,7 +6610,7 @@ function LibraryRootGate({ children }: { children: React.ReactNode }) {
               libraryRootWritable
                 ? "gate.libraryRequiredLead"
                 : "gate.libraryRequiredLeadRemote",
-              undefined,
+              undefined
             )}
           </p>
           {libraryRootWritable ? (

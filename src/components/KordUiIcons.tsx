@@ -382,6 +382,17 @@ export function UiNote({ className }: { className?: string }) {
   );
 }
 
+export function UiLyrics({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M20 2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2m-2 12H6v-2h12zm0-4H6V8h12zm-5 8H6v-2h7z"
+      />
+    </svg>
+  );
+}
+
 export function UiSortByAlpha({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
@@ -444,6 +455,35 @@ export function UiAlbumIcon({ className }: { className?: string }) {
         fill="currentColor"
         d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5m0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1"
       />
+    </svg>
+  );
+}
+
+export function UiLyricsLrc({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden className={className}>
+      <path
+        d="M6 6h9M6 10h9M6 14h6M16 6v8.5a2.5 2.5 0 1 0 2 2.45V8.5h2"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function UiLyricsPlain({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden className={className}>
+      <path
+        d="M5 7h14M5 11h14M5 15h10"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="17.5" cy="15.5" r="1.4" fill="currentColor" />
     </svg>
   );
 }

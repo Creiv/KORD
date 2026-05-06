@@ -53,12 +53,11 @@ export const IT: Record<string, string> = {
   "loading.splashTip6": "Tutto rimane sul computer: nessun cloud obbligatorio.",
   "loading.splashTip7": "Prepariamo artisti, album e percorsi per la ricerca.",
   "loading.splashTip8": "Leggiamo metadati e JSON salvati accanto ai file.",
-  "loading.splashTip9": "Playlist, preferiti e bozza della coda stanno prendendo forma.",
+  "loading.splashTip9":
+    "Playlist, preferiti e bozza della coda stanno prendendo forma.",
   "loading.splashTip10": "Respira un attimo — ci siamo quasi.",
-  "loading.splashTip11":
-    "KORD è offline-first: la libreria resta davvero tua.",
-  "loading.splashTip12":
-    "Dopo questo caricamento navigare sarà più reattivo.",
+  "loading.splashTip11": "KORD è offline-first: la libreria resta davvero tua.",
+  "loading.splashTip12": "Dopo questo caricamento navigare sarà più reattivo.",
   "loading.splashTip13":
     "Generi, mood e cronologia sono nella tua cartella musica.",
   "loading.splashTip14": "Zero invii esterni: filesystem locale sicuro.",
@@ -98,6 +97,7 @@ export const IT: Record<string, string> = {
     "Il file non è stato eliminato (inesistente o non è audio).",
   "trackMeta.fieldMood": "Mood",
   "trackMeta.fieldLyrics": "Lyrics",
+  "trackMeta.lyricsEditBtn": "Modifica",
   "trackMeta.editLyrics": "Modifica lyrics",
   "trackMeta.saveLyrics": "Salva lyrics",
   "trackMeta.fetchLrc": "Auto LRC",
@@ -105,9 +105,15 @@ export const IT: Record<string, string> = {
   "trackMeta.fetchLrcEmpty": "Nessun testo LRC trovato per questo brano.",
   "trackMeta.fetchLrcPlainFound":
     "Nessun LRC trovato: ho recuperato il testo non sincronizzato.",
+  "trackMeta.lyricsAutoStatus.idle": "AUTO LRC non eseguito",
+  "trackMeta.lyricsAutoStatus.okLrc": "AUTO LRC salvato con timecode",
+  "trackMeta.lyricsAutoStatus.okPlain": "AUTO LRC salvato senza timecode",
+  "trackMeta.lyricsAutoStatus.missing": "AUTO LRC non trovato",
+  "trackMeta.lyricsAutoStatus.error": "Errore AUTO LRC",
   "trackMeta.lyricsPlaceholder":
     "[00:49.82]Preso dalla sassaiola della calca che mi odia",
-  "trackMeta.moodMaxHint": "Fino a {{n}} mood per brano; ognuno ha il suo colore.",
+  "trackMeta.moodMaxHint":
+    "Fino a {{n}} mood per brano; ognuno ha il suo colore.",
   "trackMeta.moodOffTitle": "Nessun mood impostato",
   "trackMeta.moodOnTitle": "Mood: {{labels}}",
   "trackMeta.mood.energy_boost": "Energia / boost",
@@ -137,6 +143,8 @@ export const IT: Record<string, string> = {
   "albumMeta.deleteConfirm":
     "Eliminare dal disco la cartella album «{{path}}» con {{n}} file audio e tutti i file contenuti? L'operazione non è reversibile.",
   "albumMeta.deleteFailed": "Nessun album è stato eliminato.",
+  "albumMeta.removeGenreAllConfirm":
+    "Rimuovere il genere \"{{g}}\" da tutti i brani dell'album? L'operazione aggiorna i metadati di ogni brano.",
   "trackRow.editMetaTitle": "Modifica metadati brano",
   "trackRow.editMetaAria": "Modifica metadati brano",
   "trackRow.removeQueueTitle": "Rimuovi dalla coda",
@@ -149,6 +157,9 @@ export const IT: Record<string, string> = {
   "trackRow.favAria": "Preferito",
   "trackRow.playCount": "Ascolti: {{n}}",
   "trackRow.duration": "Durata: {{d}}",
+  "trackRow.lyricsLrc": "Lyrics sincronizzate (LRC) presenti",
+  "trackRow.lyricsPlain": "Lyrics presenti (non LRC)",
+  "trackRow.lyricsMissing": "Lyrics non presenti",
   "trackRow.excludeTitle": "Escludi da random",
   "trackRow.excludeLockedByAlbumTitle":
     "Album escluso dalla random: togli il blocco dall’album per modificare i singoli brani",
@@ -237,7 +248,8 @@ export const IT: Record<string, string> = {
   "listen.recentSeeAll": "Vedi tutto",
   "listen.recentTabRecent": "Ultimi ascolti",
   "listen.recentLyricsEyebrow": "Brano in riproduzione",
-  "listen.recentPanelTabsAria": "Passa tra ultimi ascolti e testo del brano in riproduzione",
+  "listen.recentPanelTabsAria":
+    "Passa tra ultimi ascolti e testo del brano in riproduzione",
   "listen.recentLyricsTitle": "Testo sincronizzato",
   "listen.recentLyricsPlainTitle": "Testo",
   "listen.recentLyricsNone": "Nessun lyrics registrato per il brano corrente.",
@@ -655,7 +667,8 @@ export const IT: Record<string, string> = {
   "tools.dlReleasesRowMore": "… e altre {{n}} righe.",
   "tools.dlReleasesFolderNameHint":
     "I nomi effettivi delle cartelle dipendono da yt-dlp e possono differire leggermente dai titoli mostrati.",
-  "tools.dlReleasesProceedQ": "Avviare lo scaricamento degli album selezionati?",
+  "tools.dlReleasesProceedQ":
+    "Avviare lo scaricamento degli album selezionati?",
   "tools.dlReleasesBlockedAlbumFolderHint":
     "Per Uscite artista scegli la cartella dell’artista, non una cartella album.",
   "tools.dlReleasesBlockedAlbumFolderLog":

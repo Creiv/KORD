@@ -48,7 +48,8 @@ export const EN: Record<string, string> = {
   "loading.splashTip3": "Your trusted local library.",
   "loading.splashTip4": "Scanning folders, tracks, and artwork.",
   "loading.splashTip5": "Very large libraries take a moment — that's normal.",
-  "loading.splashTip6": "Everything stays on your computer — no mandatory cloud.",
+  "loading.splashTip6":
+    "Everything stays on your computer — no mandatory cloud.",
   "loading.splashTip7": "Connecting artists, albums, and search paths.",
   "loading.splashTip8": "Reading metadata and JSON stored next to your files.",
   "loading.splashTip9":
@@ -56,7 +57,8 @@ export const EN: Record<string, string> = {
   "loading.splashTip10": "Take a breath — we're almost done.",
   "loading.splashTip11": "Offline-first: the library stays 100% yours.",
   "loading.splashTip12": "Browsing gets faster once this first pass completes.",
-  "loading.splashTip13": "Genres, moods, and history live under your music folder.",
+  "loading.splashTip13":
+    "Genres, moods, and history live under your music folder.",
   "loading.splashTip14": "No uploads — just your local disk under your rules.",
   "loading.splashTip15": "Thanks for your patience — good things are worth it.",
   "gate.checkingLibrary": "Checking library configuration…",
@@ -93,6 +95,7 @@ export const EN: Record<string, string> = {
   "trackMeta.deleteFailed": "The file was not removed (missing or not audio).",
   "trackMeta.fieldMood": "Mood",
   "trackMeta.fieldLyrics": "Lyrics",
+  "trackMeta.lyricsEditBtn": "Edit",
   "trackMeta.editLyrics": "Edit lyrics",
   "trackMeta.saveLyrics": "Save lyrics",
   "trackMeta.fetchLrc": "Auto LRC",
@@ -100,9 +103,15 @@ export const EN: Record<string, string> = {
   "trackMeta.fetchLrcEmpty": "No LRC text found for this track.",
   "trackMeta.fetchLrcPlainFound":
     "No LRC found: fetched unsynced lyrics instead.",
+  "trackMeta.lyricsAutoStatus.idle": "AUTO LRC not run yet",
+  "trackMeta.lyricsAutoStatus.okLrc": "AUTO LRC saved with timecodes",
+  "trackMeta.lyricsAutoStatus.okPlain": "AUTO LRC saved without timecodes",
+  "trackMeta.lyricsAutoStatus.missing": "AUTO LRC not found",
+  "trackMeta.lyricsAutoStatus.error": "AUTO LRC error",
   "trackMeta.lyricsPlaceholder":
     "[00:49.82]Preso dalla sassaiola della calca che mi odia",
-  "trackMeta.moodMaxHint": "Up to {{n}} moods per track; each has its own color.",
+  "trackMeta.moodMaxHint":
+    "Up to {{n}} moods per track; each has its own color.",
   "trackMeta.moodOffTitle": "No mood set",
   "trackMeta.moodOnTitle": "Moods: {{labels}}",
   "trackMeta.mood.energy_boost": "Energy / boost",
@@ -132,6 +141,8 @@ export const EN: Record<string, string> = {
   "albumMeta.deleteConfirm":
     "Delete the album folder “{{path}}” from disk, including {{n}} audio file(s) and every file inside it? This cannot be undone.",
   "albumMeta.deleteFailed": "No album was removed.",
+  "albumMeta.removeGenreAllConfirm":
+    "Remove genre \"{{g}}\" from all tracks in this album? This updates metadata for each track.",
   "trackRow.editMetaTitle": "Edit track metadata",
   "trackRow.editMetaAria": "Edit track metadata",
   "trackRow.removeQueueTitle": "Remove from queue",
@@ -144,6 +155,9 @@ export const EN: Record<string, string> = {
   "trackRow.favAria": "Favorite",
   "trackRow.playCount": "Plays: {{n}}",
   "trackRow.duration": "Duration: {{d}}",
+  "trackRow.lyricsLrc": "Synced lyrics (LRC) available",
+  "trackRow.lyricsPlain": "Lyrics available (non-LRC)",
+  "trackRow.lyricsMissing": "No lyrics available",
   "trackRow.excludeTitle": "Exclude from smart shuffle",
   "trackRow.excludeLockedByAlbumTitle":
     "Album excluded from shuffle: turn off album exclusion to change individual tracks",
@@ -229,7 +243,8 @@ export const EN: Record<string, string> = {
   "listen.recentSeeAll": "See all",
   "listen.recentTabRecent": "Recent plays",
   "listen.recentLyricsEyebrow": "Current track",
-  "listen.recentPanelTabsAria": "Switch between recent plays and current track lyrics",
+  "listen.recentPanelTabsAria":
+    "Switch between recent plays and current track lyrics",
   "listen.recentLyricsTitle": "Synced lyrics",
   "listen.recentLyricsPlainTitle": "Lyrics",
   "listen.recentLyricsNone": "No lyrics saved for the current track.",
@@ -524,7 +539,8 @@ export const EN: Record<string, string> = {
   "tools.catalogLoading": "Loading…",
   "tools.catalogErr": "Error: {{e}}",
   "tools.catalogUpdated": "Selection updated.",
-  "tools.catalogIncludeAll": "Your selection includes the entire server library.",
+  "tools.catalogIncludeAll":
+    "Your selection includes the entire server library.",
   "tools.catalogAddArtist": "Add artist",
   "tools.catalogRemoveArtist": "Remove artist",
   "tools.catalogAddAlbum": "Add album",
@@ -618,7 +634,8 @@ export const EN: Record<string, string> = {
   "tools.dlSubfolders": "Subfolders",
   "tools.upFolderAria": "Up one level",
   "tools.dlNewSubLabel": "New subfolder here",
-  "tools.dlEmptyFolders": "No subfolders. Create one here or choose an existing folder.",
+  "tools.dlEmptyFolders":
+    "No subfolders. Create one here or choose an existing folder.",
   "tools.dlMkdirBlockedInAlbum":
     "You can’t create subfolders inside an album folder (Artist/Album). Go up to the artist folder.",
   "tools.dlReplaceFolder": "Replace files",

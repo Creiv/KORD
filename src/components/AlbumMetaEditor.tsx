@@ -4,8 +4,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useId,
-  useRef,
   useState,
   type FormEvent,
 } from "react";
@@ -14,12 +12,7 @@ import { useI18n } from "../i18n/useI18n";
 import { usePlayer } from "../context/PlayerContext";
 import { useUserState } from "../context/UserStateContext";
 import { useAppConfirm } from "../context/AppConfirmContext";
-import {
-  parseTrackGenres,
-  serializeTrackGenres,
-} from "../lib/genres";
 import type { LibraryAlbumIndex, LibraryEntityDelta } from "../types";
-import { UiClose } from "./KordUiIcons";
 
 const AlbumMetaEditContext = createContext<(album: LibraryAlbumIndex) => void>(
   () => {},
@@ -38,42 +31,24 @@ function toDateInputValue(raw: string | null | undefined): string {
   return "";
 }
 
-function addGenreToken(current: string[], token: string): string[] {
-  const t = token.trim();
-  if (!t) return current;
-  const k = t.toLowerCase();
-  if (current.some((g) => g.toLowerCase() === k)) return current;
-  return [...current, t];
-}
-
-function genreSignature(genres: readonly string[]): string {
-  return serializeTrackGenres(genres) || "";
-}
-
 function AlbumMetaEditorModal({
   album,
-  genreOptions,
   onClose,
   onSaved,
 }: {
   album: LibraryAlbumIndex | null;
-  genreOptions: readonly string[];
   onClose: () => void;
   onSaved: (delta?: LibraryEntityDelta) => void | Promise<void>;
 }) {
   const { t } = useI18n();
   const { confirm: appConfirm } = useAppConfirm();
-  const pickId = useId();
   const [title, setTitle] = useState("");
   const [releaseDate, setReleaseDate] = useState("");
-  const [genres, setGenres] = useState<string[]>([]);
-  const [newGenre, setNewGenre] = useState("");
   const [label, setLabel] = useState("");
   const [country, setCountry] = useState("");
   const [busy, setBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const initialGenresSigRef = useRef("");
   const p = usePlayer();
   const { stripUserStateForRelPaths } = useUserState();
 
@@ -82,28 +57,11 @@ function AlbumMetaEditorModal({
     window.setTimeout(() => {
       setTitle(album.title || album.name);
       setReleaseDate(toDateInputValue(album.releaseDate));
-      const initialGenres = parseTrackGenres(album.genre);
-      setGenres(initialGenres);
-      setNewGenre("");
       setLabel(album.label || "");
       setCountry(album.country || "");
-      initialGenresSigRef.current = genreSignature(initialGenres);
       setErr(null);
     }, 0);
   }, [album]);
-
-  const availableFromLibrary = genreOptions.filter(
-    (g) => !genres.some((s) => s.toLowerCase() === g.toLowerCase()),
-  );
-
-  const removeGenre = useCallback((i: number) => {
-    setGenres((prev) => prev.filter((_, j) => j !== i));
-  }, []);
-
-  const addNewGenre = useCallback(() => {
-    setGenres((prev) => addGenreToken(prev, newGenre));
-    setNewGenre("");
-  }, [newGenre]);
 
   const submit = useCallback(
     async (event: FormEvent) => {
@@ -112,13 +70,9 @@ function AlbumMetaEditorModal({
       setBusy(true);
       setErr(null);
       try {
-        const nextGenreSig = genreSignature(genres);
         const saved = await saveAlbumInfoManual(album.relPath, {
           title: title.trim() === "" ? null : title.trim(),
           releaseDate: releaseDate.trim() === "" ? null : releaseDate.trim(),
-          ...(nextGenreSig !== initialGenresSigRef.current
-            ? { genre: nextGenreSig || null }
-            : {}),
           label: label.trim() === "" ? null : label.trim(),
           country: country.trim() === "" ? null : country.trim(),
         });
@@ -136,7 +90,7 @@ function AlbumMetaEditorModal({
         setBusy(false);
       }
     },
-    [album, country, genres, label, onClose, onSaved, releaseDate, title],
+    [album, country, label, onClose, onSaved, releaseDate, title],
   );
 
   const runDelete = useCallback(async () => {
@@ -216,72 +170,6 @@ function AlbumMetaEditorModal({
               onChange={(event) => setReleaseDate(event.target.value)}
             />
           </label>
-          <div className="meta-edit-field">
-            <span>{t("albumMeta.fieldGenre")}</span>
-            <p className="subtle sm meta-edit-field-hint">
-              {t("albumMeta.fieldGenreHint")}
-            </p>
-            <div className="meta-edit-genre-chips" role="list">
-              {genres.map((g, i) => (
-                <span key={`${g}-${i}`} className="meta-edit-genre-chip" role="listitem">
-                  <span className="meta-edit-genre-chip__text">{g}</span>
-                  <button
-                    type="button"
-                    className="meta-edit-genre-chip__x"
-                    onClick={() => removeGenre(i)}
-                    aria-label={t("trackMeta.fieldGenreRemoveAria", { g })}
-                  >
-                    <UiClose className="meta-edit-genre-chip__x-ic" />
-                  </button>
-                </span>
-              ))}
-            </div>
-            <div className="meta-edit-genre-add">
-              <label className="sr-only" htmlFor={pickId}>
-                {t("trackMeta.fieldGenrePick")}
-              </label>
-              <select
-                key={`${genres.length}-${availableFromLibrary.length}`}
-                id={pickId}
-                className="ghost-input w-full meta-edit-genre-select"
-                defaultValue=""
-                onChange={(event) => {
-                  const v = event.target.value;
-                  if (v) setGenres((prev) => addGenreToken(prev, v));
-                }}
-              >
-                <option value="">{t("trackMeta.fieldGenrePickPlaceholder")}</option>
-                {availableFromLibrary.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="meta-edit-genre-custom">
-              <input
-                className="ghost-input"
-                value={newGenre}
-                onChange={(event) => setNewGenre(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    addNewGenre();
-                  }
-                }}
-                placeholder={t("trackMeta.fieldGenreNewPlaceholder")}
-                autoComplete="off"
-              />
-              <button
-                type="button"
-                className="ghost-btn"
-                onClick={addNewGenre}
-                disabled={!newGenre.trim()}
-              >
-                {t("trackMeta.fieldGenreAdd")}
-              </button>
-            </div>
-          </div>
           <label className="meta-edit-field">
             <span>{t("albumMeta.fieldLabel")}</span>
             <input
@@ -332,11 +220,9 @@ function AlbumMetaEditorModal({
 
 export function AlbumMetaEditProvider({
   children,
-  genreOptions,
   onSaved,
 }: {
   children: React.ReactNode;
-  genreOptions: readonly string[];
   onSaved: (delta?: LibraryEntityDelta) => void | Promise<void>;
 }) {
   const [album, setAlbum] = useState<LibraryAlbumIndex | null>(null);
@@ -346,7 +232,6 @@ export function AlbumMetaEditProvider({
       {children}
       <AlbumMetaEditorModal
         album={album}
-        genreOptions={genreOptions}
         onClose={() => setAlbum(null)}
         onSaved={onSaved}
       />

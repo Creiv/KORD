@@ -995,6 +995,10 @@
   max-width: min(100%, 56ch);
 }
 
+.lib-badge-cluster--toolbar-left {
+  justify-content: flex-start;
+}
+
 .page-toolbar__lead--backrow .page-toolbar-back-ic {
   align-self: center;
   margin: 0;
@@ -2712,6 +2716,47 @@
   opacity: 1;
 }
 
+.track-row__meta-sep {
+  opacity: 0.8;
+}
+
+.track-row__lyrics-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.78rem;
+  height: 0.78rem;
+  vertical-align: middle;
+  transform: translateY(0.03rem);
+}
+
+.listen-stage__lyrics-inline {
+  transform: translateY(0);
+  vertical-align: baseline;
+  align-self: center;
+}
+
+.track-row__lyrics-inline svg {
+  width: 100%;
+  height: 100%;
+}
+
+.track-row__lyrics-inline.is-lrc {
+  color: inherit;
+  opacity: 1;
+}
+
+.track-row__lyrics-inline.is-plain {
+  color: inherit;
+  opacity: 0.55;
+}
+
+.track-row__lyrics-inline.is-off {
+  color: inherit;
+  opacity: 0.12;
+  filter: grayscale(0.45);
+}
+
 .track-row__title-lead .lib-meta-chip {
   flex: 0 0 auto;
   align-self: center;
@@ -2854,6 +2899,23 @@
 .album-hero__titleblock .album-hero__h1 {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.album-hero__title-meta {
+  flex: 1 0 100%;
+  margin: 0;
+  line-height: 1.35;
+}
+
+.album-track-genres-inline {
+  flex: 1 0 100%;
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.2rem;
+}
+
+.album-track-genres-inline .meta-edit-genre-chips {
+  align-items: center;
 }
 
 .listen-stage__viz {
@@ -3596,6 +3658,11 @@
   gap: 0.55rem;
   padding: 1rem 1.1rem;
   border-radius: var(--radius-lg);
+}
+
+.settings-ui-inline-control {
+  display: grid;
+  gap: 0.55rem;
 }
 
 .setting-card.checkbox {
@@ -6168,9 +6235,47 @@
   margin: -0.15rem 0 0;
 }
 
-.meta-edit-lyrics-btn {
+.meta-edit-lyrics-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   width: 100%;
+}
+
+.meta-edit-lyrics-btn {
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
   box-sizing: border-box;
+}
+
+.meta-edit-lyrics-status-dot {
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  display: inline-block;
+}
+
+.meta-edit-lyrics-status-dot--idle {
+  background: color-mix(in srgb, var(--muted) 35%, transparent);
+  border-color: color-mix(in srgb, var(--muted) 45%, transparent);
+}
+
+.meta-edit-lyrics-status-dot--okLrc {
+  background: #2e7d32;
+  border-color: #2e7d32;
+}
+
+.meta-edit-lyrics-status-dot--okPlain {
+  background: #f0be67;
+  border-color: #f0be67;
+}
+
+.meta-edit-lyrics-status-dot--missing,
+.meta-edit-lyrics-status-dot--error {
+  background: #c62828;
+  border-color: #c62828;
 }
 
 .meta-edit-lyrics-dialog {
@@ -6255,6 +6360,56 @@
 
 .meta-edit-genre-add {
   margin-bottom: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+
+.meta-edit-genre-chip--add {
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+}
+
+.meta-edit-genre-chip__add-ic {
+  width: 0.95rem;
+  height: 0.95rem;
+  display: block;
+}
+
+.meta-edit-genre-option-list {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 16rem;
+  max-width: min(22rem, 90vw);
+  max-height: 12.5rem;
+  overflow: auto;
+  padding: 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface2);
+  box-shadow: var(--shadow-soft);
+}
+
+.meta-edit-genre-option-item {
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 0.32rem 0.5rem;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.meta-edit-genre-option-item:hover {
+  background: color-mix(in srgb, var(--surface-elev-a) 75%, var(--border) 25%);
+  border-color: color-mix(in srgb, var(--border) 85%, var(--text) 15%);
 }
 
 .meta-edit-genre-select {
@@ -6507,6 +6662,23 @@
 
 .listen-recent-panel__body {
   margin-top: 0;
+}
+
+.listen-recent-panel__lrc-state {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+
+.listen-recent-panel__lrc-state.is-on {
+  color: var(--text);
+  opacity: 1;
+}
+
+.listen-recent-panel__lrc-state.is-off {
+  color: var(--text);
+  opacity: 0.28;
 }
 
 .listen-recent-lyrics {

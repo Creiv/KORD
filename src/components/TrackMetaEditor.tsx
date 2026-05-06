@@ -102,6 +102,9 @@ function TrackMetaEditorModal({
   const [lyricsOpen, setLyricsOpen] = useState(false);
   const [lyricsValue, setLyricsValue] = useState("");
   const [lyricsFetchBusy, setLyricsFetchBusy] = useState(false);
+  const [lyricsAutoStatus, setLyricsAutoStatus] = useState<
+    "idle" | "okLrc" | "okPlain" | "missing" | "error"
+  >("idle");
   const [busy, setBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -128,6 +131,7 @@ function TrackMetaEditorModal({
       setNewGenre("");
       setErr(null);
       setLyricsErr(null);
+      setLyricsAutoStatus("idle");
     }, 0);
     return () => window.clearTimeout(timer);
   }, [track]);
@@ -288,6 +292,51 @@ function TrackMetaEditorModal({
       setLyricsFetchBusy(false);
     }
   }, [t, track]);
+
+  const runAutoLrcQuickSave = useCallback(async () => {
+    if (!track) return;
+    setLyricsFetchBusy(true);
+    setLyricsErr(null);
+    setLyricsAutoStatus("idle");
+    try {
+      const fetched = await fetchTrackLyrics(track.relPath);
+      const synced = String(fetched.syncedLyrics || "").trim();
+      const plain = String(fetched.plainLyrics || "").trim();
+      const next = synced || plain;
+      if (!next) {
+        setLyricsAutoStatus("missing");
+        setLyricsErr(t("trackMeta.fetchLrcEmpty"));
+        return;
+      }
+      const patch = { lyrics: next };
+      const saved = await saveTrackInfoManual(track.relPath, patch);
+      await Promise.resolve(
+        onSaved({
+          relPath: saved.relPath,
+          track:
+            saved.track ??
+            ({
+              relPath: saved.relPath,
+              title: track.title,
+              meta: {
+                ...(track.meta || {}),
+                ...(saved.meta as EnrichedTrack["meta"]),
+                lyrics: patch.lyrics,
+              } as EnrichedTrack["meta"],
+            } satisfies LibraryEntityDelta["track"]),
+          album: saved.album,
+        })
+      );
+      setLyricsValue(next);
+      setLyricsAutoStatus(synced ? "okLrc" : "okPlain");
+      if (!synced && plain) setLyricsErr(t("trackMeta.fetchLrcPlainFound"));
+    } catch (er: unknown) {
+      setLyricsAutoStatus("error");
+      setLyricsErr(er instanceof Error ? er.message : String(er));
+    } finally {
+      setLyricsFetchBusy(false);
+    }
+  }, [onSaved, t, track]);
 
   if (!track) return null;
 
@@ -471,9 +520,6 @@ function TrackMetaEditorModal({
             </div>
             <div className="meta-edit-field">
               <span>{t("trackMeta.fieldMood")}</span>
-              <p className="subtle sm meta-edit-field-hint">
-                {t("trackMeta.moodMaxHint", { n: MAX_TRACK_MOODS })}
-              </p>
               <div
                 className="meta-edit-mood-grid"
                 role="group"
@@ -500,15 +546,33 @@ function TrackMetaEditorModal({
                 })}
               </div>
             </div>
-            <div className="meta-edit-lyrics-row">
-              <button
-                type="button"
-                className="btn secondary meta-edit-lyrics-btn"
-                disabled={busy || deleteBusy}
-                onClick={() => setLyricsOpen(true)}
-              >
-                {t("trackMeta.editLyrics")}
-              </button>
+            <div className="meta-edit-field meta-edit-lyrics-row">
+              <span>{t("trackMeta.fieldLyrics")}</span>
+              <div className="meta-edit-lyrics-actions">
+                <button
+                  type="button"
+                  className="btn secondary meta-edit-lyrics-btn"
+                  disabled={busy || deleteBusy || lyricsFetchBusy}
+                  onClick={() => setLyricsOpen(true)}
+                >
+                  {t("trackMeta.lyricsEditBtn")}
+                </button>
+                <button
+                  type="button"
+                  className="btn secondary meta-edit-lyrics-btn"
+                  disabled={busy || deleteBusy || lyricsFetchBusy}
+                  onClick={() => {
+                    void runAutoLrcQuickSave();
+                  }}
+                >
+                  {lyricsFetchBusy ? t("trackMeta.fetchLrcBusy") : t("trackMeta.fetchLrc")}
+                </button>
+                <span
+                  className={`meta-edit-lyrics-status-dot meta-edit-lyrics-status-dot--${lyricsAutoStatus}`}
+                  title={t(`trackMeta.lyricsAutoStatus.${lyricsAutoStatus}`)}
+                  aria-label={t(`trackMeta.lyricsAutoStatus.${lyricsAutoStatus}`)}
+                />
+              </div>
             </div>
             {err ? <p className="subtle sm warnline">{err}</p> : null}
             <div className="meta-edit-actions">
