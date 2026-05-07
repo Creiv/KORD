@@ -1,0 +1,21 @@
+.badge {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border) 58%);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface3) 82%);
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 850;
+  box-shadow: var(--shadow-elev-1);
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.badge:hover {
+  background: color-mix(in srgb, var(--accent) 28%, var(--surface3) 72%);
+  box-shadow: var(--shadow-elev-2);
+}

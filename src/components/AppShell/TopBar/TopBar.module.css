@@ -1,0 +1,107 @@
+/* Mobile top bar — shown only below desktop breakpoint */
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  padding: max(0.55rem, env(safe-area-inset-top))
+    max(1rem, env(safe-area-inset-right)) 0.55rem
+    max(1rem, env(safe-area-inset-left));
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--topbar-bg) 90%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.start {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* Wordmark — visible on desktop, hidden on mobile in favour of .pageTitle */
+.brand {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+/* Section title shown on mobile */
+.pageTitle {
+  font-family: var(--font-ui);
+  font-size: 1.05rem;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* Hidden on desktop (brand/logo takes its place) */
+  display: none;
+}
+
+.end {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.2rem;
+  margin-left: auto;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Inline banner below topbar */
+.banner {
+  padding: 0.5rem 1.2rem;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface2) 88%);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+/* ── Desktop: hide topbar (sidebar shows instead) ── */
+@media (min-width: 769px) {
+  .topbar {
+    display: none;
+  }
+}
+
+/* ── Mobile: show section title, hide wordmark ── */
+@media (max-width: 768px) {
+  .brand {
+    display: none;
+  }
+
+  .pageTitle {
+    display: block;
+  }
+}

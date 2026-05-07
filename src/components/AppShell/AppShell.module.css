@@ -1,0 +1,72 @@
+/* AppShell layout — desktop sidebar + content area */
+
+.shell {
+  display: flex;
+  min-height: 0;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  overflow-x: clip;
+  max-width: 100%;
+  background: radial-gradient(
+      ellipse 900px 480px at 0% 0%,
+      var(--shell-glow-1),
+      transparent 55%
+    ),
+    linear-gradient(180deg, var(--shell-lg-1), var(--shell-lg-2));
+}
+
+/* Desktop: sidebar + main side by side */
+.body {
+  display: flex;
+  flex-direction: row;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+/* Main content column */
+.main {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Scrollable content area */
+.content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  /* Standard scroll physics */
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Inline error banner */
+.banner {
+  padding: 0.5rem 1.3rem;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface2) 88%);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+/* Mobile: stack vertically, no sidebar shown */
+@media (max-width: 768px) {
+  .shell {
+    flex-direction: column;
+  }
+
+  .body {
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+}

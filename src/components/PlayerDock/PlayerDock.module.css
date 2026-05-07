@@ -1,0 +1,6 @@
+/* PlayerDock — component-scoped layout overrides */
+
+/* Desktop: sidebar layout pushes dock to full content width */
+:global(:root[data-layout="sidebar"]) .dock {
+  margin-left: var(--side-w, 220px);
+}

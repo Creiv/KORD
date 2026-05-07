@@ -1,0 +1,14 @@
+/* ListenView layout — component-scoped */
+.root {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Swipe-tab support on mobile */
+@media (max-width: 768px) {
+  .page {
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+}

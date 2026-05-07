@@ -1,0 +1,11 @@
+.gate {
+  padding: 2rem;
+  max-width: 32rem;
+  margin: 8vh auto;
+}
+
+.loading {
+  max-width: 28rem;
+  margin: 10vh auto;
+  padding: 2rem;
+}

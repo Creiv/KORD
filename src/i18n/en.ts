@@ -31,6 +31,8 @@ export const EN: Record<string, string> = {
   "topbar.saved": "saved",
   "topbar.saving": "…",
   "topbar.navAria": "App sections",
+  "sidebar.expand": "Expand sidebar",
+  "sidebar.collapse": "Collapse sidebar",
   "topbar.pageTitle": "Page title",
   "topbar.settingsTitle": "Settings",
   "common.open": "Open",

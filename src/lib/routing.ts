@@ -1,0 +1,100 @@
+import { startTransition, useEffect, useState } from "react";
+import type { AppSection } from "../types";
+
+export type RouteState = {
+  section: AppSection;
+  artist: string | null;
+  album: string | null;
+  playlist: string | null;
+};
+
+export const NAV_DEF: {
+  id: AppSection;
+  labelKey: string;
+  group: "core" | "secondary";
+}[] = [
+  { id: "dashboard", labelKey: "nav.dashboard", group: "core" },
+  { id: "ascolta", labelKey: "nav.listen", group: "core" },
+  { id: "libreria", labelKey: "nav.library", group: "core" },
+  { id: "studio", labelKey: "nav.studio", group: "core" },
+  { id: "queue", labelKey: "nav.queue", group: "secondary" },
+  { id: "playlists", labelKey: "nav.playlists", group: "secondary" },
+  { id: "favorites", labelKey: "nav.favorites", group: "secondary" },
+  { id: "recent", labelKey: "nav.recent", group: "secondary" },
+  { id: "statistics", labelKey: "nav.statistics", group: "secondary" },
+  { id: "settings", labelKey: "nav.settings", group: "secondary" },
+];
+
+export function parseRoute(): RouteState {
+  const params = new URLSearchParams(window.location.search);
+  const section = window.location.pathname
+    .replace(/^\/+/, "")
+    .split("/")[0] as AppSection;
+  return {
+    section: NAV_DEF.some((item) => item.id === section)
+      ? section
+      : "dashboard",
+    artist: params.get("artist"),
+    album: params.get("album"),
+    playlist: params.get("playlist"),
+  };
+}
+
+export function buildHref(route: RouteState) {
+  const params = new URLSearchParams();
+  if (route.artist) params.set("artist", route.artist);
+  if (route.album) params.set("album", route.album);
+  if (route.playlist) params.set("playlist", route.playlist);
+  const query = params.toString();
+  const path = route.section === "dashboard" ? "/" : `/${route.section}`;
+  return query ? `${path}?${query}` : path;
+}
+
+export function isStandaloneDisplayMode(): boolean {
+  try {
+    return (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.matchMedia("(display-mode: fullscreen)").matches ||
+      Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function useAppRoute() {
+  const [route, setRoute] = useState<RouteState>(() => parseRoute());
+  useEffect(() => {
+    const onPop = () => setRoute(parseRoute());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  const navigate = (next: Partial<RouteState>) => {
+    startTransition(() => {
+      const merged: RouteState = {
+        ...route,
+        ...next,
+        section: (next.section ?? route.section) as AppSection,
+      };
+      if (next.section && next.section !== "libreria") {
+        merged.artist = null;
+        merged.album = null;
+      } else if (next.section === "libreria") {
+        if (!("artist" in next)) merged.artist = null;
+        if (!("album" in next)) merged.album = null;
+      } else {
+        merged.artist = next.artist !== undefined ? next.artist : route.artist;
+        merged.album = next.album !== undefined ? next.album : route.album;
+      }
+      merged.playlist =
+        merged.section && merged.section !== "playlists"
+          ? null
+          : next.playlist !== undefined
+          ? next.playlist
+          : route.playlist;
+      window.history.pushState({}, "", buildHref(merged));
+      setRoute(merged);
+    });
+  };
+  return { route, navigate };
+}

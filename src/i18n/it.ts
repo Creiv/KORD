@@ -32,6 +32,8 @@ export const IT: Record<string, string> = {
   "topbar.saved": "salvato",
   "topbar.saving": "…",
   "topbar.navAria": "Sezioni app",
+  "sidebar.expand": "Espandi barra laterale",
+  "sidebar.collapse": "Comprimi barra laterale",
   "topbar.pageTitle": "Titolo pagina",
   "topbar.settingsTitle": "Impostazioni",
   "common.open": "Apri",

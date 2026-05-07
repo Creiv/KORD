@@ -1,0 +1,300 @@
+/* Bottom nav + "More" sheet — mounted only on mobile */
+
+.nav {
+  display: flex;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 35;
+  box-sizing: border-box;
+  padding: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: color-mix(in srgb, var(--surface-elev-b) 94%, transparent);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.navInner {
+  display: flex;
+  width: 100%;
+  min-height: 3.6rem;
+  max-width: 32rem;
+  margin-inline: auto;
+  align-items: stretch;
+  justify-content: space-around;
+  gap: 0.1rem;
+  padding: 0 0.25rem;
+  box-sizing: border-box;
+}
+
+.navItem {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.18rem;
+  padding: 0.5rem 0.1rem 0.4rem;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  line-height: 1.2;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: color 0.15s ease;
+  min-height: 48px;
+  position: relative;
+  border-radius: 0;
+}
+
+/* Active dot indicator above icon */
+.navItem::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%) scaleX(0);
+  width: 1.4rem;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent2);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s;
+  opacity: 0;
+}
+
+.navItem.active::before {
+  transform: translateX(-50%) scaleX(1);
+  opacity: 1;
+}
+
+.navItem.active {
+  color: var(--text);
+}
+
+.navItem:active {
+  transform: scale(0.94);
+}
+
+.navItem:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.navIc {
+  width: 1.45rem;
+  height: 1.45rem;
+  flex-shrink: 0;
+  display: block;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.navItem.active .navIc {
+  color: var(--accent2);
+}
+
+.navItem:active .navIc {
+  transform: scale(0.88);
+}
+
+.navItem:not(.active):hover,
+.navItem:not(.active):focus-visible {
+  color: var(--muted-strong);
+}
+
+.navItem:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.navLabel {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+/* ── "More" sheet overlay ── */
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.55);
+  animation: sheetBackdrop 0.2s ease;
+}
+
+.sheet[hidden] {
+  display: none;
+}
+
+.sheetPanel {
+  width: 100%;
+  max-width: 32rem;
+  max-height: min(75dvh, 560px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 20px 20px 0 0;
+  background: var(--surface-elev-a);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  padding: 0.25rem 0.6rem
+    max(0.85rem, env(safe-area-inset-bottom, 0px));
+  box-shadow: var(--shadow-elev-2);
+  animation: sheetPanel 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Drag handle indicator */
+.sheetPanel::before {
+  content: "";
+  display: block;
+  width: 2.5rem;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-strong);
+  margin: 0.6rem auto 0.1rem;
+  opacity: 0.6;
+}
+
+.sheetHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+  padding: 0.3rem 0.25rem 0.45rem;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.sheetTitle {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent2);
+}
+
+.sheetClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.2rem;
+  min-height: 2.2rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--muted-strong);
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.13s, color 0.13s;
+}
+
+.sheetClose:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+}
+
+.sheetCloseIc {
+  width: 1.1rem;
+  height: 1.1rem;
+  display: block;
+}
+
+.sheetList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.3rem;
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem 0 0;
+}
+
+.sheetLink {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.3rem;
+  width: 100%;
+  min-height: 4.5rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  text-align: left;
+  background: color-mix(in srgb, var(--surface3) 50%, transparent);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 650;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.13s, border-color 0.13s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sheetLink:active {
+  transform: scale(0.97);
+}
+
+.sheetLinkIc {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  display: block;
+  color: var(--muted-strong);
+  transition: color 0.13s;
+}
+
+.sheetLink.active {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface3) 88%);
+  border-color: color-mix(in srgb, var(--accent2) 35%, var(--border));
+  color: var(--accent2);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent2) 15%, transparent);
+}
+
+.sheetLink.active .sheetLinkIc {
+  color: var(--accent2);
+}
+
+.sheetLink:not(.active):hover,
+.sheetLink:not(.active):focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--border-strong);
+}
+
+.sheetLink:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 0;
+}
+
+@keyframes sheetBackdrop {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes sheetPanel {
+  from {
+    transform: translateY(1.5rem);
+    opacity: 0.7;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

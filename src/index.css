@@ -20,7 +20,7 @@
   --content-pad-bottom: calc(
     env(safe-area-inset-bottom, 0px) + 1.2rem + var(--bar-h) + 0.85rem
   );
-  --side-w: 280px;
+  --side-w: 220px;
   --radius-sm: 10px;
   --radius-md: 14px;
   --radius-lg: 20px;
@@ -72,6 +72,12 @@
   background: var(--bg);
   font: 16px/1.5 var(--font-ui);
   color-scheme: dark;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --side-w: 0px;
+  }
 }
 
 :root[data-theme="sunset"] {

@@ -5,6 +5,56 @@ type P = {
   decorative?: boolean;
 };
 
+/** Just the "K" glyph — used in the collapsed sidebar */
+export function KordLogoMarkSvg({ className, decorative }: P) {
+  const uid = useId().replace(/:/g, "");
+  const fillId = `kord-lm-fill-${uid}`;
+  return (
+    <svg
+      className={className}
+      viewBox="56 18 58 58"
+      xmlns="http://www.w3.org/2000/svg"
+      role="img"
+      aria-hidden={decorative ? true : undefined}
+      aria-label={decorative ? undefined : "KORD"}
+    >
+      {!decorative ? <title>KORD</title> : null}
+      <defs>
+        <linearGradient
+          id={fillId}
+          x1="85"
+          y1="18"
+          x2="85"
+          y2="76"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop offset="0%" stopColor="var(--text, #f5f7fb)" />
+          <stop offset="66%" stopColor="var(--text, #f5f7fb)" />
+          <stop
+            offset="66%"
+            stopColor="color-mix(in srgb, color-mix(in srgb, var(--accent2, #64d4ff) 62%, var(--accent, #ff8f5c) 38%) 50%, var(--muted, #a8b8d0) 50%)"
+          />
+          <stop
+            offset="100%"
+            stopColor="color-mix(in srgb, color-mix(in srgb, var(--accent2, #64d4ff) 55%, var(--accent, #ff8f5c) 45%) 52%, var(--muted, #a8b8d0) 48%)"
+          />
+        </linearGradient>
+      </defs>
+      <g className="kord-wordmark-layer kord-wordmark-layer--halo" fill="none">
+        <path d="M 56 18 L 76 18 L 76 38 L 94 18 L 114 18 L 82 47 L 114 76 L 94 76 L 76 54 L 76 76 L 56 76 Z" />
+      </g>
+      <g className="kord-wordmark-layer kord-wordmark-layer--ring" fill="none">
+        <path d="M 56 18 L 76 18 L 76 38 L 94 18 L 114 18 L 82 47 L 114 76 L 94 76 L 76 54 L 76 76 L 56 76 Z" />
+      </g>
+      <path
+        className="kord-wordmark-layer kord-wordmark-layer--face"
+        fill={`url(#${fillId})`}
+        d="M 56 18 L 76 18 L 76 38 L 94 18 L 114 18 L 82 47 L 114 76 L 94 76 L 76 54 L 76 76 L 56 76 Z"
+      />
+    </svg>
+  );
+}
+
 function KordGlyphPaths() {
   return (
     <>
