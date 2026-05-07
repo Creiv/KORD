@@ -113,6 +113,10 @@ const THEME_MODES = new Set([
   "tangerine",
   "carmine",
   "prism",
+  "slate-light",
+  "aubergine-light",
+  "tangerine-light",
+  "carmine-light",
   "custom",
 ])
 
@@ -166,13 +170,13 @@ function sanitizeSettings(settings) {
       return m === "mirror" ||
         m === "osc" ||
         m === "oscSoft" ||
+        m === "hmb" ||
         m === "bars" ||
         m === "signals" ||
         m === "embers" ||
-        m === "karaoke" ||
-        m === "kord"
+        m === "karaoke"
         ? m
-        : "bars"
+        : "hmb"
     })(),
     restoreSession: src.restoreSession !== false,
     defaultTab:

@@ -114,7 +114,7 @@ const userState: UserStateV1 = {
   shuffleExcludedTrackRelPaths: [],
   settings: {
     theme: "midnight",
-    vizMode: "bars",
+    vizMode: "hmb",
     restoreSession: true,
     defaultTab: "dashboard",
     locale: "en",

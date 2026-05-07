@@ -49,7 +49,7 @@ function defaultSettings(): UserSettings {
   return {
     theme: "midnight",
     customTheme: DEFAULT_CUSTOM_THEME,
-    vizMode: "bars",
+    vizMode: "hmb",
     restoreSession: true,
     defaultTab: "dashboard",
     locale: "en",
@@ -113,13 +113,13 @@ function normalizeSettings(raw: Partial<UserSettings>): UserSettings {
       return m === "mirror" ||
         m === "osc" ||
         m === "oscSoft" ||
+        m === "hmb" ||
         m === "bars" ||
         m === "signals" ||
         m === "embers" ||
-        m === "karaoke" ||
-        m === "kord"
+        m === "karaoke"
         ? m
-        : "bars";
+        : "hmb";
     })(),
     restoreSession: raw.restoreSession !== false,
     defaultTab:
@@ -161,6 +161,9 @@ const CUSTOM_THEME_VARS = [
   "--surface3",
   "--border",
   "--border-strong",
+  "--text",
+  "--muted",
+  "--muted-strong",
   "--accent",
   "--accent2",
   "--focus-ring",
@@ -194,14 +197,44 @@ const CUSTOM_THEME_VARS = [
   "--chip-on",
   "--codebox-bg",
   "--textarea-bg",
+  "--text-on-accent",
   "--player-art-fb",
   "--dirlist-hover-bg",
   "--meta-strip-bg",
   "--ghost-input-bg",
+  "--shadow-elev-1",
+  "--shadow-elev-2",
+  "--warning",
+  "--danger",
 ] as const;
 
 function clearCustomThemeVars(root: HTMLElement) {
   for (const name of CUSTOM_THEME_VARS) root.style.removeProperty(name);
+  root.style.removeProperty("color-scheme");
+}
+
+/** Luminanza relativa WCAG 2.1 (0–1). */
+function relativeLuminance(hex: string): number {
+  const { r, g, b } = hexToRgb(hex);
+  const lin = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  const R = lin(r);
+  const G = lin(g);
+  const B = lin(b);
+  return 0.2126 * R + 0.7152 * G + 0.0722 * B;
+}
+
+/** Se la sezione è chiara, testo e superfici seguono palette chiara. */
+function isLightSection(sectionHex: string): boolean {
+  return relativeLuminance(sectionHex) > 0.45;
+}
+
+function textOnAccent(accentHex: string): string {
+  return relativeLuminance(accentHex) > 0.55
+    ? mixHex(accentHex, "#0a0a0a", 0.9)
+    : mixHex(accentHex, "#ffffff", 0.94);
 }
 
 function applyCustomThemeVars(root: HTMLElement, theme: CustomThemeSettings) {
@@ -209,6 +242,70 @@ function applyCustomThemeVars(root: HTMLElement, theme: CustomThemeSettings) {
   const section = theme.section;
   const accent = theme.accent;
   const accent2 = theme.accent2;
+  const light = isLightSection(section);
+  root.style.colorScheme = light ? "light" : "dark";
+
+  if (light) {
+    const ink = mixHex(section, "#0f172a", 0.78);
+    const inkMuted = mixHex(section, "#475569", 0.52);
+    const inkStrong = mixHex(section, "#0f172a", 0.68);
+    root.style.setProperty("--bg", bg);
+    root.style.setProperty("--surface", rgbaFromHex(mixHex(bg, section, 0.52), 0.9));
+    root.style.setProperty("--surface2", rgbaFromHex(section, 0.93));
+    root.style.setProperty("--surface3", rgbaFromHex(mixHex(section, accent2, 0.12), 0.96));
+    root.style.setProperty("--border", rgbaFromHex(mixHex(accent2, "#1e293b", 0.38), 0.18));
+    root.style.setProperty("--border-strong", rgbaFromHex(mixHex(accent2, "#0f172a", 0.45), 0.3));
+    root.style.setProperty("--text", ink);
+    root.style.setProperty("--muted", inkMuted);
+    root.style.setProperty("--muted-strong", inkStrong);
+    root.style.setProperty("--accent", accent);
+    root.style.setProperty("--accent2", accent2);
+    root.style.setProperty("--warning", "#b45309");
+    root.style.setProperty("--danger", "#c53030");
+    root.style.setProperty(
+      "--focus-ring",
+      `color-mix(in srgb, ${accent2} 52%, #0f172a 32%)`,
+    );
+    root.style.setProperty("--shadow-elev-1", "0 4px 24px rgba(15, 23, 42, 0.08)");
+    root.style.setProperty("--shadow-elev-2", "0 22px 48px rgba(15, 23, 42, 0.12)");
+    root.style.setProperty("--page-glow-1", rgbaFromHex(accent, 0.11));
+    root.style.setProperty("--page-glow-2", rgbaFromHex(accent2, 0.1));
+    root.style.setProperty("--page-lg-1", mixHex(bg, "#ffffff", 0.94));
+    root.style.setProperty("--page-lg-2", mixHex(bg, "#ffffff", 0.98));
+    root.style.setProperty("--page-lg-3", mixHex(mixHex(bg, section, 0.32), "#ffffff", 0.9));
+    root.style.setProperty("--shell-glow-1", rgbaFromHex(accent, 0.06));
+    root.style.setProperty("--shell-lg-1", rgbaFromHex(mixHex(bg, "#ffffff", 0.06), 0.97));
+    root.style.setProperty("--shell-lg-2", mixHex(bg, "#ffffff", 0.02));
+    root.style.setProperty("--topbar-bg", rgbaFromHex(mixHex(bg, "#ffffff", 0.14), 0.88));
+    root.style.setProperty("--surface-elev-a", rgbaFromHex(mixHex(section, bg, 0.14), 0.94));
+    root.style.setProperty("--surface-elev-b", rgbaFromHex(mixHex(bg, section, 0.2), 0.97));
+    root.style.setProperty("--hero-rg-1", rgbaFromHex(accent, 0.12));
+    root.style.setProperty("--hero-rg-2", rgbaFromHex(accent2, 0.1));
+    root.style.setProperty("--hero-lg-1", rgbaFromHex(mixHex(section, bg, 0.1), 0.94));
+    root.style.setProperty("--hero-lg-2", rgbaFromHex(mixHex(bg, section, 0.16), 0.97));
+    root.style.setProperty("--art-empty-1", rgbaFromHex(accent, 0.16));
+    root.style.setProperty("--art-empty-2", rgbaFromHex(accent2, 0.12));
+    root.style.setProperty("--badge-1", rgbaFromHex(accent, 0.2));
+    root.style.setProperty("--badge-2", rgbaFromHex(accent2, 0.14));
+    root.style.setProperty("--album-fb-1", rgbaFromHex(accent, 0.22));
+    root.style.setProperty("--album-fb-2", rgbaFromHex(accent2, 0.15));
+    root.style.setProperty("--listen-viz-bg", rgbaFromHex(mixHex(bg, "#e2e8f0", 0.5), 0.96));
+    root.style.setProperty("--glass-1", rgbaFromHex(mixHex(section, "#ffffff", 0.22), 0.88));
+    root.style.setProperty("--glass-2", rgbaFromHex(mixHex(bg, section, 0.22), 0.92));
+    root.style.setProperty("--nav-active-cool", rgbaFromHex(accent2, 0.12));
+    root.style.setProperty("--segmented-1", rgbaFromHex(accent, 0.12));
+    root.style.setProperty("--segmented-2", rgbaFromHex(accent2, 0.09));
+    root.style.setProperty("--chip-on", rgbaFromHex(accent, 0.12));
+    root.style.setProperty("--codebox-bg", rgbaFromHex(mixHex(bg, "#f8fafc", 0.55), 0.97));
+    root.style.setProperty("--textarea-bg", rgbaFromHex(mixHex(bg, "#ffffff", 0.62), 0.96));
+    root.style.setProperty("--text-on-accent", textOnAccent(accent));
+    root.style.setProperty("--player-art-fb", rgbaFromHex(accent2, 0.1));
+    root.style.setProperty("--dirlist-hover-bg", rgbaFromHex(accent2, 0.08));
+    root.style.setProperty("--meta-strip-bg", "rgba(15, 23, 42, 0.04)");
+    root.style.setProperty("--ghost-input-bg", "rgba(15, 23, 42, 0.045)");
+    return;
+  }
+
   root.style.setProperty("--bg", bg);
   root.style.setProperty("--surface", rgbaFromHex(mixHex(bg, section, 0.58), 0.88));
   root.style.setProperty("--surface2", rgbaFromHex(section, 0.94));
@@ -252,6 +349,14 @@ function applyCustomThemeVars(root: HTMLElement, theme: CustomThemeSettings) {
   root.style.setProperty("--dirlist-hover-bg", rgbaFromHex(accent2, 0.07));
   root.style.setProperty("--meta-strip-bg", rgbaFromHex(accent2, 0.06));
   root.style.setProperty("--ghost-input-bg", rgbaFromHex("#ffffff", 0.045));
+  root.style.removeProperty("--text");
+  root.style.removeProperty("--muted");
+  root.style.removeProperty("--muted-strong");
+  root.style.removeProperty("--text-on-accent");
+  root.style.removeProperty("--warning");
+  root.style.removeProperty("--danger");
+  root.style.removeProperty("--shadow-elev-1");
+  root.style.removeProperty("--shadow-elev-2");
 }
 
 function normalizeUserState(s: UserStateV1): UserStateV1 {
@@ -420,6 +525,7 @@ function legacyImport(): Partial<UserStateV1> {
       vizMode === "mirror" ||
       vizMode === "osc" ||
       vizMode === "oscSoft" ||
+      vizMode === "hmb" ||
       vizMode === "signals" ||
       vizMode === "embers" ||
       vizMode === "karaoke" ||
@@ -436,7 +542,9 @@ function legacyImport(): Partial<UserStateV1> {
                   ? "embers"
                   : vizMode === "prism"
                     ? "bars"
-                    : vizMode,
+                    : vizMode === "kord"
+                      ? "hmb"
+                      : vizMode,
           }
         : undefined,
   };

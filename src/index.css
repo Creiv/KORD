@@ -696,6 +696,235 @@
   --ghost-input-bg: rgba(163, 255, 63, 0.07);
 }
 
+
+
+
+
+
+
+
+
+:root[data-theme="slate-light"] {
+  color-scheme: light;
+  --bg: #f4f6f9;
+  --surface: rgba(226, 232, 242, 0.92);
+  --surface2: rgba(216, 226, 240, 0.96);
+  --surface3: rgba(200, 214, 234, 0.97);
+  --border: rgba(50, 70, 100, 0.14);
+  --border-strong: rgba(35, 55, 85, 0.24);
+  --text: #0f141c;
+  --muted: #57667f;
+  --muted-strong: #1e293b;
+  --accent: #3b82f6;
+  --accent2: #64748b;
+  --warning: #b45309;
+  --danger: #c53030;
+  --shadow-elev-1: 0 4px 24px rgba(15, 23, 42, 0.07);
+  --shadow-elev-2: 0 22px 48px rgba(15, 23, 42, 0.11);
+  --focus-ring: color-mix(in srgb, var(--accent) 60%, var(--accent2) 40%);
+  --page-glow-1: rgba(80, 140, 220, 0.08);
+  --page-glow-2: rgba(120, 150, 180, 0.07);
+  --page-lg-1: #eef1f6;
+  --page-lg-2: #f4f6f9;
+  --page-lg-3: #e8ecf4;
+  --shell-glow-1: rgba(80, 120, 180, 0.05);
+  --shell-lg-1: rgba(242, 244, 248, 0.98);
+  --shell-lg-2: rgba(244, 246, 250, 1);
+  --topbar-bg: rgba(232, 236, 244, 0.92);
+  --surface-elev-a: rgba(208, 220, 238, 0.95);
+  --surface-elev-b: rgba(224, 232, 244, 0.98);
+  --hero-rg-1: rgba(80, 140, 220, 0.09);
+  --hero-rg-2: rgba(120, 150, 180, 0.07);
+  --hero-lg-1: rgba(212, 224, 242, 0.94);
+  --hero-lg-2: rgba(226, 234, 246, 0.97);
+  --art-empty-1: rgba(80, 130, 220, 0.12);
+  --art-empty-2: rgba(120, 150, 190, 0.09);
+  --badge-1: rgba(80, 130, 220, 0.16);
+  --badge-2: rgba(120, 150, 180, 0.12);
+  --album-fb-1: rgba(80, 130, 220, 0.18);
+  --album-fb-2: rgba(120, 150, 180, 0.12);
+  --listen-viz-bg: rgba(232, 238, 246, 0.96);
+  --glass-1: rgba(210, 222, 240, 0.88);
+  --glass-2: rgba(226, 234, 246, 0.92);
+  --nav-active-cool: rgba(120, 160, 220, 0.14);
+  --segmented-1: rgba(80, 130, 220, 0.1);
+  --segmented-2: rgba(120, 150, 180, 0.08);
+  --chip-on: rgba(80, 130, 220, 0.1);
+  --codebox-bg: rgba(240, 243, 248, 0.96);
+  --textarea-bg: rgba(244, 247, 252, 0.96);
+  --text-on-accent: #0a0e14;
+  --dirlist-hover-bg: rgba(100, 120, 150, 0.1);
+  --meta-strip-bg: rgba(90, 110, 140, 0.08);
+  --ghost-input-bg: rgba(100, 120, 150, 0.08);
+  --player-art-fb: rgba(180, 190, 210, 0.12);
+}
+
+:root[data-theme="aubergine-light"] {
+  color-scheme: light;
+  --bg: #f7f5fc;
+  --surface: rgba(236, 232, 250, 0.92);
+  --surface2: rgba(228, 222, 248, 0.96);
+  --surface3: rgba(214, 206, 244, 0.97);
+  --border: rgba(90, 60, 140, 0.14);
+  --border-strong: rgba(70, 45, 115, 0.26);
+  --text: #14101c;
+  --muted: #6a6088;
+  --muted-strong: #2e2448;
+  --accent: #8b5cf6;
+  --accent2: #a78bfa;
+  --warning: #b45309;
+  --danger: #c53030;
+  --shadow-elev-1: 0 4px 24px rgba(40, 20, 80, 0.07);
+  --shadow-elev-2: 0 22px 48px rgba(30, 14, 60, 0.11);
+  --focus-ring: color-mix(in srgb, var(--accent) 55%, var(--accent2) 45%);
+  --page-glow-1: rgba(139, 92, 246, 0.1);
+  --page-glow-2: rgba(180, 140, 255, 0.08);
+  --page-lg-1: #f2effa;
+  --page-lg-2: #f7f5fc;
+  --page-lg-3: #ede8f8;
+  --shell-glow-1: rgba(120, 80, 200, 0.05);
+  --shell-lg-1: rgba(248, 246, 255, 0.98);
+  --shell-lg-2: rgba(247, 245, 252, 1);
+  --topbar-bg: rgba(238, 234, 250, 0.92);
+  --surface-elev-a: rgba(220, 210, 246, 0.95);
+  --surface-elev-b: rgba(232, 226, 252, 0.98);
+  --hero-rg-1: rgba(139, 92, 246, 0.1);
+  --hero-rg-2: rgba(196, 181, 253, 0.08);
+  --hero-lg-1: rgba(222, 212, 246, 0.94);
+  --hero-lg-2: rgba(232, 224, 252, 0.97);
+  --art-empty-1: rgba(139, 92, 246, 0.14);
+  --art-empty-2: rgba(196, 181, 253, 0.1);
+  --badge-1: rgba(139, 100, 230, 0.16);
+  --badge-2: rgba(180, 150, 250, 0.12);
+  --album-fb-1: rgba(139, 100, 230, 0.18);
+  --album-fb-2: rgba(180, 150, 250, 0.12);
+  --listen-viz-bg: rgba(240, 236, 252, 0.96);
+  --glass-1: rgba(220, 212, 246, 0.88);
+  --glass-2: rgba(234, 228, 252, 0.92);
+  --nav-active-cool: rgba(180, 150, 255, 0.14);
+  --segmented-1: rgba(139, 92, 246, 0.09);
+  --segmented-2: rgba(196, 181, 253, 0.08);
+  --chip-on: rgba(139, 92, 246, 0.1);
+  --codebox-bg: rgba(246, 244, 254, 0.96);
+  --textarea-bg: rgba(248, 246, 255, 0.96);
+  --text-on-accent: #0c0618;
+  --dirlist-hover-bg: rgba(130, 90, 200, 0.1);
+  --meta-strip-bg: rgba(110, 75, 180, 0.08);
+  --ghost-input-bg: rgba(120, 90, 190, 0.07);
+  --player-art-fb: rgba(170, 150, 235, 0.12);
+}
+
+:root[data-theme="tangerine-light"] {
+  color-scheme: light;
+  --bg: #fdfaf5;
+  --surface: rgba(252, 238, 222, 0.92);
+  --surface2: rgba(248, 230, 210, 0.96);
+  --surface3: rgba(244, 220, 196, 0.97);
+  --border: rgba(160, 90, 40, 0.14);
+  --border-strong: rgba(120, 65, 28, 0.26);
+  --text: #1a120a;
+  --muted: #826858;
+  --muted-strong: #3d2814;
+  --accent: #f97316;
+  --accent2: #d9a321;
+  --warning: #a16207;
+  --danger: #c53030;
+  --shadow-elev-1: 0 4px 24px rgba(80, 40, 10, 0.07);
+  --shadow-elev-2: 0 22px 48px rgba(60, 28, 8, 0.1);
+  --focus-ring: color-mix(in srgb, var(--accent) 55%, var(--accent2) 45%);
+  --page-glow-1: rgba(249, 115, 22, 0.1);
+  --page-glow-2: rgba(251, 191, 36, 0.08);
+  --page-lg-1: #faf4ec;
+  --page-lg-2: #fdfaf5;
+  --page-lg-3: #f8f0e4;
+  --shell-glow-1: rgba(220, 100, 40, 0.05);
+  --shell-lg-1: rgba(253, 250, 246, 0.98);
+  --shell-lg-2: rgba(253, 250, 245, 1);
+  --topbar-bg: rgba(250, 240, 228, 0.92);
+  --surface-elev-a: rgba(248, 226, 200, 0.95);
+  --surface-elev-b: rgba(252, 236, 216, 0.98);
+  --hero-rg-1: rgba(249, 115, 22, 0.1);
+  --hero-rg-2: rgba(251, 191, 36, 0.08);
+  --hero-lg-1: rgba(246, 224, 200, 0.94);
+  --hero-lg-2: rgba(250, 234, 214, 0.97);
+  --art-empty-1: rgba(249, 115, 22, 0.14);
+  --art-empty-2: rgba(251, 191, 36, 0.1);
+  --badge-1: rgba(240, 120, 50, 0.16);
+  --badge-2: rgba(250, 200, 100, 0.12);
+  --album-fb-1: rgba(240, 120, 50, 0.18);
+  --album-fb-2: rgba(250, 200, 100, 0.12);
+  --listen-viz-bg: rgba(252, 240, 226, 0.96);
+  --glass-1: rgba(246, 224, 196, 0.88);
+  --glass-2: rgba(252, 236, 216, 0.92);
+  --nav-active-cool: rgba(255, 180, 100, 0.14);
+  --segmented-1: rgba(249, 115, 22, 0.09);
+  --segmented-2: rgba(251, 191, 36, 0.08);
+  --chip-on: rgba(249, 115, 22, 0.1);
+  --codebox-bg: rgba(253, 248, 240, 0.96);
+  --textarea-bg: rgba(253, 250, 244, 0.96);
+  --text-on-accent: #160804;
+  --dirlist-hover-bg: rgba(230, 120, 50, 0.1);
+  --meta-strip-bg: rgba(210, 100, 40, 0.08);
+  --ghost-input-bg: rgba(230, 130, 60, 0.07);
+  --player-art-fb: rgba(255, 200, 120, 0.12);
+}
+
+:root[data-theme="carmine-light"] {
+  color-scheme: light;
+  --bg: #fdf5f6;
+  --surface: rgba(252, 228, 234, 0.92);
+  --surface2: rgba(248, 216, 226, 0.96);
+  --surface3: rgba(244, 200, 216, 0.97);
+  --border: rgba(150, 50, 75, 0.14);
+  --border-strong: rgba(110, 35, 55, 0.26);
+  --text: #1a080e;
+  --muted: #865a68;
+  --muted-strong: #3d1420;
+  --accent: #e11d48;
+  --accent2: #f47284;
+  --warning: #b45309;
+  --danger: #b91c1c;
+  --shadow-elev-1: 0 4px 24px rgba(80, 20, 36, 0.07);
+  --shadow-elev-2: 0 22px 48px rgba(50, 12, 26, 0.1);
+  --focus-ring: color-mix(in srgb, var(--accent) 55%, var(--accent2) 45%);
+  --page-glow-1: rgba(225, 29, 72, 0.1);
+  --page-glow-2: rgba(251, 113, 133, 0.08);
+  --page-lg-1: #faf0f2;
+  --page-lg-2: #fdf5f6;
+  --page-lg-3: #f8e8ec;
+  --shell-glow-1: rgba(200, 50, 80, 0.05);
+  --shell-lg-1: rgba(253, 248, 250, 0.98);
+  --shell-lg-2: rgba(253, 247, 248, 1);
+  --topbar-bg: rgba(250, 232, 238, 0.92);
+  --surface-elev-a: rgba(248, 210, 222, 0.95);
+  --surface-elev-b: rgba(252, 226, 234, 0.98);
+  --hero-rg-1: rgba(225, 29, 72, 0.1);
+  --hero-rg-2: rgba(251, 113, 133, 0.08);
+  --hero-lg-1: rgba(246, 214, 224, 0.94);
+  --hero-lg-2: rgba(250, 228, 236, 0.97);
+  --art-empty-1: rgba(225, 29, 72, 0.14);
+  --art-empty-2: rgba(251, 113, 133, 0.1);
+  --badge-1: rgba(230, 60, 100, 0.16);
+  --badge-2: rgba(250, 150, 160, 0.12);
+  --album-fb-1: rgba(230, 60, 100, 0.18);
+  --album-fb-2: rgba(250, 150, 160, 0.12);
+  --listen-viz-bg: rgba(252, 232, 240, 0.96);
+  --glass-1: rgba(246, 210, 220, 0.88);
+  --glass-2: rgba(252, 226, 236, 0.92);
+  --nav-active-cool: rgba(255, 150, 170, 0.14);
+  --segmented-1: rgba(225, 29, 72, 0.09);
+  --segmented-2: rgba(251, 113, 133, 0.08);
+  --chip-on: rgba(225, 29, 72, 0.1);
+  --codebox-bg: rgba(253, 244, 248, 0.96);
+  --textarea-bg: rgba(253, 248, 250, 0.96);
+  --text-on-accent: #140204;
+  --dirlist-hover-bg: rgba(220, 80, 100, 0.1);
+  --meta-strip-bg: rgba(200, 60, 80, 0.08);
+  --ghost-input-bg: rgba(220, 100, 120, 0.07);
+  --player-art-fb: rgba(255, 160, 170, 0.12);
+}
+
+
 html,
 body,
 #root {

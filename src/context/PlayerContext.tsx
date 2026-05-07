@@ -134,6 +134,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const setQueueSnapshot = user.setQueueSnapshot;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const getAnalyser = useCallback(() => analyserRef.current, []);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const keepPlayingRef = useRef(true);
   const restoredRef = useRef(false);
@@ -697,7 +698,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<Ctx>(
     () => ({
       audioRef,
-      getAnalyser: () => analyserRef.current,
+      getAnalyser,
       current,
       queue,
       currentIndex,
@@ -734,6 +735,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       prepareRemotePlayback,
     }),
     [
+      getAnalyser,
       addToQueue,
       clearQueue,
       isTrackInQueue,

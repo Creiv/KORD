@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { KordMascotOverlay } from "./KordMascotOverlay";
 import { usePlayer } from "../context/PlayerContext";
 import { binAmplitude, logBinT, sampleSpectrumLinear } from "../lib/freqMap";
 import type { VizMode } from "../types";
@@ -388,7 +387,6 @@ export function Visualizer({ mode }: { mode: VizMode }) {
   const softYs1Ref = useRef<Float32Array | null>(null);
   const softYs2Ref = useRef<Float32Array | null>(null);
   const softPulseRef = useRef(0);
-  const kordBeatRef = useRef(0);
   const oscWaveScratchRef = useRef<{
     amp: Float32Array;
     ampSm: Float32Array;
@@ -397,6 +395,13 @@ export function Visualizer({ mode }: { mode: VizMode }) {
     ys: Float32Array;
   } | null>(null);
   const oscSoftTapeRef = useRef<Float32Array | null>(null);
+  const hmbScratchRef = useRef<{
+    sig: Float32Array;
+    blurB: Float32Array;
+    blurM: Float32Array;
+    blurF: Float32Array;
+    pref: Float32Array;
+  } | null>(null);
   const visibleRef = useRef(
     typeof document !== "undefined" ? !document.hidden : true,
   );
@@ -432,18 +437,20 @@ export function Visualizer({ mode }: { mode: VizMode }) {
       softYs1Ref.current = null;
       softYs2Ref.current = null;
     }
-    if (mode !== "kord") kordBeatRef.current = 0;
     if (mode !== "oscSoft") {
       oscWaveScratchRef.current = null;
       oscSoftTapeRef.current = null;
     }
+    if (mode !== "hmb") hmbScratchRef.current = null;
   }, [mode]);
 
   useEffect(() => {
     const an = getAnalyser();
     if (an) {
       an.fftSize =
-        mode === "osc" || mode === "oscSoft" ? FFT_OSC : FFT_SPECTRUM;
+        mode === "osc" || mode === "oscSoft" || mode === "hmb"
+          ? FFT_OSC
+          : FFT_SPECTRUM;
     }
   }, [getAnalyser, mode]);
 
@@ -537,7 +544,7 @@ export function Visualizer({ mode }: { mode: VizMode }) {
       const t = time.current;
 
       if (an) {
-        if (mode === "osc" || mode === "oscSoft") {
+        if (mode === "osc" || mode === "oscSoft" || mode === "hmb") {
           an.fftSize = FFT_OSC;
           const fLen0 = an.frequencyBinCount;
           if (freq.current.length < fLen0) {
@@ -744,6 +751,149 @@ export function Visualizer({ mode }: { mode: VizMode }) {
         ctx.strokeStyle = gl;
         ctx.lineWidth = expanded ? 3.55 : narrowOsc ? 3.45 : 3.05;
         ctx.stroke();
+        return;
+      }
+
+      if (mode === "hmb") {
+        ctx.shadowBlur = 0;
+        ctx.shadowColor = "transparent";
+        ctx.globalAlpha = 1;
+
+        const tLenFull = an?.fftSize ?? 1024;
+        const narrowOsc = !expanded && w < 560;
+        const trim = narrowOsc ? Math.round(tLenFull * 0.2) : 0;
+        const i0 = Math.max(0, trim);
+        const i1 = Math.min(tLenFull - 1, tLenFull - 1 - trim);
+        const tSeg = Math.max(32, i1 - i0 + 1);
+        const padY = edgePad;
+        const innerH = Math.max(1, h - padY * 2);
+        const rowH = innerH / 3;
+        const labelW = expanded ? 34 : 28;
+        const x0 = labelW;
+        const plotW = Math.max(1, w - labelW - 4);
+        const oscAmp = OSC_GAIN * (narrowOsc ? 1.18 : 1.06);
+        const oscSample = (b: number) =>
+          Math.max(-1, Math.min(1, ((b - 128) / 128) * oscAmp));
+        const samp = (k: number) =>
+          tv[
+            Math.min(
+              i1,
+              i0 + Math.round((k / Math.max(1, tSeg - 1)) * (i1 - i0)),
+            )
+          ]!;
+        const xDen = Math.max(1, tSeg - 1);
+
+        const needPref = tSeg + 1;
+        let hx = hmbScratchRef.current;
+        if (
+          !hx ||
+          hx.sig.length < tSeg ||
+          hx.blurB.length < tSeg ||
+          hx.blurM.length < tSeg ||
+          hx.blurF.length < tSeg ||
+          hx.pref.length < needPref
+        ) {
+          hx = {
+            sig: new Float32Array(Math.max(tSeg, 2048)),
+            blurB: new Float32Array(Math.max(tSeg, 2048)),
+            blurM: new Float32Array(Math.max(tSeg, 2048)),
+            blurF: new Float32Array(Math.max(tSeg, 2048)),
+            pref: new Float32Array(Math.max(needPref, 4098)),
+          };
+          hmbScratchRef.current = hx;
+        }
+        const sig = hx.sig;
+        const blurB = hx.blurB;
+        const blurM = hx.blurM;
+        const blurF = hx.blurF;
+        const pref = hx.pref;
+        for (let k = 0; k < tSeg; k += 1) sig[k] = oscSample(samp(k));
+
+        const rB = Math.min(
+          Math.floor(tSeg * 0.29),
+          Math.max(5, Math.floor(tSeg * 0.05)),
+        );
+        const rM = Math.min(
+          Math.max(2, Math.floor(tSeg * 0.016)),
+          Math.max(2, rB - 1),
+        );
+        const rF = Math.max(1, Math.floor(tSeg * 0.0055));
+
+        smoothOscBox(sig, blurB, pref, tSeg, rB);
+        smoothOscBox(sig, blurM, pref, tSeg, rM);
+        smoothOscBox(sig, blurF, pref, tSeg, rF);
+
+        const gb = 1.04;
+        const gm = 1.34;
+        const gh = 1.46;
+
+        const drawRow = (
+          rowIdx: number,
+          sample: (k: number) => number,
+          label: string,
+          strokeA: RGB,
+          strokeB: RGB,
+        ) => {
+          const yTop = padY + rowIdx * rowH;
+          const midY = yTop + rowH * 0.5;
+          const oscHalf = rowH * 0.36;
+          if (rowIdx > 0) {
+            ctx.beginPath();
+            ctx.moveTo(x0, yTop);
+            ctx.lineTo(w, yTop);
+            ctx.strokeStyle = rgba(mix(pal.accent, pal.pageL2, 0.72), 0.14);
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+          ctx.beginPath();
+          for (let k = 0; k < tSeg; k += 1) {
+            const v = Math.max(-1, Math.min(1, sample(k)));
+            const x = x0 + (k / xDen) * plotW;
+            const y = midY - v * oscHalf;
+            if (k === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.lineTo(x0 + plotW, midY);
+          ctx.lineTo(x0, midY);
+          ctx.closePath();
+          const fillG = ctx.createLinearGradient(0, yTop, 0, yTop + rowH);
+          fillG.addColorStop(0, rgba(strokeB, 0.1));
+          fillG.addColorStop(0.5, rgba(mix(strokeA, strokeB, 0.5), 0.07));
+          fillG.addColorStop(1, rgba(strokeA, 0.09));
+          ctx.fillStyle = fillG;
+          ctx.fill();
+
+          ctx.beginPath();
+          for (let k = 0; k < tSeg; k += 1) {
+            const v = Math.max(-1, Math.min(1, sample(k)));
+            const x = x0 + (k / xDen) * plotW;
+            const y = midY - v * oscHalf;
+            if (k === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          const gl = ctx.createLinearGradient(x0, 0, x0 + plotW, 0);
+          gl.addColorStop(0, rgba(strokeB, 0.82));
+          gl.addColorStop(0.5, rgba(mix(strokeA, strokeB, 0.45), 0.95));
+          gl.addColorStop(1, rgba(strokeA, 0.78));
+          ctx.strokeStyle = gl;
+          ctx.lineWidth = expanded ? 2.55 : narrowOsc ? 2.35 : 2.1;
+          ctx.lineJoin = "round";
+          ctx.lineCap = "round";
+          ctx.stroke();
+
+          ctx.save();
+          ctx.font = `600 ${expanded ? 13 : 11}px Manrope, system-ui, sans-serif`;
+          ctx.fillStyle = rgba(mix(strokeA, strokeB, 0.4), 0.88);
+          ctx.textBaseline = "middle";
+          ctx.textAlign = "center";
+          ctx.fillText(label, labelW * 0.48, midY);
+          ctx.restore();
+        };
+
+        const midRgb = mix(pal.accent, pal.accent2, 0.48);
+        drawRow(0, (k) => (sig[k]! - blurF[k]!) * gh, "H", pal.accent2, pal.accent);
+        drawRow(1, (k) => (blurM[k]! - blurB[k]!) * gm, "M", midRgb, pal.accent2);
+        drawRow(2, (k) => blurB[k]! * gb, "B", pal.accent, pal.accent2);
         return;
       }
 
@@ -979,40 +1129,6 @@ export function Visualizer({ mode }: { mode: VizMode }) {
         return;
       }
 
-      if (mode === "kord") {
-        const padY = edgePad;
-        const span = h - padY * 2;
-        const midY = padY + span * 0.5;
-        const padGrad = ctx.createLinearGradient(0, padY, 0, h - padY);
-        padGrad.addColorStop(0, rgba(pal.pageL1, 1));
-        padGrad.addColorStop(0.5, rgba(mix(pal.pageL1, pal.accent2, 0.06), 1));
-        padGrad.addColorStop(1, rgba(pal.pageL2, 1));
-        ctx.fillStyle = padGrad;
-        ctx.fillRect(0, padY, w, h - 2 * padY);
-
-        let bsum = 0;
-        const bn = Math.min(48, fLen);
-        for (let j = 0; j < bn; j++) bsum += fv[j]!;
-        const bassRaw = Math.min(1, (bsum / (bn * 255)) * 1.38);
-        kordBeatRef.current = kordBeatRef.current * 0.64 + bassRaw * 0.36;
-        const bass = kordBeatRef.current;
-
-        const pulse = ctx.createRadialGradient(
-          w * 0.5,
-          midY,
-          0,
-          w * 0.5,
-          midY,
-          Math.max(w, span) * 0.55,
-        );
-        pulse.addColorStop(0, rgba(pal.accent2, 0.05 + bass * 0.14));
-        pulse.addColorStop(0.45, rgba(pal.accent, 0.04 + bass * 0.08));
-        pulse.addColorStop(1, rgba(pal.pageL1, 0));
-        ctx.fillStyle = pulse;
-        ctx.fillRect(0, padY, w, h - 2 * padY);
-        return;
-      }
-
       if (mode === "bars") {
         const pad = 2;
         const bar = (w - pad * 2) / BARS;
@@ -1121,7 +1237,6 @@ export function Visualizer({ mode }: { mode: VizMode }) {
       }}
     >
       <canvas className="viz-canvas" ref={cRef} />
-      {mode === "kord" ? <KordMascotOverlay /> : null}
       {mode === "karaoke" && karaokeCurrent ? (
         <div className="viz-karaoke-overlay" aria-live="polite">
           {expanded && karaokePrevious ? (

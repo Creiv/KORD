@@ -79,6 +79,7 @@ export function ThemePicker({
   const groups = [
     { id: "dual", label: t("themePicker.groupDual") },
     { id: "dark", label: t("themePicker.groupDark") },
+    { id: "light", label: t("themePicker.groupLight") },
     { id: "color", label: t("themePicker.groupColor") },
     { id: "custom", label: t("themePicker.groupCustom") },
   ] as const;

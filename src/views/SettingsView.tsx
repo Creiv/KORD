@@ -509,10 +509,10 @@ function SettingsView({
                     | "mirror"
                     | "osc"
                     | "oscSoft"
+                    | "hmb"
                     | "signals"
                     | "embers"
-                    | "karaoke"
-                    | "kord",
+                    | "karaoke",
                 })
               }
             >
@@ -520,10 +520,10 @@ function SettingsView({
               <option value="mirror">{t("settings.vizMirror")}</option>
               <option value="osc">{t("settings.vizOsc")}</option>
               <option value="oscSoft">{t("settings.vizOscSoft")}</option>
+              <option value="hmb">{t("settings.vizHmb")}</option>
               <option value="signals">{t("settings.vizSignals")}</option>
               <option value="embers">{t("settings.vizEmbers")}</option>
               <option value="karaoke">{t("settings.vizKaraoke")}</option>
-              <option value="kord">{t("settings.vizKord")}</option>
             </select>
           </label>
         </div>

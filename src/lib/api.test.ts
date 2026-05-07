@@ -28,7 +28,7 @@ const userStatePayload = {
   queue: { tracks: [], currentIndex: 0 },
   settings: {
     theme: "ember",
-    vizMode: "kord",
+    vizMode: "hmb",
     restoreSession: true,
     defaultTab: "dashboard",
     locale: "it",

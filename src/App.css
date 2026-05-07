@@ -113,10 +113,6 @@
   align-items: center;
 }
 
-.topbar2--toolbar .kord-wordmark-svg--topbar {
-  margin-top: 0;
-}
-
 .topbar2--toolbar .kord-brand-logo--topbar {
   margin-top: 0;
 }
@@ -3290,52 +3286,6 @@
   color: color-mix(in srgb, var(--accent) 74%, var(--text) 26%);
 }
 
-.viz-wrap.is-expanded .viz-kord-wordmark {
-  padding-top: 0;
-}
-
-.viz-wrap.is-expanded .kord-wordmark-svg--viz {
-  width: min(86vw, 980px);
-  max-height: 58vh;
-}
-
-.viz-wrap.is-expanded .kord-brand-logo--viz {
-  max-width: min(55vw, 280px);
-  max-height: min(32vh, 160px);
-  width: auto;
-  height: auto;
-}
-
-.viz-kord-wordmark {
-  --kord-beat: 0;
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-top: 0;
-  pointer-events: none;
-}
-
-.kord-wordmark-svg {
-  --kw-halo-w: 13;
-  --kw-ring-w: 9;
-  --kw-face-w: 3.6;
-  overflow: visible;
-}
-
-.kord-wordmark-svg--viz {
-  --kw-halo-w: 15;
-  --kw-ring-w: 10;
-  --kw-face-w: 4;
-  width: min(94%, 400px);
-  height: auto;
-  max-height: 85%;
-  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.24));
-  transform: translateZ(0) scale(calc(1 + min(0.22, var(--kord-beat) * 0.2)));
-  will-change: transform;
-}
-
 .kord-brand-logo {
   display: block;
 }
@@ -3348,62 +3298,6 @@
   object-fit: contain;
   object-position: left center;
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.22));
-}
-
-.kord-brand-logo--viz {
-  width: auto;
-  max-width: min(48%, 120px);
-  max-height: min(36%, 88px);
-  height: auto;
-  object-fit: contain;
-  object-position: center;
-  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.24));
-  transform: translateZ(0) scale(calc(1 + min(0.22, var(--kord-beat) * 0.2)));
-  will-change: transform;
-}
-
-.viz-kord-wordmark:not(.is-playing) .kord-brand-logo--viz {
-  transform: translateZ(0) scale(1);
-}
-
-.kord-wordmark-svg--topbar {
-  --kw-halo-w: 9;
-  --kw-ring-w: 6.2;
-  --kw-face-w: 2.65;
-  height: 42px;
-  width: auto;
-  flex-shrink: 0;
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.22));
-}
-
-.kord-wordmark-layer--halo {
-  fill: none;
-  stroke: color-mix(in srgb, var(--text) 52%, var(--border-strong) 48%);
-  stroke-width: var(--kw-halo-w);
-  stroke-linejoin: round;
-  stroke-linecap: round;
-  paint-order: stroke;
-}
-
-.kord-wordmark-layer--ring {
-  fill: none;
-  stroke: var(--page-lg-1);
-  stroke-width: var(--kw-ring-w);
-  stroke-linejoin: round;
-  stroke-linecap: round;
-  paint-order: stroke;
-}
-
-.kord-wordmark-layer--face {
-  stroke: var(--page-lg-1);
-  stroke-width: var(--kw-face-w);
-  stroke-linejoin: round;
-  stroke-linecap: round;
-  paint-order: fill stroke;
-}
-
-.viz-kord-wordmark:not(.is-playing) .kord-wordmark-svg--viz {
-  transform: translateZ(0) scale(1);
 }
 
 .viz-canvas {
@@ -6010,11 +5904,6 @@
     align-items: center;
     gap: 0.35rem;
     min-width: 0;
-  }
-
-  .kord-wordmark-svg--topbar {
-    height: 36px;
-    width: auto;
   }
 
   .kord-brand-logo--topbar {
