@@ -117,6 +117,10 @@
   margin-top: 0;
 }
 
+.topbar2--toolbar .kord-brand-logo--topbar {
+  margin-top: 0;
+}
+
 .topbar2__row {
   display: flex;
   flex-direction: row;
@@ -3288,12 +3292,18 @@
 
 .viz-wrap.is-expanded .viz-kord-wordmark {
   padding-top: 0;
-  transform: translateY(-4vh);
 }
 
 .viz-wrap.is-expanded .kord-wordmark-svg--viz {
   width: min(86vw, 980px);
   max-height: 58vh;
+}
+
+.viz-wrap.is-expanded .kord-brand-logo--viz {
+  max-width: min(55vw, 280px);
+  max-height: min(32vh, 160px);
+  width: auto;
+  height: auto;
 }
 
 .viz-kord-wordmark {
@@ -3303,7 +3313,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-top: 2%;
+  padding-top: 0;
   pointer-events: none;
 }
 
@@ -3324,6 +3334,36 @@
   filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.24));
   transform: translateZ(0) scale(calc(1 + min(0.22, var(--kord-beat) * 0.2)));
   will-change: transform;
+}
+
+.kord-brand-logo {
+  display: block;
+}
+
+.kord-brand-logo--topbar {
+  height: 42px;
+  width: auto;
+  max-width: min(240px, 42vw);
+  flex-shrink: 0;
+  object-fit: contain;
+  object-position: left center;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.22));
+}
+
+.kord-brand-logo--viz {
+  width: auto;
+  max-width: min(48%, 120px);
+  max-height: min(36%, 88px);
+  height: auto;
+  object-fit: contain;
+  object-position: center;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.24));
+  transform: translateZ(0) scale(calc(1 + min(0.22, var(--kord-beat) * 0.2)));
+  will-change: transform;
+}
+
+.viz-kord-wordmark:not(.is-playing) .kord-brand-logo--viz {
+  transform: translateZ(0) scale(1);
 }
 
 .kord-wordmark-svg--topbar {
@@ -5975,6 +6015,12 @@
   .kord-wordmark-svg--topbar {
     height: 36px;
     width: auto;
+  }
+
+  .kord-brand-logo--topbar {
+    height: 36px;
+    width: auto;
+    max-width: min(220px, 42vw);
   }
 
   .topbar-nav {

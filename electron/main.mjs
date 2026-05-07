@@ -138,9 +138,8 @@ const APP_NAME = "KORD"
 
 function getAppIconPath() {
   const candidates = [
-    path.join(__dirname, "..", "build", "icon.png"),
-    path.join(__dirname, "..", "dist", "favicon.png"),
-    path.join(__dirname, "..", "public", "favicon.png"),
+    path.join(__dirname, "..", "dist", "KORDlogo.png"),
+    path.join(__dirname, "..", "public", "KORDlogo.png"),
   ]
   return candidates.find((p) => fs.existsSync(p)) || undefined
 }

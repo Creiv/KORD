@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { useI18n } from "../../../i18n/useI18n";
-import { KordWordmarkSvg } from "../../KordWordmarkSvg";
+import { KordBrandLogo } from "../../KordBrandLogo";
 import { AccountBadge } from "../../AccountBadge/AccountBadge";
 import { UiAutorenew, UiInstallMobile, UiSearch } from "../../KordUiIcons";
 import { NAV_DEF } from "../../../lib/routing";
@@ -47,10 +47,7 @@ export const TopBar = memo(function TopBar({
         <div className={styles.start}>
           {/* Wordmark visible only when no section title shown (fallback / very small) */}
           <div className={styles.brand} aria-hidden>
-            <KordWordmarkSvg
-              className="kord-wordmark-svg kord-wordmark-svg--topbar"
-              decorative
-            />
+            <KordBrandLogo className="kord-brand-logo kord-brand-logo--topbar" decorative />
           </div>
           <span className={styles.pageTitle} aria-hidden>
             {sectionTitle}

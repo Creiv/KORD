@@ -24,19 +24,6 @@ export function fmtDate(d: string | null | undefined | Date): string {
   return `${pad2(dt.getDate())}-${pad2(dt.getMonth() + 1)}-${dt.getFullYear()}`
 }
 
-export function fmtSize(bytes: number | null | undefined): string {
-  if (!bytes || bytes <= 0) return "—"
-  const u = ["B", "KB", "MB", "GB"]
-  let n = bytes
-  let i = 0
-  while (n >= 1024 && i < u.length - 1) {
-    n /= 1024
-    i += 1
-  }
-  const fixed = i < 2 ? 0 : 1
-  return `${n.toFixed(fixed)} ${u[i]}`
-}
-
 export function trackInfoBadges(
   t: EnrichedTrack,
   labels: { track: string; album: string } = { track: "Track", album: "Album" }

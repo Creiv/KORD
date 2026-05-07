@@ -17,14 +17,6 @@ export function logBinT(barI: number, numBars: number, fLen: number): number {
   return Math.min(top, Math.max(0, v))
 }
 
-export function logBinIndex(
-  barI: number,
-  numBars: number,
-  fLen: number,
-): number {
-  return Math.floor(logBinT(barI, numBars, fLen))
-}
-
 export function sampleSpectrumLinear(
   fv: Uint8Array,
   fLen: number,

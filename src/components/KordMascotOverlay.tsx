@@ -1,6 +1,6 @@
 import { useEffect, useRef, type CSSProperties } from "react";
 import { usePlayer } from "../context/PlayerContext";
-import { KordWordmarkSvg } from "./KordWordmarkSvg";
+import { KordBrandLogo } from "./KordBrandLogo";
 
 export function KordMascotOverlay() {
   const { isPlaying, getAnalyser } = usePlayer();
@@ -45,10 +45,7 @@ export function KordMascotOverlay() {
       style={{ "--kord-beat": "0" } as CSSProperties}
       aria-hidden
     >
-      <KordWordmarkSvg
-        className="kord-wordmark-svg kord-wordmark-svg--viz"
-        decorative
-      />
+      <KordBrandLogo className="kord-brand-logo kord-brand-logo--viz" decorative />
     </div>
   );
 }

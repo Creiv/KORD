@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { KordMascotOverlay } from "./KordMascotOverlay";
 import { usePlayer } from "../context/PlayerContext";
 import { binAmplitude, logBinT, sampleSpectrumLinear } from "../lib/freqMap";
-import type { VizMode } from "../lib/vizMode";
+import type { VizMode } from "../types";
 
 /**
  * Sensibilità: vedi blocchi commentati in testa nella versione precedente; parametri chiave —

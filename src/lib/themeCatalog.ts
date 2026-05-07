@@ -35,7 +35,3 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
   { id: "prism", label: "Prism Engine", group: "dual", bg: "#07090b", section: "#162022", accent: "#a3ff3f", accent2: "#ff4fd8" },
   { id: "custom", label: "Custom", group: "custom", ...DEFAULT_CUSTOM_THEME },
 ];
-
-export function themeLabel(id: ThemeMode): string {
-  return THEME_CATALOG.find((t) => t.id === id)?.label ?? id;
-}

@@ -22,7 +22,7 @@
   min-width: var(--side-w, 56px);
 }
 
-/* Header: logo + toggle button */
+/* Header: marca + toggle — compatto centrato su griglia simmetrica */
 .header {
   display: flex;
   align-items: center;
@@ -34,21 +34,61 @@
 }
 
 .collapsed .header {
-  justify-content: center;
-  padding-left: 0.5rem;
-  padding-right: 0.5rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.25rem;
+  padding-left: 0.4rem;
+  padding-right: 0.4rem;
 }
 
-.wordmark {
+.collapsed .brandSlotCollapsed {
+  grid-column: 2;
+  justify-self: center;
+}
+
+.collapsed .toggleBtn {
+  grid-column: 3;
+  justify-self: end;
+  margin: 0;
+  opacity: 1;
+}
+
+.brandSlotExpanded {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   flex: 1 1 auto;
   min-width: 0;
-  max-height: 28px;
 }
 
-.logoMark {
+.brandImg {
+  flex-shrink: 0;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+.brandImgHeader {
+  height: 26px;
+  width: 26px;
+  object-position: center;
+}
+
+.brandImgCollapsed {
   width: 28px;
   height: 28px;
-  flex-shrink: 0;
+  margin: 0 auto;
+}
+
+.brandText {
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: normal;
+  color: var(--text);
+  line-height: 1;
+  white-space: nowrap;
 }
 
 /* Toggle chevron button */
@@ -94,12 +134,6 @@
 
 .toggleIcFlipped {
   transform: rotate(180deg);
-}
-
-.collapsed .toggleBtn {
-  opacity: 1;
-  margin-left: auto;
-  margin-right: auto;
 }
 
 /* Nav */

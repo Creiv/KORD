@@ -315,11 +315,4 @@ export type AppSection =
   | "settings"
   | "statistics";
 
-export type AppTab =
-  | "library"
-  | "favorites"
-  | "playlists"
-  | "queue"
-  | "recent"
-  | "tools";
 export type RepeatMode = "off" | "all" | "one";

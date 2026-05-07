@@ -9,7 +9,7 @@ const serverFiles = b.files;
 const clientFiles = [
   "package.json",
   "electron/**",
-  "build/icon.png",
+  "public/KORDlogo.png",
   "node_modules/**",
   "!server",
   "!dist",

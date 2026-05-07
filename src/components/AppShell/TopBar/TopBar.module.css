@@ -95,10 +95,10 @@
   }
 }
 
-/* ── Mobile: show section title, hide wordmark ── */
+/* ── Mobile: titolo sezione + logo compatto ── */
 @media (max-width: 768px) {
   .brand {
-    display: none;
+    display: flex;
   }
 
   .pageTitle {

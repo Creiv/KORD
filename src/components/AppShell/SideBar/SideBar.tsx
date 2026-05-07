@@ -1,8 +1,7 @@
 import { memo, useCallback } from "react";
 import { useI18n } from "../../../i18n/useI18n";
 import { KordNavIcon } from "../../KordUiIcons";
-import { KordWordmarkSvg } from "../../KordWordmarkSvg";
-import { KordLogoMarkSvg } from "../../KordWordmarkSvg";
+import { KordBrandLogo } from "../../KordBrandLogo";
 import { AccountBadge } from "../../AccountBadge/AccountBadge";
 import { NAV_DEF } from "../../../lib/routing";
 import type { AppSection } from "../../../types";
@@ -55,17 +54,21 @@ export const SideBar = memo(function SideBar({
     >
       {/* Header: logo + toggle */}
       <div className={styles.header}>
-        {collapsed ? (
-          <KordLogoMarkSvg
-            className={`kord-wordmark-svg ${styles.logoMark}`}
+        <div
+          className={
+            collapsed ? styles.brandSlotCollapsed : styles.brandSlotExpanded
+          }
+        >
+          <KordBrandLogo
+            className={
+              collapsed ? `${styles.brandImg} ${styles.brandImgCollapsed}` : `${styles.brandImg} ${styles.brandImgHeader}`
+            }
             decorative
           />
-        ) : (
-          <KordWordmarkSvg
-            className={`kord-wordmark-svg kord-wordmark-svg--topbar ${styles.wordmark}`}
-            decorative
-          />
-        )}
+          {!collapsed ? (
+            <span className={styles.brandText}>KORD</span>
+          ) : null}
+        </div>
         <button
           type="button"
           className={styles.toggleBtn}

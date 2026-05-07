@@ -4,7 +4,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -16,7 +15,6 @@ import {
 import { readLegacyLocalShuffleMigrated, clearLegacyLocalShuffle } from "../lib/legacyShuffleLocal";
 import { fmtDate } from "../lib/metaFormat";
 import { randomUUID } from "../lib/randomUUID";
-import { bumpTrackExclusionEpoch, setShuffleExclusionSnapshot } from "../lib/randomExclusions";
 import { normalizeShuffleAlbumKeysWithIndex } from "../lib/shuffleExclusionKeys";
 import { DEFAULT_CUSTOM_THEME } from "../lib/themeCatalog";
 import {
@@ -631,14 +629,6 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       clearRetry();
     };
   }, []);
-
-  useLayoutEffect(() => {
-    setShuffleExclusionSnapshot(
-      state.shuffleExcludedAlbumIds,
-      state.shuffleExcludedTrackRelPaths
-    );
-    bumpTrackExclusionEpoch();
-  }, [state.shuffleExcludedAlbumIds, state.shuffleExcludedTrackRelPaths]);
 
   const flushPendingPatch = useCallback(() => {
     if (!ready || !hydratedRef.current || flushingRef.current) return;

@@ -1,46 +1,4 @@
-import type { LibraryIndex, LibraryTrackIndex } from "../types"
-
-let albumIdSnapshot: Set<string> = new Set();
-let relPathSnapshot: Set<string> = new Set();
-
-export function setShuffleExclusionSnapshot(
-  albumIds: readonly string[] | null | undefined,
-  trackRelPaths: readonly string[] | null | undefined
-) {
-  albumIdSnapshot = new Set(albumIds || []);
-  relPathSnapshot = new Set(trackRelPaths || []);
-}
-
-let trackExclusionEpoch = 0
-const TRACK_EXCLUSION_EVT = "kord-track-exclusion-epoch"
-
-export function bumpTrackExclusionEpoch() {
-  trackExclusionEpoch += 1
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(TRACK_EXCLUSION_EVT))
-  }
-}
-
-export function getTrackExclusionEpoch(): number {
-  return trackExclusionEpoch
-}
-
-export function subscribeTrackExclusionEpoch(
-  onStoreChange: () => void
-): () => void {
-  if (typeof window === "undefined") return () => {}
-  const fn = () => onStoreChange()
-  window.addEventListener(TRACK_EXCLUSION_EVT, fn)
-  return () => window.removeEventListener(TRACK_EXCLUSION_EVT, fn)
-}
-
-export function getExcludedTracks(): Set<string> {
-  return new Set(relPathSnapshot)
-}
-
-export function getExcludedAlbums(): Set<string> {
-  return new Set(albumIdSnapshot)
-}
+import type { LibraryIndex, LibraryTrackIndex } from "../types";
 
 export function isTrackAlbumShuffleExcluded(
   t: { albumId?: string; artist: string; album: string },
