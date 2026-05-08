@@ -3181,7 +3181,11 @@
 
 .viz-wrap.is-expanded {
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  /* Allineato al bordo destro della sidebar (portal su body: --side-w su :root da AppShell) */
+  left: var(--side-w, 0px);
   z-index: 19;
   box-sizing: border-box;
   margin: 0;

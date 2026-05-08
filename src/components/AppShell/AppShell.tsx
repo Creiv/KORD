@@ -641,6 +641,10 @@ export function AppShell() {
 
   const sideW = isMobileLayout ? "0px" : sidebarCollapsed ? "56px" : "220px";
 
+  useLayoutEffect(() => {
+    document.documentElement.style.setProperty("--side-w", sideW);
+  }, [sideW]);
+
   return (
     <TrackMetaEditProvider
       genreOptions={libraryGenreOptions}

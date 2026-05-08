@@ -111,7 +111,7 @@ function SettingsView({
       return false;
     }
   });
-  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "2.3.0");
+  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "2.4.0");
 
   useEffect(() => {
     Promise.all([fetchConfig(), fetchAccounts()])
