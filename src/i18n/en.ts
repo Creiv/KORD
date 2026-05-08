@@ -573,8 +573,11 @@ export const EN: Record<string, string> = {
   "tools.catalogTabAlbums": "Albums",
   "tools.catalogBackArtists": "Artists",
   "tools.catalogViewAria": "Catalog view",
-  "tools.catalogBrowseHint":
-    "Bright cards appear in your library; dimmed items are on disk but not in your current library view. Accent border = selected for this account. Use Add / Remove to update your selection.",
+  "tools.catalogSearchAria": "Search artists",
+  "tools.catalogSearchPlaceholder": "Search artists…",
+  "tools.catalogFilterNeedsAttention":
+    "Show only artists not in my selection or missing at least one album on disk",
+  "tools.catalogFilterEmpty": "No artists match these filters.",
   "tools.catalogAddLibrary": "Add to library",
   "tools.catalogRemoveLibrary": "Remove from library",
   "tools.sharedEyebrow": "Multi-account",

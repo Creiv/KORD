@@ -160,6 +160,19 @@ function catalogArtistCoverRel(ar: CatalogArtistEntry): string | null {
   return ar.relAlbums[0]?.relPath ?? null;
 }
 
+/** Artist not in account selection, or at least one catalog album folder missing from local index. */
+function catalogArtistNeedsAttention(
+  ar: CatalogArtistEntry,
+  index: LibraryIndex | null,
+  sel: LibrarySelectionV1 | null,
+) {
+  const notInSelection = !selectionHasArtist(sel, ar.id);
+  const missingAlbum =
+    ar.relAlbums.length > 0 &&
+    ar.relAlbums.some((al) => !indexHasAlbum(index, al.relPath));
+  return notInSelection || missingAlbum;
+}
+
 function initialsCatalog(text: string) {
   return text
     .split(/\s+/)
@@ -420,6 +433,9 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
   const [catalogMsg, setCatalogMsg] = useState<string | null>(null);
   const [catalogArtistDetail, setCatalogArtistDetail] =
     useState<CatalogArtistEntry | null>(null);
+  const [catalogArtistQuery, setCatalogArtistQuery] = useState("");
+  const [catalogArtistOnlyAttention, setCatalogArtistOnlyAttention] =
+    useState(false);
   const [artQuery, setArtQuery] = useState("");
   const [artRes, setArtRes] = useState<ArtworkHit[]>([]);
   const [newDirName, setNewDirName] = useState("");
@@ -1598,6 +1614,27 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
       .finally(() => setArtBusy(false));
   };
 
+  const filteredCatalogArtists = useMemo(() => {
+    if (!catalogData?.artists.length) return [];
+    const q = catalogArtistQuery.trim().toLowerCase();
+    return catalogData.artists.filter((ar) => {
+      if (q && !ar.name.toLowerCase().includes(q)) return false;
+      if (
+        catalogArtistOnlyAttention &&
+        !catalogArtistNeedsAttention(ar, libraryIndex, mySelection)
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [
+    catalogData,
+    catalogArtistQuery,
+    catalogArtistOnlyAttention,
+    libraryIndex,
+    mySelection,
+  ]);
+
   const studioOverviewIcon = useMemo(() => {
     switch (studioPane) {
       case "catalog":
@@ -1678,7 +1715,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
               role="region"
               aria-label={t("tools.catalogTitle")}
             >
-              <div className="studio-panel tools-shared-browse">
+              <div className="studio-panel tools-shared-browse studio-catalog-browse">
                 <p className="subtle sm tools-shared-browse-lead">
                   {t("tools.catalogDesc")}
                 </p>
@@ -1702,9 +1739,28 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                 {mySelection?.includeAll ? (
                   <p className="subtle sm">{t("tools.catalogIncludeAll")}</p>
                 ) : null}
-                <p className="subtle sm studio-catalog-hint">
-                  {t("tools.catalogBrowseHint")}
-                </p>
+                {catalogData && !catalogArtistDetail ? (
+                  <div className="studio-catalog-filters">
+                    <input
+                      type="search"
+                      className="w-full"
+                      value={catalogArtistQuery}
+                      onChange={(e) => setCatalogArtistQuery(e.target.value)}
+                      placeholder={t("tools.catalogSearchPlaceholder")}
+                      aria-label={t("tools.catalogSearchAria")}
+                    />
+                    <label className="studio-catalog-filters__check">
+                      <input
+                        type="checkbox"
+                        checked={catalogArtistOnlyAttention}
+                        onChange={(e) =>
+                          setCatalogArtistOnlyAttention(e.target.checked)
+                        }
+                      />
+                      <span>{t("tools.catalogFilterNeedsAttention")}</span>
+                    </label>
+                  </div>
+                ) : null}
                 {catalogData ? (
                   <>
                     {catalogArtistDetail ? (
@@ -1810,93 +1866,119 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                         </div>
                       </>
                     ) : (
-                      <div className="studio-catalog-grid">
-                        {catalogData.artists.map((ar) => {
-                          const coverRel = catalogArtistCoverRel(ar);
-                          const inIndex = indexHasArtist(libraryIndex, ar.id);
-                          const sel = selectionHasArtist(mySelection, ar.id);
-                          const aU =
-                            ar.albumCount === 1
-                              ? t("library.unitAlbum")
-                              : t("library.unitAlbumPlural");
-                          const trU =
-                            ar.trackCount === 1
-                              ? t("library.unitTrack")
-                              : t("library.unitTrackPlural");
-                          return (
-                            <div
-                              key={ar.id}
-                              role="button"
-                              tabIndex={0}
-                              className={`studio-catalog-card artist-card${
-                                inIndex ? "" : " studio-catalog-card--dim"
-                              }${sel ? " studio-catalog-card--selected" : ""}`}
-                              onClick={() => openCatalogArtist(ar.id)}
-                              onKeyDown={(event) => {
-                                if (event.key === "Enter" || event.key === " ") {
-                                  event.preventDefault();
-                                  openCatalogArtist(ar.id);
-                                }
-                              }}
-                            >
-                              <div className="studio-catalog-card__media" aria-hidden>
-                                {coverRel ? (
-                                  <CoverImg
-                                    className="artist-card__cover studio-catalog-card__img"
-                                    src={coverUrlForAlbumRelPath(coverRel)}
-                                    alt=""
-                                    fallbackClassName="artist-card__badge"
-                                    fallback={initialsCatalog(ar.name)}
-                                  />
-                                ) : (
-                                  <div className="artist-card__badge">
-                                    {initialsCatalog(ar.name)}
+                      <>
+                        {filteredCatalogArtists.length === 0 &&
+                        catalogData.artists.length > 0 ? (
+                          <p className="subtle sm studio-catalog-filter-empty">
+                            {t("tools.catalogFilterEmpty")}
+                          </p>
+                        ) : (
+                          <div className="studio-catalog-grid">
+                            {filteredCatalogArtists.map((ar) => {
+                              const coverRel = catalogArtistCoverRel(ar);
+                              const inIndex = indexHasArtist(
+                                libraryIndex,
+                                ar.id,
+                              );
+                              const sel = selectionHasArtist(
+                                mySelection,
+                                ar.id,
+                              );
+                              const aU =
+                                ar.albumCount === 1
+                                  ? t("library.unitAlbum")
+                                  : t("library.unitAlbumPlural");
+                              const trU =
+                                ar.trackCount === 1
+                                  ? t("library.unitTrack")
+                                  : t("library.unitTrackPlural");
+                              return (
+                                <div
+                                  key={ar.id}
+                                  role="button"
+                                  tabIndex={0}
+                                  className={`studio-catalog-card artist-card${
+                                    inIndex ? "" : " studio-catalog-card--dim"
+                                  }${
+                                    sel ? " studio-catalog-card--selected" : ""
+                                  }`}
+                                  onClick={() => openCatalogArtist(ar.id)}
+                                  onKeyDown={(event) => {
+                                    if (
+                                      event.key === "Enter" ||
+                                      event.key === " "
+                                    ) {
+                                      event.preventDefault();
+                                      openCatalogArtist(ar.id);
+                                    }
+                                  }}
+                                >
+                                  <div
+                                    className="studio-catalog-card__media"
+                                    aria-hidden
+                                  >
+                                    {coverRel ? (
+                                      <CoverImg
+                                        className="artist-card__cover studio-catalog-card__img"
+                                        src={coverUrlForAlbumRelPath(coverRel)}
+                                        alt=""
+                                        fallbackClassName="artist-card__badge"
+                                        fallback={initialsCatalog(ar.name)}
+                                      />
+                                    ) : (
+                                      <div className="artist-card__badge">
+                                        {initialsCatalog(ar.name)}
+                                      </div>
+                                    )}
                                   </div>
-                                )}
-                              </div>
-                              <div className="studio-catalog-card__body">
-                                <div className="artist-card__title">
-                                  {ar.name}
+                                  <div className="studio-catalog-card__body">
+                                    <div className="artist-card__title">
+                                      {ar.name}
+                                    </div>
+                                    <div className="artist-card__meta">
+                                      {ar.albumCount} {aU} · {ar.trackCount}{" "}
+                                      {trU}
+                                    </div>
+                                    <div className="studio-catalog-card__actions">
+                                      {sel ? (
+                                        <button
+                                          type="button"
+                                          className="btn danger sm"
+                                          disabled={
+                                            catalogBusy ||
+                                            mySelection?.includeAll
+                                          }
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            removeArtistCatalog(ar.id);
+                                          }}
+                                        >
+                                          {t("tools.catalogRemoveLibrary")}
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          className="btn sm"
+                                          disabled={
+                                            catalogBusy ||
+                                            mySelection?.includeAll
+                                          }
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            addArtistCatalog(ar.id);
+                                          }}
+                                        >
+                                          {t("tools.catalogAddLibrary")}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="artist-card__meta">
-                                  {ar.albumCount} {aU} · {ar.trackCount} {trU}
-                                </div>
-                                <div className="studio-catalog-card__actions">
-                                  {sel ? (
-                                    <button
-                                      type="button"
-                                      className="btn danger sm"
-                                      disabled={
-                                        catalogBusy || mySelection?.includeAll
-                                      }
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        removeArtistCatalog(ar.id);
-                                      }}
-                                    >
-                                      {t("tools.catalogRemoveLibrary")}
-                                    </button>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      className="btn sm"
-                                      disabled={
-                                        catalogBusy || mySelection?.includeAll
-                                      }
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        addArtistCatalog(ar.id);
-                                      }}
-                                    >
-                                      {t("tools.catalogAddLibrary")}
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
                     )}
                   </>
                 ) : null}

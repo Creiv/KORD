@@ -579,8 +579,11 @@ export const IT: Record<string, string> = {
   "tools.catalogTabAlbums": "Album",
   "tools.catalogBackArtists": "Artisti",
   "tools.catalogViewAria": "Vista catalogo",
-  "tools.catalogBrowseHint":
-    "Le card luminose compaiono nella tua libreria; quelle attenuate sono sul disco ma non nella vista attuale. Bordo in evidenza = selezionato per questo account. Usa Aggiungi / Rimuovi per aggiornare la selezione.",
+  "tools.catalogSearchAria": "Cerca artisti",
+  "tools.catalogSearchPlaceholder": "Cerca artisti…",
+  "tools.catalogFilterNeedsAttention":
+    "Mostra solo artisti non nella mia selezione o senza tutti gli album sul disco",
+  "tools.catalogFilterEmpty": "Nessun artista corrisponde a questi filtri.",
   "tools.catalogAddLibrary": "Aggiungi alla libreria",
   "tools.catalogRemoveLibrary": "Rimuovi dalla libreria",
   "tools.sharedEyebrow": "Multi-account",
