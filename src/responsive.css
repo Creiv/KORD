@@ -34,19 +34,6 @@ body,
   .album-hero {
     padding: 1rem 1.05rem;
   }
-
-  .album-grid {
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
-  }
-
-  .album-grid.compact {
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 176px), 1fr));
-  }
-
-  .artist-grid,
-  .album-grid--artist {
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr));
-  }
 }
 
 /* --- Nav in alto: scroll orizzontale confortevole / snap --- */
@@ -308,36 +295,6 @@ body,
   .listen-stage {
     border-radius: var(--radius-lg);
     padding: 0.8rem 0.9rem;
-  }
-
-  .album-grid,
-  .album-grid.compact {
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 142px), 1fr));
-    gap: 0.65rem;
-  }
-
-  .artist-grid,
-  .album-grid--artist {
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 132px), 1fr));
-  }
-
-  .library-view .artist-grid > .artist-card,
-  .library-view .album-grid--artist > .album-card {
-    min-width: 0;
-    width: 100%;
-    max-width: 100%;
-  }
-
-  .library-view .artist-card__cover,
-  .library-view .artist-card__badge {
-    width: min(168px, 100%);
-  }
-
-  /* Dashboard: card “aggiornati” senza min-width 200px che forza scroll */
-  .album-grid.compact.dashboard-updated-albums > .album-card {
-    min-width: 0;
-    min-height: 0;
-    max-width: 100%;
   }
 
   .studio-action-row {

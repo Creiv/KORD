@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 
 const MIN_CARD_PX = 200;
-const DASHBOARD_UPDATED_ALBUMS_MAX = 24;
+export const DASHBOARD_UPDATED_ALBUMS_MAX = 24;
 const VISIBLE_ROWS = 2;
 const GAP_FALLBACK_PX = 15;
 

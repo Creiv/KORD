@@ -35,7 +35,11 @@ import type {
   RemoteAccessState,
 } from "../lib/api";
 import { ThemePicker } from "../components/ThemePicker";
-import { APP_LOCALES, type AppLocale, type AppSection } from "../types";
+import {
+  APP_LOCALES,
+  type AppLocale,
+  type AppSection,
+} from "../types";
 
 function SettingsView({
   onOpenSection,

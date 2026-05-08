@@ -90,6 +90,10 @@ beforeAll(() => {
       value: vi.fn(),
     })
   }
+
+  if (typeof Element !== "undefined") {
+    Element.prototype.scrollIntoView = vi.fn()
+  }
 })
 
 afterEach(() => {

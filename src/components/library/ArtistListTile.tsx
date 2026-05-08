@@ -6,26 +6,27 @@ import {
   LibraryArtistFavoriteChips,
   LibraryArtistMetaChips,
 } from "../AppSharedUi";
+import { UiPerson } from "../KordUiIcons";
 import { coverUrlForAlbumRelPath } from "../../lib/api";
 import { initials } from "../../lib/initials";
 import { useI18n } from "../../i18n/useI18n";
 import type { LibraryArtistIndex, LibraryIndex } from "../../types";
 
-interface ArtistCardProps {
+export type ArtistListTileProps = {
   artist: LibraryArtistIndex;
   albumCount: number;
   coverAlbumRelPath?: string | null;
   index: LibraryIndex;
   onOpen: () => void;
-}
+};
 
-export const ArtistCard = memo(function ArtistCard({
+export const ArtistListTile = memo(function ArtistListTile({
   artist,
   albumCount,
   coverAlbumRelPath,
   index: libraryIndex,
   onOpen,
-}: ArtistCardProps) {
+}: ArtistListTileProps) {
   const { t } = useI18n();
   const aU =
     albumCount === 1 ? t("library.unitAlbum") : t("library.unitAlbumPlural");
@@ -35,21 +36,30 @@ export const ArtistCard = memo(function ArtistCard({
       : t("library.unitTrackPlural");
 
   return (
-    <button type="button" className="artist-card" onClick={onOpen}>
-      {coverAlbumRelPath ? (
-        <CoverImg
-          className="artist-card__cover"
-          src={coverUrlForAlbumRelPath(coverAlbumRelPath)}
-          alt=""
-          fallbackClassName="artist-card__badge"
-          fallback={initials(artist.name)}
-        />
-      ) : (
-        <div className="artist-card__badge">{initials(artist.name)}</div>
-      )}
-      <div className="artist-card__text">
-        <div className="artist-card__title">{artist.name}</div>
-        <div className="artist-card__meta">
+    <button
+      type="button"
+      className="library-list-tile library-list-tile--artist"
+      onClick={onOpen}
+    >
+      <div className="library-list-tile__media">
+        {coverAlbumRelPath ? (
+          <CoverImg
+            className="library-list-tile__cover"
+            src={coverUrlForAlbumRelPath(coverAlbumRelPath)}
+            alt=""
+            fallbackClassName="library-list-tile__badge"
+            fallback={initials(artist.name)}
+          />
+        ) : (
+          <div className="library-list-tile__badge">{initials(artist.name)}</div>
+        )}
+      </div>
+      <div className="library-list-tile__body">
+        <div className="library-list-tile__title-row">
+          <UiPerson className="library-list-tile__kind-ic" aria-hidden />
+          <div className="library-list-tile__title">{artist.name}</div>
+        </div>
+        <div className="library-list-tile__meta">
           {albumCount} {aU} · {artist.trackCount} {trU}
         </div>
         <DraggableBadgeCluster>

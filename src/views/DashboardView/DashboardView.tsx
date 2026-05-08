@@ -3,18 +3,14 @@ import { usePlayer } from "../../context/PlayerContext";
 import { useUserState } from "../../context/UserStateContext";
 import { useLibraryCardPlayback } from "../../hooks/useLibraryCardPlayback";
 import { useMatchMedia } from "../../hooks/useMatchMedia";
-import { useDashboardUpdatedAlbumsGrid } from "../../hooks/useDashboardUpdatedAlbumsGrid";
+import {
+  DASHBOARD_UPDATED_ALBUMS_MAX,
+  useDashboardUpdatedAlbumsGrid,
+} from "../../hooks/useDashboardUpdatedAlbumsGrid";
 import { useDashboardSessionQueueVisibleCount } from "../../hooks/useDashboardSessionQueueVisibleCount";
 import { useI18n } from "../../i18n/useI18n";
-import {
-  AlbumCardTracksMetaLine,
-  AlbumCover,
-  DraggableBadgeCluster,
-  LibraryAlbumExcludeChips,
-  LibraryAlbumFavoriteChips,
-  LibraryAlbumMetaChips,
-  TrackListRow,
-} from "../../components/AppSharedUi";
+import { TrackListRow } from "../../components/AppSharedUi";
+import { AlbumListTile } from "../../components/library";
 import { SectionHeadLead } from "../../components/SectionHeadLead";
 import {
   UiAutorenew,
@@ -52,8 +48,7 @@ export default function DashboardView({
   );
   const {
     ref: updatedAlbumsGridRef,
-    cols: updatedGridCols,
-    maxItems: updatedAlbumsMax,
+    maxItems: updatedAlbumsBaseMax,
   } = useDashboardUpdatedAlbumsGrid();
   const favoriteTracksSorted = useMemo(
     () =>
@@ -67,6 +62,14 @@ export default function DashboardView({
   );
 
   const isDashboardMobileLayout = useMatchMedia("(max-width: 900px)");
+  const updatedAlbumsMax = useMemo(
+    () =>
+      Math.min(
+        DASHBOARD_UPDATED_ALBUMS_MAX,
+        updatedAlbumsBaseMax + (isDashboardMobileLayout ? 1 : 2)
+      ),
+    [updatedAlbumsBaseMax, isDashboardMobileLayout]
+  );
   const continueListeningList = p.queue;
   const { bodyRef: sessionBodyRef, visibleCount: sessionVisibleCount } =
     useDashboardSessionQueueVisibleCount(
@@ -215,31 +218,17 @@ export default function DashboardView({
           </div>
           <div
             ref={updatedAlbumsGridRef}
-            className="album-grid compact dashboard-updated-albums"
-            style={{
-              gridTemplateColumns: `repeat(${updatedGridCols}, minmax(200px, 1fr))`,
-            }}
+            className="library-overview-cols library-overview-cols--dashboard"
           >
             {dashboard.recentlyUpdatedAlbums
               .slice(0, updatedAlbumsMax)
               .map((album) => (
-                <button
-                  type="button"
+                <AlbumListTile
                   key={album.id}
-                  className="album-card"
-                  onClick={() => onOpenAlbum(album.artistId, album.name)}
-                >
-                  <AlbumCover album={album} compact />
-                  <div className="album-card__text">
-                    <div className="album-card__title">{album.name}</div>
-                    <AlbumCardTracksMetaLine album={album} />
-                    <DraggableBadgeCluster>
-                      <LibraryAlbumMetaChips album={album} />
-                      <LibraryAlbumFavoriteChips album={album} />
-                      <LibraryAlbumExcludeChips album={album} />
-                    </DraggableBadgeCluster>
-                  </div>
-                </button>
+                  album={album}
+                  showArtistLine
+                  onOpen={() => onOpenAlbum(album.artistId, album.name)}
+                />
               ))}
           </div>
         </section>

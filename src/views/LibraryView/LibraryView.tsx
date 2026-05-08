@@ -15,19 +15,16 @@ import { useOpenAlbumMetaEdit } from "../../components/AlbumMetaEditor";
 import { TrackMetaEditGlyph } from "../../components/TrackMetaEditor";
 import { AlbumTracklistExpectedMeta } from "../../components/AlbumTracklistExpectedMeta";
 import {
-  AlbumCardTracksMetaLine,
   AlbumCover,
-  DraggableBadgeCluster,
   LibraryAlbumExcludeChips,
   LibraryAlbumFavoriteChips,
   LibraryAlbumMetaChips,
   TrackListRow,
 } from "../../components/AppSharedUi";
+import { AlbumListTile, ArtistListTile, GenreListTile } from "../../components/library";
 import { SectionHeadLead } from "../../components/SectionHeadLead";
 import { ExcludeShuffleIcon } from "../../components/ExcludeShuffleIcon";
 import { TrackMoodGlyph } from "../../components/TrackMoodGlyph";
-import { ArtistCard } from "../../components/ArtistCard/ArtistCard";
-import { GenreCard } from "../../components/GenreCard/GenreCard";
 import {
   UiAdd,
   UiAlbumIcon,
@@ -705,59 +702,63 @@ export default function LibraryView({
             <span className="library-filter-panel__eyebrow">
               {t("library.filterBarSearch")}
             </span>
-            <div
-              className="segmented segmented--filter"
-              role="group"
-              aria-label={t("library.filterResultsAria")}
-            >
-              {(
-                [
-                  {
-                    id: "all" as const,
-                    labelKey: "library.filterAll",
-                    Ic: UiViewModule,
-                  },
-                  {
-                    id: "artists" as const,
-                    labelKey: "library.filterArtists",
-                    Ic: UiPerson,
-                  },
-                  {
-                    id: "albums" as const,
-                    labelKey: "library.filterAlbums",
-                    Ic: UiAlbumIcon,
-                  },
-                  {
-                    id: "tracks" as const,
-                    labelKey: "library.filterTracks",
-                    Ic: UiMusicNote,
-                  },
-                ] as const
-              ).map(({ id, labelKey, Ic }) => (
-                <button
-                  type="button"
-                  key={id}
-                  className={mode === id ? "is-on" : ""}
-                  onClick={() => setMode(id)}
-                >
-                  <span className="segmented__btn-inner">
-                    <Ic className="segmented__ic" aria-hidden />
-                    <span>{t(labelKey)}</span>
-                  </span>
-                </button>
-              ))}
+            <div className="library-search-filter-row">
+              <div
+                className="segmented segmented--filter"
+                role="group"
+                aria-label={t("library.filterResultsAria")}
+              >
+                {(
+                  [
+                    {
+                      id: "all" as const,
+                      labelKey: "library.filterAll",
+                      Ic: UiViewModule,
+                    },
+                    {
+                      id: "artists" as const,
+                      labelKey: "library.filterArtists",
+                      Ic: UiPerson,
+                    },
+                    {
+                      id: "albums" as const,
+                      labelKey: "library.filterAlbums",
+                      Ic: UiAlbumIcon,
+                    },
+                    {
+                      id: "tracks" as const,
+                      labelKey: "library.filterTracks",
+                      Ic: UiMusicNote,
+                    },
+                  ] as const
+                ).map(({ id, labelKey, Ic }) => (
+                  <button
+                    type="button"
+                    key={id}
+                    className={mode === id ? "is-on" : ""}
+                    onClick={() => setMode(id)}
+                  >
+                    <span className="segmented__btn-inner">
+                      <Ic className="segmented__ic" aria-hidden />
+                      <span>{t(labelKey)}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           {(mode === "all" || mode === "artists") && (
             <div className="subsection">
               <h3>{t("library.subArtists")}</h3>
-              <div className="artist-grid">
+              <div className="library-overview-cols">
                 {searchResults.artists.slice(0, 12).map((item) => (
-                  <ArtistCard
+                  <ArtistListTile
                     key={item.id}
                     artist={item}
                     albumCount={item.albums.length}
-                    coverAlbumRelPath={artistCoverById.get(item.id) ?? null}
+                    coverAlbumRelPath={
+                      artistCoverById.get(item.id) ?? null
+                    }
                     index={index}
                     onOpen={() => openSearchArtist(item.id)}
                   />
@@ -768,26 +769,16 @@ export default function LibraryView({
           {(mode === "all" || mode === "albums") && (
             <div className="subsection">
               <h3>{t("library.subAlbums")}</h3>
-              <div className="album-grid album-grid--artist">
+              <div className="library-overview-cols">
                 {searchResults.albums.slice(0, 12).map((item) => (
-                  <button
-                    type="button"
+                  <AlbumListTile
                     key={item.id}
-                    className="album-card"
-                    onClick={() => openSearchAlbum(item.artistId, item.name)}
-                  >
-                    <AlbumCover album={item} compact />
-                    <div className="album-card__text">
-                      <div className="album-card__title">{item.name}</div>
-                      <div className="album-card__meta">{item.artist}</div>
-                      <AlbumCardTracksMetaLine album={item} />
-                      <DraggableBadgeCluster>
-                        <LibraryAlbumMetaChips album={item} />
-                        <LibraryAlbumFavoriteChips album={item} />
-                        <LibraryAlbumExcludeChips album={item} />
-                      </DraggableBadgeCluster>
-                    </div>
-                  </button>
+                    album={item}
+                    showArtistLine
+                    onOpen={() =>
+                      openSearchAlbum(item.artistId, item.name)
+                    }
+                  />
                 ))}
               </div>
             </div>
@@ -1039,7 +1030,7 @@ export default function LibraryView({
                     : t("library.unitAlbumFoundPlural")}
                 </h2>
               </div>
-              <div className="section-head__tools">
+              <div className="section-head__tools library-overview-toolbar">
                 <div
                   className="segmented segmented--joined"
                   role="group"
@@ -1085,25 +1076,13 @@ export default function LibraryView({
               </div>
             </div>
           </div>
-          <div className="album-grid album-grid--artist">
+          <div className="library-overview-cols">
             {artistAlbums.map((item) => (
-              <button
-                type="button"
+              <AlbumListTile
                 key={item.id}
-                className="album-card"
-                onClick={() => onOpenAlbum(artist.id, item.name)}
-              >
-                <AlbumCover album={item} compact />
-                <div className="album-card__text">
-                  <div className="album-card__title">{item.name}</div>
-                  <AlbumCardTracksMetaLine album={item} />
-                  <DraggableBadgeCluster>
-                    <LibraryAlbumMetaChips album={item} />
-                    <LibraryAlbumFavoriteChips album={item} />
-                    <LibraryAlbumExcludeChips album={item} />
-                  </DraggableBadgeCluster>
-                </div>
-              </button>
+                album={item}
+                onOpen={() => onOpenAlbum(artist.id, item.name)}
+              />
             ))}
           </div>
         </section>
@@ -1346,7 +1325,7 @@ export default function LibraryView({
                       : t("library.unitGenrePlural")}
                   </h2>
                 </div>
-                <div className="section-head__tools">
+                <div className="section-head__tools library-overview-toolbar">
                   <div
                     className="segmented segmented--joined"
                     role="group"
@@ -1551,13 +1530,15 @@ export default function LibraryView({
             )}
           </div>
         ) : libBrowse === "artists" ? (
-          <div className="artist-grid">
+          <div className="library-overview-cols">
             {sortedOverviewArtists.map((item) => (
-              <ArtistCard
+              <ArtistListTile
                 key={item.id}
                 artist={item}
                 albumCount={item.albums.length}
-                coverAlbumRelPath={artistCoverById.get(item.id) ?? null}
+                coverAlbumRelPath={
+                  artistCoverById.get(item.id) ?? null
+                }
                 index={index}
                 onOpen={() => onOpenArtist(item.id)}
               />
@@ -1565,9 +1546,9 @@ export default function LibraryView({
           </div>
         ) : (
           <div className="genre-browse-wrap">
-            <div className="artist-grid">
+            <div className="library-overview-cols">
               {genreIndex.noGenreCount > 0 ? (
-                <GenreCard
+                <GenreListTile
                   genreKey="__none__"
                   title={t("library.genreCardNoGenre")}
                   albumCount={
@@ -1581,7 +1562,7 @@ export default function LibraryView({
                 />
               ) : null}
               {sortedGenreBrowseList.map((g) => (
-                <GenreCard
+                <GenreListTile
                   key={g.key}
                   genreKey={g.key}
                   title={g.label}

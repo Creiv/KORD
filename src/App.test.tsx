@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 import App from "./App";
@@ -197,10 +197,20 @@ describe("App", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Library" }));
 
-    const artistInGrid = (await screen.findAllByText("Artist One")).find((el) =>
-      el.closest(".artist-card")
-    );
-    expect(artistInGrid).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Library" })).toHaveAttribute(
+        "aria-current",
+        "page"
+      );
+    });
+
+    expect(screen.getAllByText("Library overview").length).toBeGreaterThan(0);
+    await waitFor(() => {
+      const inList = screen
+        .getAllByText("Artist One")
+        .some((el) => Boolean(el.closest(".library-list-tile")));
+      expect(inList).toBe(true);
+    });
     expect(
       screen.getByRole("button", { name: "Random all" })
     ).toBeInTheDocument();
@@ -218,7 +228,7 @@ describe("App", () => {
 
     expect(await screen.findByText("Album One")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Play album" })
+      await screen.findByRole("button", { name: "Play album" })
     ).toBeInTheDocument();
   });
 });

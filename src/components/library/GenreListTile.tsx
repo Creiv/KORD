@@ -1,28 +1,27 @@
 import { memo, useState } from "react";
-import { CoverImg } from "../CoverImg";
 import {
   DraggableBadgeCluster,
   LibraryGenreExcludeChips,
   LibraryGenreFavoriteChips,
   LibraryGenreMetaChips,
 } from "../AppSharedUi";
+import { CoverImg } from "../CoverImg";
 import { coverUrlForAlbumRelPath } from "../../lib/api";
 import { useI18n } from "../../i18n/useI18n";
 import type { LibraryIndex } from "../../types";
-import styles from "./GenreCard.module.css";
 
-function GenreCoverSlot({ relPath }: { relPath: string | null }) {
+function MiniSlot({ relPath }: { relPath: string | null }) {
   const [failed, setFailed] = useState(false);
   if (!relPath || failed) {
     return (
       <div
-        className={`${styles.slot} ${styles.slotEmpty}`}
+        className="library-list-tile__genre-slot library-list-tile__genre-slot--empty"
         aria-hidden
       />
     );
   }
   return (
-    <div className={styles.slot}>
+    <div className="library-list-tile__genre-slot">
       <CoverImg
         src={coverUrlForAlbumRelPath(relPath)}
         alt=""
@@ -32,7 +31,7 @@ function GenreCoverSlot({ relPath }: { relPath: string | null }) {
   );
 }
 
-interface GenreCardProps {
+export type GenreListTileProps = {
   genreKey: string;
   title: string;
   albumCount: number;
@@ -41,9 +40,9 @@ interface GenreCardProps {
   index: LibraryIndex;
   muted?: boolean;
   onOpen: () => void;
-}
+};
 
-export const GenreCard = memo(function GenreCard({
+export const GenreListTile = memo(function GenreListTile({
   genreKey,
   title,
   albumCount,
@@ -52,7 +51,7 @@ export const GenreCard = memo(function GenreCard({
   index: libraryIndex,
   muted,
   onOpen,
-}: GenreCardProps) {
+}: GenreListTileProps) {
   const { t } = useI18n();
   const quad = [...albumSlots];
   while (quad.length < 4) quad.push(null);
@@ -65,17 +64,19 @@ export const GenreCard = memo(function GenreCard({
   return (
     <button
       type="button"
-      className={`artist-card${muted ? " artist-card--genre-muted" : ""}`}
+      className={`library-list-tile library-list-tile--genre${
+        muted ? " library-list-tile--genre-muted" : ""
+      }`}
       onClick={onOpen}
     >
-      <div className="genre-quad" aria-hidden>
+      <div className="library-list-tile__genre-quad" aria-hidden>
         {slots.map((rel, i) => (
-          <GenreCoverSlot key={`${genreKey}-${i}`} relPath={rel} />
+          <MiniSlot key={`${genreKey}-${i}`} relPath={rel} />
         ))}
       </div>
-      <div className="artist-card__text">
-        <div className="artist-card__title">{title}</div>
-        <div className="artist-card__meta">
+      <div className="library-list-tile__body">
+        <div className="library-list-tile__title">{title}</div>
+        <div className="library-list-tile__meta">
           {albumCount} {aU} · {trackCount} {trU}
         </div>
         <DraggableBadgeCluster>
