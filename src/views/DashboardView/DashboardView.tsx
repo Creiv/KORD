@@ -3,10 +3,7 @@ import { usePlayer } from "../../context/PlayerContext";
 import { useUserState } from "../../context/UserStateContext";
 import { useLibraryCardPlayback } from "../../hooks/useLibraryCardPlayback";
 import { useMatchMedia } from "../../hooks/useMatchMedia";
-import {
-  DASHBOARD_UPDATED_ALBUMS_MAX,
-  useDashboardUpdatedAlbumsGrid,
-} from "../../hooks/useDashboardUpdatedAlbumsGrid";
+import { useDashboardUpdatedAlbumsGrid } from "../../hooks/useDashboardUpdatedAlbumsGrid";
 import { useDashboardSessionQueueVisibleCount } from "../../hooks/useDashboardSessionQueueVisibleCount";
 import { useI18n } from "../../i18n/useI18n";
 import { TrackListRow } from "../../components/AppSharedUi";
@@ -46,10 +43,8 @@ export default function DashboardView({
     () => new Set(user.state.shuffleExcludedTrackRelPaths),
     [user.state.shuffleExcludedTrackRelPaths]
   );
-  const {
-    ref: updatedAlbumsGridRef,
-    maxItems: updatedAlbumsBaseMax,
-  } = useDashboardUpdatedAlbumsGrid();
+  const { ref: updatedAlbumsGridRef, maxItems: updatedAlbumsMax } =
+    useDashboardUpdatedAlbumsGrid();
   const favoriteTracksSorted = useMemo(
     () =>
       [...(dashboard?.favoriteTracks || [])].sort(
@@ -62,14 +57,6 @@ export default function DashboardView({
   );
 
   const isDashboardMobileLayout = useMatchMedia("(max-width: 900px)");
-  const updatedAlbumsMax = useMemo(
-    () =>
-      Math.min(
-        DASHBOARD_UPDATED_ALBUMS_MAX,
-        updatedAlbumsBaseMax + (isDashboardMobileLayout ? 1 : 2)
-      ),
-    [updatedAlbumsBaseMax, isDashboardMobileLayout]
-  );
   const continueListeningList = p.queue;
   const { bodyRef: sessionBodyRef, visibleCount: sessionVisibleCount } =
     useDashboardSessionQueueVisibleCount(

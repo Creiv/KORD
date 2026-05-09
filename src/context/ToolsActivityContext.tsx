@@ -22,6 +22,9 @@ type Ctx = {
   setDlBusy: Dispatch<SetStateAction<boolean>>
   dlProg: Prog
   setDlProg: Dispatch<SetStateAction<Prog>>
+  /** Progress brani nell’album corrente (batch multi-album); persiste tra le viste come dlProg. */
+  dlTrackProg: Prog
+  setDlTrackProg: Dispatch<SetStateAction<Prog>>
   mkBusy: boolean
   setMkBusy: Dispatch<SetStateAction<boolean>>
   artBusy: boolean
@@ -57,6 +60,7 @@ export function ToolsActivityProvider({ children }: { children: ReactNode }) {
   const [metaLog, setMetaLog] = useState("")
   const [dlBusy, setDlBusy] = useState(false)
   const [dlProg, setDlProg] = useState<Prog>(null)
+  const [dlTrackProg, setDlTrackProg] = useState<Prog>(null)
   const [mkBusy, setMkBusy] = useState(false)
   const [artBusy, setArtBusy] = useState(false)
   const [metaBusy, setMetaBusy] = useState(false)
@@ -106,6 +110,8 @@ export function ToolsActivityProvider({ children }: { children: ReactNode }) {
       setDlBusy,
       dlProg,
       setDlProg,
+      dlTrackProg,
+      setDlTrackProg,
       mkBusy,
       setMkBusy,
       artBusy,
@@ -138,6 +144,7 @@ export function ToolsActivityProvider({ children }: { children: ReactNode }) {
       metaLog,
       dlBusy,
       dlProg,
+      dlTrackProg,
       mkBusy,
       artBusy,
       metaBusy,

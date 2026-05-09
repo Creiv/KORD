@@ -5,7 +5,6 @@ import type { LibraryIndex, LibraryTrackIndex } from "../types";
 import { parseTrackGenres } from "../lib/genres";
 import { buildRandomArtistCoverMap } from "../lib/artistCover";
 import { coverUrlForAlbumRelPath, coverUrlForTrackRelPath } from "../lib/api";
-import { formatDurationMs } from "../lib/duration";
 import { versionedUrl } from "../lib/versionedUrl";
 import { CoverImg } from "../components/CoverImg";
 import {
@@ -253,7 +252,6 @@ function StatisticsView({
           ) : (
             <ol className="statistics-rank-list">
               {data.topTracks.map((row, i) => {
-                const dur = formatDurationMs(row.tr.meta?.durationMs);
                 return (
                   <li key={row.tr.relPath}>
                     <button
@@ -286,22 +284,6 @@ function StatisticsView({
                         </div>
                       </div>
                       <div className="statistics-rank-row__plays">
-                        {dur ? (
-                          <>
-                            <span
-                              className="statistics-rank-row__dur"
-                              aria-label={t("trackRow.duration", { d: dur })}
-                            >
-                              {dur}
-                            </span>
-                            <span
-                              className="statistics-rank-row__dur-sep"
-                              aria-hidden
-                            >
-                              ·
-                            </span>
-                          </>
-                        ) : null}
                         {formatMetricValue(row.n)}
                       </div>
                     </button>

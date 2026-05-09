@@ -810,144 +810,158 @@ export default function LibraryView({
     return (
       <div className="view-stack library-view">
         <section className="album-hero">
-          <AlbumCover album={album} />
           <div className="album-hero__body">
-            <div className="album-hero__head">
-              <div className="section-head section-head--page-toolbar album-hero__toprow">
-                <div className="page-toolbar__lead page-toolbar__lead--backrow">
-                  <button
-                    type="button"
-                    className="page-toolbar-back-ic"
-                    onClick={() => onOpenArtist(artist.id)}
-                    aria-label={t("library.backToArtistAria", {
-                      name: artist.name,
-                    })}
-                  >
-                    <UiChevronLeft
-                      aria-hidden
-                      className="page-toolbar-back-ic__ic"
-                    />
-                  </button>
-                  <div className="page-toolbar__textcol album-hero__toolbar-text">
-                    <p className="eyebrow">{t("library.albumDetailEyebrow")}</p>
-                    <div className="lib-badge-cluster lib-badge-cluster--toolbar-left">
-                      <LibraryAlbumMetaChips album={album} variant="hero" />
-                      <LibraryAlbumFavoriteChips album={album} variant="hero" />
-                      <LibraryAlbumExcludeChips album={album} variant="hero" />
+            <div className="album-hero__top-band">
+              <AlbumCover album={album} />
+              <div className="album-hero__top-right">
+                <div className="section-head section-head--page-toolbar album-hero__toprow">
+                  <div className="page-toolbar__lead page-toolbar__lead--backrow">
+                    <button
+                      type="button"
+                      className="page-toolbar-back-ic"
+                      onClick={() => onOpenArtist(artist.id)}
+                      aria-label={t("library.backToArtistAria", {
+                        name: artist.name,
+                      })}
+                    >
+                      <UiChevronLeft
+                        aria-hidden
+                        className="page-toolbar-back-ic__ic"
+                      />
+                    </button>
+                    <div className="page-toolbar__textcol album-hero__toolbar-text">
+                      <p className="eyebrow">
+                        {t("library.albumDetailEyebrow")}
+                      </p>
+                      <div className="lib-badge-cluster lib-badge-cluster--toolbar-left">
+                        <LibraryAlbumMetaChips album={album} variant="hero" />
+                        <LibraryAlbumFavoriteChips
+                          album={album}
+                          variant="hero"
+                        />
+                        <LibraryAlbumExcludeChips
+                          album={album}
+                          variant="hero"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="section-head__tools">
+                    <div className="hero-card__actions">
+                      <button
+                        type="button"
+                        className="primary-btn"
+                        onClick={() =>
+                          p.playTrack(albumTracks[0], albumTracks, 0)
+                        }
+                      >
+                        {t("library.playAlbum")}
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-btn ghost-btn--icon-only"
+                        onClick={() => openAlbumMetaEdit(album)}
+                        title={t("albumMeta.editButton")}
+                        aria-label={t("albumMeta.editButton")}
+                      >
+                        <span className="ghost-btn__meta-ic" aria-hidden>
+                          <TrackMetaEditGlyph />
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`ghost-btn library-toolbar-exclude-btn ${
+                          excludedAlbums.has(album.id) ? "is-on" : ""
+                        }`}
+                        onClick={() =>
+                          user.toggleShuffleExcludedAlbum(album.id)
+                        }
+                        title={t("library.randomExcludeBtn")}
+                        aria-label={t("library.randomExcludeAria")}
+                        aria-pressed={excludedAlbums.has(album.id)}
+                      >
+                        <ExcludeShuffleIcon className="library-toolbar-exclude-btn__ic" />
+                      </button>
                     </div>
                   </div>
                 </div>
-                <div className="section-head__tools">
-                  <div className="hero-card__actions">
-                    <button
-                      type="button"
-                      className="primary-btn"
-                      onClick={() =>
-                        p.playTrack(albumTracks[0], albumTracks, 0)
-                      }
-                    >
-                      {t("library.playAlbum")}
-                    </button>
-                    <button
-                      type="button"
-                      className="ghost-btn ghost-btn--icon-only"
-                      onClick={() => openAlbumMetaEdit(album)}
-                      title={t("albumMeta.editButton")}
-                      aria-label={t("albumMeta.editButton")}
-                    >
-                      <span className="ghost-btn__meta-ic" aria-hidden>
-                        <TrackMetaEditGlyph />
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      className={`ghost-btn library-toolbar-exclude-btn ${
-                        excludedAlbums.has(album.id) ? "is-on" : ""
-                      }`}
-                      onClick={() => user.toggleShuffleExcludedAlbum(album.id)}
-                      title={t("library.randomExcludeBtn")}
-                      aria-label={t("library.randomExcludeAria")}
-                      aria-pressed={excludedAlbums.has(album.id)}
-                    >
-                      <ExcludeShuffleIcon className="library-toolbar-exclude-btn__ic" />
-                    </button>
-                  </div>
-                </div>
               </div>
-              <div className="album-hero__titleblock">
-                <h1 className="album-hero__h1">{album.name}</h1>
-                <p className="subtle sm album-hero__title-meta">
-                  {artist.name}
-                  {album.releaseDate ? ` · ${fmtDate(album.releaseDate)}` : ""}
-                  {album.label ? ` · ${album.label}` : ""}
-                </p>
-                <div className="album-track-genres-inline">
-                  <div className="meta-edit-genre-chips" role="list">
-                    {albumTrackGenres.map((g) => (
-                      <span
-                        key={g}
-                        className="meta-edit-genre-chip"
-                        role="listitem"
+            </div>
+            <div className="album-hero__titleblock">
+              <h1 className="album-hero__h1">{album.name}</h1>
+            </div>
+            <div className="album-hero__meta-full">
+              <p className="subtle sm album-hero__title-meta">
+                {artist.name}
+                {album.releaseDate ? ` · ${fmtDate(album.releaseDate)}` : ""}
+                {album.label ? ` · ${album.label}` : ""}
+              </p>
+              <div className="album-track-genres-inline">
+                <div className="meta-edit-genre-chips" role="list">
+                  {albumTrackGenres.map((g) => (
+                    <span
+                      key={g}
+                      className="meta-edit-genre-chip"
+                      role="listitem"
+                    >
+                      <span className="meta-edit-genre-chip__text">{g}</span>
+                      <button
+                        type="button"
+                        className="meta-edit-genre-chip__x"
+                        disabled={albumGenreBusy}
+                        onClick={() => {
+                          void removeAlbumGenre(g);
+                        }}
+                        aria-label={t("trackMeta.fieldGenreRemoveAria", {
+                          g,
+                        })}
                       >
-                        <span className="meta-edit-genre-chip__text">{g}</span>
-                        <button
-                          type="button"
-                          className="meta-edit-genre-chip__x"
-                          disabled={albumGenreBusy}
-                          onClick={() => {
-                            void removeAlbumGenre(g);
-                          }}
-                          aria-label={t("trackMeta.fieldGenreRemoveAria", {
-                            g,
-                          })}
+                        <UiClose className="meta-edit-genre-chip__x-ic" />
+                      </button>
+                    </span>
+                  ))}
+                  {albumGenreOptions.length > 0 ? (
+                    <div className="meta-edit-genre-add">
+                      <button
+                        type="button"
+                        className="meta-edit-genre-chip meta-edit-genre-chip--add"
+                        disabled={albumGenreBusy}
+                        onClick={() => {
+                          setAlbumGenrePickerOpen((prev) => !prev);
+                        }}
+                        aria-label={t("trackMeta.fieldGenreAdd")}
+                        title={t("trackMeta.fieldGenreAdd")}
+                      >
+                        <UiAdd
+                          className="meta-edit-genre-chip__add-ic"
+                          aria-hidden
+                        />
+                      </button>
+                      {albumGenrePickerOpen ? (
+                        <div
+                          className="meta-edit-genre-option-list"
+                          role="listbox"
                         >
-                          <UiClose className="meta-edit-genre-chip__x-ic" />
-                        </button>
-                      </span>
-                    ))}
-                    {albumGenreOptions.length > 0 ? (
-                      <div className="meta-edit-genre-add">
-                        <button
-                          type="button"
-                          className="meta-edit-genre-chip meta-edit-genre-chip--add"
-                          disabled={albumGenreBusy}
-                          onClick={() => {
-                            setAlbumGenrePickerOpen((prev) => !prev);
-                          }}
-                          aria-label={t("trackMeta.fieldGenreAdd")}
-                          title={t("trackMeta.fieldGenreAdd")}
-                        >
-                          <UiAdd
-                            className="meta-edit-genre-chip__add-ic"
-                            aria-hidden
-                          />
-                        </button>
-                        {albumGenrePickerOpen ? (
-                          <div
-                            className="meta-edit-genre-option-list"
-                            role="listbox"
-                          >
-                            {albumGenreOptions.map((g) => (
-                              <button
-                                key={g}
-                                type="button"
-                                className="meta-edit-genre-option-item"
-                                onClick={() => {
-                                  void addAlbumGenreBySelection(g);
-                                }}
-                              >
-                                {g}
-                              </button>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                  {albumGenreErr ? (
-                    <p className="subtle sm warnline">{albumGenreErr}</p>
+                          {albumGenreOptions.map((g) => (
+                            <button
+                              key={g}
+                              type="button"
+                              className="meta-edit-genre-option-item"
+                              onClick={() => {
+                                void addAlbumGenreBySelection(g);
+                              }}
+                            >
+                              {g}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
                   ) : null}
                 </div>
+                {albumGenreErr ? (
+                  <p className="subtle sm warnline">{albumGenreErr}</p>
+                ) : null}
               </div>
             </div>
           </div>

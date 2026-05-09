@@ -340,6 +340,8 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
     setDlBusy,
     dlProg,
     setDlProg,
+    dlTrackProg,
+    setDlTrackProg,
     mkBusy,
     setMkBusy,
     artBusy,
@@ -453,10 +455,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
   const dlActiveDownloadIdRef = useRef<string | null>(null);
   const dlBatchStopRef = useRef(false);
   const studioDlRunLatchRef = useRef(false);
-  const [dlTrackProg, setDlTrackProg] = useState<{
-    current: number;
-    total: number;
-  } | null>(null);
   const [albumForCover, setAlbumForCover] = useState(() => {
     try {
       return (

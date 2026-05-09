@@ -229,179 +229,183 @@ export const PlayerDock = memo(function PlayerDock({
               </div>
             </div>
           </div>
-          <div
-            className="player-bar2__transport"
-            role="group"
-            aria-label={t("player.transportAria")}
-          >
-            {cur ? (
-              <button
-                type="button"
-                className={`player-bar2__fav player-bar2__rail-fav ${
-                  user.isFavorite(cur.relPath) ? "is-on" : ""
-                }`}
-                onClick={() => user.toggleFavorite(cur.relPath)}
-                title={t("trackRow.favTitle")}
-                aria-pressed={user.isFavorite(cur.relPath)}
-                aria-label={t("trackRow.favAria")}
-              >
-                <span
-                  className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
-                  aria-hidden
+          <div className="player-bar2__controls-row">
+            <div
+              className="player-bar2__transport"
+              role="group"
+              aria-label={t("player.transportAria")}
+            >
+              {cur ? (
+                <button
+                  type="button"
+                  className={`player-bar2__fav player-bar2__rail-fav ${
+                    user.isFavorite(cur.relPath) ? "is-on" : ""
+                  }`}
+                  onClick={() => user.toggleFavorite(cur.relPath)}
+                  title={t("trackRow.favTitle")}
+                  aria-pressed={user.isFavorite(cur.relPath)}
+                  aria-label={t("trackRow.favAria")}
                 >
-                  <UiFavorite />
-                </span>
-              </button>
-            ) : null}
-            <div className="player-bar2__controls">
-              <button
-                type="button"
-                className={`player-bar2__ic ${p.shuffle ? "is-on" : ""}`}
-                onClick={() => p.setShuffle(!p.shuffle)}
-                title={t("player.shuffleTitle")}
-                aria-pressed={p.shuffle}
-              >
-                <span
-                  className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
-                  aria-hidden
+                  <span
+                    className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
+                    aria-hidden
+                  >
+                    <UiFavorite />
+                  </span>
+                </button>
+              ) : null}
+              <div className="player-bar2__controls">
+                <button
+                  type="button"
+                  className={`player-bar2__ic ${p.shuffle ? "is-on" : ""}`}
+                  onClick={() => p.setShuffle(!p.shuffle)}
+                  title={t("player.shuffleTitle")}
+                  aria-pressed={p.shuffle}
                 >
-                  <UiShuffle />
-                </span>
-              </button>
-              <button
-                type="button"
-                className="player-bar2__ic"
-                onClick={() => p.prev()}
-                title={t("player.prevTitle")}
-              >
-                <span
-                  className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
-                  aria-hidden
+                  <span
+                    className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
+                    aria-hidden
+                  >
+                    <UiShuffle />
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="player-bar2__ic"
+                  onClick={() => p.prev()}
+                  title={t("player.prevTitle")}
                 >
-                  <UiSkipPrevious />
-                </span>
-              </button>
-              <button
-                type="button"
-                className="player-bar2__ic player-bar2__ic--play"
-                onClick={() => p.toggle()}
-                title={
-                  p.isPlaying ? t("player.pauseTitle") : t("player.playTitle")
-                }
-              >
-                <span
-                  className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
-                  aria-hidden
+                  <span
+                    className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
+                    aria-hidden
+                  >
+                    <UiSkipPrevious />
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="player-bar2__ic player-bar2__ic--play"
+                  onClick={() => p.toggle()}
+                  title={
+                    p.isPlaying
+                      ? t("player.pauseTitle")
+                      : t("player.playTitle")
+                  }
                 >
-                  {p.isPlaying ? <UiPause /> : <UiPlayArrow />}
-                </span>
-              </button>
-              <button
-                type="button"
-                className="player-bar2__ic"
-                onClick={() => p.next()}
-                title={t("player.nextTitle")}
-              >
-                <span
-                  className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
-                  aria-hidden
+                  <span
+                    className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
+                    aria-hidden
+                  >
+                    {p.isPlaying ? <UiPause /> : <UiPlayArrow />}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="player-bar2__ic"
+                  onClick={() => p.next()}
+                  title={t("player.nextTitle")}
                 >
-                  <UiSkipNext />
-                </span>
-              </button>
-              <button
-                type="button"
-                className={`player-bar2__ic player-bar2__ic--repeat ${
-                  p.repeat === "off" ? "is-dim" : "is-on"
-                } ${p.repeat === "one" ? "player-bar2__ic--repeat-one" : ""}`}
-                onClick={() =>
-                  p.setRepeat(
+                  <span
+                    className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
+                    aria-hidden
+                  >
+                    <UiSkipNext />
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`player-bar2__ic player-bar2__ic--repeat ${
+                    p.repeat === "off" ? "is-dim" : "is-on"
+                  } ${p.repeat === "one" ? "player-bar2__ic--repeat-one" : ""}`}
+                  onClick={() =>
+                    p.setRepeat(
+                      p.repeat === "off"
+                        ? "all"
+                        : p.repeat === "all"
+                        ? "one"
+                        : "off"
+                    )
+                  }
+                  title={
                     p.repeat === "off"
-                      ? "all"
+                      ? t("player.repeatOff")
                       : p.repeat === "all"
-                      ? "one"
-                      : "off"
-                  )
-                }
+                      ? t("player.repeatAll")
+                      : t("player.repeatOne")
+                  }
+                >
+                  <span
+                    className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
+                    aria-hidden
+                  >
+                    <UiRepeat />
+                  </span>
+                </button>
+              </div>
+              {cur ? (
+                <button
+                  type="button"
+                  className={`player-bar2__ic player-bar2__ic--exclude ${
+                    shuffleExcluded ? "is-on" : ""
+                  }`}
+                  disabled={albumShuffleExcluded}
+                  title={
+                    albumShuffleExcluded
+                      ? t("trackRow.excludeLockedByAlbumTitle")
+                      : t("trackRow.excludeTitle")
+                  }
+                  aria-pressed={shuffleExcluded}
+                  aria-label={
+                    albumShuffleExcluded
+                      ? t("trackRow.excludeLockedByAlbumAria")
+                      : t("trackRow.excludeTitle")
+                  }
+                  onClick={() => {
+                    if (!cur || albumShuffleExcluded) return;
+                    user.toggleShuffleExcludedTrack(cur.relPath);
+                  }}
+                >
+                  <span
+                    className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
+                    aria-hidden
+                  >
+                    <ExcludeShuffleIcon />
+                  </span>
+                </button>
+              ) : null}
+            </div>
+            <div className="player-bar2__output">
+              <button
+                type="button"
+                className={`player-bar2__ic player-bar2__ic--cast ${
+                  castState === "connected" ? "is-on" : ""
+                } ${!castSupported || !castAvailable ? "is-unavailable" : ""}`}
+                disabled={!cur || !castSupported}
+                onClick={() => void openCastPicker()}
                 title={
-                  p.repeat === "off"
-                    ? t("player.repeatOff")
-                    : p.repeat === "all"
-                    ? t("player.repeatAll")
-                    : t("player.repeatOne")
+                  !castSupported
+                    ? t("player.castUnsupported")
+                    : castAvailable
+                    ? t("player.castTitle")
+                    : t("player.castNoDevices")
                 }
+                aria-label={
+                  !castSupported
+                    ? t("player.castUnsupported")
+                    : castAvailable
+                    ? t("player.castTitle")
+                    : t("player.castNoDevices")
+                }
+                aria-pressed={castState === "connected"}
               >
                 <span
                   className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
                   aria-hidden
                 >
-                  <UiRepeat />
+                  <UiCast />
                 </span>
               </button>
             </div>
-            {cur ? (
-              <button
-                type="button"
-                className={`player-bar2__ic player-bar2__ic--exclude ${
-                  shuffleExcluded ? "is-on" : ""
-                }`}
-                disabled={albumShuffleExcluded}
-                title={
-                  albumShuffleExcluded
-                    ? t("trackRow.excludeLockedByAlbumTitle")
-                    : t("trackRow.excludeTitle")
-                }
-                aria-pressed={shuffleExcluded}
-                aria-label={
-                  albumShuffleExcluded
-                    ? t("trackRow.excludeLockedByAlbumAria")
-                    : t("trackRow.excludeTitle")
-                }
-                onClick={() => {
-                  if (!cur || albumShuffleExcluded) return;
-                  user.toggleShuffleExcludedTrack(cur.relPath);
-                }}
-              >
-                <span
-                  className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
-                  aria-hidden
-                >
-                  <ExcludeShuffleIcon />
-                </span>
-              </button>
-            ) : null}
-          </div>
-          <div className="player-bar2__output">
-            <button
-              type="button"
-              className={`player-bar2__ic player-bar2__ic--cast ${
-                castState === "connected" ? "is-on" : ""
-              } ${!castSupported || !castAvailable ? "is-unavailable" : ""}`}
-              disabled={!cur || !castSupported}
-              onClick={() => void openCastPicker()}
-              title={
-                !castSupported
-                  ? t("player.castUnsupported")
-                  : castAvailable
-                  ? t("player.castTitle")
-                  : t("player.castNoDevices")
-              }
-              aria-label={
-                !castSupported
-                  ? t("player.castUnsupported")
-                  : castAvailable
-                  ? t("player.castTitle")
-                  : t("player.castNoDevices")
-              }
-              aria-pressed={castState === "connected"}
-            >
-              <span
-                className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
-                aria-hidden
-              >
-                <UiCast />
-              </span>
-            </button>
           </div>
         </div>
         <div className="player-bar2__row player-bar2__row--seek">

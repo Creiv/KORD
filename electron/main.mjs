@@ -137,11 +137,16 @@ let mainWindow = null
 const APP_NAME = "KORD"
 
 function getAppIconPath() {
-  const candidates = [
-    path.join(__dirname, "..", "dist", "KORDlogo.png"),
-    path.join(__dirname, "..", "public", "KORDlogo.png"),
-  ]
-  return candidates.find((p) => fs.existsSync(p)) || undefined
+  const root = path.join(__dirname, "..")
+  const icoDist = path.join(root, "dist", "icon.ico")
+  const icoPublic = path.join(root, "public", "icon.ico")
+  const pngDist = path.join(root, "dist", "KORDlogo.png")
+  const pngPublic = path.join(root, "public", "KORDlogo.png")
+  if (process.platform === "win32") {
+    if (fs.existsSync(icoDist)) return icoDist
+    if (fs.existsSync(icoPublic)) return icoPublic
+  }
+  return [pngDist, pngPublic].find((p) => fs.existsSync(p)) || undefined
 }
 
 function installAppMenu() {

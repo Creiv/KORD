@@ -102,7 +102,7 @@ npm run build
 
 ### Kord Server / Kord Client (versioned artifacts)
 
-Use **`pack:<os>:server`** / **`pack:<os>:client`** (`linux`, `win`, **or** `mac`). These scripts use **`electron-builder.kord.cjs`**, optionally pass a semver as the **last argument** (e.g. `npm run pack:linux:server -- 2.4.0`; see **`scripts/pack-release.mjs`**).
+Use **`pack:<os>:server`** / **`pack:<os>:client`** (`linux`, `win`, **or** `mac`). These scripts use **`electron-builder.kord.cjs`**, optionally pass a semver as the **last argument** (e.g. `npm run pack:linux:server -- 2.5.0`; see **`scripts/pack-release.mjs`**).
 
 **Server** flavor runs `npm run build`, then **`scripts/fetch-ytdlp.mjs`** for the **target OS**, then packages. Prefer this when shipping Studio downloads with a bundled **yt-dlp**.
 

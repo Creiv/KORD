@@ -198,7 +198,8 @@ export default function ListenView({ index, onOpenSection }: ListenViewProps) {
                 </div>
               )}
               <div className="listen-stage__text">
-                <div className="listen-stage__eyebrow-row">
+                <div className="listen-stage__text-lead">
+                  <div className="listen-stage__eyebrow-row">
                   <p className="eyebrow">{t("listen.currentEyebrow")}</p>
                   {cur ? (
                     <div className="listen-stage__eyebrow-actions">
@@ -262,63 +263,65 @@ export default function ListenView({ index, onOpenSection }: ListenViewProps) {
                 <h1 className="listen-stage__title">
                   {p.current?.title || t("listen.noTrack")}
                 </h1>
+                {!cur ? (
+                  <p className="listen-stage__sub">
+                    {t("listen.openLibraryHint")}
+                  </p>
+                ) : null}
+                </div>
                 {cur ? (
-                  <p className="listen-stage__sub listen-stage__sub--with-stats">
-                    <span className="listen-stage__sub-lead">
-                      {cur.artist} · {cur.album}
-                      <span className="track-row__meta-sep" aria-hidden>
-                        {" "}
-                        ·{" "}
-                      </span>
-                      <span
-                        className={`track-row__lyrics-inline ${
-                          hasLrcLyrics
-                            ? "is-lrc"
-                            : hasLyrics
-                            ? "is-plain"
-                            : "is-off"
-                        } listen-stage__lyrics-inline`}
-                        title={
-                          hasLrcLyrics
-                            ? t("trackRow.lyricsLrc")
-                            : hasLyrics
-                            ? t("trackRow.lyricsPlain")
-                            : t("trackRow.lyricsMissing")
-                        }
-                        aria-label={
-                          hasLrcLyrics
-                            ? t("trackRow.lyricsLrc")
-                            : hasLyrics
-                            ? t("trackRow.lyricsPlain")
-                            : t("trackRow.lyricsMissing")
-                        }
-                      >
-                        <UiLyrics />
-                      </span>
-                      {listenDurationStr ? ` · ${listenDurationStr}` : ""}
-                    </span>
-                    <span className="listen-stage__sub-sep" aria-hidden>
+                  <div className="listen-stage__meta-full">
+                <p className="listen-stage__sub listen-stage__sub--with-stats">
+                  <span className="listen-stage__sub-lead">
+                    {cur.artist} · {cur.album}
+                    <span className="track-row__meta-sep" aria-hidden>
                       {" "}
                       ·{" "}
                     </span>
                     <span
-                      className="track-row__plays listen-stage__sub-plays"
-                      aria-label={t("trackRow.playCount", { n: playCount })}
+                      className={`track-row__lyrics-inline ${
+                        hasLrcLyrics
+                          ? "is-lrc"
+                          : hasLyrics
+                          ? "is-plain"
+                          : "is-off"
+                      } listen-stage__lyrics-inline`}
+                      title={
+                        hasLrcLyrics
+                          ? t("trackRow.lyricsLrc")
+                          : hasLyrics
+                          ? t("trackRow.lyricsPlain")
+                          : t("trackRow.lyricsMissing")
+                      }
+                      aria-label={
+                        hasLrcLyrics
+                          ? t("trackRow.lyricsLrc")
+                          : hasLyrics
+                          ? t("trackRow.lyricsPlain")
+                          : t("trackRow.lyricsMissing")
+                      }
                     >
-                      ({playCount})
+                      <UiLyrics />
                     </span>
-                    <TrackFileMetaChip meta={cur.meta} />
+                    {listenDurationStr ? ` · ${listenDurationStr}` : ""}
+                  </span>
+                  <span className="listen-stage__sub-sep" aria-hidden>
+                    {" "}
+                    ·{" "}
+                  </span>
+                  <span
+                    className="track-row__plays listen-stage__sub-plays"
+                    aria-label={t("trackRow.playCount", { n: playCount })}
+                  >
+                    ({playCount})
+                  </span>
+                  <TrackFileMetaChip meta={cur.meta} />
+                </p>
+                <div className="listen-stage__detail">
+                  <p className="track-row__badges listen-stage__meta-badges">
+                    {listenInfoLine}
                   </p>
-                ) : (
-                  <p className="listen-stage__sub">
-                    {t("listen.openLibraryHint")}
-                  </p>
-                )}
-                {cur ? (
-                  <div className="listen-stage__detail">
-                    <p className="track-row__badges listen-stage__meta-badges">
-                      {listenInfoLine}
-                    </p>
+                </div>
                   </div>
                 ) : null}
               </div>
