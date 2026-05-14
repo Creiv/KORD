@@ -570,19 +570,25 @@ function SettingsView() {
               </span>
             </div>
           </div>
-          <label className="settings-ui-inline-control settings-ui-inline-control--checkbox-row settings-shortcuts-track-transitions">
-            <input
-              type="checkbox"
+          <label className="settings-ui-inline-control settings-shortcuts-track-transitions">
+            <span>{t("settings.trackTransitions")}</span>
+            <select
+              className="ghost-input w-full"
               title={t("settings.trackTransitionsHint")}
-              className="settings-checkbox"
-              checked={user.state.settings.trackChangeTransitions !== false}
+              value={String(user.state.settings.audioCrossfadeSec)}
               onChange={(event) =>
                 user.updateSettings({
-                  trackChangeTransitions: event.target.checked,
+                  audioCrossfadeSec: Number(event.target.value) as
+                    | 0
+                    | 3
+                    | 5,
                 })
               }
-            />
-            <span>{t("settings.trackTransitions")}</span>
+            >
+              <option value="0">{t("settings.audioCrossfadeOff")}</option>
+              <option value="3">{t("settings.audioCrossfade3")}</option>
+              <option value="5">{t("settings.audioCrossfade5")}</option>
+            </select>
           </label>
         </div>
       </section>

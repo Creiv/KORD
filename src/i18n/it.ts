@@ -460,7 +460,10 @@ export const IT: Record<string, string> = {
   "settings.visualizer": "Visualizer",
   "settings.trackTransitions": "Transizioni tra i brani",
   "settings.trackTransitionsHint":
-    "Crossfade audio negli ultimi 3 secondi (uscita attenuata, entrata in crescendo), più scroll fluido al cambio copertina in ascolto e animazioni sulla barra in basso. Disattiva per passaggi istantanei.",
+    "Durata del crossfade audio tra un brano e il successivo e transizioni sulla scheda Ascolta e sulla barra in basso. «Spento» = passaggi istantanei.",
+  "settings.audioCrossfadeOff": "Spento",
+  "settings.audioCrossfade3": "3 secondi",
+  "settings.audioCrossfade5": "5 secondi",
   "settings.vizBars": "Barre",
   "settings.vizMirror": "Specchio",
   "settings.vizOsc": "Onda",

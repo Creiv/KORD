@@ -109,6 +109,9 @@ export type LibraryBrowseMode = "artists" | "genres" | "moods";
 export type LibraryOverviewSortMode = "name" | "plays";
 export type ArtistAlbumSortMode = "date" | "name" | "plays";
 
+/** Crossfade audio tra tracce: 0 spento; secondi dell’overlap in uscita. */
+export type AudioCrossfadeSec = 0 | 3 | 5;
+
 export type CustomThemeSettings = {
   bg: string;
   section: string;
@@ -126,8 +129,8 @@ export type UserSettings = {
   libBrowse: LibraryBrowseMode;
   libOverviewSort: LibraryOverviewSortMode;
   artistAlbumSort: ArtistAlbumSortMode;
-  /** Animazioni al cambio brano (es. scroll sulla scheda Ascolta, remount copertina dock). */
-  trackChangeTransitions: boolean;
+  /** Crossfade sul passaggio tra tracce (0 = no; 3 o 5 s overlap). Anche scroll/copertina su Ascolta quando > 0. */
+  audioCrossfadeSec: AudioCrossfadeSec;
 };
 
 export type QueueState = {

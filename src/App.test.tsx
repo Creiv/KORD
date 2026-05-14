@@ -121,7 +121,7 @@ const userState: UserStateV1 = {
     libBrowse: "artists",
     libOverviewSort: "name",
     artistAlbumSort: "date",
-    trackChangeTransitions: true,
+    audioCrossfadeSec: 3,
   },
   migratedLegacy: true,
 };

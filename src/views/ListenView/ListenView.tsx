@@ -119,7 +119,7 @@ export default function ListenView({ index, onOpenSection }: ListenViewProps) {
   const hasLrcLyrics = parsedLrc.length > 0;
 
   const trackChangeTransitionsOn =
-    user.state.settings.trackChangeTransitions !== false;
+    user.state.settings.audioCrossfadeSec > 0;
 
   const lrcScrollRef = useRef<HTMLDivElement>(null);
   const lrcCurrentLineRef = useRef<HTMLParagraphElement | null>(null);

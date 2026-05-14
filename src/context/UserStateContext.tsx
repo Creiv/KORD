@@ -21,6 +21,7 @@ import {
   APP_LOCALES,
   THEME_MODES,
   type AppLocale,
+  type AudioCrossfadeSec,
   type CustomThemeSettings,
   type EnrichedTrack,
   type LibraryIndex,
@@ -56,8 +57,15 @@ function defaultSettings(): UserSettings {
     libBrowse: "artists",
     libOverviewSort: "name",
     artistAlbumSort: "date",
-    trackChangeTransitions: true,
+    audioCrossfadeSec: 3,
   };
+}
+
+function normalizeAudioCrossfadeSec(raw: Partial<UserSettings>): AudioCrossfadeSec {
+  const v = raw.audioCrossfadeSec;
+  if (v === 5 || v === 3 || v === 0) return v;
+  const legacy = raw as { trackChangeTransitions?: boolean };
+  return legacy.trackChangeTransitions === false ? 0 : 3;
 }
 
 function normalizeHexColor(raw: unknown, fallback: string): string {
@@ -131,7 +139,7 @@ function normalizeSettings(raw: Partial<UserSettings>): UserSettings {
     libBrowse,
     libOverviewSort,
     artistAlbumSort,
-    trackChangeTransitions: raw.trackChangeTransitions !== false,
+    audioCrossfadeSec: normalizeAudioCrossfadeSec(raw),
   };
 }
 
@@ -828,8 +836,8 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     document.documentElement.dataset.trackChangeTransitions =
-      state.settings.trackChangeTransitions === false ? "0" : "1";
-  }, [state.settings.trackChangeTransitions]);
+      state.settings.audioCrossfadeSec > 0 ? "1" : "0";
+  }, [state.settings.audioCrossfadeSec]);
 
   const syncUserStateFromServer = useCallback(() => {
     return Promise.resolve()

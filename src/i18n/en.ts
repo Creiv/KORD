@@ -453,7 +453,10 @@ export const EN: Record<string, string> = {
   "settings.visualizer": "Visualizer",
   "settings.trackTransitions": "Transitions between tracks",
   "settings.trackTransitionsHint":
-    "Audio crossfade in the last 3 seconds (outgoing fades out while the next fades in), plus smoother scroll when artwork changes on Listen and animations on the bottom bar. Turn off for instant changes.",
+    "How long the outgoing track fades against the incoming one, plus softer UI when artwork changes on Listen and the dock. Off means instant jumps.",
+  "settings.audioCrossfadeOff": "Off",
+  "settings.audioCrossfade3": "3 seconds",
+  "settings.audioCrossfade5": "5 seconds",
   "settings.vizBars": "Bars",
   "settings.vizMirror": "Mirror",
   "settings.vizOsc": "Wave",

@@ -21,10 +21,15 @@ import {
 } from "../lib/mediaSession";
 import { fisherYatesShuffle } from "../lib/smartShuffle";
 import { useUserState } from "./UserStateContext";
-import type { EnrichedTrack, LibAlbum, LibraryIndex, RepeatMode } from "../types";
+import type {
+  AudioCrossfadeSec,
+  EnrichedTrack,
+  LibAlbum,
+  LibraryIndex,
+  RepeatMode,
+} from "../types";
 
 const FIXED_VOLUME = 1;
-const CROSSFADE_SEC = 3;
 
 type DeckIx = 0 | 1;
 
@@ -151,7 +156,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const crossfadeInIxRef = useRef<DeckIx | null>(null);
   const crossfadeNextIdxRef = useRef<number | null>(null);
   const skipNextCurrentLoadRef = useRef(false);
-  const crossfadeEnabledRef = useRef(true);
+  const audioCrossfadeSecRef = useRef<AudioCrossfadeSec>(
+    user.state.settings.audioCrossfadeSec,
+  );
   const analyserRef = useRef<AnalyserNode | null>(null);
   const getAnalyser = useCallback(() => analyserRef.current, []);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -239,9 +246,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }, [activeDeckIx]);
 
   useEffect(() => {
-    crossfadeEnabledRef.current =
-      user.state.settings.trackChangeTransitions !== false;
-  }, [user.state.settings.trackChangeTransitions]);
+    audioCrossfadeSecRef.current = user.state.settings.audioCrossfadeSec;
+  }, [user.state.settings.audioCrossfadeSec]);
 
   const snapGainsToSolo = useCallback((ix: DeckIx) => {
     const ctx = audioCtxRef.current;
@@ -344,7 +350,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }, [snapGainsToSolo]);
 
   const startCrossfade = useCallback(async () => {
-    if (!crossfadeEnabledRef.current) return;
+    const sec = audioCrossfadeSecRef.current;
+    if (!sec) return;
     if (crossfadeBusyRef.current) return;
     if (repeatRef.current === "one") return;
 
@@ -362,7 +369,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const d = outEl.duration;
     if (!Number.isFinite(d) || d <= 0) return;
     const ct = outEl.currentTime;
-    const fadeWindow = Math.min(CROSSFADE_SEC, d);
+    const fadeWindow = Math.min(sec, d);
     if (ct < d - fadeWindow - 0.02) return;
     const remain = d - ct;
     if (remain < 0.08) return;
@@ -401,7 +408,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
     if (!crossfadeBusyRef.current) return;
 
-    const fadeLen = Math.min(CROSSFADE_SEC, Math.max(remain, 0.05));
+    const fadeLen = Math.min(sec, Math.max(remain, 0.05));
     const token = crossfadeGenRef.current;
     const now = ctx.currentTime;
     const vOut = gOut.gain.value;
@@ -622,7 +629,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           incrementTrackPlayCount(relPath);
         }
 
-        if (crossfadeEnabledRef.current && repeatRef.current !== "one") {
+        if (audioCrossfadeSecRef.current > 0 && repeatRef.current !== "one") {
           void startCrossfade();
         }
       };

@@ -133,7 +133,7 @@ export function PlayerBarTrackArt({
 }) {
   const user = useUserState();
   const transitionsOn =
-    user.state.settings.trackChangeTransitions !== false;
+    user.state.settings.audioCrossfadeSec > 0;
   const cacheKey =
     version && Number.isFinite(version) ? Math.floor(version) : null;
   const remountKey = transitionsOn

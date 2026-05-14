@@ -5,6 +5,28 @@ import { cleanup } from "@testing-library/react"
 class FakeAudioContext {
   state: "running" | "suspended" = "running"
 
+  readonly currentTime = 0
+
+  createGain() {
+    return {
+      gain: {
+        value: 1,
+        cancelScheduledValues() {
+          return undefined
+        },
+        setValueAtTime() {
+          return undefined
+        },
+        linearRampToValueAtTime() {
+          return undefined
+        },
+      },
+      connect() {
+        return undefined
+      },
+    }
+  }
+
   createMediaElementSource() {
     return {
       connect() {

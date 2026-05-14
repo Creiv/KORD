@@ -147,6 +147,12 @@ function sanitizeCustomTheme(raw) {
   }
 }
 
+function normalizeAudioCrossfadeSec(src) {
+  const n = Number(src.audioCrossfadeSec)
+  if (n === 0 || n === 3 || n === 5) return n
+  return src.trackChangeTransitions === false ? 0 : 3
+}
+
 function sanitizeSettings(settings) {
   const src = isObj(settings) ? settings : {}
   const loc = src.locale === "it" ? "it" : "en"
@@ -185,7 +191,7 @@ function sanitizeSettings(settings) {
     libBrowse,
     libOverviewSort,
     artistAlbumSort,
-    trackChangeTransitions: src.trackChangeTransitions !== false,
+    audioCrossfadeSec: normalizeAudioCrossfadeSec(src),
   }
 }
 
