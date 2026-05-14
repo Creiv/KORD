@@ -118,6 +118,9 @@ export default function ListenView({ index, onOpenSection }: ListenViewProps) {
   const hasLyrics = currentLyricsRaw.length > 0;
   const hasLrcLyrics = parsedLrc.length > 0;
 
+  const trackChangeTransitionsOn =
+    user.state.settings.trackChangeTransitions !== false;
+
   const lrcScrollRef = useRef<HTMLDivElement>(null);
   const lrcCurrentLineRef = useRef<HTMLParagraphElement | null>(null);
   const vizScrollRef = useRef<HTMLDivElement | null>(null);
@@ -150,12 +153,24 @@ export default function ListenView({ index, onOpenSection }: ListenViewProps) {
     const next = Math.max(0, Math.min(target, max));
     wrap.scrollTo({
       top: next,
-      behavior: reduce ? "auto" : "smooth",
+      behavior:
+        reduce || !trackChangeTransitionsOn ? "auto" : "smooth",
     });
-  }, [currentLrcIdx, listenRecentPanel, hasLrcLyrics, parsedLrc.length]);
+  }, [
+    currentLrcIdx,
+    listenRecentPanel,
+    hasLrcLyrics,
+    parsedLrc.length,
+    trackChangeTransitionsOn,
+  ]);
 
   useLayoutEffect(() => {
     if (!cur?.relPath) return;
+    if (!trackChangeTransitionsOn) return;
+    const reduce =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) return;
     const raf = window.requestAnimationFrame(() => {
       vizScrollRef.current?.scrollIntoView({
         block: "center",
@@ -164,7 +179,7 @@ export default function ListenView({ index, onOpenSection }: ListenViewProps) {
       });
     });
     return () => window.cancelAnimationFrame(raf);
-  }, [cur?.relPath]);
+  }, [cur?.relPath, trackChangeTransitionsOn]);
 
   return (
     <div className="view-stack">

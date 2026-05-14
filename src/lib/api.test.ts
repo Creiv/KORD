@@ -35,6 +35,7 @@ const userStatePayload = {
     libBrowse: "artists",
     libOverviewSort: "plays",
     artistAlbumSort: "date",
+    trackChangeTransitions: true,
   },
   shuffleExcludedAlbumIds: ["Artist::Album"],
   shuffleExcludedTrackRelPaths: [],

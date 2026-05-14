@@ -4021,6 +4021,30 @@
   gap: 0.55rem;
 }
 
+.settings-ui-inline-control--checkbox-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.settings-ui-inline-control--checkbox-row > span {
+  min-width: 0;
+}
+
+.settings-shortcuts-track-transitions {
+  margin-top: 0.75rem;
+}
+
+.settings-ui-inline-control .settings-checkbox {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+  accent-color: color-mix(in srgb, var(--accent) 88%, transparent);
+  cursor: pointer;
+  justify-self: start;
+}
+
 .setting-card.checkbox {
   grid-template-columns: auto 1fr;
   align-items: center;

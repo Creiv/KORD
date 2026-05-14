@@ -458,6 +458,9 @@ export const IT: Record<string, string> = {
   "settings.uiHeading": "Tema e visualizer",
   "settings.theme": "Tema",
   "settings.visualizer": "Visualizer",
+  "settings.trackTransitions": "Transizioni tra i brani",
+  "settings.trackTransitionsHint":
+    "Crossfade audio negli ultimi 3 secondi (uscita attenuata, entrata in crescendo), più scroll fluido al cambio copertina in ascolto e animazioni sulla barra in basso. Disattiva per passaggi istantanei.",
   "settings.vizBars": "Barre",
   "settings.vizMirror": "Specchio",
   "settings.vizOsc": "Onda",

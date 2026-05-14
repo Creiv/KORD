@@ -56,6 +56,7 @@ function defaultSettings(): UserSettings {
     libBrowse: "artists",
     libOverviewSort: "name",
     artistAlbumSort: "date",
+    trackChangeTransitions: true,
   };
 }
 
@@ -130,6 +131,7 @@ function normalizeSettings(raw: Partial<UserSettings>): UserSettings {
     libBrowse,
     libOverviewSort,
     artistAlbumSort,
+    trackChangeTransitions: raw.trackChangeTransitions !== false,
   };
 }
 
@@ -823,6 +825,11 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.lang =
       state.settings.locale === "it" ? "it" : "en";
   }, [state.settings.locale]);
+
+  useEffect(() => {
+    document.documentElement.dataset.trackChangeTransitions =
+      state.settings.trackChangeTransitions === false ? "0" : "1";
+  }, [state.settings.trackChangeTransitions]);
 
   const syncUserStateFromServer = useCallback(() => {
     return Promise.resolve()

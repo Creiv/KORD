@@ -537,7 +537,7 @@ export function AppShell() {
     if (route.section === "settings") {
       return (
         <Suspense fallback={<KordSplashLoader />}>
-          <LazySettingsView onOpenSection={navToSection} />
+          <LazySettingsView />
         </Suspense>
       );
     }

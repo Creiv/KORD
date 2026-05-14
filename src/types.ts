@@ -126,6 +126,8 @@ export type UserSettings = {
   libBrowse: LibraryBrowseMode;
   libOverviewSort: LibraryOverviewSortMode;
   artistAlbumSort: ArtistAlbumSortMode;
+  /** Animazioni al cambio brano (es. scroll sulla scheda Ascolta, remount copertina dock). */
+  trackChangeTransitions: boolean;
 };
 
 export type QueueState = {

@@ -185,6 +185,7 @@ function sanitizeSettings(settings) {
     libBrowse,
     libOverviewSort,
     artistAlbumSort,
+    trackChangeTransitions: src.trackChangeTransitions !== false,
   }
 }
 

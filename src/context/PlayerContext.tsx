@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -23,6 +24,9 @@ import { useUserState } from "./UserStateContext";
 import type { EnrichedTrack, LibAlbum, LibraryIndex, RepeatMode } from "../types";
 
 const FIXED_VOLUME = 1;
+const CROSSFADE_SEC = 3;
+
+type DeckIx = 0 | 1;
 
 type Ctx = {
   audioRef: React.RefObject<HTMLAudioElement | null>;
@@ -134,11 +138,27 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const incrementTrackPlayCount = user.incrementTrackPlayCount;
   const setQueueSnapshot = user.setQueueSnapshot;
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioDeck0Ref = useRef<HTMLAudioElement | null>(null);
+  const audioDeck1Ref = useRef<HTMLAudioElement | null>(null);
+  const gain0Ref = useRef<GainNode | null>(null);
+  const gain1Ref = useRef<GainNode | null>(null);
+  const [activeDeckIx, setActiveDeckIx] = useState<DeckIx>(0);
+  const activeDeckRef = useRef<DeckIx>(0);
+  const crossfadeBusyRef = useRef(false);
+  const crossfadeTimerRef = useRef(0);
+  const crossfadeGenRef = useRef(0);
+  const crossfadeOutIxRef = useRef<DeckIx | null>(null);
+  const crossfadeInIxRef = useRef<DeckIx | null>(null);
+  const crossfadeNextIdxRef = useRef<number | null>(null);
+  const skipNextCurrentLoadRef = useRef(false);
+  const crossfadeEnabledRef = useRef(true);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const getAnalyser = useCallback(() => analyserRef.current, []);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const keepPlayingRef = useRef(true);
   const restoredRef = useRef(false);
+  const repeatRef = useRef<RepeatMode>("all");
+  const lastTrackBoundaryAdvanceAtRef = useRef(0);
   const [current, setCurrent] = useState<EnrichedTrack | null>(null);
   const [queue, setQueue] = useState<EnrichedTrack[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -202,34 +222,298 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }, [shuffle]);
 
   useEffect(() => {
+    repeatRef.current = repeat;
+  }, [repeat]);
+
+  useEffect(() => {
     currentRef.current = current;
   }, [current]);
 
   useEffect(() => {
+    activeDeckRef.current = activeDeckIx;
+  }, [activeDeckIx]);
+
+  useLayoutEffect(() => {
+    audioRef.current =
+      activeDeckIx === 0 ? audioDeck0Ref.current : audioDeck1Ref.current;
+  }, [activeDeckIx]);
+
+  useEffect(() => {
+    crossfadeEnabledRef.current =
+      user.state.settings.trackChangeTransitions !== false;
+  }, [user.state.settings.trackChangeTransitions]);
+
+  const snapGainsToSolo = useCallback((ix: DeckIx) => {
+    const ctx = audioCtxRef.current;
+    const g0 = gain0Ref.current;
+    const g1 = gain1Ref.current;
+    if (!ctx || !g0 || !g1) return;
+    const t = ctx.currentTime;
+    g0.gain.cancelScheduledValues(t);
+    g1.gain.cancelScheduledValues(t);
+    if (ix === 0) {
+      g0.gain.setValueAtTime(1, t);
+      g1.gain.setValueAtTime(0, t);
+    } else {
+      g0.gain.setValueAtTime(0, t);
+      g1.gain.setValueAtTime(1, t);
+    }
+  }, []);
+
+  const finalizeCrossfade = useCallback(() => {
+    if (!crossfadeBusyRef.current) return;
+    window.clearTimeout(crossfadeTimerRef.current);
+    crossfadeTimerRef.current = 0;
+
+    const outIx = crossfadeOutIxRef.current;
+    const inIx = crossfadeInIxRef.current;
+    const nextIdx = crossfadeNextIdxRef.current;
+    crossfadeOutIxRef.current = null;
+    crossfadeInIxRef.current = null;
+    crossfadeNextIdxRef.current = null;
+    crossfadeBusyRef.current = false;
+
+    if (outIx == null || inIx == null || nextIdx == null) {
+      snapGainsToSolo(activeDeckRef.current);
+      return;
+    }
+
+    const nextTr = queueRef.current[nextIdx];
+    if (!nextTr) {
+      snapGainsToSolo(activeDeckRef.current);
+      return;
+    }
+
+    const outEl = outIx === 0 ? audioDeck0Ref.current : audioDeck1Ref.current;
+    if (!outEl) {
+      snapGainsToSolo(activeDeckRef.current);
+      return;
+    }
+
+    outEl.pause();
+    outEl.removeAttribute("src");
+    void outEl.load();
+
+    const ctx = audioCtxRef.current;
+    const gOut = outIx === 0 ? gain0Ref.current : gain1Ref.current;
+    const gIn = inIx === 0 ? gain0Ref.current : gain1Ref.current;
+    if (ctx && gOut && gIn) {
+      const t = ctx.currentTime;
+      gOut.gain.cancelScheduledValues(t);
+      gIn.gain.cancelScheduledValues(t);
+      gOut.gain.setValueAtTime(1, t);
+      gIn.gain.setValueAtTime(1, t);
+    }
+
+    activeDeckRef.current = inIx;
+    setActiveDeckIx(inIx);
+    skipNextCurrentLoadRef.current = true;
+    setCurrentIndex(nextIdx);
+    setCurrent(nextTr);
+    keepPlayingRef.current = true;
+    pushRecent(nextTr);
+  }, [pushRecent, snapGainsToSolo]);
+
+  const abortCrossfade = useCallback(() => {
+    crossfadeGenRef.current += 1;
+    window.clearTimeout(crossfadeTimerRef.current);
+    crossfadeTimerRef.current = 0;
+    crossfadeBusyRef.current = false;
+    crossfadeOutIxRef.current = null;
+    crossfadeInIxRef.current = null;
+    crossfadeNextIdxRef.current = null;
+
+    const ctx = audioCtxRef.current;
+    const g0 = gain0Ref.current;
+    const g1 = gain1Ref.current;
+    if (ctx && g0 && g1) {
+      const t = ctx.currentTime;
+      g0.gain.cancelScheduledValues(t);
+      g1.gain.cancelScheduledValues(t);
+    }
+    snapGainsToSolo(activeDeckRef.current);
+
+    const a = activeDeckRef.current;
+    const inIx: DeckIx = a === 0 ? 1 : 0;
+    const inactiveEl = inIx === 0 ? audioDeck0Ref.current : audioDeck1Ref.current;
+    if (inactiveEl) {
+      inactiveEl.pause();
+      inactiveEl.removeAttribute("src");
+      void inactiveEl.load();
+    }
+  }, [snapGainsToSolo]);
+
+  const startCrossfade = useCallback(async () => {
+    if (!crossfadeEnabledRef.current) return;
+    if (crossfadeBusyRef.current) return;
+    if (repeatRef.current === "one") return;
+
+    const q = queueRef.current;
+    const idx = indexRef.current;
+    const nextIdx = pickNextIndex(q.length, idx, repeatRef.current);
+    if (nextIdx == null) return;
+
+    const outIx = activeDeckRef.current;
+    const inIx: DeckIx = outIx === 0 ? 1 : 0;
+    const outEl = outIx === 0 ? audioDeck0Ref.current : audioDeck1Ref.current;
+    const inEl = inIx === 0 ? audioDeck0Ref.current : audioDeck1Ref.current;
+    if (!outEl || !inEl) return;
+
+    const d = outEl.duration;
+    if (!Number.isFinite(d) || d <= 0) return;
+    const ct = outEl.currentTime;
+    const fadeWindow = Math.min(CROSSFADE_SEC, d);
+    if (ct < d - fadeWindow - 0.02) return;
+    const remain = d - ct;
+    if (remain < 0.08) return;
+
+    const nextTr = q[nextIdx];
+    if (!nextTr) return;
+
+    const ctx = audioCtxRef.current;
+    const gOut = outIx === 0 ? gain0Ref.current : gain1Ref.current;
+    const gIn = inIx === 0 ? gain0Ref.current : gain1Ref.current;
+    if (!ctx || !gOut || !gIn) return;
+
+    crossfadeBusyRef.current = true;
+    crossfadeOutIxRef.current = outIx;
+    crossfadeInIxRef.current = inIx;
+    crossfadeNextIdxRef.current = nextIdx;
+
+    inEl.src = mediaUrl(nextTr.relPath);
+    inEl.load();
+
+    try {
+      if (ctx.state === "suspended") await ctx.resume();
+      inEl.currentTime = 0;
+      await inEl.play();
+    } catch {
+      crossfadeBusyRef.current = false;
+      crossfadeOutIxRef.current = null;
+      crossfadeInIxRef.current = null;
+      crossfadeNextIdxRef.current = null;
+      snapGainsToSolo(outIx);
+      inEl.pause();
+      inEl.removeAttribute("src");
+      void inEl.load();
+      return;
+    }
+
+    if (!crossfadeBusyRef.current) return;
+
+    const fadeLen = Math.min(CROSSFADE_SEC, Math.max(remain, 0.05));
+    const token = crossfadeGenRef.current;
+    const now = ctx.currentTime;
+    const vOut = gOut.gain.value;
+    const vIn = gIn.gain.value;
+    gOut.gain.cancelScheduledValues(now);
+    gIn.gain.cancelScheduledValues(now);
+    gOut.gain.setValueAtTime(vOut, now);
+    gIn.gain.setValueAtTime(vIn, now);
+    gOut.gain.linearRampToValueAtTime(0, now + fadeLen);
+    gIn.gain.linearRampToValueAtTime(1, now + fadeLen);
+
+    crossfadeTimerRef.current = window.setTimeout(() => {
+      if (token !== crossfadeGenRef.current) return;
+      finalizeCrossfade();
+    }, fadeLen * 1000 + 40);
+  }, [finalizeCrossfade, snapGainsToSolo]);
+
+  /** Fine brano: su mobile con schermo spento `ended` / `timeupdate` possono arrivare tardi o mancare. */
+  const advanceAfterTrackCompleted = useCallback(() => {
+    const now = performance.now();
+    if (now - lastTrackBoundaryAdvanceAtRef.current < 450) return;
+    if (crossfadeBusyRef.current) return;
     const audio = audioRef.current;
-    if (!audio) return;
-    const ctx = new AudioContext();
-    audioCtxRef.current = ctx;
-    const src = ctx.createMediaElementSource(audio);
+    const cur = currentRef.current;
+    if (!audio || !cur) return;
+
+    const d = audio.duration;
+    const atEnd =
+      audio.ended ||
+      (Number.isFinite(d) && d > 0 && audio.currentTime >= d - 0.35);
+    if (!atEnd) return;
+
+    lastTrackBoundaryAdvanceAtRef.current = now;
+
+    if (repeatRef.current === "one") {
+      audio.currentTime = 0;
+      void audio.play().catch(() => setIsPlaying(false));
+      return;
+    }
+
+    const nextIndex = pickNextIndex(
+      queueRef.current.length,
+      indexRef.current,
+      repeatRef.current,
+    );
+    if (nextIndex == null) {
+      setIsPlaying(false);
+      return;
+    }
+    setCurrentIndex(nextIndex);
+    setCurrent(queueRef.current[nextIndex] || null);
+    keepPlayingRef.current = true;
+  }, []);
+
+  useLayoutEffect(() => {
+    const a0 = audioDeck0Ref.current;
+    const a1 = audioDeck1Ref.current;
+    if (!a0 || !a1 || audioCtxRef.current) return;
+
+    let ctx: AudioContext;
+    try {
+      ctx = new AudioContext();
+    } catch {
+      return;
+    }
+
+    let src0: MediaElementAudioSourceNode;
+    let src1: MediaElementAudioSourceNode;
+    try {
+      src0 = ctx.createMediaElementSource(a0);
+      src1 = ctx.createMediaElementSource(a1);
+    } catch {
+      void ctx.close();
+      return;
+    }
+
+    const g0 = ctx.createGain();
+    const g1 = ctx.createGain();
+    g0.gain.value = 1;
+    g1.gain.value = 0;
+    gain0Ref.current = g0;
+    gain1Ref.current = g1;
+
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 1024;
     analyser.smoothingTimeConstant = 0.62;
     analyser.minDecibels = -88;
     analyser.maxDecibels = -28;
-    src.connect(analyser);
+
+    src0.connect(g0);
+    src1.connect(g1);
+    g0.connect(analyser);
+    g1.connect(analyser);
     analyser.connect(ctx.destination);
+
+    audioCtxRef.current = ctx;
     analyserRef.current = analyser;
+
     return () => {
       analyserRef.current = null;
+      gain0Ref.current = null;
+      gain1Ref.current = null;
       audioCtxRef.current = null;
       void ctx.close();
     };
   }, []);
 
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.volume = volume;
+    const a0 = audioDeck0Ref.current;
+    const a1 = audioDeck1Ref.current;
+    if (a0) a0.volume = volume;
+    if (a1) a1.volume = volume;
   }, [volume]);
 
   useEffect(() => {
@@ -260,8 +544,30 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }, [currentIndex, queue, restoreSession, setQueueSnapshot, userReady]);
 
   useEffect(() => {
-    if (!current) return;
-    const audio = audioRef.current;
+    if (!current) {
+      void abortCrossfade();
+      activeDeckRef.current = 0;
+      setActiveDeckIx(0);
+      snapGainsToSolo(0);
+      const a0 = audioDeck0Ref.current;
+      const a1 = audioDeck1Ref.current;
+      a0?.pause();
+      a1?.pause();
+      a0?.removeAttribute("src");
+      a1?.removeAttribute("src");
+      void a0?.load();
+      void a1?.load();
+      return;
+    }
+    if (skipNextCurrentLoadRef.current) {
+      skipNextCurrentLoadRef.current = false;
+      return;
+    }
+
+    void abortCrossfade();
+
+    const ix = activeDeckRef.current;
+    const audio = ix === 0 ? audioDeck0Ref.current : audioDeck1Ref.current;
     if (!audio) return;
     audio.src = mediaUrl(current.relPath);
     audio.load();
@@ -279,7 +585,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       };
       void run();
     }
-  }, [current?.relPath, pushRecent]);
+  }, [abortCrossfade, current?.relPath, pushRecent, snapGainsToSolo]);
 
   useEffect(() => {
     halfListenTrackRef.current = current?.relPath ?? null;
@@ -287,64 +593,115 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }, [current?.relPath]);
 
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const onTime = () => {
-      setCurrentTime(audio.currentTime);
-      if (audio.duration && !Number.isNaN(audio.duration))
-        setDuration(audio.duration);
-      const relPath = current?.relPath;
-      if (!relPath) return;
-      if (halfListenTrackRef.current !== relPath) {
-        halfListenTrackRef.current = relPath;
-        halfListenCountedRef.current = false;
-      }
-      const safeDuration =
-        audio.duration && !Number.isNaN(audio.duration) ? audio.duration : 0;
-      if (!safeDuration) return;
-      if (halfListenCountedRef.current && audio.currentTime < safeDuration * 0.1) {
-        halfListenCountedRef.current = false;
-      }
-      if (!halfListenCountedRef.current && audio.currentTime >= safeDuration * 0.5) {
-        halfListenCountedRef.current = true;
-        incrementTrackPlayCount(relPath);
-      }
+    const a0 = audioDeck0Ref.current;
+    const a1 = audioDeck1Ref.current;
+    if (!a0 || !a1) return;
+
+    const ixFor = (el: HTMLAudioElement): DeckIx => (el === a0 ? 0 : 1);
+
+    const bind = (audio: HTMLAudioElement) => {
+      const onTime = () => {
+        if (ixFor(audio) !== activeDeckRef.current) return;
+        setCurrentTime(audio.currentTime);
+        if (audio.duration && !Number.isNaN(audio.duration))
+          setDuration(audio.duration);
+        const relPath = currentRef.current?.relPath;
+        if (!relPath) return;
+        if (halfListenTrackRef.current !== relPath) {
+          halfListenTrackRef.current = relPath;
+          halfListenCountedRef.current = false;
+        }
+        const safeDuration =
+          audio.duration && !Number.isNaN(audio.duration) ? audio.duration : 0;
+        if (!safeDuration) return;
+        if (halfListenCountedRef.current && audio.currentTime < safeDuration * 0.1) {
+          halfListenCountedRef.current = false;
+        }
+        if (!halfListenCountedRef.current && audio.currentTime >= safeDuration * 0.5) {
+          halfListenCountedRef.current = true;
+          incrementTrackPlayCount(relPath);
+        }
+
+        if (crossfadeEnabledRef.current && repeatRef.current !== "one") {
+          void startCrossfade();
+        }
+      };
+      const onMeta = () => {
+        if (ixFor(audio) !== activeDeckRef.current) return;
+        if (audio.duration && !Number.isNaN(audio.duration))
+          setDuration(audio.duration);
+      };
+      const onEnd = () => {
+        if (ixFor(audio) !== activeDeckRef.current) return;
+        if (crossfadeBusyRef.current) {
+          finalizeCrossfade();
+          return;
+        }
+        advanceAfterTrackCompleted();
+      };
+      audio.addEventListener("timeupdate", onTime);
+      audio.addEventListener("loadedmetadata", onMeta);
+      audio.addEventListener("ended", onEnd);
+      return () => {
+        audio.removeEventListener("timeupdate", onTime);
+        audio.removeEventListener("loadedmetadata", onMeta);
+        audio.removeEventListener("ended", onEnd);
+      };
     };
-    const onMeta = () => {
-      if (audio.duration && !Number.isNaN(audio.duration))
-        setDuration(audio.duration);
-    };
-    const onEnd = () => {
-      if (repeat === "one" && current) {
-        audio.currentTime = 0;
-        void audio.play();
-        return;
-      }
-      const nextIndex = pickNextIndex(
-        queueRef.current.length,
-        indexRef.current,
-        repeat,
-      );
-      if (nextIndex == null) {
-        setIsPlaying(false);
-        return;
-      }
-      setCurrentIndex(nextIndex);
-      setCurrent(queueRef.current[nextIndex] || null);
-      keepPlayingRef.current = true;
-    };
-    audio.addEventListener("timeupdate", onTime);
-    audio.addEventListener("loadedmetadata", onMeta);
-    audio.addEventListener("ended", onEnd);
+
+    const u0 = bind(a0);
+    const u1 = bind(a1);
     return () => {
-      audio.removeEventListener("timeupdate", onTime);
-      audio.removeEventListener("loadedmetadata", onMeta);
-      audio.removeEventListener("ended", onEnd);
+      u0();
+      u1();
     };
-  }, [current, incrementTrackPlayCount, repeat]);
+  }, [
+    advanceAfterTrackCompleted,
+    finalizeCrossfade,
+    incrementTrackPlayCount,
+    startCrossfade,
+  ]);
+
+  useEffect(() => {
+    const recoverAfterForeground = () => {
+      if (document.visibilityState !== "visible") return;
+      const wctx = audioCtxRef.current;
+      if (wctx?.state === "suspended") void wctx.resume();
+      const audio = audioRef.current;
+      if (!audio) return;
+      if (audio.ended) {
+        if (crossfadeBusyRef.current) finalizeCrossfade();
+        else advanceAfterTrackCompleted();
+        return;
+      }
+      if (keepPlayingRef.current && audio.paused) {
+        void audio
+          .play()
+          .then(() => setIsPlaying(true))
+          .catch(() => setIsPlaying(false));
+      }
+    };
+    document.addEventListener("visibilitychange", recoverAfterForeground);
+    window.addEventListener("pageshow", recoverAfterForeground);
+    return () => {
+      document.removeEventListener("visibilitychange", recoverAfterForeground);
+      window.removeEventListener("pageshow", recoverAfterForeground);
+    };
+  }, [advanceAfterTrackCompleted, finalizeCrossfade]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (document.visibilityState !== "hidden") return;
+      if (!keepPlayingRef.current) return;
+      advanceAfterTrackCompleted();
+    }, 900);
+    return () => window.clearInterval(id);
+  }, [advanceAfterTrackCompleted]);
 
   const play = useCallback(async () => {
-    const audio = audioRef.current;
+    void abortCrossfade();
+    const ix = activeDeckRef.current;
+    const audio = ix === 0 ? audioDeck0Ref.current : audioDeck1Ref.current;
     if (!audio) return;
     const ctx = audioCtxRef.current;
     if (ctx && ctx.state === "suspended") await ctx.resume();
@@ -352,17 +709,20 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       await audio.play();
       keepPlayingRef.current = true;
       setIsPlaying(true);
-      if (current) pushRecent(current);
+      const cur = currentRef.current;
+      if (cur) pushRecent(cur);
     } catch {
       setIsPlaying(false);
     }
-  }, [current, pushRecent]);
+  }, [abortCrossfade, pushRecent]);
 
   const pause = useCallback(() => {
-    audioRef.current?.pause();
+    void abortCrossfade();
+    audioDeck0Ref.current?.pause();
+    audioDeck1Ref.current?.pause();
     keepPlayingRef.current = false;
     setIsPlaying(false);
-  }, []);
+  }, [abortCrossfade]);
 
   const toggle = useCallback(() => {
     if (isPlaying) pause();
@@ -374,10 +734,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const seek = useCallback((time: number) => {
+    void abortCrossfade();
     const audio = audioRef.current;
     if (!audio) return;
     audio.currentTime = Math.max(0, time);
-  }, []);
+  }, [abortCrossfade]);
 
   const seekRatio = useCallback(
     (ratio: number) => {
@@ -492,7 +853,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         setCurrent(null);
         setCurrentIndex(0);
         keepPlayingRef.current = false;
-        audioRef.current?.pause();
+        audioDeck0Ref.current?.pause();
+        audioDeck1Ref.current?.pause();
         setIsPlaying(false);
         return;
       }
@@ -536,15 +898,15 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   const clearQueue = useCallback(() => {
     preShuffleRelPathsRef.current = null;
+    void abortCrossfade();
+    audioDeck0Ref.current?.pause();
+    audioDeck1Ref.current?.pause();
     setQueue([]);
     setCurrentIndex(0);
     setCurrent(null);
-    const audio = audioRef.current;
-    audio?.pause();
-    if (audio) audio.src = "";
     keepPlayingRef.current = false;
     setIsPlaying(false);
-  }, []);
+  }, [abortCrossfade]);
 
   const resyncTracksFromIndex = useCallback((libraryIndex: LibraryIndex) => {
     const byPath = new Map(
@@ -643,6 +1005,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   const prev = useCallback(() => {
     if (!queue.length) return;
+    void abortCrossfade();
     const audio = audioRef.current;
     if (audio && audio.currentTime > 3) {
       audio.currentTime = 0;
@@ -653,7 +1016,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setCurrentIndex(prevIndex);
     setCurrent(queue[prevIndex] || null);
     keepPlayingRef.current = true;
-  }, [currentIndex, queue, repeat]);
+  }, [abortCrossfade, currentIndex, queue, repeat]);
 
   useEffect(() => {
     mediaBridgeRef.current = {
@@ -822,7 +1185,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   return (
     <PlayerContext.Provider value={value}>
       {children}
-      <audio ref={audioRef} hidden preload="metadata" crossOrigin="anonymous" />
+      <audio ref={audioDeck0Ref} hidden preload="auto" crossOrigin="anonymous" />
+      <audio ref={audioDeck1Ref} hidden preload="auto" crossOrigin="anonymous" />
     </PlayerContext.Provider>
   );
 }

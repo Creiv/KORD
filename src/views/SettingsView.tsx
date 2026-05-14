@@ -38,14 +38,9 @@ import { ThemePicker } from "../components/ThemePicker";
 import {
   APP_LOCALES,
   type AppLocale,
-  type AppSection,
 } from "../types";
 
-function SettingsView({
-  onOpenSection,
-}: {
-  onOpenSection: (section: AppSection) => void;
-}) {
+function SettingsView() {
   const user = useUserState();
   const { t, locale, setLocale } = useI18n();
   const { confirm: appConfirm } = useAppConfirm();
@@ -575,13 +570,20 @@ function SettingsView({
               </span>
             </div>
           </div>
-          <button
-            type="button"
-            className="text-btn"
-            onClick={() => onOpenSection("dashboard")}
-          >
-            {t("settings.backDashboard")}
-          </button>
+          <label className="settings-ui-inline-control settings-ui-inline-control--checkbox-row settings-shortcuts-track-transitions">
+            <input
+              type="checkbox"
+              title={t("settings.trackTransitionsHint")}
+              className="settings-checkbox"
+              checked={user.state.settings.trackChangeTransitions !== false}
+              onChange={(event) =>
+                user.updateSettings({
+                  trackChangeTransitions: event.target.checked,
+                })
+              }
+            />
+            <span>{t("settings.trackTransitions")}</span>
+          </label>
         </div>
       </section>
       {isKordClientEmbed ? null : (

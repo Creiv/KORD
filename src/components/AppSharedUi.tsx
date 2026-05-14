@@ -131,11 +131,17 @@ export function PlayerBarTrackArt({
   relPath: string;
   version?: number | null;
 }) {
+  const user = useUserState();
+  const transitionsOn =
+    user.state.settings.trackChangeTransitions !== false;
   const cacheKey =
     version && Number.isFinite(version) ? Math.floor(version) : null;
+  const remountKey = transitionsOn
+    ? `${relPath}:${cacheKey ?? ""}`
+    : "__player-dock-art__";
   return (
     <PlayerBarTrackArtInner
-      key={`${relPath}:${cacheKey ?? ""}`}
+      key={remountKey}
       relPath={relPath}
       version={version}
     />

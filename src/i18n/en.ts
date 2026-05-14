@@ -451,6 +451,9 @@ export const EN: Record<string, string> = {
   "settings.uiHeading": "Theme and visualizer",
   "settings.theme": "Theme",
   "settings.visualizer": "Visualizer",
+  "settings.trackTransitions": "Transitions between tracks",
+  "settings.trackTransitionsHint":
+    "Audio crossfade in the last 3 seconds (outgoing fades out while the next fades in), plus smoother scroll when artwork changes on Listen and animations on the bottom bar. Turn off for instant changes.",
   "settings.vizBars": "Bars",
   "settings.vizMirror": "Mirror",
   "settings.vizOsc": "Wave",
