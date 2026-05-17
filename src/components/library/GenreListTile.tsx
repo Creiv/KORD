@@ -6,6 +6,7 @@ import {
   LibraryGenreMetaChips,
 } from "../AppSharedUi";
 import { CoverImg } from "../CoverImg";
+import { UiStyle } from "../KordUiIcons";
 import { coverUrlForAlbumRelPath } from "../../lib/api";
 import { useI18n } from "../../i18n/useI18n";
 import type { LibraryIndex } from "../../types";
@@ -75,7 +76,10 @@ export const GenreListTile = memo(function GenreListTile({
         ))}
       </div>
       <div className="library-list-tile__body">
-        <div className="library-list-tile__title">{title}</div>
+        <div className="library-list-tile__title-row">
+          <UiStyle className="library-list-tile__kind-ic" aria-hidden />
+          <div className="library-list-tile__title">{title}</div>
+        </div>
         <div className="library-list-tile__meta">
           {albumCount} {aU} · {trackCount} {trU}
         </div>

@@ -1909,7 +1909,19 @@
 .dashboard-mix-genre-chips {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 0.38rem;
+}
+
+.dashboard-mix-genre-chip__ic {
+  width: 0.92rem;
+  height: 0.92rem;
+  flex-shrink: 0;
+  opacity: 0.88;
+}
+
+.dashboard-mix-genre-chip.is-on .dashboard-mix-genre-chip__ic {
+  opacity: 1;
 }
 
 .dashboard-mix-genre-chip {
@@ -2045,13 +2057,42 @@
   margin: 0;
 }
 
-.settings-network-qr {
+.settings-network-qr-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  align-self: flex-end;
+}
+
+.settings-network-qr-wrap .settings-network-qr__ok {
+  margin: 0;
+  text-align: right;
+  max-width: min(140px, 36vw);
+}
+
+button.settings-network-qr {
+  margin: 0;
   padding: 0.5rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--surface2) 76%, transparent);
   width: fit-content;
-  align-self: flex-end;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+button.settings-network-qr:hover {
+  border-color: color-mix(in srgb, var(--accent2) 42%, var(--border) 58%);
+  background: color-mix(in srgb, var(--surface3) 82%, transparent);
+}
+
+button.settings-network-qr:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .settings-network-qr__img {
@@ -2072,7 +2113,7 @@
     min-height: 0;
   }
 
-  .settings-network-qr {
+  .settings-network-qr-wrap {
     min-height: 0;
     max-height: 100%;
     margin-top: 0;
@@ -3225,20 +3266,27 @@
   width: 100%;
 }
 
-.track-row__title-lead {
+.track-row__stats {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: flex-start;
+  flex-wrap: wrap;
   gap: 0.28rem;
   min-width: 0;
   flex: 1 1 auto;
 }
 
-.track-row__title-lead .track-row__title {
+.track-row__title-row .track-row__title {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 0 1 auto;
+  max-width: 100%;
+}
+
+.track-row__meta-text {
+  min-width: 0;
 }
 
 .track-row__meta {
@@ -3308,7 +3356,12 @@
   filter: grayscale(0.45);
 }
 
-.track-row__title-lead .lib-meta-chip {
+/* Desktop: icona testi in meta (vicino ad artista/album), non accanto ai mood in stats */
+.track-row__lyrics-inline.track-row__lyrics-inline--stats {
+  display: none;
+}
+
+.track-row__stats .lib-meta-chip {
   flex: 0 0 auto;
   align-self: center;
 }
@@ -3509,10 +3562,10 @@
   --viz-expanded-bottom-clear: 0px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1000px) {
   :root[data-player-dock="0"] {
     --viz-expanded-bottom-clear: calc(
-      3.5rem + env(safe-area-inset-bottom, 0px)
+      var(--mobile-nav-h, 3.6rem) + env(safe-area-inset-bottom, 0px)
     );
   }
 }
@@ -4036,12 +4089,18 @@
 }
 
 .library-mood-filter-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(5.85rem, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: flex-start;
   gap: 0.45rem;
+  width: 100%;
 }
 
 .library-mood-filter-btn {
+  flex: 0 0 5.85rem;
+  width: 5.85rem;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -6473,7 +6532,7 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 560px) {
   .section-head {
     flex-direction: column;
     align-items: flex-start;
@@ -7132,69 +7191,12 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* ── Mobile player: riga controlli → copertina+meta → seek ── */
-@media (max-width: 640px) {
-  .player-dock2 {
-    padding-inline: 0;
-  }
-
-  .player-bar2 {
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    margin: 0;
-    padding: 0.5rem 0.75rem 0.45rem;
-    gap: 0.3rem;
-    border-bottom: none;
-    border-left: none;
-    border-right: none;
-  }
-
-  .player-bar2__row--top {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: auto auto;
-    align-items: center;
-    column-gap: 0.4rem;
-    row-gap: 0.35rem;
-  }
-
-  .player-bar2__transport {
-    grid-column: 1 / -1;
-    grid-row: 1;
-    width: 100%;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 0.12rem 0.28rem;
-    overflow: visible;
-  }
-
-  .player-bar2__output {
-    grid-column: 2 / 3;
-    grid-row: 2;
-    justify-self: end;
-    align-self: center;
-  }
-
-  .player-bar2__track-block {
-    grid-column: 1 / 2;
-    grid-row: 2;
-    flex: 0 0 auto;
-    width: 100%;
-    min-width: 0;
-  }
-
-  .player-bar2__track {
-    gap: 0.5rem;
-  }
-
+/* Phone: metadati brano compatti nel dock (layout in responsive.css) */
+@media (max-width: 560px) {
   .player-bar2__art {
     width: 38px;
     height: 38px;
     border-radius: 10px;
-    flex-shrink: 0;
-  }
-
-  .player-bar2__meta {
-    min-width: 0;
   }
 
   .player-bar2__title-line strong {
@@ -7210,37 +7212,6 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  .player-bar2__ic {
-    min-width: 1.85rem;
-    min-height: 1.85rem;
-    padding: 0.12rem 0.28rem;
-  }
-
-  .player-bar2__rail-fav {
-    min-width: calc(1.85rem + 0.35rem);
-    width: calc(1.85rem + 0.35rem);
-  }
-
-  .player-bar2__ic--play {
-    min-width: 2.35rem;
-    min-height: 2.35rem;
-  }
-
-  .player-bar2__ic-glyph--svg svg {
-    width: 0.95rem;
-    height: 0.95rem;
-  }
-
-  .player-bar2__ic--play .player-bar2__ic-glyph--svg svg {
-    width: 1.05rem;
-    height: 1.05rem;
-  }
-
-  .player-bar2__row--seek {
-    gap: 0.1rem;
-    margin-top: 0.55rem;
   }
 
   .player-bar2__times {

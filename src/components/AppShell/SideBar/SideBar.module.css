@@ -1,4 +1,4 @@
-/* Desktop sidebar navigation — visible only above 768px */
+/* Desktop sidebar navigation — visible only above 1000px */
 
 .sidebar {
   width: var(--side-w, 220px);
@@ -276,7 +276,7 @@
   width: 100%;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1000px) {
   .sidebar {
     display: none;
   }

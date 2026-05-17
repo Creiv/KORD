@@ -16,6 +16,7 @@ import { usePlayer } from "../../context/PlayerContext";
 import { useToolsActivity } from "../../context/ToolsActivityContext";
 import { useUserState } from "../../context/UserStateContext";
 import { useMatchMedia } from "../../hooks/useMatchMedia";
+import { MOBILE_LAYOUT_MQ } from "../../lib/breakpoints";
 import { useI18n } from "../../i18n/useI18n";
 import {
   fetchDashboard,
@@ -72,7 +73,7 @@ const LIBRARY_RECONCILE_DEBOUNCE_MS = 1400;
 export function AppShell() {
   const { route, navigate } = useAppRoute();
   const p = usePlayer();
-  const isMobileLayout = useMatchMedia("(max-width: 768px)");
+  const isMobileLayout = useMatchMedia(MOBILE_LAYOUT_MQ);
   const user = useUserState();
   const syncUserStateFromServer = user.syncUserStateFromServer;
   const { t } = useI18n();

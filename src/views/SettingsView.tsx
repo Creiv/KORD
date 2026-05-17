@@ -43,7 +43,7 @@ import {
 function SettingsView() {
   const user = useUserState();
   const { t, locale, setLocale } = useI18n();
-  const { confirm: appConfirm } = useAppConfirm();
+  const { confirm: appConfirm, alert: appAlert } = useAppConfirm();
   const [libLocked, setLibLocked] = useState(false);
   const [libraryRootWritable, setLibraryRootWritable] = useState(true);
   const [libraryRootLabel, setLibraryRootLabel] = useState<string | null>(null);
@@ -80,6 +80,10 @@ function SettingsView() {
   const [remoteShareHover, setRemoteShareHover] = useState(false);
   const [remoteAccessBusy, setRemoteAccessBusy] = useState(false);
   const [remoteAccessErr, setRemoteAccessErr] = useState<string | null>(null);
+  const [remoteUrlCopyOk, setRemoteUrlCopyOk] = useState<string | null>(null);
+  const remoteUrlCopyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const [accounts, setAccounts] = useState<AccountsResponse | null>(null);
   const [selectedAccountId, setSelectedAccountIdState] = useState<
     string | null
@@ -363,6 +367,49 @@ function SettingsView() {
       )
       .finally(() => setRemoteAccessBusy(false));
   };
+
+  const copyRemotePublicUrl = useCallback(async () => {
+    const url = remoteAccess?.publicUrl?.trim();
+    if (!url) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = url;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        if (!ok) throw new Error("copy failed");
+      }
+      if (remoteUrlCopyTimerRef.current) {
+        window.clearTimeout(remoteUrlCopyTimerRef.current);
+      }
+      setRemoteUrlCopyOk(t("settings.remoteUrlCopied"));
+      remoteUrlCopyTimerRef.current = window.setTimeout(() => {
+        setRemoteUrlCopyOk(null);
+        remoteUrlCopyTimerRef.current = null;
+      }, 4000);
+    } catch {
+      await appAlert(t("settings.remoteUrlCopyFailed"));
+    }
+  }, [remoteAccess?.publicUrl, t, appAlert]);
+
+  useEffect(() => {
+    setRemoteUrlCopyOk(null);
+  }, [remoteAccess?.publicUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (remoteUrlCopyTimerRef.current) {
+        window.clearTimeout(remoteUrlCopyTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -859,17 +906,31 @@ function SettingsView() {
             ) : null}
           </div>
           {remoteAccess?.publicUrl ? (
-            <div className="settings-network-qr">
-              <img
-                className="settings-network-qr__img"
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-                  remoteAccess.publicUrl
-                )}`}
-                alt={t("settings.remoteQrAlt", {
+            <div className="settings-network-qr-wrap">
+              <button
+                type="button"
+                className="settings-network-qr"
+                onClick={() => void copyRemotePublicUrl()}
+                title={t("settings.remoteQrCopyTitle")}
+                aria-label={t("settings.remoteQrCopyAria", {
                   url: remoteAccess.publicUrl,
                 })}
-                loading="lazy"
-              />
+              >
+                <img
+                  className="settings-network-qr__img"
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
+                    remoteAccess.publicUrl
+                  )}`}
+                  alt=""
+                  loading="lazy"
+                  draggable={false}
+                />
+              </button>
+              {remoteUrlCopyOk ? (
+                <p className="subtle sm settings-network-qr__ok">
+                  {remoteUrlCopyOk}
+                </p>
+              ) : null}
             </div>
           ) : null}
         </div>

@@ -3,6 +3,7 @@ import { DashboardMixCard } from "../../components/DashboardMixCard";
 import { useUserState } from "../../context/UserStateContext";
 import { useLibraryCardPlayback } from "../../hooks/useLibraryCardPlayback";
 import { useMatchMedia } from "../../hooks/useMatchMedia";
+import { MOBILE_LAYOUT_MQ } from "../../lib/breakpoints";
 import { useDashboardUpdatedAlbumsGrid } from "../../hooks/useDashboardUpdatedAlbumsGrid";
 import { useI18n } from "../../i18n/useI18n";
 import { TrackListRow } from "../../components/AppSharedUi";
@@ -30,7 +31,7 @@ export default function DashboardView({
   const { t } = useI18n();
   const user = useUserState();
   const playFromLibraryCard = useLibraryCardPlayback(index?.tracks);
-  const isDashboardMobileLayout = useMatchMedia("(max-width: 900px)");
+  const isDashboardMobileLayout = useMatchMedia(MOBILE_LAYOUT_MQ);
   const { ref: updatedAlbumsGridRef, maxItems: updatedAlbumsMax } =
     useDashboardUpdatedAlbumsGrid(isDashboardMobileLayout);
   const favoriteTracksSorted = useMemo(

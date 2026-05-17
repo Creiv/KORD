@@ -1,6 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Manrope:ital,wght@0,400..800;1,400..800&family=Space+Grotesk:wght@400;500;600;700&display=swap");
 
 :root {
+  /* Breakpoint (px, max-width): 1000 mobile · 900 contenuto · 560 phone · 400 stretto — vedi src/lib/breakpoints.ts */
   --bg: #08111d;
   --surface: rgba(14, 24, 38, 0.86);
   --surface2: rgba(18, 31, 49, 0.94);
@@ -74,7 +75,7 @@
   color-scheme: dark;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1000px) {
   :root {
     --side-w: 0px;
   }
@@ -1391,20 +1392,10 @@ kbd {
 }
 
 @media (max-width: 560px) {
-  :root {
-    --bar-h: 128px;
-  }
-
   .dirlist,
   .artgrid {
     grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
     gap: 0.6rem;
-  }
-}
-
-@media (min-width: 561px) and (max-width: 900px) {
-  :root {
-    --bar-h: 118px;
   }
 }
 

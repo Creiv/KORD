@@ -16,7 +16,7 @@ import {
 import type { AppSection, LibraryIndex, LibraryTrackIndex } from "../types";
 import { SectionHeadLead } from "./SectionHeadLead";
 import { TrackMoodGlyph } from "./TrackMoodGlyph";
-import { UiShuffle } from "./KordUiIcons";
+import { UiShuffle, UiStyle } from "./KordUiIcons";
 
 const DASHBOARD_MIX_TOP_GENRES = 14;
 
@@ -214,6 +214,10 @@ export function DashboardMixCard({
                           setGenreKey((prev) => (prev === g.key ? null : g.key))
                         }
                       >
+                        <UiStyle
+                          className="dashboard-mix-genre-chip__ic"
+                          aria-hidden
+                        />
                         <span className="dashboard-mix-genre-chip__label">
                           {g.label}
                         </span>
@@ -313,9 +317,7 @@ export function DashboardMixCard({
             </div>
           </div>
 
-          {!hasFilter ? (
-            <p className="panel-empty">{t("dashboard.mixPickHint")}</p>
-          ) : shuffleEligible.length === 0 ? (
+          {hasFilter && shuffleEligible.length === 0 ? (
             <p className="panel-empty">{t("library.moodNoTracks")}</p>
           ) : null}
         </div>

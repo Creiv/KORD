@@ -38,6 +38,7 @@ import { ExcludeShuffleIcon } from "./ExcludeShuffleIcon";
 import { TrackMetaEditGlyph, useOpenTrackMetaEdit } from "./TrackMetaEditor";
 import { TrackMoodGlyph } from "./TrackMoodGlyph";
 import { useMatchMedia } from "../hooks/useMatchMedia";
+import { MOBILE_LAYOUT_MQ } from "../lib/breakpoints";
 import {
   popoverPlacementStyle,
   usePopoverLayerAnchored,
@@ -361,8 +362,10 @@ export const TrackListRow = memo(function TrackListRow({
   const trackShuffleExcluded = excludedTracksMemo.has(track.relPath);
   const shuffleExcluded = albumShuffleExcluded || trackShuffleExcluded;
   const albumToolbar = trackActionsMode === "album";
-  const favInOverflowMenu =
-    useMatchMedia("(max-width: 768px)") && !albumToolbar;
+  const isMobileRowLayout = useMatchMedia(MOBILE_LAYOUT_MQ);
+  const useOverflowActions = !albumToolbar || isMobileRowLayout;
+  const showInlineAlbumActions = albumToolbar && !isMobileRowLayout;
+  const favInOverflowMenu = useOverflowActions;
   const excludeOverflowMenuLabel =
     albumShuffleExcluded
       ? t("trackRow.excludeTitle")
@@ -434,7 +437,9 @@ export const TrackListRow = memo(function TrackListRow({
   return (
     <div
       ref={rowRef}
-      className={`track-row ${rowActive ? "is-active" : ""}`}
+      className={`track-row${rowActive ? " is-active" : ""}${
+        albumToolbar ? " track-row--album-list" : ""
+      }`}
     >
       <span
         className={`track-row__idx-wrap ${rowActive ? "is-current" : ""}`}
@@ -458,8 +463,8 @@ export const TrackListRow = memo(function TrackListRow({
         onClick={onPlay}
       >
         <span className="track-row__title-row">
-          <span className="track-row__title-lead">
-            <span className="track-row__title">{track.title}</span>
+          <span className="track-row__title">{track.title}</span>
+          <span className="track-row__stats">
             {durationStr ? (
               <span
                 className="track-row__duration"
@@ -475,16 +480,39 @@ export const TrackListRow = memo(function TrackListRow({
               ({playCount})
             </span>
             <TrackFileMetaChip meta={track.meta} />
+            <span
+              className={`track-row__lyrics-inline track-row__lyrics-inline--stats ${
+                hasLrcLyrics ? "is-lrc" : hasLyrics ? "is-plain" : "is-off"
+              }`}
+              title={
+                hasLrcLyrics
+                  ? t("trackRow.lyricsLrc")
+                  : hasLyrics
+                  ? t("trackRow.lyricsPlain")
+                  : t("trackRow.lyricsMissing")
+              }
+              aria-label={
+                hasLrcLyrics
+                  ? t("trackRow.lyricsLrc")
+                  : hasLyrics
+                  ? t("trackRow.lyricsPlain")
+                  : t("trackRow.lyricsMissing")
+              }
+            >
+              <UiLyrics />
+            </span>
           </span>
         </span>
         <span className="track-row__meta">
-          {track.artist} · {track.album}
+          <span className="track-row__meta-text">
+            {track.artist} · {track.album}
+          </span>
           <span className="track-row__meta-sep" aria-hidden>
             {" "}
             ·{" "}
           </span>
           <span
-            className={`track-row__lyrics-inline ${
+            className={`track-row__lyrics-inline track-row__lyrics-inline--meta ${
               hasLrcLyrics ? "is-lrc" : hasLyrics ? "is-plain" : "is-off"
             }`}
             title={
@@ -511,10 +539,10 @@ export const TrackListRow = memo(function TrackListRow({
       </button>
       <div
         className={`track-row__actions${
-          albumToolbar ? "" : " track-row__actions--compact-tools"
+          useOverflowActions ? " track-row__actions--compact-tools" : ""
         }`}
       >
-        {albumToolbar ? (
+        {showInlineAlbumActions ? (
           <>
             {inQ ? (
               <button
@@ -709,7 +737,8 @@ export const TrackListRow = memo(function TrackListRow({
                         <button
                           type="button"
                           role="menuitem"
-                          className="track-row__overflow-item"
+                          className="track-row__overflow-item is-on"
+                          aria-pressed
                           aria-label={t("trackRow.removeQueueAria")}
                           title={t("trackRow.removeQueueTitle")}
                           onClick={() => {
@@ -854,7 +883,7 @@ export const TrackListRow = memo(function TrackListRow({
         )}
       </div>
       <TrackRowPlaylistPopover
-        anchorRef={albumToolbar ? playlistAnchorRef : overflowRef}
+        anchorRef={showInlineAlbumActions ? playlistAnchorRef : overflowRef}
         open={playlistPickerOpen}
         track={track}
         onRequestClose={() => setPlaylistPickerOpen(false)}

@@ -96,7 +96,7 @@
 }
 
 /* ── Mobile: titolo sezione + logo compatto ── */
-@media (max-width: 768px) {
+@media (max-width: 1000px) {
   .brand {
     display: flex;
   }

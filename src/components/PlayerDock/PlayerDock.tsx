@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useMemo } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { usePlayer } from "../../context/PlayerContext";
 import { useUserState } from "../../context/UserStateContext";
@@ -7,7 +7,6 @@ import { PlayerBarTrackArt } from "../AppSharedUi";
 import { PlayerProgressTrack } from "../PlayerProgressTrack";
 import { ExcludeShuffleIcon } from "../ExcludeShuffleIcon";
 import {
-  UiCast,
   UiFavorite,
   UiMusicNote,
   UiPause,
@@ -17,23 +16,9 @@ import {
   UiSkipNext,
   UiSkipPrevious,
 } from "../KordUiIcons";
-import { fetchConfig } from "../../lib/api";
 import { isTrackAlbumShuffleExcluded } from "../../lib/randomExclusions";
 import { formatDuration } from "../../lib/duration";
 import type { LibraryTrackIndex } from "../../types";
-
-type RemotePlaybackHandle = EventTarget & {
-  state?: "connecting" | "connected" | "disconnected";
-  prompt?: () => Promise<void>;
-  watchAvailability?: (
-    callback: (available: boolean) => void
-  ) => Promise<number>;
-  cancelWatchAvailability?: (id: number) => Promise<void>;
-};
-
-type RemotePlaybackAudio = HTMLAudioElement & {
-  remote?: RemotePlaybackHandle;
-};
 
 interface PlayerDockProps {
   onGoToAscolta: () => void;
@@ -59,12 +44,6 @@ export const PlayerDock = memo(function PlayerDock({
   );
   const percent = p.duration > 0 ? (p.currentTime / p.duration) * 100 : 0;
   const cur = p.current;
-  const [castSupported, setCastSupported] = useState(false);
-  const [castAvailable, setCastAvailable] = useState(false);
-  const [castState, setCastState] = useState<
-    "connecting" | "connected" | "disconnected"
-  >("disconnected");
-  const [castBaseUrl, setCastBaseUrl] = useState<string | null>(null);
   const albumShuffleExcluded = Boolean(
     cur && isTrackAlbumShuffleExcluded(cur, exAlbums)
   );
@@ -77,95 +56,6 @@ export const PlayerDock = memo(function PlayerDock({
       return;
     }
     onGoToAscolta();
-  };
-
-  const castEffectGenRef = useRef(0);
-  const castRemoteCleanupRef = useRef<(() => void) | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    fetchConfig()
-      .then((cfg) => {
-        if (active) setCastBaseUrl(cfg.lanAccessUrl || null);
-      })
-      .catch(() => {
-        if (active) setCastBaseUrl(null);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    const myGen = ++castEffectGenRef.current;
-
-    void Promise.resolve().then(() => {
-      if (myGen !== castEffectGenRef.current) return;
-
-      castRemoteCleanupRef.current?.();
-      castRemoteCleanupRef.current = null;
-
-      const audio = p.audioRef.current as RemotePlaybackAudio | null;
-      const remote = audio?.remote;
-      if (!remote?.prompt) {
-        setCastSupported(false);
-        setCastAvailable(false);
-        setCastState("disconnected");
-        return;
-      }
-      setCastSupported(true);
-      setCastAvailable(true);
-      const syncState = () => {
-        setCastState(remote.state || "disconnected");
-      };
-      syncState();
-      remote.addEventListener("connecting", syncState);
-      remote.addEventListener("connect", syncState);
-      remote.addEventListener("disconnect", syncState);
-      let availabilityWatchId: number | null = null;
-      let availabilityWatchActive = true;
-      if (remote.watchAvailability) {
-        remote
-          .watchAvailability((available) => {
-            if (availabilityWatchActive) setCastAvailable(Boolean(available));
-          })
-          .then((id) => {
-            availabilityWatchId = id;
-          })
-          .catch(() => {
-            if (availabilityWatchActive) setCastAvailable(true);
-          });
-      }
-      castRemoteCleanupRef.current = () => {
-        availabilityWatchActive = false;
-        if (availabilityWatchId != null && remote.cancelWatchAvailability) {
-          void remote.cancelWatchAvailability(availabilityWatchId);
-        }
-        remote.removeEventListener("connecting", syncState);
-        remote.removeEventListener("connect", syncState);
-        remote.removeEventListener("disconnect", syncState);
-      };
-    });
-
-    return () => {
-      castRemoteCleanupRef.current?.();
-      castRemoteCleanupRef.current = null;
-    };
-  }, [p.audioRef, cur?.relPath]);
-
-  const openCastPicker = async () => {
-    const audio = p.audioRef.current as RemotePlaybackAudio | null;
-    if (!audio) return;
-    const remote = audio?.remote;
-    if (!remote?.prompt) return;
-    try {
-      if (cur) void p.prepareRemotePlayback(castBaseUrl);
-      await remote.prompt();
-      setCastState(remote.state || "disconnected");
-    } catch (error) {
-      const name = String((error as Error)?.name || "");
-      if (name !== "AbortError") return;
-    }
   };
 
   if (p.queue.length === 0) return null;
@@ -372,40 +262,6 @@ export const PlayerDock = memo(function PlayerDock({
                 </span>
               </button>
             ) : null}
-          </div>
-          <div className="player-bar2__output">
-            <button
-              type="button"
-              className={`player-bar2__ic player-bar2__ic--cast ${
-                castState === "connected" ? "is-on" : ""
-              } ${!castSupported ? "is-unsupported" : ""} ${
-                !castSupported || !castAvailable ? "is-unavailable" : ""
-              }`}
-              disabled={!cur || !castSupported}
-              onClick={() => void openCastPicker()}
-              title={
-                !castSupported
-                  ? t("player.castUnsupported")
-                  : castAvailable
-                  ? t("player.castTitle")
-                  : t("player.castNoDevices")
-              }
-              aria-label={
-                !castSupported
-                  ? t("player.castUnsupported")
-                  : castAvailable
-                  ? t("player.castTitle")
-                  : t("player.castNoDevices")
-              }
-              aria-pressed={castState === "connected"}
-            >
-              <span
-                className="player-bar2__ic-glyph player-bar2__ic-glyph--svg"
-                aria-hidden
-              >
-                <UiCast />
-              </span>
-            </button>
           </div>
         </div>
         <div className="player-bar2__row player-bar2__row--seek">

@@ -94,16 +94,35 @@ export function usePopoverLayerAnchored(
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onRequestClose();
     };
-    const dismissOnScrollResize = () => onRequestClose();
+    const dismissOnScroll = (e: Event) => {
+      const t = e.target;
+      if (t instanceof Node && floatingRef?.current?.contains(t)) return;
+      if (
+        t instanceof Element &&
+        t.closest(".popover-layer-fixed, .track-row__overflow-menu")
+      ) {
+        return;
+      }
+      if (
+        t instanceof Element &&
+        t.closest(
+          ".viz-lyrics-overlay, .listen-recent-lyrics, .listen-recent-lyrics__plain"
+        )
+      ) {
+        return;
+      }
+      onRequestClose();
+    };
     document.addEventListener("mousedown", onDocMouseDown);
     document.addEventListener("keydown", onKey);
-    window.addEventListener("scroll", dismissOnScrollResize, true);
-    window.addEventListener("resize", dismissOnScrollResize);
+    window.addEventListener("scroll", dismissOnScroll, true);
+    const dismissOnResize = () => onRequestClose();
+    window.addEventListener("resize", dismissOnResize);
     return () => {
       document.removeEventListener("mousedown", onDocMouseDown);
       document.removeEventListener("keydown", onKey);
-      window.removeEventListener("scroll", dismissOnScrollResize, true);
-      window.removeEventListener("resize", dismissOnScrollResize);
+      window.removeEventListener("scroll", dismissOnScroll, true);
+      window.removeEventListener("resize", dismissOnResize);
     };
   }, [open, anchorRef, floatingRef, onRequestClose]);
 

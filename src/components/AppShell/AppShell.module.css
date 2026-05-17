@@ -58,7 +58,7 @@
 }
 
 /* Mobile: stack vertically, no sidebar shown */
-@media (max-width: 768px) {
+@media (max-width: 1000px) {
   .shell {
     flex-direction: column;
   }
