@@ -1,7 +1,7 @@
 /**
  * KORD — layer responsive (dopo App.css).
- * Breakpoint: vedi src/lib/breakpoints.ts
- *   1024 tablet · 1000 mobile · 900 contenuto stretto · 560 phone · 400 stretto
+ * Breakpoint width: src/lib/breakpoints.ts
+ * Aspect ratio: src/styles/aspect-layout.css
  */
 
 /* --- Base: niente scroll orizzontale accidentale --- */
@@ -21,21 +21,21 @@ body,
   box-sizing: border-box;
 }
 
-/* --- Tablet e sotto: respiro e touch --- */
+/* --- Tablet e sotto: leggero adattamento padding card --- */
 @media (max-width: 1024px) {
   .surface-card,
   .hero-card,
   .listen-stage,
   .album-hero {
-    padding: 1rem 1.05rem;
+    padding: var(--space-5);
   }
 }
 
 /* --- Nav in alto: scroll orizzontale confortevole / snap --- */
 @media (max-width: 900px) {
   .content-shell {
-    padding-inline: max(0.75rem, env(safe-area-inset-left))
-      max(0.75rem, env(safe-area-inset-right));
+    padding-inline: max(0.875rem, env(safe-area-inset-left))
+      max(0.875rem, env(safe-area-inset-right));
   }
 
   .inline-banner {
@@ -44,12 +44,11 @@ body,
   }
 
   .player-dock2 {
-    padding-inline: max(0.45rem, env(safe-area-inset-left))
-      max(0.45rem, env(safe-area-inset-right));
+    padding-inline: 0;
   }
 
   .player-bar2 {
-    margin-inline-end: 0;
+    margin: 0;
   }
 
   .statistics-rank-row {
@@ -60,7 +59,7 @@ body,
 /* --- “Phablet” + menu mobile (barra inferiore) --- */
 @media (max-width: 1000px) {
   :root {
-    --mobile-nav-h: 3.6rem;
+    --mobile-nav-h: 3.25rem;
     /* --bar-h misurato da usePlayerDockCssVars; fallback fino al primo paint */
     --bar-h: 11rem;
     --content-pad-bottom: calc(
@@ -142,11 +141,12 @@ body,
     padding-bottom: 0;
   }
 
-  /* Player più basso: meno padding, seek compatto */
+  /* Player mobile: compatto ma con respiro adeguato */
   .player-bar2 {
-    margin-bottom: 0.32rem;
-    padding: 0.32rem 0.5rem 0.28rem;
-    gap: 0.16rem;
+    margin: 0;
+    padding: 0.45rem 0.65rem 0.4rem;
+    gap: 0.22rem;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
   }
 
   .player-bar2__row--seek {
@@ -171,10 +171,10 @@ body,
     height: 11px;
   }
 
-  /* Card brano: n. / play | copertina | titolo + riga info | ⋯ */
+  /* Card brano: copertina | titolo + riga info | ⋯ */
   .track-row:has(.track-row__actions--compact-tools) {
     display: grid;
-    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-rows: auto;
     align-items: center;
     column-gap: 0.45rem;
@@ -183,33 +183,22 @@ body,
     padding-left: max(0.65rem, env(safe-area-inset-left));
   }
 
-  .track-row:has(.track-row__actions--compact-tools) .track-row__idx-wrap {
+  .track-row:has(.track-row__actions--compact-tools) .track-row__art-wrap {
     grid-column: 1;
-    grid-row: 1;
-    justify-self: start;
-    position: relative;
-    left: auto;
-    top: auto;
-    transform: none;
-    flex-shrink: 0;
-    width: 1.75rem;
-    height: 1.75rem;
-    align-self: center;
-    margin-inline-end: -0.04rem;
-  }
-
-  .track-row:has(.track-row__actions--compact-tools) .track-row__art {
-    grid-column: 2;
     grid-row: 1;
     width: 44px;
     height: 44px;
     flex-shrink: 0;
     align-self: center;
-    flex: unset;
+  }
+
+  .track-row:has(.track-row__actions--compact-tools) .track-row__art-wrap .track-row__art {
+    width: 100%;
+    height: 100%;
   }
 
   .track-row:has(.track-row__actions--compact-tools) .track-row__main {
-    grid-column: 3;
+    grid-column: 2;
     grid-row: 1;
     min-width: 0;
     text-align: left;
@@ -252,7 +241,7 @@ body,
   }
 
   .track-row:has(.track-row__actions--compact-tools) .track-row__actions {
-    grid-column: 4;
+    grid-column: 3;
     grid-row: 1;
     justify-self: end;
     align-self: center;
@@ -267,63 +256,108 @@ body,
     min-width: 0;
   }
 
+  /* Player: controlli sopra, info brano sotto a tutta larghezza */
   .player-bar2__row--top {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: auto auto;
-    align-items: center;
-    column-gap: 0.45rem;
-    row-gap: 0.38rem;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+    width: 100%;
+    min-width: 0;
   }
 
   .player-bar2__transport {
-    grid-column: 1 / -1;
-    grid-row: 1;
+    order: 1;
+    flex: 0 0 auto;
     width: 100%;
     max-width: 100%;
+    display: flex;
+    align-items: center;
     justify-content: center;
     flex-wrap: nowrap;
-    gap: 0.14rem 0.32rem;
-    overflow: hidden;
+    gap: var(--space-2);
     min-width: 0;
+    grid-column: unset;
+    grid-row: unset;
   }
 
   .player-bar2__controls {
     flex: 0 1 auto;
+    display: inline-flex;
     justify-content: center;
+    align-items: center;
     flex-wrap: nowrap;
-    gap: 0.1rem 0.26rem;
+    gap: 0.08rem 0.22rem;
     min-width: 0;
+  }
+
+  .player-bar2__rail-fav,
+  .player-bar2__ic.player-bar2__ic--exclude {
+    flex: 0 0 auto;
+    flex-shrink: 0;
   }
 
   .player-bar2__output {
     display: none;
   }
 
-  .player-bar2__track-block {
-    grid-column: 1 / -1;
-    grid-row: 2;
+  .player-bar2__track-block,
+  .player-bar2__identity {
+    order: 2;
+    flex: 0 0 auto;
     width: 100%;
+    max-width: 100%;
     min-width: 0;
+    grid-column: unset;
+    grid-row: unset;
+    justify-self: stretch;
+  }
+
+  .player-bar2__identity .player-bar2__track {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .player-bar2__identity .player-bar2__meta {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+    max-width: 100%;
+  }
+
+  .player-bar2__identity .player-bar2__title-line strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .player-bar2__identity .player-bar2__byline {
+    width: 100%;
+    max-width: 100%;
   }
 
   .player-bar2__ic {
-    flex-shrink: 1;
-    min-width: 2.55rem;
-    min-height: 2.55rem;
-    padding: 0.18rem 0.34rem;
+    flex-shrink: 0;
+    min-width: 2.35rem;
+    min-height: 2.35rem;
+    padding: 0.16rem 0.28rem;
   }
 
   .player-bar2__rail-fav {
-    flex-shrink: 1;
-    min-width: calc(2.55rem + 0.28rem);
-    width: calc(2.55rem + 0.28rem);
+    min-width: calc(2.35rem + 0.2rem);
+    width: calc(2.35rem + 0.2rem);
   }
 
   .player-bar2__ic--play {
-    flex-shrink: 1;
-    min-width: 2.95rem;
-    min-height: 2.95rem;
+    flex-shrink: 0;
+    min-width: 2.65rem;
+    min-height: 2.65rem;
   }
 
   .player-bar2__ic-glyph--svg svg {
@@ -391,6 +425,47 @@ body,
     gap: 0.45rem 0.65rem;
   }
 
+  .queue-page .page-toolbar,
+  .playlists-page .page-toolbar,
+  .playlists-page__main .page-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .queue-page .page-toolbar__actions,
+  .playlists-page .page-toolbar__actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .queue-page .section-head.section-head--page-toolbar,
+  .playlists-page .section-head.section-head--page-toolbar {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .queue-page .section-head--page-toolbar .section-head__tools,
+  .playlists-page .section-head--page-toolbar .section-head__tools {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+    justify-content: stretch;
+    align-self: stretch;
+  }
+
+  .queue-page .queue-hero-actions,
+  .playlists-page .queue-hero-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+
+  .queue-page .queue-name-input,
+  .playlists-page .queue-name-input {
+    flex: 1 1 8rem;
+    min-width: 0;
+  }
+
   .album-hero__toprow.section-head--page-toolbar {
     flex-wrap: wrap;
   }
@@ -439,6 +514,15 @@ body,
     margin-left: auto;
     align-self: flex-start;
     justify-content: flex-end;
+  }
+
+  .queue-page .section-head--page-toolbar .section-head__tools,
+  .playlists-page .section-head--page-toolbar .section-head__tools {
+    width: 100%;
+    max-width: 100%;
+    flex: 1 1 100%;
+    margin-left: 0;
+    justify-content: stretch;
   }
 
   .library-content-head {
@@ -674,8 +758,8 @@ body,
   }
 
   .player-bar2 {
-    padding: 0.5rem 0.6rem 0.55rem;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding: 0.45rem 0.6rem 0.5rem;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
     margin: 0;
     border-bottom: none;
     border-left: none;
@@ -686,7 +770,7 @@ body,
   .hero-card,
   .listen-stage {
     border-radius: var(--radius-lg);
-    padding: 0.8rem 0.9rem;
+    padding: 0.875rem 0.95rem;
   }
 
   .studio-action-row {

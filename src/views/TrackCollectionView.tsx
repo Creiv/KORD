@@ -25,7 +25,8 @@ function TrackCollectionView({
   const { t } = useI18n();
   const playFromLibraryCard = useLibraryCardPlayback(libraryTracks);
   return (
-    <div className="view-stack">
+    <div className="view-page view-page--split collection-page">
+      <header className="view-page__toolbar-band">
       <section className="surface-card surface-card--toolbar-only">
         <div className="section-head section-head--page-toolbar">
           <SectionHeadLead eyebrow={eyebrow} title={title} icon={leadIcon} />
@@ -40,7 +41,8 @@ function TrackCollectionView({
           ) : null}
         </div>
       </section>
-      <section className="surface-card">
+      </header>
+      <section className="surface-card collection-page__list view-page__body">
         {tracks.length === 0 ? (
           <p className="panel-empty">{t("collection.empty")}</p>
         ) : (
@@ -49,7 +51,6 @@ function TrackCollectionView({
               <TrackListRow
                 key={`${track.relPath}-${index}`}
                 track={track}
-                listIndex={index + 1}
                 onPlay={() => playFromLibraryCard(track)}
               />
             ))}

@@ -207,7 +207,8 @@ function StatisticsView({
   };
 
   return (
-    <div className="view-stack statistics-page">
+    <div className="view-page statistics-page">
+      <header className="view-page__toolbar-band statistics-page__toolbar">
       <section className="surface-card surface-card--toolbar-only">
         <div className="section-head section-head--page-toolbar">
           <div className="section-head__lead">
@@ -238,8 +239,10 @@ function StatisticsView({
           </div>
         </div>
       </section>
+      </header>
 
       <div className="statistics-page__sections">
+        <div className="statistics-page__rankings">
         <section className="surface-card statistics-section">
           <div className="statistics-section__head">
             <h3>{t("statistics.sectionTracks")}</h3>
@@ -399,6 +402,8 @@ function StatisticsView({
           )}
         </section>
 
+        </div>
+        <div className="statistics-page__footer">
         <section className="surface-card statistics-section statistics-section--genres">
           <div className="statistics-section__head">
             <h3>{t("statistics.sectionGenres")}</h3>
@@ -464,6 +469,7 @@ function StatisticsView({
           </div>
         </section>
       </div>
+    </div>
     </div>
   );
 }

@@ -592,7 +592,7 @@ export function AppShell() {
         );
       case "studio":
         return (
-          <div className="view-stack">
+          <div className="view-page view-page--studio">
             <Suspense fallback={<KordSplashLoader />}>
               <LazyToolsView
                 library={legacyLibrary}
@@ -686,6 +686,7 @@ export function AppShell() {
           style={{ "--side-w": sideW } as CSSProperties}
         >
           <div className={styles.body}>
+            <div className="shell__workspace">
             {/* Desktop sidebar nav */}
             {!isMobileLayout ? (
               <SideBar
@@ -703,7 +704,7 @@ export function AppShell() {
               />
             ) : null}
 
-            <div className={styles.main}>
+            <div className={`${styles.main} shell__main`}>
               {/* Mobile topbar */}
               <TopBar
                 activeSection={route.section}
@@ -728,8 +729,9 @@ export function AppShell() {
               ) : null}
 
               <main className={`content-shell ${styles.content}`}>
-                {currentView}
+                <div className="content-shell__inner">{currentView}</div>
               </main>
+            </div>
             </div>
           </div>
 

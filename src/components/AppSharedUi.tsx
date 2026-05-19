@@ -123,6 +123,33 @@ export function TrackRowArt({ relPath }: { relPath: string }) {
   );
 }
 
+function TrackRowArtPlay({
+  relPath,
+  onPlay,
+}: {
+  relPath: string;
+  onPlay: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <div className="track-row__art-wrap">
+      <TrackRowArt relPath={relPath} />
+      <button
+        type="button"
+        className="track-row__art-play"
+        onClick={(event) => {
+          event.stopPropagation();
+          onPlay();
+        }}
+        title={t("player.playTitle")}
+        aria-label={t("player.playTitle")}
+      >
+        <UiPlayArrow />
+      </button>
+    </div>
+  );
+}
+
 function PlayerBarTrackArtInner({
   relPath,
   version,
@@ -324,7 +351,6 @@ export const TrackListRow = memo(function TrackListRow({
   metaRight,
   extraActions,
   showTrackBadgeRow = false,
-  listIndex,
   autoFocusActive = true,
   trackActionsMode,
 }: {
@@ -336,8 +362,6 @@ export const TrackListRow = memo(function TrackListRow({
   extraActions?: ReactNode;
   /** Terza riga (badge traccia/disco…): solo nella lista brani dell’album. */
   showTrackBadgeRow?: boolean;
-  /** Posizione nella lista (1-based). */
-  listIndex?: number;
   /** Disabilita lo scroll automatico della riga quando diventa quella attiva. */
   autoFocusActive?: boolean;
   /**
@@ -441,22 +465,7 @@ export const TrackListRow = memo(function TrackListRow({
         albumToolbar ? " track-row--album-list" : ""
       }`}
     >
-      <span
-        className={`track-row__idx-wrap ${rowActive ? "is-current" : ""}`}
-        aria-hidden
-      >
-        <span className="track-row__idx-num">{listIndex ?? ""}</span>
-        <button
-          type="button"
-          className="track-row__idx-play"
-          onClick={onPlay}
-          title={t("player.playTitle")}
-          aria-label={t("player.playTitle")}
-        >
-          <UiPlayArrow />
-        </button>
-      </span>
-      <TrackRowArt relPath={track.relPath} />
+      <TrackRowArtPlay relPath={track.relPath} onPlay={onPlay} />
       <button
         type="button"
         className="track-row__main"

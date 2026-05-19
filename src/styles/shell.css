@@ -108,7 +108,7 @@
   height: 34px;
   flex: 0 0 34px;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border) 58%);
   background: color-mix(in srgb, var(--accent) 18%, var(--surface3) 82%);
   color: var(--accent);
@@ -413,12 +413,12 @@
   box-sizing: border-box;
   background: var(--ghost-input-bg);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-md);
   color: var(--text);
-  padding: 0.45rem 0.95rem;
-  font-size: 0.9rem;
-  min-height: 38px;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+  padding: 0.4rem 0.75rem;
+  font-size: var(--text-sm);
+  min-height: 36px;
+  box-shadow: none;
   transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
@@ -443,8 +443,9 @@
   min-height: 0;
   overflow: auto;
   scroll-padding-bottom: var(--content-pad-bottom);
-  padding: 0.85rem max(1.3rem, env(safe-area-inset-right))
-    var(--content-pad-bottom) max(0.85rem, env(safe-area-inset-left));
+  padding: var(--space-4) max(1rem, env(safe-area-inset-right))
+    var(--content-pad-bottom) max(1rem, env(safe-area-inset-left));
+  container-type: inline-size;
 }
 
 .view-stack,
@@ -452,7 +453,7 @@
 .alert-list,
 .settings-grid {
   display: grid;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .settings-merge-block {
@@ -477,11 +478,7 @@
 .player-bar2,
 .inline-banner {
   border: 1px solid var(--border);
-  background: linear-gradient(
-    165deg,
-    var(--surface-elev-a),
-    var(--surface-elev-b)
-  );
-  box-shadow: var(--shadow-elev-2);
+  background: var(--surface2);
+  box-shadow: var(--shadow-elev-1);
 }
 

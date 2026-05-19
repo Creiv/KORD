@@ -68,7 +68,7 @@ export const PlayerDock = memo(function PlayerDock({
           onClick={openListenFromTopBar}
           title={t("player.openListenTitle")}
         >
-          <div className="player-bar2__track-block">
+          <div className="player-bar2__identity">
             <div className="player-bar2__track">
               <div className="player-bar2__art-hit">
                 {cur ? (

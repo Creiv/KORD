@@ -49,7 +49,8 @@ export default function DashboardView({
     return <div className="panel-empty">{t("loading.dashboard")}</div>;
 
   return (
-    <div className="view-stack">
+    <div className="view-page dashboard-page">
+      <header className="dashboard-page__intro view-page__intro">
       <section className="hero-card hero-card--compact">
         <div className="hero-card__lead">
           <p className="eyebrow">KORD</p>
@@ -73,7 +74,7 @@ export default function DashboardView({
         </div>
       </section>
 
-      <section className="stats-grid">
+      <section className="stats-grid" aria-label={t("dashboard.heroTitle")}>
         <div className="metric-card">
           <span>{t("dashboard.metricArtists")}</span>
           <strong>{dashboard.stats.artistCount}</strong>
@@ -93,11 +94,12 @@ export default function DashboardView({
           </strong>
         </div>
       </section>
+      </header>
 
-      <section className="dashboard-grid">
+      <div className="dashboard-page__main">
         <DashboardMixCard index={index} onOpenSection={onOpenSection} />
 
-        <section className="surface-card">
+        <section className="surface-card dashboard-page__tile dashboard-page__tile--full">
           <div className="section-head section-head--page-toolbar">
             <SectionHeadLead
               eyebrow={t("dashboard.updatedEyebrow")}
@@ -128,7 +130,7 @@ export default function DashboardView({
           </div>
         </section>
 
-        <section className="surface-card">
+        <section className="surface-card dashboard-page__tile">
           <div className="section-head section-head--page-toolbar">
             <SectionHeadLead
               eyebrow={t("dashboard.favoritesEyebrow")}
@@ -147,11 +149,10 @@ export default function DashboardView({
             <p className="panel-empty">{t("dashboard.favoritesEmpty")}</p>
           ) : (
             <div className="list-stack">
-              {favoriteTracksSorted.slice(0, 5).map((track, idx) => (
+              {favoriteTracksSorted.slice(0, 5).map((track) => (
                 <TrackListRow
                   key={track.relPath}
                   track={track}
-                  listIndex={idx + 1}
                   onPlay={() => playFromLibraryCard(track)}
                 />
               ))}
@@ -159,7 +160,7 @@ export default function DashboardView({
           )}
         </section>
 
-        <section className="surface-card">
+        <section className="surface-card dashboard-page__tile">
           <div className="section-head section-head--page-toolbar">
             <SectionHeadLead
               eyebrow={t("dashboard.qualityEyebrow")}
@@ -186,7 +187,7 @@ export default function DashboardView({
             ))}
           </div>
         </section>
-      </section>
+      </div>
     </div>
   );
 }

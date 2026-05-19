@@ -58,15 +58,16 @@ function PlaylistsViewNew({
     ) || null;
 
   return (
-    <div className="view-stack playlists-page">
+    <div className="view-page playlists-page">
+      <header className="view-page__toolbar-band">
       <section className="surface-card surface-card--toolbar-only">
-        <div className="section-head section-head--page-toolbar">
+        <div className="section-head section-head--page-toolbar page-toolbar">
           <SectionHeadLead
             eyebrow={t("playlists.eyebrow")}
             title={t("playlists.heading")}
             icon={<UiQueueMusic className="section-head__ic" />}
           />
-          <div className="section-head__tools">
+          <div className="section-head__tools page-toolbar__actions">
             <div className="hero-card__actions queue-hero-actions">
               <input
                 className="ghost-input queue-name-input"
@@ -86,8 +87,9 @@ function PlaylistsViewNew({
           </div>
         </div>
       </section>
+      </header>
 
-      <div className="dashboard-grid playlists-page__main">
+      <section className="playlists-page__main">
         <div className="view-stack">
           <section className="surface-card">
             <div className="list-stack">
@@ -167,7 +169,7 @@ function PlaylistsViewNew({
                     title={activePlaylist.name}
                     icon={<UiQueueMusic className="section-head__ic" />}
                   />
-                  <div className="section-head__tools">
+                  <div className="section-head__tools page-toolbar__actions">
                     <input
                       key={`rename-${activePlaylist.id}-${activePlaylist.name}`}
                       className="ghost-input compact playlist-rename-input"
@@ -197,7 +199,6 @@ function PlaylistsViewNew({
                         <TrackListRow
                           key={`${track.relPath}-${index}`}
                           track={enriched}
-                          listIndex={index + 1}
                           onPlay={() => {
                             const queue = playlistToEnrichedList(
                               activePlaylist,
@@ -239,7 +240,7 @@ function PlaylistsViewNew({
             </section>
           )}
         </div>
-      </div>
+      </section>
     </div>
   );
 }

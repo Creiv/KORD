@@ -1,0 +1,158 @@
+/**
+ * Override visivi KORD — superfici piatte, spaziatura bilanciata, angoli netti.
+ * Caricato per ultimo nella cascata app.css.
+ * Breakpoint: 1000px mobile · 900px tablet · 560px phone
+ */
+
+/* ── No blur sui row — performance + coerenza ── */
+.track-row,
+.playlist-row {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+  border-radius: var(--radius-md);
+}
+
+/* ── Card superfici: raggio, ombra, sfondo piatto ── */
+.surface-card,
+.hero-card,
+.listen-stage,
+.album-hero,
+.metric-card,
+.alert-card,
+.setting-card,
+.player-bar2,
+.inline-banner {
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-elev-1);
+  background: var(--surface2);
+}
+
+.hero-card {
+  background: var(--surface2);
+  gap: var(--space-5);
+}
+
+.hero-card--compact {
+  padding: var(--space-4) var(--space-5);
+  gap: var(--space-3) var(--space-4);
+}
+
+/* Padding base delle card: desktop 16px, bilanciato */
+.surface-card,
+.hero-card,
+.listen-stage,
+.album-hero {
+  padding: var(--space-5);
+}
+
+/* ── Section head: spazio rispettoso sotto il titolo ── */
+.section-head {
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.section-head h2 {
+  font-size: 1.12rem;
+  letter-spacing: -0.02em;
+}
+
+.studio-hero__title,
+.section-head--page-toolbar h2 {
+  font-size: 1.18rem;
+}
+
+/* ── Gap griglie e stack: respiro uniforme ── */
+.dashboard-grid,
+.view-stack,
+.view-page,
+.list-stack,
+.settings-grid {
+  gap: var(--space-5);
+}
+
+/* ── Content shell: padding top + safe-area ── */
+.content-shell {
+  padding: var(--space-4) max(1rem, env(safe-area-inset-right))
+    var(--content-pad-bottom) max(1rem, env(safe-area-inset-left));
+  container-type: inline-size;
+}
+
+/* ── Messaggi panel ── */
+.panel-empty,
+.panel-msg {
+  border-radius: var(--radius-md);
+}
+
+/* ── Segmented controls ── */
+.segmented--joined button,
+.segmented--filter button {
+  border-radius: var(--radius-sm);
+}
+
+/* ── Meta badge strip ── */
+.meta-strip span {
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.6rem;
+}
+
+/* ── Shell base ── */
+.shell {
+  background: var(--bg);
+}
+
+/* ── Player dock: padding bilanciato ── */
+.player-bar2 {
+  margin: 0;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  gap: var(--space-2) var(--space-3);
+  border-radius: 0;
+}
+
+.player-bar2__art-hit {
+  border-radius: var(--radius-md);
+}
+
+/* ── Track row: padding touch-friendly ── */
+.track-row {
+  padding: var(--space-3) var(--space-5);
+  gap: var(--space-3);
+}
+
+/* ── Tipografia: titoli sezione ── */
+.h2 {
+  font-size: 1.2rem;
+  margin: 0 0 var(--space-4);
+}
+
+.h3,
+.h2.h3 {
+  font-size: 1.05rem;
+  margin: 0 0 var(--space-3);
+}
+
+/* ── Eyebrow label ── */
+.eyebrow {
+  letter-spacing: 0.1em;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+/* ── Library list tile ── */
+.library-list-tile {
+  border-radius: var(--radius-md);
+  border-color: var(--border);
+  background: var(--surface2);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+  padding: var(--space-3) var(--space-4);
+  min-height: 5.1rem;
+  gap: var(--space-4);
+}
+
+.library-list-tile:hover {
+  border-color: var(--border-strong);
+  box-shadow: none;
+  transform: none;
+}

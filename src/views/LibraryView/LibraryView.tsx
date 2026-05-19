@@ -724,7 +724,7 @@ export default function LibraryView({
 
   if (normalizedQuery && searchResults) {
     return (
-      <div className="view-stack library-view library-view--search-results">
+      <div className="view-page library-page library-view library-view--search-results">
         {showSearchBar ? renderLibrarySearchHero() : null}
         <section className="surface-card library-search-results-card">
           <div className="library-filter-panel">
@@ -816,11 +816,10 @@ export default function LibraryView({
             <div className="subsection">
               <h3>{t("library.subTracks")}</h3>
               <div className="list-stack">
-                {searchResults.tracks.slice(0, 50).map((track, idx) => (
+                {searchResults.tracks.slice(0, 50).map((track) => (
                   <TrackListRow
                     key={track.relPath}
                     track={track}
-                    listIndex={idx + 1}
                     onPlay={() => playFromLibraryCard(track)}
                   />
                 ))}
@@ -834,7 +833,7 @@ export default function LibraryView({
 
   if (album && artist) {
     return (
-      <div className="view-stack library-view">
+      <div className="view-page library-page library-view">
         <section className="album-hero">
           <div className="album-hero__body">
             <div className="album-hero__top-band">
@@ -1029,7 +1028,6 @@ export default function LibraryView({
               <TrackListRow
                 key={track.relPath}
                 track={track}
-                listIndex={trIndex + 1}
                 showTrackBadgeRow
                 trackActionsMode="album"
                 onPlay={() => p.playTrack(track, albumTracks, trIndex)}
@@ -1043,7 +1041,7 @@ export default function LibraryView({
 
   if (artist) {
     return (
-      <div className="view-stack library-view">
+      <div className="view-page library-page library-view">
         <section className="surface-card surface-card--toolbar-only">
           <div className="section-head section-head--page-toolbar">
             <div className="page-toolbar__lead page-toolbar__lead--backrow">
@@ -1150,7 +1148,8 @@ export default function LibraryView({
   }
 
   return (
-    <div className="view-stack library-view">
+    <div className="view-page library-page">
+      <div className="library-page__chrome">
       {showSearchBar ? renderLibrarySearchHero() : null}
       <section className="surface-card surface-card--toolbar-only">
         <div className="section-head section-head--page-toolbar">
@@ -1311,6 +1310,8 @@ export default function LibraryView({
           </div>
         </div>
       </section>
+      </div>
+      <div className="library-page__body view-page__body">
       <section className="surface-card">
         {selectedGenreKey ? (
           <div className="library-filter-panel library-filter-panel--tight library-sort-panel library-genre-tracklist-toolbar">
@@ -1460,11 +1461,10 @@ export default function LibraryView({
         {selectedGenreKey ? (
           <>
             <div className="list-stack">
-              {sortedGenreTracks.map((track, idx) => (
+              {sortedGenreTracks.map((track) => (
                 <TrackListRow
                   key={track.relPath}
                   track={track}
-                  listIndex={idx + 1}
                   onPlay={() => playFromLibraryCard(track)}
                 />
               ))}
@@ -1584,11 +1584,10 @@ export default function LibraryView({
                   </div>
                 </div>
                 <div className="list-stack">
-                  {sortedMoodTracks.map((track, idx) => (
+                  {sortedMoodTracks.map((track) => (
                     <TrackListRow
                       key={track.relPath}
                       track={track}
-                      listIndex={idx + 1}
                       onPlay={() => playFromLibraryCard(track)}
                     />
                   ))}
@@ -1655,6 +1654,7 @@ export default function LibraryView({
           </div>
         )}
       </section>
+      </div>
     </div>
   );
 }

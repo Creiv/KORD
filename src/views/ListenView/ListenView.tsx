@@ -182,9 +182,10 @@ export default function ListenView({ index, onOpenSection }: ListenViewProps) {
   }, [cur?.relPath, trackChangeTransitionsOn]);
 
   return (
-    <div className="view-stack">
+    <div className="view-page view-page--listen">
       <div className="listen-page">
-        <section className="listen-stage">
+        <section className="listen-page__stage listen-stage">
+          <div className="listen-stage__primary">
           <div className="listen-stage__meta">
             <div className="listen-stage__head">
               {p.current?.relPath ? (
@@ -341,12 +342,13 @@ export default function ListenView({ index, onOpenSection }: ListenViewProps) {
               </div>
             </div>
           </div>
+          </div>
           <div className="listen-stage__viz" ref={vizScrollRef}>
             <Visualizer mode={user.state.settings.vizMode} />
           </div>
         </section>
 
-        <div className="listen-dashboard-row">
+        <div className="listen-page__panels listen-dashboard-row">
           <section className="surface-card listen-queue-panel">
             <div className="section-head section-head--page-toolbar library-genre-tracklist-headrow">
               <SectionHeadLead
@@ -382,7 +384,6 @@ export default function ListenView({ index, onOpenSection }: ListenViewProps) {
                       <TrackListRow
                         key={`${track.relPath}-${queueIdx}`}
                         track={track}
-                        listIndex={queueIdx + 1}
                         autoFocusActive={false}
                         active={queueIdx === p.currentIndex}
                         onPlay={() => p.playTrack(track, p.queue, queueIdx)}
@@ -479,11 +480,10 @@ export default function ListenView({ index, onOpenSection }: ListenViewProps) {
               {listenRecentPanel === "recent" ? (
                 recentTracks.length ? (
                   <div className="list-stack listen-recent-panel__list">
-                    {recentTracks.map((track, idx) => (
+                    {recentTracks.map((track) => (
                       <TrackListRow
                         key={track.relPath}
                         track={track}
-                        listIndex={idx + 1}
                         autoFocusActive={false}
                         onPlay={() => playFromLibraryCard(track)}
                       />

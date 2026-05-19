@@ -1,0 +1,129 @@
+/**
+ * Layout per aspect ratio: mobile portrait, 4:3 / 12:9, 16:9, 21:9 ultrawide.
+ * Complementa i breakpoint width in responsive.css e page-layout.css.
+ */
+
+/* Mobile portrait e schermi alti stretti */
+@media (max-width: 1000px), (max-aspect-ratio: 9/16) {
+  :root {
+    --layout-cols-dashboard: 1;
+    --layout-cols-art: repeat(auto-fill, minmax(min(100%, 128px), 1fr));
+    --layout-content-inline: max(0.65rem, env(safe-area-inset-left))
+      max(0.65rem, env(safe-area-inset-right));
+  }
+}
+
+/* Tablet e display ~4:3 o 12:9 (1.28–1.42) */
+@media (min-width: 561px) and (min-aspect-ratio: 4/3) and (max-aspect-ratio: 14/10) {
+  :root {
+    --layout-cols-dashboard: 2;
+    --layout-cols-art: repeat(auto-fill, minmax(140px, 1fr));
+    --layout-content-inline: max(0.85rem, env(safe-area-inset-left))
+      max(0.85rem, env(safe-area-inset-right));
+  }
+
+  .listen-page__stage.listen-stage,
+  .listen-page__panels.listen-dashboard-row {
+    gap: var(--space-4);
+  }
+}
+
+/* Match esplicito 12:9 */
+@media (min-aspect-ratio: 12/9) and (max-aspect-ratio: 12/9) {
+  .content-shell {
+    padding-inline: var(--layout-content-inline, 0.9rem);
+  }
+
+  .hero-card {
+    grid-template-columns: minmax(0, 1.2fr) auto;
+  }
+}
+
+/* Widescreen 16:9 e oltre */
+@media (min-aspect-ratio: 16/9) {
+  :root {
+    --layout-cols-dashboard: 2;
+    --layout-cols-art: repeat(auto-fill, minmax(152px, 1fr));
+    --layout-content-inline: max(1rem, env(safe-area-inset-left))
+      max(1rem, env(safe-area-inset-right));
+  }
+
+  .content-shell {
+    padding-inline: var(--layout-content-inline);
+  }
+
+  @media (min-width: 1280px) {
+    .listen-page {
+      --listen-2col: minmax(0, 1.08fr) minmax(280px, 0.92fr);
+    }
+  }
+}
+
+/* Ultrawide 21:9 — griglie dense, niente colonne singole infinite */
+@media (min-aspect-ratio: 21/9) {
+  :root {
+    --layout-cols-dashboard: 3;
+    --layout-cols-art: repeat(auto-fill, minmax(148px, 1fr));
+  }
+
+  .statistics-page__rankings {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .statistics-page__footer {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  }
+
+  .statistics-section--overview .statistics-overview-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .playlists-page__main {
+    grid-template-columns: minmax(0, 0.42fr) minmax(0, 1fr);
+  }
+
+  .library-overview-cols--dashboard {
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  }
+}
+
+@media (min-aspect-ratio: 21/9) and (min-width: 1600px) {
+  .statistics-page__sections {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .statistics-page__rankings {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .statistics-page__footer {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Desktop con sidebar: griglie più dense su 16:9 */
+@media (min-width: 1001px) and (min-aspect-ratio: 16/9) {
+  .artgrid2,
+  .tools-art .artgrid2 {
+    grid-template-columns: var(--layout-cols-art);
+    gap: var(--space-3);
+  }
+
+  .stats-grid:not(.statistics-overview-grid) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+}
+
+/* 4:3 landscape compatto (es. iPad classico orizzontale stretto) */
+@media (min-aspect-ratio: 4/3) and (max-aspect-ratio: 3/2) and (max-height: 820px) {
+  .listen-stage__viz {
+    height: min(200px, 38vh);
+    max-height: 220px;
+  }
+
+  :root {
+    --bar-h: 88px;
+  }
+}

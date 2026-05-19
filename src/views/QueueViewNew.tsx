@@ -20,15 +20,16 @@ function QueueViewNew({
   const { t } = useI18n();
   const [queueName, setQueueName] = useState("");
   return (
-    <div className="view-stack">
+    <div className="view-page view-page--split queue-page">
+      <header className="view-page__toolbar-band">
       <section className="surface-card surface-card--toolbar-only">
-        <div className="section-head section-head--page-toolbar">
+        <div className="section-head section-head--page-toolbar page-toolbar">
           <SectionHeadLead
             eyebrow={t("queue.eyebrow")}
             title={t("queue.heading", { n: p.queue.length })}
             icon={<UiNavList className="section-head__ic" />}
           />
-          <div className="section-head__tools">
+          <div className="section-head__tools page-toolbar__actions">
             <div className="hero-card__actions queue-hero-actions">
               <input
                 className="ghost-input queue-name-input"
@@ -59,7 +60,8 @@ function QueueViewNew({
           </div>
         </div>
       </section>
-      <section className="surface-card">
+      </header>
+      <section className="surface-card queue-page__list view-page__body">
         {p.queue.length === 0 ? (
           <p className="panel-empty">{t("queue.empty")}</p>
         ) : (
@@ -68,7 +70,6 @@ function QueueViewNew({
               <TrackListRow
                 key={`${track.relPath}-${index}`}
                 track={track}
-                listIndex={index + 1}
                 active={index === p.currentIndex}
                 onPlay={() => p.playTrack(track, p.queue, index)}
                 extraActions={

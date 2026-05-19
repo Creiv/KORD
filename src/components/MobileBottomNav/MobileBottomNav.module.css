@@ -13,14 +13,12 @@
   background: color-mix(in srgb, var(--surface-elev-b) 94%, transparent);
   border-top: 1px solid var(--border);
   box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
 }
 
 .navInner {
   display: flex;
   width: 100%;
-  min-height: 3.6rem;
+  min-height: 3.25rem;
   max-width: 32rem;
   margin-inline: auto;
   align-items: stretch;
@@ -147,7 +145,7 @@
   max-height: min(75dvh, 560px);
   overflow: auto;
   -webkit-overflow-scrolling: touch;
-  border-radius: 20px 20px 0 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   background: var(--surface-elev-a);
   border: 1px solid var(--border);
   border-bottom: none;
@@ -196,7 +194,7 @@
   min-width: 2.2rem;
   min-height: 2.2rem;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.07);
   color: var(--muted-strong);
   line-height: 1;

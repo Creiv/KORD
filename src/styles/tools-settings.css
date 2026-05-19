@@ -1295,13 +1295,8 @@
     padding-inline: clamp(1rem, 2.2vw, 3.25rem);
   }
 
-  .player-dock2 {
-    display: flex;
-    justify-content: center;
-  }
-
   .player-bar2 {
-    flex: 0 1 min(100%, 2520px);
+    width: 100%;
     box-sizing: border-box;
   }
 
@@ -1501,8 +1496,8 @@
 }
 
 @media (max-width: 560px) {
-  .stats-grid {
-    grid-template-columns: 1fr;
+  .stats-grid:not(.statistics-overview-grid) {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .topbar2.topbar2--toolbar {
@@ -2052,6 +2047,41 @@
 
 .listen-recent-panel__body {
   margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+@media (min-width: 901px) {
+  .listen-page__panels.listen-dashboard-row > .listen-recent-panel.surface-card {
+    display: flex;
+    flex-direction: column;
+    align-self: start;
+    height: auto;
+  }
+
+  .listen-recent-panel__body {
+    flex: 0 1 auto;
+    min-height: 0;
+  }
+
+  .listen-recent-lyrics {
+    flex: 0 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: auto;
+  }
+
+  .listen-recent-lyrics__lrc,
+  .listen-recent-lyrics__plain {
+    flex: 0 1 auto;
+    max-height: min(52vh, 28rem);
+    min-height: 0;
+    height: auto;
+    padding-bottom: 0.15rem;
+  }
 }
 
 .listen-recent-panel__lrc-state {

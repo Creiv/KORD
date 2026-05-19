@@ -423,7 +423,7 @@ function SettingsView() {
 
   return (
     <div
-      className={`dashboard-grid settings-page${
+      className={`view-page settings-page${
         isRemoteViewer ? " settings-page--remote" : ""
       }`}
     >

@@ -1,7 +1,6 @@
 import { memo } from "react";
 import { useI18n } from "../../../i18n/useI18n";
 import { KordBrandLogo } from "../../KordBrandLogo";
-import { AccountBadge } from "../../AccountBadge/AccountBadge";
 import { UiAutorenew, UiInstallMobile, UiSearch } from "../../KordUiIcons";
 import { NAV_DEF } from "../../../lib/routing";
 import type { AppSection } from "../../../types";
@@ -30,7 +29,7 @@ export const TopBar = memo(function TopBar({
   onSync,
   onToggleSearch,
   onInstall,
-  onOpenSettings,
+  onOpenSettings: _onOpenSettings,
 }: TopBarProps) {
   const { t } = useI18n();
 
@@ -128,7 +127,6 @@ export const TopBar = memo(function TopBar({
             </button>
           ) : null}
 
-          <AccountBadge onOpenSettings={onOpenSettings} />
         </div>
       </div>
     </header>

@@ -164,7 +164,7 @@ export function DashboardMixCard({
       : null;
 
   return (
-    <section className="surface-card dashboard-session-card dashboard-mix-card">
+    <section className="surface-card dashboard-session-card dashboard-mix-card dashboard-page__mix">
       <div className="section-head section-head--page-toolbar">
         <SectionHeadLead
           eyebrow={t("dashboard.mixEyebrow")}

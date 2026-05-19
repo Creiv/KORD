@@ -1,43 +1,44 @@
-@import url("https://fonts.googleapis.com/css2?family=Manrope:ital,wght@0,400..800;1,400..800&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400..700;1,14..32,400..700&family=JetBrains+Mono:wght@400;500;600&display=swap");
 
 :root {
   /* Breakpoint (max-width px): 1000 mobile · 900 contenuto · 560 phone · 400 stretto — src/lib/breakpoints.ts */
-  --bg: #08111d;
-  --surface: rgba(14, 24, 38, 0.86);
-  --surface2: rgba(18, 31, 49, 0.94);
-  --surface3: rgba(27, 43, 66, 0.96);
-  --border: rgba(139, 170, 208, 0.18);
-  --border-strong: rgba(139, 170, 208, 0.34);
-  --text: #f5f7fb;
-  --muted: #a8b8d0;
-  --muted-strong: #c8d8ee;
-  --accent: #ff8f5c;
-  --accent2: #64d4ff;
-  --warning: #f0be67;
-  --danger: #ff7b7b;
-  /* Altezza indicativa barra player (due righe); usata per evitare che il contenuto finisca sotto il dock */
-  --bar-h: 120px;
-  /* Margine sotto a tutte le viste a scroll: safe area + margine esterno barra + altezza barra + respiro */
+  /* Aspect: portrait <9/16 · 4:3 & 12:9 ~1.33 · 16:9+ widescreen — src/styles/aspect-layout.css */
+  --bg: #0a0e14;
+  --surface: #121820;
+  --surface2: #161d28;
+  --surface3: #1c2532;
+  --border: rgba(148, 163, 184, 0.16);
+  --border-strong: rgba(148, 163, 184, 0.28);
+  --text: #eef2f7;
+  --muted: #94a3b8;
+  --muted-strong: #cbd5e1;
+  --accent: #f97316;
+  --accent2: #38bdf8;
+  --warning: #eab308;
+  --danger: #f87171;
+  --bar-h: 96px;
   --content-pad-bottom: calc(
-    env(safe-area-inset-bottom, 0px) + 1.2rem + var(--bar-h) + 0.85rem
+    env(safe-area-inset-bottom, 0px) + 0.75rem + var(--bar-h) + 0.5rem
   );
   --side-w: 220px;
-  --radius-sm: 10px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
-  --radius-xl: 24px;
-  --shadow-elev-1: 0 4px 28px rgba(1, 8, 17, 0.32);
-  --shadow-elev-2: 0 22px 56px rgba(1, 8, 17, 0.45);
-  --focus-ring: color-mix(in srgb, var(--accent2) 72%, white 18%);
-  /* Spaziatura, tipografia compatta, touch e layer (vedi breakpoints.ts) */
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
-  --text-xs: 0.72rem;
-  --text-sm: 0.86rem;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-pill: 6px;
+  --shadow-elev-1: 0 1px 0 rgba(0, 0, 0, 0.35), 0 2px 10px rgba(0, 0, 0, 0.22);
+  --shadow-elev-2: 0 4px 18px rgba(0, 0, 0, 0.28);
+  --focus-ring: color-mix(in srgb, var(--accent2) 65%, white 20%);
+  /* Spacing scale (griglia 4px) */
+  --space-1: 0.25rem;   /* 4px  */
+  --space-2: 0.375rem;  /* 6px  */
+  --space-3: 0.625rem;  /* 10px */
+  --space-4: 0.875rem;  /* 14px */
+  --space-5: 1.125rem;  /* 18px */
+  --space-6: 1.5rem;    /* 24px */
+  --text-xs: 0.7rem;
+  --text-sm: 0.8125rem;
   --tap-min: 44px;
   --tap-comfort: 40px;
   --favorite: var(--danger);
@@ -52,8 +53,8 @@
   --z-modal: 120;
   --z-overlay-raised: 125;
   --z-popover: 250;
-  --font-ui: "Manrope", system-ui, sans-serif;
-  --font-mono: "Space Grotesk", ui-monospace, monospace;
+  --font-ui: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
   --page-glow-1: rgba(255, 143, 92, 0.16);
   --page-glow-2: rgba(100, 212, 255, 0.14);
   --page-lg-1: #07101b;
@@ -94,7 +95,7 @@
   -webkit-font-smoothing: antialiased;
   color: var(--text);
   background: var(--bg);
-  font: 16px/1.5 var(--font-ui);
+  font: 15px/1.45 var(--font-ui);
   color-scheme: dark;
 }
 
@@ -967,10 +968,7 @@ body,
 body {
   overflow: hidden;
   box-sizing: border-box;
-  background:
-    radial-gradient(1200px 720px at 5% -10%, var(--page-glow-1), transparent 58%),
-    radial-gradient(1000px 760px at 100% -18%, var(--page-glow-2), transparent 62%),
-    linear-gradient(180deg, var(--page-lg-1) 0%, var(--page-lg-2) 42%, var(--page-lg-3) 100%);
+  background: linear-gradient(180deg, var(--page-lg-1) 0%, var(--page-lg-2) 100%);
 }
 
 button,
@@ -1072,6 +1070,14 @@ input[type="range"] {
   accent-color: var(--accent);
 }
 
+input[type="range"]::-webkit-slider-thumb {
+  border-radius: 50%;
+}
+
+input[type="range"]::-moz-range-thumb {
+  border-radius: 50%;
+}
+
 ol,
 ul {
   list-style: none;
@@ -1102,8 +1108,8 @@ ul {
 .tools {
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
-  padding-bottom: 1rem;
+  gap: var(--space-5);
+  padding-bottom: var(--space-4);
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
@@ -1112,14 +1118,13 @@ ul {
 }
 
 .tool-block {
-  border-radius: var(--radius-lg);
-  padding: 1.15rem 1.25rem 1.3rem;
+  border-radius: var(--radius-md);
+  padding: var(--space-5) var(--space-5) var(--space-6);
   border: 1px solid var(--border);
 }
 
 .glass {
-  background: linear-gradient(165deg, var(--glass-1) 0%, var(--glass-2) 100%);
-  backdrop-filter: blur(14px);
+  background: var(--surface2);
   box-shadow: var(--shadow-elev-1);
 }
 
@@ -1327,8 +1332,8 @@ textarea {
 
 .panel-msg,
 .panel-empty {
-  padding: 1.1rem 1.15rem;
-  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  border-radius: var(--radius-md);
   border: 1px dashed color-mix(in srgb, var(--border-strong) 70%, transparent);
   color: var(--muted);
   background: var(--meta-strip-bg);
@@ -1355,13 +1360,13 @@ kbd,
 
 kbd {
   padding: 0.12rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--surface2) 55%, var(--bg));
   border: 1px solid var(--border);
 }
 
 .tool-block {
-  padding: 1.1rem 1.15rem;
+  padding: var(--card-pad);
 }
 
 .dirlist,

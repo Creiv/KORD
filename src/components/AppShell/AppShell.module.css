@@ -8,12 +8,7 @@
   overflow: hidden;
   overflow-x: clip;
   max-width: 100%;
-  background: radial-gradient(
-      ellipse 900px 480px at 0% 0%,
-      var(--shell-glow-1),
-      transparent 55%
-    ),
-    linear-gradient(180deg, var(--shell-lg-1), var(--shell-lg-2));
+  background: var(--bg);
 }
 
 /* Desktop: sidebar + main side by side */
@@ -49,7 +44,7 @@
 
 /* Inline error banner */
 .banner {
-  padding: 0.5rem 1.3rem;
+  padding: var(--space-3) var(--space-5);
   background: color-mix(in srgb, var(--accent) 12%, var(--surface2) 88%);
   border-bottom: 1px solid var(--border);
   font-size: 0.82rem;
