@@ -1,8 +1,9 @@
 const YTM_INNERTUBE_KEY = "AIzaSyC9XL3QWnjsQplBUbSJY1cffBoVwD0aN1U"
 const YTM_BROWSE_URL = `https://music.youtube.com/youtubei/v1/browse?key=${YTM_INNERTUBE_KEY}`
 
-/** Pagina https://music.youtube.com/new_releases/albums (ytmusicapi). */
+/** Pagine https://music.youtube.com/new_releases/… (ytmusicapi). */
 const NEW_RELEASES_ALBUMS_BROWSE_ID = "FEmusic_new_releases_albums"
+const NEW_RELEASES_SINGLES_BROWSE_ID = "FEmusic_new_releases_singles"
 
 function innertubeClientVersion() {
   return String(
@@ -13,7 +14,20 @@ function innertubeClientVersion() {
 function extractRunsText(node) {
   if (!node) return ""
   if (Array.isArray(node.runs)) {
-    return node.runs.map((r) => String(r.text ?? "")).join("")
+    return node.runs
+      .map((r) => {
+        const text = String(r.text ?? "").trim()
+        const badge = String(
+          r.musicInlineBadgeRenderer?.accessibilityData?.label ??
+            r.musicInlineBadgeRenderer?.style ??
+            "",
+        ).trim()
+        if (badge && text) return `${badge} • ${text}`
+        if (badge) return badge
+        return text
+      })
+      .filter(Boolean)
+      .join("")
   }
   if (typeof node.simpleText === "string") return node.simpleText
   return ""
@@ -193,6 +207,73 @@ async function fetchBrowsePayload(browseId) {
   }
 }
 
+/** Estrae il numero di brani da sottotitoli YTM («Album · 12 songs», ecc.). */
+export function parseTrackCountHint(text) {
+  const s = String(text ?? "")
+  const m =
+    s.match(/(\d+)\s*(?:songs?|tracks?|brani|titoli)\b/i) ||
+    s.match(/\b(?:songs?|tracks?|brani|titoli)\s*[·•|]\s*(\d+)/i)
+  if (!m) return null
+  const n = Number.parseInt(m[1], 10)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+export function isSingleReleaseSubtitle(subtitle) {
+  return /^(?:single|singolo)\s*(?:[•·|–—\-]|\s*-\s*)/i.test(
+    String(subtitle ?? "").trim(),
+  )
+}
+
+/** «Album • Artist», «EP • …», «Single • …» (new releases YTM). */
+export function parseDiscoverSubtitleLine(subtitle) {
+  const raw = String(subtitle ?? "").trim()
+  const m = raw.match(
+    /^(Album|EP|Single|Singolo|Video)\s*(?:[•·|–—\-]|\s*-\s*)\s*(.+)$/i,
+  )
+  if (m) {
+    return {
+      releaseType: m[1],
+      artistName: m[2].trim(),
+    }
+  }
+  return {
+    releaseType: null,
+    artistName: raw,
+  }
+}
+
+export function releaseTypeToKind(releaseType) {
+  const t = String(releaseType ?? "")
+    .trim()
+    .toLowerCase()
+  if (t === "single" || t === "singolo" || t === "video") return "song"
+  return "album"
+}
+
+function isWatchSingleUrl(url) {
+  try {
+    const u = new URL(url)
+    if (!u.hostname.includes("youtube.com") && !u.hostname.includes("youtu.be")) {
+      return false
+    }
+    if (u.searchParams.get("list")) return false
+    return Boolean(u.searchParams.get("v")) || u.hostname.includes("youtu.be")
+  } catch {
+    return false
+  }
+}
+
+function classifyDiscoverKind(item, sourceKind) {
+  const fromSubtitle = releaseTypeToKind(
+    parseDiscoverSubtitleLine(item.subtitle).releaseType,
+  )
+  if (fromSubtitle === "song") return "song"
+  if (sourceKind === "singles") return "song"
+  if (isSingleReleaseSubtitle(item.subtitle)) return "song"
+  if (isWatchSingleUrl(item.url)) return "song"
+  return "album"
+}
+
 export function normalizeDiscoverLabel(value) {
   return String(value ?? "")
     .normalize("NFD")
@@ -246,35 +327,80 @@ const WEB_DISCOVER_DISPLAY_COUNT = 36
 /**
  * @param {import("./musicLibrary.mjs").LibraryIndex} index
  */
+function mapDiscoverEntry(item, kind) {
+  const subtitle = item.subtitle || ""
+  const parsed = parseDiscoverSubtitleLine(subtitle)
+  const releaseType = parsed.releaseType
+  const artistName = parsed.artistName || subtitle
+  const resolvedKind = releaseType
+    ? releaseTypeToKind(releaseType)
+    : kind
+  const trackCount =
+    resolvedKind === "album" ? parseTrackCountHint(subtitle) : null
+  return {
+    id: item.id,
+    type: resolvedKind,
+    title: item.title,
+    subtitle,
+    releaseType,
+    artistName,
+    url: item.url,
+    thumbnailUrl: item.thumbnailUrl ?? null,
+    ...(trackCount != null ? { trackCount } : {}),
+  }
+}
+
+async function fetchNewReleasesRaw(sourceKind) {
+  const browseId =
+    sourceKind === "singles"
+      ? NEW_RELEASES_SINGLES_BROWSE_ID
+      : NEW_RELEASES_ALBUMS_BROWSE_ID
+  const json = await fetchBrowsePayload(browseId)
+  return parseNewReleasesAlbumsBrowse(json)
+}
+
 export async function fetchCatalogWebDiscover(index) {
   const lookup = buildLibraryDiscoverLookup(index)
-  let raw = []
-  let fetchError = null
+  const errors = []
+  let rawAlbums = []
+  let rawSingles = []
   try {
-    const json = await fetchBrowsePayload(NEW_RELEASES_ALBUMS_BROWSE_ID)
-    raw = parseNewReleasesAlbumsBrowse(json)
+    rawAlbums = await fetchNewReleasesRaw("albums")
   } catch (e) {
-    fetchError = String(e?.message || e)
+    errors.push(String(e?.message || e))
+  }
+  try {
+    rawSingles = await fetchNewReleasesRaw("singles")
+  } catch (e) {
+    errors.push(String(e?.message || e))
   }
 
-  const seenAlbums = new Set()
+  const seen = new Set()
   const albums = []
-  for (const item of raw) {
-    if (seenAlbums.has(item.id) || !isNewDiscoverAlbum(item, lookup)) continue
-    seenAlbums.add(item.id)
-    albums.push({
-      id: item.id,
-      title: item.title,
-      subtitle: item.subtitle || "",
-      artistName: item.subtitle || "",
-      url: item.url,
-      thumbnailUrl: item.thumbnailUrl ?? null,
-    })
+  const songs = []
+  const pushItem = (item, sourceKind) => {
+    if (seen.has(item.id) || !isNewDiscoverAlbum(item, lookup)) return
+    seen.add(item.id)
+    const kind = classifyDiscoverKind(item, sourceKind)
+    const mapped = mapDiscoverEntry(item, kind)
+    if (mapped.type === "song") songs.push(mapped)
+    else albums.push(mapped)
   }
+
+  for (const item of rawAlbums) pushItem(item, "albums")
+  for (const item of rawSingles) pushItem(item, "singles")
+
+  const albumSample = pickRandomSubset(albums, WEB_DISCOVER_DISPLAY_COUNT)
+  const songSample = pickRandomSubset(songs, WEB_DISCOVER_DISPLAY_COUNT)
+  const fetchError =
+    errors.length && !albumSample.length && !songSample.length
+      ? errors[0]
+      : null
 
   return {
     artists: [],
-    albums: pickRandomSubset(albums, WEB_DISCOVER_DISPLAY_COUNT),
-    error: fetchError && !albums.length ? fetchError : null,
+    albums: albumSample,
+    songs: songSample,
+    error: fetchError,
   }
 }

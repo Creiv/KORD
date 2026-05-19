@@ -628,13 +628,17 @@ export const EN: Record<string, string> = {
   "tools.catalogUiLocal": "Local",
   "tools.catalogUiWeb": "Web",
   "tools.catalogWebDesc":
-    "New album releases from YouTube Music, in random order, excluding titles already in your library.",
+    "New releases from YouTube Music (albums, EPs, and singles), in random order, excluding titles already in your library.",
   "tools.catalogWebReload": "Refresh suggestions",
   "tools.catalogWebLoading": "Loading suggestions…",
   "tools.catalogWebEmpty":
     "No new suggestions right now. Try again later or refresh the list.",
   "tools.catalogWebArtistsSection": "Artists",
-  "tools.catalogWebAlbumsSection": "Albums",
+  "tools.catalogWebAlbumsSection": "Albums & EPs",
+  "tools.catalogWebSongsSection": "Singles",
+  "tools.catalogWebTrackCount": "{{n}} tracks",
+  "tools.catalogWebTrackCountOne": "1 track",
+  "tools.catalogWebTrackCountLoading": "Counting tracks…",
   "tools.catalogWebDownload": "Go to download",
   "tools.catalogWebPickAria": "Go to download: {{title}}",
   "tools.catalogReload": "Refresh list",
@@ -712,6 +716,8 @@ export const EN: Record<string, string> = {
   "tools.exploreConfirmSubtitle": "Detail: {{subtitle}}",
   "tools.exploreConfirmUrl": "Source: {{url}}",
   "tools.exploreConfirmTrackCount": "Items in this release: {{n}}.",
+  "tools.exploreSingleNeedAlbumFolderHint":
+    "To download a single track, pick an album folder (Artist/Album), not just the artist folder — same as Classic mode.",
   "tools.dlTypeSingle": "Single",
   "tools.dlTypePlaylist": "Album or playlist",
   "tools.dlTypeReleases": "Artist Releases",

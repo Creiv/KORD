@@ -346,6 +346,7 @@ export async function fetchLibraryCatalog(opts: { summary?: boolean; artistId?: 
 
 export type CatalogWebDiscoverEntry = {
   id: string
+  type?: 'album' | 'song'
   title: string
   subtitle: string
   url: string
@@ -354,11 +355,19 @@ export type CatalogWebDiscoverEntry = {
 
 export type CatalogWebDiscoverAlbum = CatalogWebDiscoverEntry & {
   artistName: string
+  releaseType?: string | null
+  trackCount?: number | null
+}
+
+export type CatalogWebDiscoverSong = CatalogWebDiscoverEntry & {
+  artistName: string
+  releaseType?: string | null
 }
 
 export type CatalogWebDiscoverResponse = {
   artists: CatalogWebDiscoverEntry[]
   albums: CatalogWebDiscoverAlbum[]
+  songs: CatalogWebDiscoverSong[]
   error?: string | null
 }
 

@@ -154,6 +154,31 @@
   flex: 1;
 }
 
+.studio-catalog-web__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.studio-catalog-web__section-title {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.studio-catalog-web__section-count {
+  font-size: 0.75rem;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
 .studio-catalog-web__grid {
   flex: 1;
   min-width: 0;
@@ -179,6 +204,14 @@
 
 .studio-catalog-web-tile__pick {
   width: 100%;
+}
+
+.studio-catalog-web-tile__release {
+  text-transform: capitalize;
+}
+
+.studio-catalog-web-tile__tracks {
+  margin-top: 0.12rem;
 }
 
 .studio-catalog-web-tile:hover {

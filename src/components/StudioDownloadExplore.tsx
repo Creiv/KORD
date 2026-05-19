@@ -16,6 +16,11 @@ type TFn = ReturnType<typeof useI18n>["t"];
 type Props = {
   t: TFn;
   dlPath: string;
+  /** Cartella effettiva per yt-dlp (album → sottocartella sotto artista, come in classico). */
+  resolveOutputDir: (dlPath: string, item: YoutubeExploreResult) => string;
+  downloadKindForItem: (item: YoutubeExploreResult) => StudioDownloadKind;
+  /** Destinazione solo artista: i singoli richiedono cartella album (come in Classico). */
+  singleBlockedArtistFolder: boolean;
   hasValidDownloadDest: boolean;
   dlBusy: boolean;
   onBusyChange: (busy: boolean) => void;
@@ -27,10 +32,6 @@ type Props = {
   downloadSummaryLine: (r: DownloadItemSummary) => string;
 };
 
-function exploreDownloadKind(item: YoutubeExploreResult): StudioDownloadKind {
-  return item.type === "song" ? "download_single" : "download_playlist";
-}
-
 function exploreItemKey(item: YoutubeExploreResult) {
   return `${item.type}-${item.id}`;
 }
@@ -38,6 +39,9 @@ function exploreItemKey(item: YoutubeExploreResult) {
 export function StudioDownloadExplore({
   t,
   dlPath,
+  resolveOutputDir,
+  downloadKindForItem,
+  singleBlockedArtistFolder,
   hasValidDownloadDest,
   dlBusy,
   onBusyChange,
@@ -122,19 +126,20 @@ export function StudioDownloadExplore({
       onBusyChange(true);
       onProgress(null);
       onTrackProgress(null);
+      const outputDir = resolveOutputDir(dlPath, item);
       const dlId = newStudioDownloadId();
       onLog(
         (x) =>
           x +
-          t("tools.exploreDlStart", { title: item.title, path: dlPath }) +
+          t("tools.exploreDlStart", { title: item.title, path: outputDir }) +
           "\n",
       );
       try {
         const r = await runYtdlpDownload(
           item.url,
-          dlPath,
+          outputDir,
           (p) => onTrackProgress({ current: p.current, total: p.total }),
-          { downloadId: dlId, downloadKind: exploreDownloadKind(item) },
+          { downloadId: dlId, downloadKind: downloadKindForItem(item) },
         );
         if (r.progress && r.progress.total > 0) {
           onTrackProgress({
@@ -172,6 +177,8 @@ export function StudioDownloadExplore({
       hasValidDownloadDest,
       dlBusy,
       dlPath,
+      resolveOutputDir,
+      downloadKindForItem,
       onBusyChange,
       onProgress,
       onTrackProgress,
@@ -262,6 +269,12 @@ export function StudioDownloadExplore({
       albums.length === 0 &&
       songs.length === 0 ? (
         <p className="subtle sm">{t("tools.exploreEmpty")}</p>
+      ) : null}
+
+      {singleBlockedArtistFolder ? (
+        <p className="subtle sm warnline tools-dl-explore__blocked-hint">
+          {t("tools.exploreSingleNeedAlbumFolderHint")}
+        </p>
       ) : null}
 
       {albums.length > 0 ? (

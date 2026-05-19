@@ -637,13 +637,17 @@ export const IT: Record<string, string> = {
   "tools.catalogUiLocal": "Locale",
   "tools.catalogUiWeb": "Web",
   "tools.catalogWebDesc":
-    "Nuove uscite album da YouTube Music, in ordine casuale, escluse quelle già presenti in libreria.",
+    "Nuove uscite da YouTube Music (album, EP e singoli), in ordine casuale, escluse quelle già in libreria.",
   "tools.catalogWebReload": "Aggiorna suggerimenti",
   "tools.catalogWebLoading": "Caricamento suggerimenti…",
   "tools.catalogWebEmpty":
     "Nessun suggerimento nuovo al momento. Riprova più tardi o aggiorna l’elenco.",
   "tools.catalogWebArtistsSection": "Artisti",
-  "tools.catalogWebAlbumsSection": "Album",
+  "tools.catalogWebAlbumsSection": "Album ed EP",
+  "tools.catalogWebSongsSection": "Singoli",
+  "tools.catalogWebTrackCount": "{{n}} brani",
+  "tools.catalogWebTrackCountOne": "1 brano",
+  "tools.catalogWebTrackCountLoading": "Conteggio brani…",
   "tools.catalogWebDownload": "Vai al download",
   "tools.catalogWebPickAria": "Vai al download: {{title}}",
   "tools.catalogReload": "Aggiorna elenco",
@@ -720,6 +724,8 @@ export const IT: Record<string, string> = {
   "tools.exploreConfirmSubtitle": "Dettaglio: {{subtitle}}",
   "tools.exploreConfirmUrl": "Origine: {{url}}",
   "tools.exploreConfirmTrackCount": "Brani nel contenuto: {{n}}.",
+  "tools.exploreSingleNeedAlbumFolderHint":
+    "Per scaricare un singolo brano scegli una cartella album (Artista/Album), non solo la cartella artista — come in modalità Classico.",
   "tools.dlTypeSingle": "Singolo",
   "tools.dlTypePlaylist": "Album o Playlist",
   "tools.dlTypeReleases": "Uscite Artista",

@@ -52,6 +52,16 @@ import {
 import { ytdlpLogDetailForUser } from "../lib/ytdlpLogFilter";
 import { formatTrackGenresForDisplay } from "../lib/genres";
 import {
+  buildStudioDownloadConfirm,
+  isValidDownloadDestPath,
+  joinMusicDestRelPath,
+  normalizeDownloadDestPath,
+  relPathLooksLikeAlbumFolderDest,
+  resolveStudioDownloadOutputDir,
+  studioDownloadKindForScope,
+  type StudioDownloadScope,
+} from "../lib/studioDownloadDest";
+import {
   studioDownloadSourceForArtistUrl,
   urlMatchesStudioDlMode,
   type DlVideoMode,
@@ -219,28 +229,39 @@ function catalogArtistNeedsAttention(
   return notInSelection || missingAlbum;
 }
 
-function normalizeDownloadDestPath(value: string | null | undefined) {
-  return String(value || "")
-    .replace(/\\/g, "/")
-    .replace(/^\/+/, "")
-    .replace(/\/+$/, "")
-    .trim();
+function exploreTypeLabel(
+  type: YoutubeExploreResult["type"],
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  if (type === "album") return t("tools.exploreTypeAlbum");
+  if (type === "artist") return t("tools.exploreTypeArtist");
+  return t("tools.exploreTypeSong");
 }
 
-function isValidDownloadDestPath(value: string | null | undefined) {
-  return normalizeDownloadDestPath(value).length > 0;
+function exploreScopeForItem(item: YoutubeExploreResult): StudioDownloadScope {
+  return item.type === "song" ? "single" : "playlist";
 }
 
-function relPathLooksLikeAlbumFolderDest(relPath: string | null | undefined) {
-  return normalizeDownloadDestPath(relPath).split("/").filter(Boolean).length >= 2;
-}
-
-function joinMusicDestRelPath(base: string, title: string): string {
-  const b = normalizeDownloadDestPath(base);
-  const seg = normalizeDownloadDestPath(
-    title.replace(/[/\\]+/g, " ").replace(/\s+/g, " ").trim(),
-  );
-  return b && seg ? `${b}/${seg}` : seg || b;
+function exploreDownloadPreamble(
+  item: YoutubeExploreResult,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string {
+  const typeLabel = exploreTypeLabel(item.type, t);
+  let msg = t("tools.exploreConfirmLead", {
+    type: typeLabel,
+    title: item.title,
+  });
+  if (item.subtitle?.trim()) {
+    msg +=
+      "\n" +
+      t("tools.exploreConfirmSubtitle", {
+        subtitle: item.subtitle.trim(),
+      });
+  }
+  if (item.url?.trim()) {
+    msg += "\n" + t("tools.exploreConfirmUrl", { url: item.url.trim() });
+  }
+  return msg;
 }
 
 function buildReleasesArtistFolderConfirm(args: {
@@ -287,59 +308,45 @@ function buildReleasesArtistFolderConfirm(args: {
   return msg;
 }
 
-function exploreTypeLabel(
-  type: YoutubeExploreResult["type"],
-  t: (key: string, vars?: Record<string, string | number>) => string,
-) {
-  if (type === "album") return t("tools.exploreTypeAlbum");
-  if (type === "artist") return t("tools.exploreTypeArtist");
-  return t("tools.exploreTypeSong");
-}
-
-function buildExploreDownloadConfirm(args: {
-  item: YoutubeExploreResult;
+async function prepareStudioDownload(args: {
+  hasValidDownloadDest: boolean;
   dlPath: string;
+  scope: StudioDownloadScope;
+  releaseTitle?: string;
   trackCount: number | null;
+  preamble?: string;
   t: (key: string, vars?: Record<string, string | number>) => string;
-}): {
-  variant: "danger" | "warning";
-  message: string;
-} {
-  const normDl = normalizeDownloadDestPath(args.dlPath);
-  const artistFolderTarget = !relPathLooksLikeAlbumFolderDest(normDl);
-  const typeLabel = exploreTypeLabel(args.item.type, args.t);
-
-  let msg = args.t("tools.exploreConfirmLead", {
-    type: typeLabel,
-    title: args.item.title,
+  appConfirm: (opts: {
+    variant?: "danger" | "warning";
+    message: string;
+  }) => Promise<boolean>;
+  onLog: (updater: (prev: string) => string) => void;
+}): Promise<boolean> {
+  if (!args.hasValidDownloadDest) {
+    args.onLog((x) => x + args.t("tools.dlPickFolder"));
+    return false;
+  }
+  const confirmOpts = buildStudioDownloadConfirm({
+    dlPath: args.dlPath,
+    scope: args.scope,
+    releaseTitle: args.releaseTitle,
+    trackCount: args.trackCount,
+    t: args.t,
+    preamble: args.preamble,
   });
-  if (args.item.subtitle?.trim()) {
-    msg +=
-      "\n" +
-      args.t("tools.exploreConfirmSubtitle", {
-        subtitle: args.item.subtitle.trim(),
-      });
+  if (!(await args.appConfirm(confirmOpts))) {
+    return false;
   }
-  if (args.item.url?.trim()) {
-    msg += "\n" + args.t("tools.exploreConfirmUrl", { url: args.item.url.trim() });
+  if (args.scope === "playlist" && args.trackCount != null && args.trackCount > 35) {
+    if (
+      !(await args.appConfirm({
+        message: args.t("tools.dlPlaylistManyConfirm", { n: args.trackCount }),
+      }))
+    ) {
+      return false;
+    }
   }
-  msg +=
-    "\n\n" +
-    (artistFolderTarget
-      ? args.t("tools.dlConfirmArtistFolderDl", { path: normDl })
-      : args.t("tools.dlConfirmAlbumFolderTracks", { path: normDl }));
-  if (
-    args.item.type === "album" &&
-    args.trackCount != null &&
-    args.trackCount > 0
-  ) {
-    msg +=
-      "\n\n" + args.t("tools.exploreConfirmTrackCount", { n: args.trackCount });
-  }
-  return {
-    variant: artistFolderTarget ? "danger" : "warning",
-    message: msg,
-  };
+  return true;
 }
 
 function normalizeDlProgress(
@@ -685,13 +692,13 @@ export function ToolsView({
     }
   }, []);
 
-  const pickCatalogWebAlbumForDownload = useCallback(
-    (pickUrl: string) => {
+  const pickCatalogWebForDownload = useCallback(
+    (pickUrl: string, kind: "album" | "song") => {
       const trimmed = pickUrl.trim();
       if (!trimmed) return;
       clearDownloadDestination();
       setDlStudioMode("classic");
-      setDlUrlMode("playlist");
+      setDlUrlMode(kind === "song" ? "single" : "playlist");
       setUrl(trimmed);
       setStudioPane("download");
     },
@@ -1439,14 +1446,14 @@ export function ToolsView({
     hasValidDownloadDest &&
     relPathLooksLikeAlbumFolderDest(dlPath);
 
+  const exploreSingleBlockedArtistFolder =
+    hasValidDownloadDest && !relPathLooksLikeAlbumFolderDest(dlPath);
+
   const prepareExploreDownload = useCallback(
     async (item: YoutubeExploreResult) => {
-      if (!hasValidDownloadDest) {
-        setLog((x) => x + t("tools.dlPickFolder"));
-        return false;
-      }
+      const scope = exploreScopeForItem(item);
       let trackCount: number | null = null;
-      if (item.type === "album") {
+      if (scope === "playlist") {
         try {
           trackCount = await fetchDownloadFlatCount(item.url);
         } catch (e) {
@@ -1460,25 +1467,17 @@ export function ToolsView({
           return false;
         }
       }
-      const confirmOpts = buildExploreDownloadConfirm({
-        item,
+      return prepareStudioDownload({
+        hasValidDownloadDest,
         dlPath,
+        scope,
+        releaseTitle: scope === "playlist" ? item.title : undefined,
         trackCount,
+        preamble: exploreDownloadPreamble(item, t),
         t,
+        appConfirm,
+        onLog: setLog,
       });
-      if (!(await appConfirm(confirmOpts))) {
-        return false;
-      }
-      if (trackCount != null && trackCount > 35) {
-        if (
-          !(await appConfirm({
-            message: t("tools.dlPlaylistManyConfirm", { n: trackCount }),
-          }))
-        ) {
-          return false;
-        }
-      }
-      return true;
     },
     [hasValidDownloadDest, dlPath, appConfirm, t],
   );
@@ -1501,32 +1500,12 @@ export function ToolsView({
     studioDlRunLatchRef.current = true;
     void (async () => {
       try {
-        const studioDlKind: StudioDownloadKind =
-          dlUrlMode === "playlist" ? "download_playlist" : "download_single";
-        const normDl = normalizeDownloadDestPath(dlPath);
-        const artistFolderTarget = !relPathLooksLikeAlbumFolderDest(normDl);
-        if (
-          !(await appConfirm({
-            variant: artistFolderTarget ? "danger" : "warning",
-            message: artistFolderTarget
-              ? t("tools.dlConfirmArtistFolderDl", { path: normDl })
-              : t("tools.dlConfirmAlbumFolderTracks", { path: normDl }),
-          }))
-        ) {
-          return;
-        }
-        if (dlUrlMode === "playlist") {
+        const scope: StudioDownloadScope =
+          dlUrlMode === "playlist" ? "playlist" : "single";
+        let trackCount: number | null = null;
+        if (scope === "playlist") {
           try {
-            const cnt = await fetchDownloadFlatCount(url.trim());
-            if (cnt > 35) {
-              if (
-                !(await appConfirm({
-                  message: t("tools.dlPlaylistManyConfirm", { n: cnt }),
-                }))
-              ) {
-                return;
-              }
-            }
+            trackCount = await fetchDownloadFlatCount(url.trim());
           } catch (e) {
             setLog(
               (x) =>
@@ -1538,6 +1517,21 @@ export function ToolsView({
             return;
           }
         }
+        if (
+          !(await prepareStudioDownload({
+            hasValidDownloadDest,
+            dlPath,
+            scope,
+            trackCount,
+            t,
+            appConfirm,
+            onLog: setLog,
+          }))
+        ) {
+          return;
+        }
+        const outputDir = resolveStudioDownloadOutputDir(dlPath, scope);
+        const studioDlKind = studioDownloadKindForScope(scope);
         setDlBusy(true);
         setDlProg(null);
         setDlTrackProg(null);
@@ -1554,7 +1548,7 @@ export function ToolsView({
           );
           const r = await runYtdlpDownload(
             url.trim(),
-            dlPath,
+            outputDir,
             (p) => setDlProg({ current: p.current, total: p.total }),
             { downloadId: dlId, downloadKind: studioDlKind }
           );
@@ -2000,7 +1994,7 @@ export function ToolsView({
                   <StudioCatalogWeb
                     t={t}
                     active={studioPane === "catalog"}
-                    onPickAlbumForDownload={pickCatalogWebAlbumForDownload}
+                    onPickForDownload={pickCatalogWebForDownload}
                   />
                 ) : (
                   <>
@@ -2416,6 +2410,19 @@ export function ToolsView({
                   <StudioDownloadExplore
                     t={t}
                     dlPath={dlPath}
+                    singleBlockedArtistFolder={exploreSingleBlockedArtistFolder}
+                    resolveOutputDir={(path, item) =>
+                      resolveStudioDownloadOutputDir(
+                        path,
+                        exploreScopeForItem(item),
+                        exploreScopeForItem(item) === "playlist"
+                          ? item.title
+                          : undefined,
+                      )
+                    }
+                    downloadKindForItem={(item) =>
+                      studioDownloadKindForScope(exploreScopeForItem(item))
+                    }
                     hasValidDownloadDest={hasValidDownloadDest}
                     dlBusy={dlBusy}
                     onBusyChange={setDlBusy}
