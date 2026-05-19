@@ -533,6 +533,8 @@ export const EN: Record<string, string> = {
   "statistics.overviewAlbumsTouched": "Albums touched",
   "statistics.overviewFavoritesTotal": "Total favorites",
   "statistics.overviewBlockedTotal": "Smart shuffle blocks",
+  "statistics.overviewPlaysRowAria": "Playback summary",
+  "statistics.overviewTotalsRowAria": "Favorites and exclusion totals",
   "statistics.openInLibraryAria": "Open in library: {{label}}",
   "player.openListenTitle": "Open Listen",
   "player.openArtistLibTitle": "Open artist in Library",
@@ -598,6 +600,19 @@ export const EN: Record<string, string> = {
   "tools.catalogTitle": "Discover",
   "tools.catalogDesc":
     "Add artists or albums from the server’s global library to your personal collection.",
+  "tools.catalogUiModeAria": "Discover mode",
+  "tools.catalogUiLocal": "Local",
+  "tools.catalogUiWeb": "Web",
+  "tools.catalogWebDesc":
+    "New album releases from YouTube Music, in random order, excluding titles already in your library.",
+  "tools.catalogWebReload": "Refresh suggestions",
+  "tools.catalogWebLoading": "Loading suggestions…",
+  "tools.catalogWebEmpty":
+    "No new suggestions right now. Try again later or refresh the list.",
+  "tools.catalogWebArtistsSection": "Artists",
+  "tools.catalogWebAlbumsSection": "Albums",
+  "tools.catalogWebDownload": "Go to download",
+  "tools.catalogWebPickAria": "Go to download: {{title}}",
   "tools.catalogReload": "Refresh list",
   "tools.catalogLoading": "Loading…",
   "tools.catalogErr": "Error: {{e}}",

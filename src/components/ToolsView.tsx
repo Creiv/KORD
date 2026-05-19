@@ -69,6 +69,7 @@ import {
   StudioCatalogArtistTile,
 } from "./library";
 import { StudioDownloadExplore } from "./StudioDownloadExplore";
+import { StudioCatalogWeb } from "./StudioCatalogWeb";
 
 type P = {
   library: LibraryResponse | null;
@@ -120,9 +121,11 @@ const K_COVER_ALB = "kord-cover-album";
 const W_COVER_ALB = "wpp-cover-album";
 const K_STUDIO_PANE = "kord-studio-pane";
 const K_DL_STUDIO_MODE = "kord-dl-studio-mode";
+const K_CATALOG_STUDIO_MODE = "kord-catalog-studio-mode";
 
 type StudioPane = "catalog" | "download" | "meta" | "covers";
 type DlStudioMode = "classic" | "explore";
+type CatalogStudioMode = "local" | "web";
 
 function readStoredDlStudioMode(): DlStudioMode {
   try {
@@ -132,6 +135,16 @@ function readStoredDlStudioMode(): DlStudioMode {
     /* ignore */
   }
   return "classic";
+}
+
+function readStoredCatalogStudioMode(): CatalogStudioMode {
+  try {
+    const v = localStorage.getItem(K_CATALOG_STUDIO_MODE);
+    if (v === "web") return "web";
+  } catch {
+    /* ignore */
+  }
+  return "local";
 }
 
 function readStoredStudioPane(): StudioPane | null {
@@ -436,6 +449,8 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
   const [dlStudioMode, setDlStudioMode] = useState<DlStudioMode>(
     readStoredDlStudioMode,
   );
+  const [catalogStudioMode, setCatalogStudioMode] =
+    useState<CatalogStudioMode>(readStoredCatalogStudioMode);
   const [dlUrlMode, setDlUrlMode] = useState<DlVideoMode>("single");
   const [dlList, setDlList] = useState<{
     path: string;
@@ -557,6 +572,14 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
   }, [dlStudioMode]);
 
   useEffect(() => {
+    try {
+      localStorage.setItem(K_CATALOG_STUDIO_MODE, catalogStudioMode);
+    } catch {
+      /* ignore */
+    }
+  }, [catalogStudioMode]);
+
+  useEffect(() => {
     if (!metaScanChoiceOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setMetaScanChoiceOpen(null);
@@ -595,6 +618,32 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
       /* ignore */
     }
   }, []);
+
+  const clearDownloadDestination = useCallback(() => {
+    setDlPath("");
+    setDlDestPicked(false);
+    try {
+      sessionStorage.removeItem(K_DL_OK);
+      sessionStorage.removeItem(K_DL_OUT);
+      sessionStorage.removeItem(W_DL_OK);
+      sessionStorage.removeItem(W_DL_OUT);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const pickCatalogWebAlbumForDownload = useCallback(
+    (pickUrl: string) => {
+      const trimmed = pickUrl.trim();
+      if (!trimmed) return;
+      clearDownloadDestination();
+      setDlStudioMode("classic");
+      setDlUrlMode("playlist");
+      setUrl(trimmed);
+      setStudioPane("download");
+    },
+    [clearDownloadDestination],
+  );
 
   const loadDlFs = useCallback(
     (path: string) => {
@@ -849,8 +898,9 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
 
   useEffect(() => {
     if (studioPane !== "catalog") return;
+    if (catalogStudioMode !== "local") return;
     loadCatalogPane();
-  }, [studioPane, loadCatalogPane, localSessionAccount]);
+  }, [studioPane, catalogStudioMode, loadCatalogPane, localSessionAccount]);
 
   const afterCatalogPatch = useCallback(() => {
     setCatalogMsg(t("tools.catalogUpdated"));
@@ -1832,18 +1882,69 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
               role="region"
               aria-label={t("tools.catalogTitle")}
             >
-              <div className="studio-panel tools-shared-browse studio-catalog-browse">
-                <p className="subtle sm tools-shared-browse-lead">
-                  {t("tools.catalogDesc")}
-                </p>
+              <div className="studio-catalog-browse tools-shared-browse">
+                <div className="studio-catalog-head">
+                  <p className="subtle sm tools-shared-browse-lead">
+                    {catalogStudioMode === "web"
+                      ? t("tools.catalogWebDesc")
+                      : t("tools.catalogDesc")}
+                  </p>
+                  <div
+                    className="tools-dl-studio-switch studio-catalog-head__mode-switch"
+                    role="group"
+                    aria-label={t("tools.catalogUiModeAria")}
+                  >
+                    <span
+                      className={`tools-dl-studio-switch__label${
+                        catalogStudioMode === "local" ? " is-active" : ""
+                      }`}
+                    >
+                      {t("tools.catalogUiLocal")}
+                    </span>
+                    <button
+                      type="button"
+                      role="switch"
+                      className="tools-dl-studio-switch__track"
+                      aria-checked={catalogStudioMode === "web"}
+                      aria-label={t("tools.catalogUiModeAria")}
+                      onClick={() =>
+                        setCatalogStudioMode((m) => {
+                          const next = m === "local" ? "web" : "local";
+                          if (next === "web") setCatalogArtistDetail(null);
+                          return next;
+                        })
+                      }
+                    >
+                      <span
+                        className="tools-dl-studio-switch__thumb"
+                        aria-hidden
+                      />
+                    </button>
+                    <span
+                      className={`tools-dl-studio-switch__label${
+                        catalogStudioMode === "web" ? " is-active" : ""
+                      }`}
+                    >
+                      {t("tools.catalogUiWeb")}
+                    </span>
+                  </div>
+                </div>
+                {catalogStudioMode === "web" ? (
+                  <StudioCatalogWeb
+                    t={t}
+                    active={studioPane === "catalog"}
+                    onPickAlbumForDownload={pickCatalogWebAlbumForDownload}
+                  />
+                ) : (
+                  <>
                 {catalogLockedByEnv ? (
                   <p className="subtle sm warnline">
                     {t("tools.sharedEnvLock")}
                   </p>
                 ) : null}
                 {!catalogLockedByEnv ? (
-                  <div className="studio-catalog-filters">
-                    <div className="studio-catalog-filters__toolbar">
+                  <div className="studio-catalog-toolbar">
+                    <div className="studio-catalog-toolbar__row">
                       <button
                         type="button"
                         className="primary-btn primary-btn--sm"
@@ -1857,7 +1958,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                       {catalogData && !catalogArtistDetail ? (
                         <input
                           type="search"
-                          className="ghost-input ghost-input--search studio-catalog-filters__search"
+                          className="ghost-input ghost-input--search studio-catalog-toolbar__search"
                           value={catalogArtistQuery}
                           onChange={(e) => setCatalogArtistQuery(e.target.value)}
                           placeholder={t("tools.catalogSearchPlaceholder")}
@@ -1866,7 +1967,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                       ) : null}
                     </div>
                     {catalogData && !catalogArtistDetail ? (
-                      <label className="studio-catalog-filters__check">
+                      <label className="studio-catalog-toolbar__check">
                         <input
                           type="checkbox"
                           checked={catalogArtistOnlyAttention}
@@ -1988,6 +2089,8 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                 {catalogErr ? (
                   <p className="subtle sm warnline">{catalogErr}</p>
                 ) : null}
+                  </>
+                )}
               </div>
             </div>
           ) : null}

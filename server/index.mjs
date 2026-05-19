@@ -87,6 +87,7 @@ import {
 } from "./backupKord.mjs";
 import { fetchYoutubeMusicBrowseReleasesList } from "./youtubeMusicBrowse.mjs";
 import { searchYoutubeMusicCatalog } from "./youtubeMusicSearch.mjs";
+import { fetchCatalogWebDiscover } from "./youtubeMusicDiscover.mjs";
 import {
   fetchYoutubeWebReleasesList,
   isYoutubeWebReleasesPageUrl,
@@ -1523,6 +1524,22 @@ app.get("/api/catalog", async (req, res) => {
   }
 });
 
+app.get("/api/catalog-web-discover", async (req, res) => {
+  try {
+    const root = getMusicRoot();
+    const index = await getLibraryIndex(root);
+    res.set("Cache-Control", "no-store, must-revalidate");
+    const payload = await fetchCatalogWebDiscover(index);
+    if (payload.error) {
+      return sendError(res, 502, payload.error);
+    }
+    return sendOk(res, payload);
+  } catch (error) {
+    console.error(error);
+    return sendError(res, 500, String(error?.message || error));
+  }
+});
+
 app.get("/api/my-library-selection", async (req, res) => {
   try {
     const root = getMusicRoot();
@@ -2625,7 +2642,7 @@ app.post("/api/artwork/apply", async (req, res) => {
     if (!statSync(full).isDirectory())
       return sendError(res, 400, "Not a directory");
     const response = await fetch(imageUrl, {
-      headers: { "User-Agent": "Kord/2.7" },
+      headers: { "User-Agent": "Kord/2.8" },
     });
     if (!response.ok) return sendError(res, 400, "Image download failed");
     const type = (response.headers.get("content-type") || "").toLowerCase();

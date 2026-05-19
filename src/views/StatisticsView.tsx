@@ -441,30 +441,40 @@ function StatisticsView({
               {t("statistics.modeAll")}
             </span>
           </div>
-          <div className="stats-grid statistics-overview-grid">
-            <div className="metric-card statistics-metric">
+          <div className="statistics-overview">
+            <div
+              className="stats-grid statistics-overview-grid statistics-overview-grid--plays"
+              aria-label={t("statistics.overviewPlaysRowAria")}
+            >
+            <div className="metric-card">
               <span>{t("statistics.overviewTotalPlays")}</span>
               <strong>{overviewData.totalScore}</strong>
             </div>
-            <div className="metric-card statistics-metric">
+            <div className="metric-card">
               <span>{t("statistics.overviewTracksWithPlays")}</span>
               <strong>{overviewData.tracksWithPlays}</strong>
             </div>
-            <div className="metric-card statistics-metric">
+            <div className="metric-card">
               <span>{t("statistics.overviewArtistsTouched")}</span>
               <strong>{overviewData.artistsTouched}</strong>
             </div>
-            <div className="metric-card statistics-metric">
+            <div className="metric-card">
               <span>{t("statistics.overviewAlbumsTouched")}</span>
               <strong>{overviewData.albumsTouched}</strong>
             </div>
-            <div className="metric-card statistics-metric statistics-metric--summary-wide statistics-metric--compact-row">
-              <span>{t("statistics.overviewFavoritesTotal")}</span>
-              <strong>{totalFavorites}</strong>
             </div>
-            <div className="metric-card statistics-metric statistics-metric--summary-wide statistics-metric--compact-row">
-              <span>{t("statistics.overviewBlockedTotal")}</span>
-              <strong>{totalShuffleBlocks}</strong>
+            <div
+              className="stats-grid statistics-overview-grid statistics-overview-grid--totals"
+              aria-label={t("statistics.overviewTotalsRowAria")}
+            >
+              <div className="metric-card">
+                <span>{t("statistics.overviewFavoritesTotal")}</span>
+                <strong>{totalFavorites}</strong>
+              </div>
+              <div className="metric-card">
+                <span>{t("statistics.overviewBlockedTotal")}</span>
+                <strong>{totalShuffleBlocks}</strong>
+              </div>
             </div>
           </div>
         </section>

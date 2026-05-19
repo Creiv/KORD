@@ -268,6 +268,38 @@ export async function fetchLibraryCatalog(opts: { summary?: boolean; artistId?: 
   return unwrap<LibraryCatalogResponse>(response)
 }
 
+export type CatalogWebDiscoverEntry = {
+  id: string
+  title: string
+  subtitle: string
+  url: string
+  thumbnailUrl?: string | null
+}
+
+export type CatalogWebDiscoverAlbum = CatalogWebDiscoverEntry & {
+  artistName: string
+}
+
+export type CatalogWebDiscoverResponse = {
+  artists: CatalogWebDiscoverEntry[]
+  albums: CatalogWebDiscoverAlbum[]
+  error?: string | null
+}
+
+export async function fetchCatalogWebDiscover(
+  refreshNonce?: number,
+): Promise<CatalogWebDiscoverResponse> {
+  await ensureSelectedAccountId()
+  const nonce = refreshNonce ?? Date.now()
+  const response = await apiFetch(
+    `/api/catalog-web-discover?r=${encodeURIComponent(String(nonce))}`,
+    {
+      cache: "no-store",
+    },
+  )
+  return unwrap<CatalogWebDiscoverResponse>(response)
+}
+
 export async function fetchMyLibrarySelection(): Promise<LibrarySelectionV1> {
   await ensureSelectedAccountId()
   const response = await apiFetch("/api/my-library-selection", {

@@ -1680,55 +1680,35 @@ button.settings-network-qr:focus-visible {
   font-weight: 500;
 }
 
-.statistics-overview-grid {
-  margin-top: 0.1rem;
-  gap: 1.1rem;
-  grid-template-columns: minmax(0, 1fr);
-}
-
-@media (min-width: 520px) {
-  .statistics-overview-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 900px) {
-  .statistics-overview-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-.statistics-overview-grid .statistics-metric {
-  padding: 1.15rem 1.2rem 1.2rem;
-  gap: 0.42rem;
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: color-mix(in srgb, var(--surface3) 35%, var(--surface-elev-a));
-}
-
-.statistics-overview-grid .statistics-metric strong {
-  font-size: clamp(1.65rem, 4.5vw, 1.95rem);
-}
-
-.statistics-overview-grid .statistics-metric--compact-row {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.5rem 0.85rem;
-  padding-block: 0.8rem;
-}
-
-.statistics-overview-grid .statistics-metric--compact-row span {
+.statistics-overview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
   min-width: 0;
-  line-height: 1.25;
+  margin-top: 0.1rem;
 }
 
-.statistics-overview-grid .statistics-metric--compact-row strong {
-  font-size: 1.05rem;
-  justify-self: end;
+.statistics-overview-grid--plays {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-@media (min-width: 561px) {
-  .statistics-overview-grid .statistics-metric--summary-wide {
-    grid-column: span 2;
+@media (min-width: 640px) {
+  .statistics-overview-grid--plays {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.statistics-overview-grid--totals {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 399px) {
+  .statistics-overview-grid--plays {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .statistics-overview-grid--totals {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -2704,7 +2684,7 @@ button.settings-network-qr:focus-visible {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 0.45rem;
 }
 
@@ -2715,8 +2695,9 @@ button.settings-network-qr:focus-visible {
 
 .album-hero__meta-full .album-track-genres-inline {
   width: 100%;
-  max-width: min(100%, 52ch);
+  max-width: 100%;
   margin-top: 0;
+  align-self: stretch;
 }
 
 .album-hero__toprow {
@@ -2773,10 +2754,15 @@ button.settings-network-qr:focus-visible {
 .album-track-genres-inline {
   display: grid;
   gap: 0.45rem;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .album-track-genres-inline .meta-edit-genre-chips {
   align-items: center;
+  width: 100%;
+  margin-bottom: 0;
 }
 
 .listen-stage__viz {

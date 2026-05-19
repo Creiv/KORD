@@ -543,6 +543,8 @@ export const IT: Record<string, string> = {
   "statistics.overviewAlbumsTouched": "Album coinvolti",
   "statistics.overviewFavoritesTotal": "Totale preferiti",
   "statistics.overviewBlockedTotal": "Totale esclusi (random)",
+  "statistics.overviewPlaysRowAria": "Riepilogo riproduzioni",
+  "statistics.overviewTotalsRowAria": "Totali preferiti ed esclusioni",
   "statistics.openInLibraryAria": "Apri in libreria: {{label}}",
   "player.openListenTitle": "Apri la scheda Ascolta",
   "player.openArtistLibTitle": "Apri l’artista in Libreria",
@@ -608,6 +610,19 @@ export const IT: Record<string, string> = {
   "tools.catalogTitle": "Scopri",
   "tools.catalogDesc":
     "Aggiungi artisti o singoli album dalla libreria globale del server alla tua raccolta personale.",
+  "tools.catalogUiModeAria": "Modalità Scopri",
+  "tools.catalogUiLocal": "Locale",
+  "tools.catalogUiWeb": "Web",
+  "tools.catalogWebDesc":
+    "Nuove uscite album da YouTube Music, in ordine casuale, escluse quelle già presenti in libreria.",
+  "tools.catalogWebReload": "Aggiorna suggerimenti",
+  "tools.catalogWebLoading": "Caricamento suggerimenti…",
+  "tools.catalogWebEmpty":
+    "Nessun suggerimento nuovo al momento. Riprova più tardi o aggiorna l’elenco.",
+  "tools.catalogWebArtistsSection": "Artisti",
+  "tools.catalogWebAlbumsSection": "Album",
+  "tools.catalogWebDownload": "Vai al download",
+  "tools.catalogWebPickAria": "Vai al download: {{title}}",
   "tools.catalogReload": "Aggiorna elenco",
   "tools.catalogLoading": "Caricamento…",
   "tools.catalogErr": "Errore: {{e}}",

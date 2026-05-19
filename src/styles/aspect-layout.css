@@ -74,8 +74,8 @@
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
   }
 
-  .statistics-section--overview .statistics-overview-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .statistics-overview-grid--plays {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .playlists-page__main {
