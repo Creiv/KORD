@@ -587,6 +587,28 @@ export async function fetchDownloadPreset(): Promise<PresetYtdlp> {
   return unwrap<PresetYtdlp>(response)
 }
 
+export type YoutubeExploreFilter = "all" | "songs" | "albums" | "artists"
+
+export type YoutubeExploreResult = {
+  id: string
+  type: "song" | "album" | "artist"
+  title: string
+  subtitle: string
+  url: string
+  thumbnailUrl?: string | null
+}
+
+export async function fetchYoutubeExploreSearch(
+  query: string,
+): Promise<{ results: YoutubeExploreResult[] }> {
+  const response = await apiFetch("/api/youtube-explore-search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query }),
+  })
+  return unwrap<{ results: YoutubeExploreResult[] }>(response)
+}
+
 export type YoutubeReleaseEntry = {
   id: string
   title: string

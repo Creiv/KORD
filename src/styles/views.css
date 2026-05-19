@@ -1812,6 +1812,11 @@ button.settings-network-qr:focus-visible {
   display: block;
 }
 
+.track-row__art-wrap .track-row__art.track-row__art--fallback {
+  display: grid;
+  place-items: center;
+}
+
 .track-row__art-wrap::after {
   content: "";
   position: absolute;
@@ -1885,6 +1890,7 @@ button.settings-network-qr:focus-visible {
 }
 
 .track-row__art-fallback-ic {
+  display: block;
   width: 1.35rem;
   height: 1.35rem;
   opacity: 0.85;

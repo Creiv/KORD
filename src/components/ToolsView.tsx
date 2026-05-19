@@ -29,6 +29,7 @@ import type {
   ArtworkHit,
   FsDirSearchResult,
   StudioDownloadKind,
+  YoutubeExploreResult,
   YoutubeReleasesList,
 } from "../lib/api";
 import { fmtDate } from "../lib/metaFormat";
@@ -43,6 +44,10 @@ import type {
   LibraryResponse,
   LibrarySelectionV1,
 } from "../types";
+import {
+  buildDownloadSummaryLine,
+  buildReleaseBatchSummaryLine,
+} from "../lib/downloadLogSummary";
 import { ytdlpLogDetailForUser } from "../lib/ytdlpLogFilter";
 import { formatTrackGenresForDisplay } from "../lib/genres";
 import {
@@ -63,6 +68,7 @@ import {
   StudioCatalogAlbumTile,
   StudioCatalogArtistTile,
 } from "./library";
+import { StudioDownloadExplore } from "./StudioDownloadExplore";
 
 type P = {
   library: LibraryResponse | null;
@@ -113,8 +119,20 @@ const W_DL_OUT = "wpp-dl-out";
 const K_COVER_ALB = "kord-cover-album";
 const W_COVER_ALB = "wpp-cover-album";
 const K_STUDIO_PANE = "kord-studio-pane";
+const K_DL_STUDIO_MODE = "kord-dl-studio-mode";
 
 type StudioPane = "catalog" | "download" | "meta" | "covers";
+type DlStudioMode = "classic" | "explore";
+
+function readStoredDlStudioMode(): DlStudioMode {
+  try {
+    const v = localStorage.getItem(K_DL_STUDIO_MODE);
+    if (v === "explore") return "explore";
+  } catch {
+    /* ignore */
+  }
+  return "classic";
+}
 
 function readStoredStudioPane(): StudioPane | null {
   try {
@@ -252,6 +270,61 @@ function buildReleasesArtistFolderConfirm(args: {
   return msg;
 }
 
+function exploreTypeLabel(
+  type: YoutubeExploreResult["type"],
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  if (type === "album") return t("tools.exploreTypeAlbum");
+  if (type === "artist") return t("tools.exploreTypeArtist");
+  return t("tools.exploreTypeSong");
+}
+
+function buildExploreDownloadConfirm(args: {
+  item: YoutubeExploreResult;
+  dlPath: string;
+  trackCount: number | null;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}): {
+  variant: "danger" | "warning";
+  message: string;
+} {
+  const normDl = normalizeDownloadDestPath(args.dlPath);
+  const artistFolderTarget = !relPathLooksLikeAlbumFolderDest(normDl);
+  const typeLabel = exploreTypeLabel(args.item.type, args.t);
+
+  let msg = args.t("tools.exploreConfirmLead", {
+    type: typeLabel,
+    title: args.item.title,
+  });
+  if (args.item.subtitle?.trim()) {
+    msg +=
+      "\n" +
+      args.t("tools.exploreConfirmSubtitle", {
+        subtitle: args.item.subtitle.trim(),
+      });
+  }
+  if (args.item.url?.trim()) {
+    msg += "\n" + args.t("tools.exploreConfirmUrl", { url: args.item.url.trim() });
+  }
+  msg +=
+    "\n\n" +
+    (artistFolderTarget
+      ? args.t("tools.dlConfirmArtistFolderDl", { path: normDl })
+      : args.t("tools.dlConfirmAlbumFolderTracks", { path: normDl }));
+  if (
+    args.item.type === "album" &&
+    args.trackCount != null &&
+    args.trackCount > 0
+  ) {
+    msg +=
+      "\n\n" + args.t("tools.exploreConfirmTrackCount", { n: args.trackCount });
+  }
+  return {
+    variant: artistFolderTarget ? "danger" : "warning",
+    message: msg,
+  };
+}
+
 function normalizeDlProgress(
   p: { current: number; total: number } | null
 ): { cur: number; tot: number; pct: number } | null {
@@ -277,28 +350,6 @@ function normalizeTrackInAlbumProgress(
     hasTotal: true,
     pct: Math.max(3, Math.min(100, (cur / tot) * 100)),
   };
-}
-
-function downloadSummaryLine(r: {
-  downloadedItems?: string[];
-  skippedItems?: { label: string; reason: string }[];
-  failedItems?: { label: string; reason: string }[];
-}) {
-  const downloaded = r.downloadedItems?.length ?? 0;
-  const skipped = r.skippedItems?.length ?? 0;
-  const failed = r.failedItems?.length ?? 0;
-  if (downloaded + skipped + failed === 0) return "";
-  return `Scaricati: ${downloaded} · Saltati: ${skipped} · Non scaricati: ${failed}\n`;
-}
-
-function releaseBatchSummaryLine(
-  rows: { status: "ok" | "partial" | "failed"; title: string }[]
-) {
-  if (!rows.length) return "";
-  const ok = rows.filter((row) => row.status === "ok").length;
-  const partial = rows.filter((row) => row.status === "partial").length;
-  const failed = rows.filter((row) => row.status === "failed").length;
-  return `Scaricati: ${ok} · Parziali: ${partial} · Non scaricati: ${failed}\n`;
 }
 
 function DlDestFolderGlyph({ className }: { className?: string }) {
@@ -338,6 +389,11 @@ function DlDestUpIcon() {
 export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDelta }: P) {
   const p = usePlayer();
   const { t, sortLocale } = useI18n();
+  const downloadSummaryLine = useCallback(
+    (r: Parameters<typeof buildDownloadSummaryLine>[0]) =>
+      buildDownloadSummaryLine(r, t),
+    [t],
+  );
   const { confirm: appConfirm } = useAppConfirm();
   const {
     log,
@@ -377,6 +433,9 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
     stopTrackPrune,
   } = useToolsActivity();
   const [url, setUrl] = useState("");
+  const [dlStudioMode, setDlStudioMode] = useState<DlStudioMode>(
+    readStoredDlStudioMode,
+  );
   const [dlUrlMode, setDlUrlMode] = useState<DlVideoMode>("single");
   const [dlList, setDlList] = useState<{
     path: string;
@@ -438,7 +497,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
     useState<CatalogArtistEntry | null>(null);
   const [catalogArtistQuery, setCatalogArtistQuery] = useState("");
   const [catalogArtistOnlyAttention, setCatalogArtistOnlyAttention] =
-    useState(false);
+    useState(true);
   const [artQuery, setArtQuery] = useState("");
   const [artRes, setArtRes] = useState<ArtworkHit[]>([]);
   const [newDirName, setNewDirName] = useState("");
@@ -488,6 +547,14 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
       /* ignore */
     }
   }, [studioPane]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(K_DL_STUDIO_MODE, dlStudioMode);
+    } catch {
+      /* ignore */
+    }
+  }, [dlStudioMode]);
 
   useEffect(() => {
     if (!metaScanChoiceOpen) return;
@@ -1255,6 +1322,50 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
     hasValidDownloadDest &&
     relPathLooksLikeAlbumFolderDest(dlPath);
 
+  const prepareExploreDownload = useCallback(
+    async (item: YoutubeExploreResult) => {
+      if (!hasValidDownloadDest) {
+        setLog((x) => x + t("tools.dlPickFolder"));
+        return false;
+      }
+      let trackCount: number | null = null;
+      if (item.type === "album") {
+        try {
+          trackCount = await fetchDownloadFlatCount(item.url);
+        } catch (e) {
+          setLog(
+            (x) =>
+              x +
+              t("tools.dlPlaylistCountErr", {
+                e: String((e as Error)?.message || e),
+              }),
+          );
+          return false;
+        }
+      }
+      const confirmOpts = buildExploreDownloadConfirm({
+        item,
+        dlPath,
+        trackCount,
+        t,
+      });
+      if (!(await appConfirm(confirmOpts))) {
+        return false;
+      }
+      if (trackCount != null && trackCount > 35) {
+        if (
+          !(await appConfirm({
+            message: t("tools.dlPlaylistManyConfirm", { n: trackCount }),
+          }))
+        ) {
+          return false;
+        }
+      }
+      return true;
+    },
+    [hasValidDownloadDest, dlPath, appConfirm, t],
+  );
+
   const runDl = () => {
     if (!url.trim()) return;
     if (!urlMatchesStudioDlMode(url, "video", dlUrlMode)) {
@@ -1273,8 +1384,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
     studioDlRunLatchRef.current = true;
     void (async () => {
       try {
-        setDlBusy(true);
-        setDlProg(null);
         const studioDlKind: StudioDownloadKind =
           dlUrlMode === "playlist" ? "download_playlist" : "download_single";
         const normDl = normalizeDownloadDestPath(dlPath);
@@ -1312,6 +1421,8 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
             return;
           }
         }
+        setDlBusy(true);
+        setDlProg(null);
         setDlTrackProg(null);
         dlBatchStopRef.current = false;
         try {
@@ -1453,10 +1564,6 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
     studioDlRunLatchRef.current = true;
     void (async () => {
       try {
-        setDlBusy(true);
-        dlBatchStopRef.current = false;
-        setDlTrackProg({ current: 0, total: 0 });
-        setDlProg({ current: 1, total: list.length });
         const studioDlKind: StudioDownloadKind =
           studioDownloadSourceForArtistUrl(url) === "music"
             ? "download_ytmusic"
@@ -1478,6 +1585,10 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
         ) {
           return;
         }
+        setDlBusy(true);
+        dlBatchStopRef.current = false;
+        setDlTrackProg({ current: 0, total: 0 });
+        setDlProg({ current: 1, total: list.length });
         setLog(
           (x) =>
             x +
@@ -1555,7 +1666,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
             setDlProg(null);
             setDlTrackProg(null);
           }
-          setLog((x) => x + releaseBatchSummaryLine(batchResults));
+          setLog((x) => x + buildReleaseBatchSummaryLine(batchResults, t));
           await onRefreshLibrary();
         } finally {
           dlActiveDownloadIdRef.current = null;
@@ -1582,11 +1693,17 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
 
   const dlProgNorm = normalizeDlProgress(dlProg);
   const dlTrackNorm = normalizeTrackInAlbumProgress(dlTrackProg);
-  const showReleaseMultiTrackBar =
-    showMultiAlbumPicker &&
+  /** Barra album + brani: stato download, non la modalità URL (si resetta al remount). */
+  const showDualDlProgressBar =
     dlProgNorm != null &&
     dlProgNorm.tot >= 1 &&
-    (dlBusy || dlTrackProg != null);
+    dlTrackProg != null;
+  const singleDlBarNorm = showDualDlProgressBar
+    ? null
+    : dlProgNorm
+      ? { ...dlProgNorm, hasTotal: true as const }
+      : dlTrackNorm;
+  const showDlProgressWrap = dlBusy || dlProg != null || dlTrackProg != null;
 
   const doArtSearch = () => {
     const q = artQuery.trim();
@@ -1882,12 +1999,53 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
               aria-label={t("tools.downloadTitle")}
             >
               <div className="studio-panel tools-dl-dest">
-                <h4 className="studio-panel-title">
-                  {t("tools.dlSaveFolder")}
-                </h4>
-                <p className="subtle sm tools-dl-dest__lead">
-                  {t("tools.dlDestLead")}
-                </p>
+                <div className="tools-dl-dest__head">
+                  <div className="tools-dl-dest__head-text">
+                    <h4 className="studio-panel-title">
+                      {t("tools.dlSaveFolder")}
+                    </h4>
+                    <p className="subtle sm tools-dl-dest__lead">
+                      {t("tools.dlDestLead")}
+                    </p>
+                  </div>
+                  <div
+                    className="tools-dl-studio-switch tools-dl-dest__mode-switch"
+                    role="group"
+                    aria-label={t("tools.dlUiModeAria")}
+                  >
+                    <span
+                      className={`tools-dl-studio-switch__label${
+                        dlStudioMode === "classic" ? " is-active" : ""
+                      }`}
+                    >
+                      {t("tools.dlUiClassic")}
+                    </span>
+                    <button
+                      type="button"
+                      role="switch"
+                      className="tools-dl-studio-switch__track"
+                      aria-checked={dlStudioMode === "explore"}
+                      aria-label={t("tools.dlUiModeAria")}
+                      onClick={() =>
+                        setDlStudioMode((m) =>
+                          m === "classic" ? "explore" : "classic",
+                        )
+                      }
+                    >
+                      <span
+                        className="tools-dl-studio-switch__thumb"
+                        aria-hidden
+                      />
+                    </button>
+                    <span
+                      className={`tools-dl-studio-switch__label${
+                        dlStudioMode === "explore" ? " is-active" : ""
+                      }`}
+                    >
+                      {t("tools.dlUiExplore")}
+                    </span>
+                  </div>
+                </div>
                 <div className="tools-dl-dest__shell">
                   <div className="tools-dl-dest__pathheader">
                     <p
@@ -2084,6 +2242,22 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
               </div>
 
               <div className="studio-panel">
+                {dlStudioMode === "explore" ? (
+                  <StudioDownloadExplore
+                    t={t}
+                    dlPath={dlPath}
+                    hasValidDownloadDest={hasValidDownloadDest}
+                    dlBusy={dlBusy}
+                    onBusyChange={setDlBusy}
+                    onProgress={setDlProg}
+                    onTrackProgress={setDlTrackProg}
+                    onLog={setLog}
+                    onRefreshLibrary={onRefreshLibrary}
+                    onPrepareDownload={prepareExploreDownload}
+                    downloadSummaryLine={downloadSummaryLine}
+                  />
+                ) : (
+                  <>
                 <h4 className="studio-panel-title">
                   {t("tools.dlLinkSection")}
                 </h4>
@@ -2337,11 +2511,13 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                     )}
                   </div>
                 )}
-                {(dlBusy || dlProg) && (
+                  </>
+                )}
+                {showDlProgressWrap && (
                   <div
                     className={[
                       "dl-progress-wrap",
-                      showReleaseMultiTrackBar ? "dl-progress-wrap--dual" : "",
+                      showDualDlProgressBar ? "dl-progress-wrap--dual" : "",
                     ]
                       .filter(Boolean)
                       .join(" ")}
@@ -2358,7 +2534,7 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                         </button>
                       </div>
                     ) : null}
-                    {showReleaseMultiTrackBar ? (
+                    {showDualDlProgressBar ? (
                       <>
                         <div className="dl-progress-block">
                           <div className="dl-progress-top">
@@ -2422,17 +2598,21 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                           <strong>{t("tools.progress")}</strong>
                           <span>
                             {dlBusy
-                              ? dlProgNorm
-                                ? t("tools.dlProgressCount", {
-                                    cur: dlProgNorm.cur,
-                                    tot: dlProgNorm.tot,
-                                  })
+                              ? singleDlBarNorm
+                                ? singleDlBarNorm.hasTotal
+                                  ? t("tools.dlProgressCount", {
+                                      cur: singleDlBarNorm.cur,
+                                      tot: singleDlBarNorm.tot,
+                                    })
+                                  : t("tools.dlProgressTrackWait")
                                 : t("tools.inProgress")
-                              : dlProgNorm
-                              ? t("tools.dlProgressCount", {
-                                  cur: dlProgNorm.cur,
-                                  tot: dlProgNorm.tot,
-                                })
+                              : singleDlBarNorm
+                              ? singleDlBarNorm.hasTotal
+                                ? t("tools.dlProgressCount", {
+                                    cur: singleDlBarNorm.cur,
+                                    tot: singleDlBarNorm.tot,
+                                  })
+                                : t("tools.dlProgressTrackWait")
                               : t("common.emDash")}
                           </span>
                         </div>
@@ -2440,8 +2620,8 @@ export function ToolsView({ library, libraryIndex, onRefreshLibrary, onLibraryDe
                           <div
                             className="dl-progress-fill"
                             style={{
-                              width: dlProgNorm
-                                ? `${dlProgNorm.pct}%`
+                              width: singleDlBarNorm
+                                ? `${singleDlBarNorm.pct}%`
                                 : dlBusy
                                 ? "18%"
                                 : "0%",

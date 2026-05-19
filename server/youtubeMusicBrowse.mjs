@@ -12,8 +12,11 @@ function browseIdFromMusicBrowsePageUrl(raw) {
     const u = new URL(String(raw).trim())
     const h = u.hostname.replace(/^www\./, "").toLowerCase()
     if (h !== "music.youtube.com") return null
-    const m = u.pathname.match(/\/browse\/([^/?#]+)/)
-    return m ? decodeURIComponent(m[1]) : null
+    const browseM = u.pathname.match(/\/browse\/([^/?#]+)/)
+    if (browseM) return decodeURIComponent(browseM[1])
+    const channelM = u.pathname.match(/\/channel\/([^/?#]+)/)
+    if (channelM) return decodeURIComponent(channelM[1])
+    return null
   } catch {
     return null
   }
@@ -147,7 +150,7 @@ export async function fetchYoutubeMusicBrowseReleasesList(pageUrl) {
       title: "",
       uploader: "",
       channel_url: "",
-      error: "Not a YouTube Music browse URL",
+      error: "Not a YouTube Music browse or channel URL",
     }
   }
   const json = await fetchYoutubeMusicBrowsePayload(browseId)

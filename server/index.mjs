@@ -86,6 +86,7 @@ import {
   restoreKordFromZipBuffer,
 } from "./backupKord.mjs";
 import { fetchYoutubeMusicBrowseReleasesList } from "./youtubeMusicBrowse.mjs";
+import { searchYoutubeMusicCatalog } from "./youtubeMusicSearch.mjs";
 import {
   fetchYoutubeWebReleasesList,
   isYoutubeWebReleasesPageUrl,
@@ -1844,7 +1845,7 @@ function isYoutubeMusicBrowseUrl(value) {
     const u = new URL(String(value).trim());
     const h = u.hostname.replace(/^www\./, "").toLowerCase();
     if (!h.endsWith("music.youtube.com")) return false;
-    return u.pathname.includes("/browse");
+    return u.pathname.includes("/browse") || u.pathname.includes("/channel/");
   } catch {
     return false;
   }
@@ -2006,6 +2007,29 @@ app.post("/api/youtube-releases-list", async (req, res) => {
       res,
       500,
       err.length > 800 ? `${err.slice(0, 797)}…` : err
+    );
+  }
+});
+
+app.post("/api/youtube-explore-search", async (req, res) => {
+  if (process.env.ENABLE_YTDLP === "0") {
+    return sendError(res, 403, "Download disabled (ENABLE_YTDLP=0)");
+  }
+  const query = String(req.body?.query ?? "").trim();
+  if (!query) {
+    return sendError(res, 400, "Query required");
+  }
+  try {
+    const { results, error } = await searchYoutubeMusicCatalog(query);
+    if (error) {
+      return sendError(res, 400, error);
+    }
+    return sendOk(res, { results });
+  } catch (err) {
+    return sendError(
+      res,
+      500,
+      String(err?.message ?? err).slice(0, 800) || "Search failed",
     );
   }
 });
