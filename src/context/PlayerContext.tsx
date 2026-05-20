@@ -11,6 +11,7 @@ import {
 } from "react";
 import { mediaUrl } from "../lib/api";
 import { enrichTrack } from "../lib/enrichTrack";
+import { enrichedTracksNeedPlayerResync } from "../lib/libraryIndex";
 import { isTrackAlbumShuffleExcluded } from "../lib/randomExclusions";
 import {
   type MediaSessionBridge,
@@ -932,17 +933,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const byPath = new Map(
       libraryIndex.tracks.map((t) => [t.relPath, t as EnrichedTrack]),
     );
-    const trackEqual = (a: EnrichedTrack, b: EnrichedTrack) =>
-      a.relPath === b.relPath &&
-      a.title === b.title &&
-      a.artist === b.artist &&
-      a.album === b.album &&
-      a.id === b.id;
     setQueue((prev) => {
       let changed = false;
       const next = prev.map((t) => {
         const full = byPath.get(t.relPath);
-        if (!full || trackEqual(t, full)) return t;
+        if (!full || !enrichedTracksNeedPlayerResync(t, full)) return t;
         changed = true;
         return full;
       });
@@ -951,7 +946,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setCurrent((c) => {
       if (!c) return c;
       const full = byPath.get(c.relPath);
-      if (!full || trackEqual(c, full)) return c;
+      if (!full || !enrichedTracksNeedPlayerResync(c, full)) return c;
       return full;
     });
   }, []);

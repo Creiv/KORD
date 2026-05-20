@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   applyLibraryDeltasToIndex,
+  enrichedTracksNeedPlayerResync,
   libraryIndexRehydrateSig,
 } from "./libraryIndex";
+import type { EnrichedTrack } from "../types";
 import type { LibraryEntityDelta, LibraryIndex } from "../types";
 
 function miniIndex(): LibraryIndex {
@@ -78,6 +80,34 @@ describe("libraryIndex", () => {
     const a = libraryIndexRehydrateSig(miniIndex());
     const b = libraryIndexRehydrateSig({ ...miniIndex(), indexEpoch: 2 });
     expect(a).not.toBe(b);
+  });
+
+  it("enrichedTracksNeedPlayerResync rileva genere e mood", () => {
+    const base = {
+      id: "Artist/Album/01.mp3",
+      relPath: "Artist/Album/01.mp3",
+      title: "Song",
+      artist: "Artist",
+      album: "Album",
+      albumId: "al1",
+      loose: false,
+      addedAt: 1,
+      updatedAt: 1,
+      meta: { genre: "Rock", moods: ["calm"] },
+    } as EnrichedTrack;
+    expect(
+      enrichedTracksNeedPlayerResync(base, {
+        ...base,
+        meta: { ...base.meta, genre: "Jazz" },
+      })
+    ).toBe(true);
+    expect(
+      enrichedTracksNeedPlayerResync(base, {
+        ...base,
+        meta: { ...base.meta, moods: ["energetic"] },
+      })
+    ).toBe(true);
+    expect(enrichedTracksNeedPlayerResync(base, { ...base })).toBe(false);
   });
 
   it("applyLibraryDeltasToIndex applies multiple album patches in one pass", () => {

@@ -1,5 +1,6 @@
 import { parseTrackGenres } from "./genres";
 import type {
+  EnrichedTrack,
   LibraryAlbumIndex,
   LibraryEntityDelta,
   LibraryIndex,
@@ -7,6 +8,39 @@ import type {
   LibraryTrackIndex,
   TrackMeta,
 } from "../types";
+
+function trackMoodsSig(meta?: TrackMeta | null): string {
+  const moods = meta?.moods;
+  if (!moods?.length) return "";
+  return [...moods].sort().join("\0");
+}
+
+/** True se il brano in coda va sostituito con la copia aggiornata dall'indice libreria. */
+export function enrichedTracksNeedPlayerResync(
+  queueTrack: EnrichedTrack,
+  indexTrack: EnrichedTrack
+): boolean {
+  if (
+    queueTrack.relPath !== indexTrack.relPath ||
+    queueTrack.title !== indexTrack.title ||
+    queueTrack.artist !== indexTrack.artist ||
+    queueTrack.album !== indexTrack.album ||
+    queueTrack.id !== indexTrack.id
+  ) {
+    return true;
+  }
+  if ((queueTrack.updatedAt ?? 0) !== (indexTrack.updatedAt ?? 0)) return true;
+  const qm = queueTrack.meta;
+  const im = indexTrack.meta;
+  if (qm === im) return false;
+  if (!qm || !im) return Boolean(qm) !== Boolean(im);
+  if ((qm.genre ?? "") !== (im.genre ?? "")) return true;
+  if (trackMoodsSig(qm) !== trackMoodsSig(im)) return true;
+  if ((qm.lyrics ?? "") !== (im.lyrics ?? "")) return true;
+  if ((qm.releaseDate ?? "") !== (im.releaseDate ?? "")) return true;
+  if ((qm.durationMs ?? 0) !== (im.durationMs ?? 0)) return true;
+  return false;
+}
 
 export function clientLegacyLibrary(
   index: LibraryIndex | null
@@ -218,6 +252,10 @@ export function applyLibraryDeltaToIndex(
               ...track,
               ...patch,
               title: patch.title || track.title,
+              updatedAt:
+                typeof patch.updatedAt === "number"
+                  ? patch.updatedAt
+                  : Date.now(),
               meta: {
                 ...(track.meta || {}),
                 ...(patch.meta || {}),
@@ -240,6 +278,8 @@ export function applyLibraryDeltaToIndex(
           ...track,
           ...patch,
           title: patch.title || track.title,
+          updatedAt:
+            typeof patch.updatedAt === "number" ? patch.updatedAt : Date.now(),
           meta: { ...(track.meta || {}), ...(patch.meta || {}) } as TrackMeta,
         };
       }),
