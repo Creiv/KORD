@@ -24,7 +24,7 @@ const ITUNES_HEADERS = {
   "Accept-Language": "en-US,en;q=0.9,it;q=0.85",
 }
 
-const MB_UA = "Kord/1.0 (https://github.com/local)"
+const MB_UA = "Kord/2.9 (https://github.com/local)"
 const LRCLIB_HEADERS = {
   "User-Agent": MB_UA,
   Accept: "application/json",

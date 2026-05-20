@@ -19,6 +19,7 @@ import { fmtDate } from "../lib/metaFormat";
 import { randomUUID } from "../lib/randomUUID";
 import { normalizeShuffleAlbumKeysWithIndex } from "../lib/shuffleExclusionKeys";
 import { DEFAULT_CUSTOM_THEME } from "../lib/themeCatalog";
+import { touchListeningActivity } from "../lib/achievements";
 import {
   applyUserStatePatchFields,
   compactUserStatePatch,
@@ -1229,6 +1230,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
           [relPath]: ((prev.trackPlayCounts || {})[relPath] ?? 0) + 1,
         },
       }), { patch: (next) => ({ trackPlayCounts: next.trackPlayCounts }) });
+      touchListeningActivity();
     },
     [commit]
   );

@@ -73,6 +73,9 @@ const LazyQueueViewNew = lazy(() => import("../../views/QueueViewNew"));
 const LazyPlaylistsViewNew = lazy(() => import("../../views/PlaylistsViewNew"));
 const LazyTrackCollectionView = lazy(() => import("../../views/TrackCollectionView"));
 const LazyStatisticsView = lazy(() => import("../../views/StatisticsView"));
+const LazyAchievementsView = lazy(
+  () => import("../../views/AchievementsView/AchievementsView")
+);
 const LazySettingsView = lazy(() => import("../../views/SettingsView"));
 const LazyToolsView = lazy(() =>
   import("../ToolsView").then((m) => ({ default: m.ToolsView }))
@@ -791,6 +794,15 @@ export function AppShell() {
               index={index}
               onOpenArtist={navToLibraryArtist}
               onOpenAlbum={navToLibraryAlbum}
+            />
+          </Suspense>
+        );
+      case "achievements":
+        return (
+          <Suspense fallback={<KordViewLoadingFallback />}>
+            <LazyAchievementsView
+              index={index}
+              onOpenSection={navToSection}
             />
           </Suspense>
         );

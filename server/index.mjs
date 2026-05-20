@@ -2676,7 +2676,7 @@ app.post("/api/artwork/apply", async (req, res) => {
     if (!statSync(full).isDirectory())
       return sendError(res, 400, "Not a directory");
     const response = await fetch(imageUrl, {
-      headers: { "User-Agent": "Kord/2.8" },
+      headers: { "User-Agent": "Kord/2.9" },
     });
     if (!response.ok) return sendError(res, 400, "Image download failed");
     const type = (response.headers.get("content-type") || "").toLowerCase();

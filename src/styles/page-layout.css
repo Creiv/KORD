@@ -42,6 +42,7 @@
 /* Banda superiore pagina (titolo / toolbar): sfumatura colore tema — dettaglio in flat-modern.css */
 .page-top-band,
 .view-page__intro > .hero-card,
+.view-page__intro > .achievements-hero,
 .view-page__toolbar-band > :first-child,
 .view-page--studio > .surface-card:first-child,
 .settings-page > .surface-card:first-child,
@@ -294,6 +295,318 @@
 .dashboard-page__main > .dashboard-page__mix,
 .dashboard-page__main > .dashboard-page__tile--full {
   grid-column: 1 / -1;
+}
+
+/* —— Achievements —— */
+.achievements-page__main {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.achievements-page__hero {
+  min-width: 0;
+}
+
+.achievements-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Riga pillole: livello + serie */
+.achievements-hero__pills {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.achievements-hero__level-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.22em 0.7em;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border) 62%);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface3) 90%);
+  color: var(--accent);
+}
+
+/* stat streak: numero + fiamma + etichetta */
+.achievements-hero__stat-streak strong::before {
+  content: "🔥\00a0";
+}
+.achievements-hero__stat-streak strong {
+  color: var(--text);
+}
+
+/* Titolo grado */
+.achievements-hero__rank {
+  margin: 0;
+  font-size: clamp(2.1rem, 5.5vw, 3.2rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: var(--text);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+/* Blocco XP */
+.achievements-hero__xp {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.achievements-xp__track {
+  display: block;
+  width: 100%;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 65%, transparent);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.achievements-xp__fill {
+  display: block;
+  height: 100%;
+  max-width: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    var(--accent),
+    color-mix(in srgb, var(--accent2, var(--accent)) 75%, white 25%)
+  );
+  transition: width 0.4s ease;
+}
+
+.achievements-xp__fill--shimmer {
+  width: 100%;
+  opacity: 0.35;
+  animation: achievements-xp-pulse 1.25s ease-in-out infinite;
+}
+
+@keyframes achievements-xp-pulse {
+  0%, 100% { opacity: 0.28; }
+  50% { opacity: 0.65; }
+}
+
+/* Riga testuale sotto la barra: "1781 XP · 419 al prossimo" */
+.achievements-hero__xp-caption {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  display: flex;
+  align-items: baseline;
+  gap: 0;
+}
+
+.achievements-hero__xp-caption strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Statistiche inline — separatori tra elementi */
+.achievements-hero__stats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0;
+  min-width: 0;
+}
+
+.achievements-hero__stats li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35em;
+  padding: 0.25rem var(--space-3) 0.25rem 0;
+  min-width: 0;
+}
+
+.achievements-hero__stats li + li {
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--border);
+}
+
+.achievements-hero__stats strong {
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.achievements-hero__stats span {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.achievements-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding-top: var(--space-1);
+}
+
+/* Board header */
+.achievements-board__head h2 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.achievements-board__lead {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.achievements-badge-grid {
+  list-style: none;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@container kord-page (min-width: 640px) {
+  .achievements-badge-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.achievements-badge {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  align-items: center;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    filter 0.2s ease;
+}
+
+.achievements-badge--locked {
+  border: 1px dashed color-mix(in srgb, var(--border) 88%, transparent);
+  background: color-mix(in srgb, var(--bg) 55%, var(--surface3) 45%);
+  filter: saturate(0.2) brightness(0.92);
+  opacity: 0.82;
+}
+
+.achievements-badge--locked .achievements-badge__icon {
+  background: color-mix(in srgb, var(--muted) 18%, var(--surface2) 82%);
+  border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+}
+
+.achievements-badge--locked .achievements-badge__ic {
+  color: var(--muted);
+  opacity: 0.55;
+}
+
+.achievements-badge--locked h3 {
+  color: color-mix(in srgb, var(--muted) 82%, var(--text) 18%);
+  font-weight: 600;
+}
+
+.achievements-badge--locked p,
+.achievements-badge--locked .achievements-badge__xp {
+  color: color-mix(in srgb, var(--muted) 92%, transparent);
+}
+
+.achievements-badge--unlocked {
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border) 68%);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface3) 94%);
+  box-shadow: none;
+  filter: none;
+  opacity: 1;
+}
+
+.achievements-badge--unlocked .achievements-badge__icon {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface2) 86%);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border) 72%);
+  box-shadow: none;
+}
+
+.achievements-badge--unlocked .achievements-badge__ic {
+  color: color-mix(in srgb, var(--accent) 88%, var(--text) 12%);
+  opacity: 1;
+}
+
+.achievements-badge--unlocked h3 {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.achievements-badge--unlocked p {
+  color: var(--muted);
+}
+
+.achievements-badge__icon {
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.achievements-badge__ic {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.achievements-badge h3 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.achievements-badge p {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+}
+
+.achievements-badge__xp {
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.achievements-badge--unlocked .achievements-badge__xp {
+  color: color-mix(in srgb, var(--accent) 75%, var(--muted) 25%);
+}
+
+.achievements-badge__state {
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.82rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.achievements-badge__state--locked {
+  color: color-mix(in srgb, var(--muted) 75%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--border) 85%, transparent);
+  background: color-mix(in srgb, var(--bg) 50%, var(--surface3));
+}
+
+.achievements-badge__state--unlocked {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface2) 88%);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border) 65%);
+  box-shadow: none;
 }
 
 /* —— Statistiche —— */

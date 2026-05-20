@@ -325,6 +325,7 @@ export type AppSection =
   | "favorites"
   | "recent"
   | "settings"
-  | "statistics";
+  | "statistics"
+  | "achievements";
 
 export type RepeatMode = "off" | "all" | "one";

@@ -22,14 +22,16 @@ export const NAV_DEF: {
   { id: "favorites", labelKey: "nav.favorites", group: "secondary" },
   { id: "recent", labelKey: "nav.recent", group: "secondary" },
   { id: "statistics", labelKey: "nav.statistics", group: "secondary" },
+  { id: "achievements", labelKey: "nav.achievements", group: "secondary" },
   { id: "settings", labelKey: "nav.settings", group: "secondary" },
 ];
 
 export function parseRoute(): RouteState {
   const params = new URLSearchParams(window.location.search);
-  const section = window.location.pathname
-    .replace(/^\/+/, "")
-    .split("/")[0] as AppSection;
+  const raw = window.location.pathname.replace(/^\/+/, "").split("/")[0];
+  const section = (
+    raw === "resonance" ? "achievements" : raw
+  ) as AppSection;
   return {
     section: NAV_DEF.some((item) => item.id === section)
       ? section

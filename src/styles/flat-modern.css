@@ -162,6 +162,7 @@
 /* ── Banda superiore pagine: sfumatura accent / accent2 del tema ── */
 .page-top-band,
 .view-page__intro > .hero-card,
+.view-page__intro > .achievements-hero,
 .view-page__toolbar-band > :first-child,
 .view-page--studio > .surface-card:first-child,
 .settings-page > .surface-card:first-child,

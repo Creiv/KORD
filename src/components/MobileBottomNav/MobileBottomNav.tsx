@@ -11,6 +11,7 @@ const MORE_KEYS: { id: AppSection; labelKey: string }[] = [
   { id: "favorites", labelKey: "nav.favorites" },
   { id: "recent", labelKey: "nav.recent" },
   { id: "statistics", labelKey: "nav.statistics" },
+  { id: "achievements", labelKey: "nav.achievements" },
 ];
 
 const PRIMARY: { id: AppSection; labelKey: string }[] = [

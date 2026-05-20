@@ -1,4 +1,4 @@
-const UA = "Kord/1.0 (https://github.com/local)"
+const UA = "Kord/2.9 (https://github.com/local)"
 
 function pushUnique(out, seen, item) {
   if (!item.artwork || seen.has(item.artwork)) return
