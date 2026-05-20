@@ -15,6 +15,11 @@ function trackMoodsSig(meta?: TrackMeta | null): string {
   return [...moods].sort().join("\0");
 }
 
+function trackUpdatedAtMs(track: EnrichedTrack): number {
+  const u = (track as EnrichedTrack & { updatedAt?: number | null }).updatedAt;
+  return typeof u === "number" ? u : 0;
+}
+
 /** True se il brano in coda va sostituito con la copia aggiornata dall'indice libreria. */
 export function enrichedTracksNeedPlayerResync(
   queueTrack: EnrichedTrack,
@@ -29,7 +34,7 @@ export function enrichedTracksNeedPlayerResync(
   ) {
     return true;
   }
-  if ((queueTrack.updatedAt ?? 0) !== (indexTrack.updatedAt ?? 0)) return true;
+  if (trackUpdatedAtMs(queueTrack) !== trackUpdatedAtMs(indexTrack)) return true;
   const qm = queueTrack.meta;
   const im = indexTrack.meta;
   if (qm === im) return false;

@@ -4,7 +4,41 @@ import {
   enrichedTracksNeedPlayerResync,
   libraryIndexRehydrateSig,
 } from "./libraryIndex";
-import type { EnrichedTrack } from "../types";
+import type { LibraryTrackIndex, TrackMeta } from "../types";
+
+function sampleMeta(patch: Partial<TrackMeta> = {}): TrackMeta {
+  return {
+    fileName: "01.mp3",
+    size: 1,
+    mtime: 1,
+    releaseDate: null,
+    genre: null,
+    durationMs: null,
+    trackNumber: null,
+    discNumber: null,
+    source: null,
+    url: null,
+    ...patch,
+  };
+}
+
+function sampleTrack(
+  patch: Partial<LibraryTrackIndex> = {}
+): LibraryTrackIndex {
+  return {
+    id: "Artist/Album/01.mp3",
+    relPath: "Artist/Album/01.mp3",
+    title: "Song",
+    artist: "Artist",
+    album: "Album",
+    albumId: "al1",
+    loose: false,
+    addedAt: null,
+    updatedAt: 1,
+    meta: sampleMeta({ genre: "Rock", moods: ["calm"] }),
+    ...patch,
+  };
+}
 import type { LibraryEntityDelta, LibraryIndex } from "../types";
 
 function miniIndex(): LibraryIndex {
@@ -82,32 +116,28 @@ describe("libraryIndex", () => {
     expect(a).not.toBe(b);
   });
 
-  it("enrichedTracksNeedPlayerResync rileva genere e mood", () => {
-    const base = {
-      id: "Artist/Album/01.mp3",
-      relPath: "Artist/Album/01.mp3",
-      title: "Song",
-      artist: "Artist",
-      album: "Album",
-      albumId: "al1",
-      loose: false,
-      addedAt: 1,
-      updatedAt: 1,
-      meta: { genre: "Rock", moods: ["calm"] },
-    } as EnrichedTrack;
+  it("enrichedTracksNeedPlayerResync rileva genere, mood e lyrics", () => {
+    const base = sampleTrack();
+    const meta = base.meta!;
     expect(
       enrichedTracksNeedPlayerResync(base, {
         ...base,
-        meta: { ...base.meta, genre: "Jazz" },
+        meta: sampleMeta({ ...meta, genre: "Jazz" }),
       })
     ).toBe(true);
     expect(
       enrichedTracksNeedPlayerResync(base, {
         ...base,
-        meta: { ...base.meta, moods: ["energetic"] },
+        meta: sampleMeta({ ...meta, moods: ["energetic"] }),
       })
     ).toBe(true);
     expect(enrichedTracksNeedPlayerResync(base, { ...base })).toBe(false);
+    expect(
+      enrichedTracksNeedPlayerResync(base, {
+        ...base,
+        meta: sampleMeta({ ...meta, lyrics: "[00:01.00] Hello" }),
+      })
+    ).toBe(true);
   });
 
   it("applyLibraryDeltasToIndex applies multiple album patches in one pass", () => {
