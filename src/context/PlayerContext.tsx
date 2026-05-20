@@ -540,14 +540,40 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     }
   }, [persistedQueue, restoreSession, userReady]);
 
+  const queuePersistTimerRef = useRef<number | null>(null);
+  const queuePersistPendingRef = useRef({ tracks: queue, currentIndex });
+
   useEffect(() => {
-    if (!userReady) return;
-    setQueueSnapshot(
-      restoreSession
-        ? { tracks: queue, currentIndex }
-        : { tracks: [], currentIndex: 0 }
-    );
+    if (!userReady || !restoreSession) return;
+    queuePersistPendingRef.current = { tracks: queue, currentIndex };
+    if (queuePersistTimerRef.current != null) {
+      window.clearTimeout(queuePersistTimerRef.current);
+    }
+    queuePersistTimerRef.current = window.setTimeout(() => {
+      queuePersistTimerRef.current = null;
+      setQueueSnapshot(queuePersistPendingRef.current);
+    }, 3200);
+    return () => {
+      if (queuePersistTimerRef.current != null) {
+        window.clearTimeout(queuePersistTimerRef.current);
+        queuePersistTimerRef.current = null;
+      }
+    };
   }, [currentIndex, queue, restoreSession, setQueueSnapshot, userReady]);
+
+  useEffect(() => {
+    if (!userReady || !restoreSession) return;
+    const flushQueue = () => {
+      if (queuePersistTimerRef.current != null) {
+        window.clearTimeout(queuePersistTimerRef.current);
+        queuePersistTimerRef.current = null;
+      }
+      setQueueSnapshot(queuePersistPendingRef.current);
+    };
+    const onPageHide = () => flushQueue();
+    window.addEventListener("pagehide", onPageHide);
+    return () => window.removeEventListener("pagehide", onPageHide);
+  }, [restoreSession, setQueueSnapshot, userReady]);
 
   useEffect(() => {
     if (!current) {

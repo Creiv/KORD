@@ -591,6 +591,10 @@ export function ToolsView({
   const [relLoadBusy, setRelLoadBusy] = useState(false);
   const relAborter = useRef<AbortController | null>(null);
   const relLogTotalRef = useRef(0);
+  const relEntryBatchRef = useRef<
+    NonNullable<typeof relPayload>["entries"][number][]
+  >([]);
+  const relEntryFlushRafRef = useRef<number | null>(null);
   const relLogUploaderRef = useRef("");
   const catalogLoadedAccountRef = useRef<string | null>(null);
   const dlActiveDownloadIdRef = useRef<string | null>(null);
@@ -904,13 +908,18 @@ export function ToolsView({
     [url, dlUrlMode]
   );
 
+  const catalogDataRef = useRef(catalogData);
+  const mySelectionRef = useRef(mySelection);
+  catalogDataRef.current = catalogData;
+  mySelectionRef.current = mySelection;
+
   const loadCatalogPane = useCallback((force = false) => {
     const accountKey = localSessionAccount || "__default__";
     if (
       !force &&
       catalogLoadedAccountRef.current === accountKey &&
-      catalogData &&
-      mySelection
+      catalogDataRef.current &&
+      mySelectionRef.current
     ) {
       return;
     }
@@ -931,7 +940,7 @@ export function ToolsView({
         setMySelection(null);
       })
       .finally(() => setCatalogBusy(false));
-  }, [catalogData, localSessionAccount, mySelection, t]);
+  }, [localSessionAccount, t]);
 
   const openCatalogArtist = useCallback(
     (artistId: string) => {
@@ -1597,6 +1606,11 @@ export function ToolsView({
     relAborter.current?.abort();
     relAborter.current = new AbortController();
     const signal = relAborter.current.signal;
+    relEntryBatchRef.current = [];
+    if (relEntryFlushRafRef.current != null) {
+      window.cancelAnimationFrame(relEntryFlushRafRef.current);
+      relEntryFlushRafRef.current = null;
+    }
     setRelLoadBusy(true);
     setRelStreamComplete(false);
     setRelStreamTotal(null);
@@ -1617,9 +1631,17 @@ export function ToolsView({
           });
         },
         onEntry: (e) => {
-          setRelPayload((p) =>
-            p ? { ...p, entries: [...p.entries, e] } : null
-          );
+          relEntryBatchRef.current.push(e);
+          if (relEntryFlushRafRef.current != null) return;
+          relEntryFlushRafRef.current = window.requestAnimationFrame(() => {
+            relEntryFlushRafRef.current = null;
+            const batch = relEntryBatchRef.current;
+            relEntryBatchRef.current = [];
+            if (!batch.length) return;
+            setRelPayload((p) =>
+              p ? { ...p, entries: [...p.entries, ...batch] } : null
+            );
+          });
         },
         onDone: () => {
           setRelStreamComplete(true);

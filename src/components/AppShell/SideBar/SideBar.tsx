@@ -10,7 +10,6 @@ import styles from "./SideBar.module.css";
 interface SideBarProps {
   activeSection: AppSection;
   syncBusy: boolean;
-  syncStatusTitle: string;
   syncTapAnim: boolean;
   librarySearchBarOpen: boolean;
   collapsed: boolean;
@@ -24,7 +23,6 @@ interface SideBarProps {
 export const SideBar = memo(function SideBar({
   activeSection,
   syncBusy,
-  syncStatusTitle,
   syncTapAnim,
   librarySearchBarOpen,
   collapsed,
@@ -157,7 +155,6 @@ export const SideBar = memo(function SideBar({
               .join(" ")}
             onClick={onSync}
             disabled={syncBusy}
-            title={syncStatusTitle}
             aria-label={t("topbar.sync")}
             aria-busy={syncBusy}
           >

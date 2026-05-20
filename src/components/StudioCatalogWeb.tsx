@@ -1,13 +1,13 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
 } from "react";
 import {
   fetchCatalogWebDiscover,
-  fetchDownloadFlatCount,
   type CatalogWebDiscoverAlbum,
   type CatalogWebDiscoverSong,
 } from "../lib/api";
@@ -27,20 +27,27 @@ type Props = {
   onPickForDownload: (url: string, kind: "album" | "song") => void;
 };
 
-type TrackCountState = number | null | "loading";
+type EnrichedAlbum = CatalogWebDiscoverAlbum & {
+  type: "album" | "song";
+  releaseType: string | null;
+  artistName: string;
+};
+
+type EnrichedSong = CatalogWebDiscoverSong & {
+  type: "album" | "song";
+  releaseType: string | null;
+  artistName: string;
+};
 
 function WebDiscoverTile({
-  item,
+  enriched,
   pickLabel,
-  trackMeta,
   onPick,
 }: {
-  item: CatalogWebDiscoverAlbum | CatalogWebDiscoverSong;
+  enriched: EnrichedAlbum | EnrichedSong;
   pickLabel: string;
-  trackMeta?: string | null;
   onPick: () => void;
 }) {
-  const enriched = enrichCatalogWebDiscoverItem(item);
   const thumb = enriched.thumbnailUrl?.trim() || null;
   const resolvedKind = enriched.type;
   const releaseLine = (enriched.releaseType || "").trim();
@@ -98,11 +105,6 @@ function WebDiscoverTile({
           {artistLine ? (
             <div className="library-list-tile__meta">{artistLine}</div>
           ) : null}
-          {trackMeta ? (
-            <div className="library-list-tile__meta studio-catalog-web-tile__tracks">
-              {trackMeta}
-            </div>
-          ) : null}
         </div>
       </button>
     </div>
@@ -112,55 +114,56 @@ function WebDiscoverTile({
 export function StudioCatalogWeb({ t, active, onPickForDownload }: Props) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [albums, setAlbums] = useState<CatalogWebDiscoverAlbum[]>([]);
-  const [songs, setSongs] = useState<CatalogWebDiscoverSong[]>([]);
+  const [albums, setAlbums] = useState<EnrichedAlbum[]>([]);
+  const [songs, setSongs] = useState<EnrichedSong[]>([]);
   const [listEpoch, setListEpoch] = useState(0);
-  const [trackCounts, setTrackCounts] = useState<Record<string, TrackCountState>>(
-    {},
-  );
   const loadGenRef = useRef(0);
-  const trackCountGenRef = useRef(0);
-
-  const formatTrackCount = useCallback(
-    (state: TrackCountState | undefined) => {
-      if (state === "loading") return t("tools.catalogWebTrackCountLoading");
-      if (state == null || !Number.isFinite(state)) return null;
-      if (state === 1) return t("tools.catalogWebTrackCountOne");
-      return t("tools.catalogWebTrackCount", { n: state });
-    },
-    [t],
+  const discoverCacheRef = useRef<{ epoch: number; albums: EnrichedAlbum[]; songs: EnrichedSong[] } | null>(
+    null,
   );
 
-  const load = useCallback(() => {
+  const load = useCallback((force = false) => {
+    if (!force && discoverCacheRef.current) {
+      const c = discoverCacheRef.current;
+      setAlbums(c.albums);
+      setSongs(c.songs);
+      setListEpoch(c.epoch);
+      setErr(null);
+      return;
+    }
     const gen = ++loadGenRef.current;
     const refreshNonce = Date.now();
     setBusy(true);
     setErr(null);
-    setTrackCounts({});
     fetchCatalogWebDiscover(refreshNonce)
       .then((d) => {
         if (gen !== loadGenRef.current) return;
         const merged = [...(d.albums ?? []), ...(d.songs ?? [])];
         const { albums: nextAlbums, songs: nextSongs } =
           partitionCatalogWebDiscover(merged);
-        setAlbums(nextAlbums);
-        setSongs(nextSongs);
+        const enrichedAlbums = nextAlbums.map((item) =>
+          enrichCatalogWebDiscoverItem(item),
+        ) as EnrichedAlbum[];
+        const enrichedSongs = nextSongs.map((item) =>
+          enrichCatalogWebDiscoverItem(item),
+        ) as EnrichedSong[];
+        discoverCacheRef.current = {
+          epoch: refreshNonce,
+          albums: enrichedAlbums,
+          songs: enrichedSongs,
+        };
+        setAlbums(enrichedAlbums);
+        setSongs(enrichedSongs);
         setListEpoch(refreshNonce);
         if (d.error && !(d.albums?.length || d.songs?.length)) {
           setErr(d.error);
         }
-        const initial: Record<string, TrackCountState> = {};
-        for (const al of nextAlbums) {
-          if (al.trackCount != null && al.trackCount > 0) {
-            initial[al.id] = al.trackCount;
-          }
-        }
-        setTrackCounts(initial);
       })
       .catch((e: unknown) => {
         if (gen !== loadGenRef.current) return;
         setAlbums([]);
         setSongs([]);
+        discoverCacheRef.current = null;
         setErr(e instanceof Error ? e.message : String(e));
       })
       .finally(() => {
@@ -173,44 +176,36 @@ export function StudioCatalogWeb({ t, active, onPickForDownload }: Props) {
     load();
   }, [active, load]);
 
-  useEffect(() => {
-    if (!albums.length) return;
-    const pending = albums.filter(
-      (al) => al.trackCount == null || al.trackCount <= 0,
-    );
-    if (!pending.length) return;
-    const gen = ++trackCountGenRef.current;
-    setTrackCounts((prev) => {
-      const next = { ...prev };
-      for (const al of albums) {
-        if (al.trackCount != null && al.trackCount > 0) {
-          next[al.id] = al.trackCount;
-        } else if (next[al.id] === undefined) {
-          next[al.id] = "loading";
-        }
-      }
-      return next;
-    });
-    let nextIdx = 0;
-    const workers = Math.min(4, pending.length);
-    void Promise.all(
-      Array.from({ length: workers }, async () => {
-        while (nextIdx < pending.length) {
-          const album = pending[nextIdx++]!;
-          let n: number | null = null;
-          try {
-            n = await fetchDownloadFlatCount(album.url);
-          } catch {
-            n = null;
-          }
-          if (gen !== trackCountGenRef.current) return;
-          setTrackCounts((prev) => ({ ...prev, [album.id]: n }));
-        }
-      }),
-    );
-  }, [albums]);
+  const reload = useCallback(() => {
+    discoverCacheRef.current = null;
+    load(true);
+  }, [load]);
 
   const hasResults = albums.length > 0 || songs.length > 0;
+  const albumTiles = useMemo(
+    () =>
+      albums.map((item) => (
+        <WebDiscoverTile
+          key={`album-${item.id}`}
+          enriched={item}
+          pickLabel={t("tools.catalogWebPickAria", { title: item.title })}
+          onPick={() => onPickForDownload(item.url, "album")}
+        />
+      )),
+    [albums, onPickForDownload, t],
+  );
+  const songTiles = useMemo(
+    () =>
+      songs.map((item) => (
+        <WebDiscoverTile
+          key={`song-${item.id}`}
+          enriched={item}
+          pickLabel={t("tools.catalogWebPickAria", { title: item.title })}
+          onPick={() => onPickForDownload(item.url, "album")}
+        />
+      )),
+    [songs, onPickForDownload, t],
+  );
 
   return (
     <div className="studio-catalog-web">
@@ -219,7 +214,7 @@ export function StudioCatalogWeb({ t, active, onPickForDownload }: Props) {
           <button
             type="button"
             className="primary-btn primary-btn--sm"
-            onClick={load}
+            onClick={reload}
             disabled={busy}
           >
             {busy ? t("tools.catalogWebLoading") : t("tools.catalogWebReload")}
@@ -251,15 +246,7 @@ export function StudioCatalogWeb({ t, active, onPickForDownload }: Props) {
             key={`albums-${listEpoch}`}
             className="library-overview-cols studio-catalog-web__grid"
           >
-            {albums.map((item) => (
-              <WebDiscoverTile
-                key={`album-${item.id}`}
-                item={item}
-                pickLabel={t("tools.catalogWebPickAria", { title: item.title })}
-                trackMeta={formatTrackCount(trackCounts[item.id])}
-                onPick={() => onPickForDownload(item.url, "album")}
-              />
-            ))}
+            {albumTiles}
           </div>
         </section>
       ) : null}
@@ -279,18 +266,10 @@ export function StudioCatalogWeb({ t, active, onPickForDownload }: Props) {
             key={`songs-${listEpoch}`}
             className="library-overview-cols studio-catalog-web__grid"
           >
-            {songs.map((item) => (
-              <WebDiscoverTile
-                key={`song-${item.id}`}
-                item={item}
-                pickLabel={t("tools.catalogWebPickAria", { title: item.title })}
-                onPick={() => onPickForDownload(item.url, "album")}
-              />
-            ))}
+            {songTiles}
           </div>
         </section>
       ) : null}
     </div>
   );
 }
-

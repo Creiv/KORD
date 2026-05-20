@@ -187,6 +187,81 @@
   white-space: nowrap;
 }
 
+/* Snackbar stato sync — basso sinistra (portal su body, --side-w da AppShell) */
+.sync-status-snackbar {
+  position: fixed;
+  z-index: 14000;
+  left: max(1rem, calc(var(--side-w, 0px) + 1rem));
+  bottom: calc(
+    var(--bar-h, 0px) + 1rem + env(safe-area-inset-bottom, 0px)
+  );
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  max-width: min(24rem, calc(100vw - var(--side-w, 0px) - 2.5rem));
+  padding: 0.72rem 1rem;
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid color-mix(in srgb, var(--accent2) 35%, var(--border));
+  background: color-mix(in srgb, var(--surface2) 94%, var(--bg) 6%);
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 500;
+  line-height: 1.4;
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.22),
+    0 0 0 1px color-mix(in srgb, var(--accent2) 12%, transparent);
+  pointer-events: none;
+  animation: syncStatusSnackbarIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.sync-status-snackbar__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-wrap: balance;
+}
+
+.sync-status-snackbar__spinner {
+  flex-shrink: 0;
+  width: 1.35rem;
+  height: 1.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sync-status-snackbar__spinner .kord-splash__ring {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes syncStatusSnackbarIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1000px) {
+  .sync-status-snackbar {
+    left: max(1rem, env(safe-area-inset-left, 0px));
+    max-width: min(22rem, calc(100vw - 2rem));
+    bottom: calc(
+      var(--bar-h, 0px) + 4.25rem + env(safe-area-inset-bottom, 0px)
+    );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync-status-snackbar {
+    animation: none;
+  }
+}
+
 .topbar2__sync-btn {
   display: inline-flex;
   align-items: center;

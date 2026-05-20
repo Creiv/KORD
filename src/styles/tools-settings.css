@@ -2420,6 +2420,30 @@
   }
 }
 
+.kord-view-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2.5rem 1rem;
+  min-height: 12rem;
+}
+
+.kord-view-loading__spinner {
+  width: 2.25rem;
+  height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kord-view-loading__label {
+  margin: 0;
+  font-size: 0.9rem;
+  color: color-mix(in srgb, var(--muted) 88%, var(--text) 12%);
+}
+
 .listen-recent-panel__lead {
   align-items: center;
 }

@@ -482,6 +482,37 @@ function applyUserStatePatchLocal(
   return normalizeUserState(next);
 }
 
+/** Dopo PATCH: conserva in RAM i campi non inclusi nel patch (evita risposta server stale). */
+function mergeSavedUserState(
+  prev: UserStateV1,
+  saved: UserStateV1,
+  savedPatch: UserStatePatch
+): UserStateV1 {
+  const compact = compactUserStatePatch(savedPatch);
+  const keys = Object.keys(compact) as (keyof UserStatePatch)[];
+  if (keys.length === 0) return saved;
+  const next: UserStateV1 = { ...saved };
+  const keepPrevUnlessPatched = (key: keyof UserStatePatch) => {
+    if (!(key in compact)) {
+      (next as unknown as Record<string, unknown>)[key] =
+        prev[key as keyof UserStateV1] as unknown;
+    }
+  };
+  keepPrevUnlessPatched("favorites");
+  keepPrevUnlessPatched("recent");
+  keepPrevUnlessPatched("trackPlayCounts");
+  keepPrevUnlessPatched("playlists");
+  keepPrevUnlessPatched("queue");
+  keepPrevUnlessPatched("shuffleExcludedAlbumIds");
+  keepPrevUnlessPatched("shuffleExcludedTrackRelPaths");
+  keepPrevUnlessPatched("trackMoods");
+  keepPrevUnlessPatched("migratedLegacy");
+  keepPrevUnlessPatched("trackMoodsMigrated");
+  keepPrevUnlessPatched("playlistsMigrated");
+  if (!("settings" in compact)) next.settings = prev.settings;
+  return normalizeUserState(next);
+}
+
 function userStateToPatch(state: UserStateV1, omitPlaylists = false): UserStatePatch {
   return compactUserStatePatch({
     favorites: state.favorites,
@@ -814,7 +845,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
                 ...prev,
                 revision: normalized.revision,
               }
-            : normalized
+            : mergeSavedUserState(prev, normalized, patch)
         );
         setError(null);
         dirtyRef.current = hasNewerPending;
@@ -853,21 +884,6 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     flushPendingPatchRef.current = flushPendingPatch;
   }, [flushPendingPatch]);
-
-  useEffect(() => {
-    if (!ready || !hydratedRef.current || !dirtyRef.current) return;
-    if (flushTimerRef.current != null) window.clearTimeout(flushTimerRef.current);
-    flushTimerRef.current = window.setTimeout(() => {
-      flushTimerRef.current = null;
-      flushPendingPatch();
-    }, 240);
-    return () => {
-      if (flushTimerRef.current != null) {
-        window.clearTimeout(flushTimerRef.current);
-        flushTimerRef.current = null;
-      }
-    };
-  }, [flushPendingPatch, ready, state]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -935,6 +951,19 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       });
   }, [beginLibrarySyncActivity]);
 
+  const schedulePendingFlush = useCallback(() => {
+    if (!ready || !hydratedRef.current || !dirtyRef.current) return;
+    if (flushTimerRef.current != null) window.clearTimeout(flushTimerRef.current);
+    const pending = pendingPatchRef.current;
+    const queueOnly =
+      Object.keys(pending).length === 1 && pending.queue !== undefined;
+    const delayMs = queueOnly ? 2200 : 400;
+    flushTimerRef.current = window.setTimeout(() => {
+      flushTimerRef.current = null;
+      flushPendingPatchRef.current?.();
+    }, delayMs);
+  }, [ready]);
+
   const commit = useCallback(
     (
       updater: (prev: UserStateV1) => UserStateV1,
@@ -959,11 +988,13 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
         }
         if (options?.immediate) {
           window.setTimeout(() => flushPendingPatch(), 0);
+        } else {
+          schedulePendingFlush();
         }
         return next;
       });
     },
-    [flushPendingPatch]
+    [flushPendingPatch, schedulePendingFlush]
   );
 
   const toggleFavorite = useCallback(
@@ -1085,7 +1116,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
           if (a === b) return prev;
           return { ...prev, shuffleExcludedAlbumIds: next };
         },
-        { immediate: true, patch: (next) => ({ shuffleExcludedAlbumIds: next.shuffleExcludedAlbumIds }) }
+        { patch: (next) => ({ shuffleExcludedAlbumIds: next.shuffleExcludedAlbumIds }) }
       );
     },
     [commit]

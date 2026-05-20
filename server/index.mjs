@@ -1850,7 +1850,10 @@ app.get("/api/cover", (req, res) => {
     : path.dirname(filePath);
   for (const name of coverCandidates()) {
     const full = path.join(dir, name);
-    if (existsSync(full) && underRoot(full, root)) return res.sendFile(full);
+    if (existsSync(full) && underRoot(full, root)) {
+      res.setHeader("Cache-Control", "private, max-age=86400, immutable");
+      return res.sendFile(full);
+    }
   }
   return res.status(404).end();
 });

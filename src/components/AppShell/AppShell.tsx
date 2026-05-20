@@ -18,6 +18,7 @@ import { useToolsActivity } from "../../context/ToolsActivityContext";
 import { useUserState } from "../../context/UserStateContext";
 import { useMatchMedia } from "../../hooks/useMatchMedia";
 import { usePlayerDockCssVars } from "../../hooks/usePlayerDockCssVars";
+import { useSyncStatusSnackbar } from "../../hooks/useSyncStatusSnackbar";
 import { MOBILE_LAYOUT_MQ } from "../../lib/breakpoints";
 import { useI18n } from "../../i18n/useI18n";
 import {
@@ -30,9 +31,11 @@ import { applyLibraryDeltaToIndex } from "../../lib/libraryIndex";
 import { parseTrackGenres } from "../../lib/genres";
 import { isStandaloneDisplayMode, useAppRoute } from "../../lib/routing";
 import { KordSplashLoader } from "../KordSplashLoader";
+import { KordViewLoadingFallback } from "../KordViewLoadingFallback";
 import { PlayerDock } from "../PlayerDock/PlayerDock";
 import { MobileBottomNav } from "../MobileBottomNav/MobileBottomNav";
 import { SideBar } from "./SideBar/SideBar";
+import { SyncStatusSnackbar } from "./SyncStatusSnackbar";
 import { TopBar } from "./TopBar/TopBar";
 import {
   AlbumMetaEditProvider,
@@ -114,6 +117,8 @@ export function AppShell() {
   const prevSectionForSearchRef = useRef<AppSection | null>(null);
   const syncTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshSeqRef = useRef(0);
+  const indexRef = useRef<LibraryIndex | null>(null);
+  const indexLibrarySigRef = useRef("");
   const backgroundRefreshRef = useRef<Promise<void> | null>(null);
   const libraryRefreshQueuedAfterFlightRef = useRef(false);
   const libraryReconcileDebounceRef = useRef<ReturnType<
@@ -151,7 +156,8 @@ export function AppShell() {
           ? "sync.activity.reloadLibrary"
           : "sync.activity.refreshIndex"
       );
-      if (mode === "manual") setLoading(true);
+      const blockUi = mode === "manual" && !indexRef.current;
+      if (blockUi) setLoading(true);
       const task = Promise.all([fetchLibraryIndex(), fetchDashboard()])
         .then(async ([libraryData, dashboardData]) => {
           if (seq !== refreshSeqRef.current) return;
@@ -170,7 +176,7 @@ export function AppShell() {
         })
         .finally(() => {
           endActivity();
-          if (mode === "manual") setLoading(false);
+          if (blockUi) setLoading(false);
         });
       return task;
     },
@@ -267,10 +273,11 @@ export function AppShell() {
     [applyLibraryDelta, refreshBackground]
   );
 
+  const bootstrapLoading = loading && !index;
+
   const syncBusy =
-    loading ||
+    bootstrapLoading ||
     librarySyncBusy ||
-    user.saving ||
     toolsActivity.toolsAnyBusy;
 
   const syncStatusTitle = useMemo(() => {
@@ -281,19 +288,26 @@ export function AppShell() {
         primary.labelParams
       );
     }
-    if (user.saving) return t("sync.activity.savingUserState");
-    if (loading) return t("sync.activity.reloadLibrary");
+    if (bootstrapLoading) return t("sync.activity.reloadLibrary");
     if (toolsActivity.toolsAnyBusy) return t("topbar.toolsBusyTitle");
     return t("topbar.refreshTitle");
-  }, [
-    librarySyncPrimaryActivity,
-    loading,
-    t,
-    toolsActivity.toolsAnyBusy,
-    user.saving,
-  ]);
+  }, [librarySyncPrimaryActivity, bootstrapLoading, t, toolsActivity.toolsAnyBusy]);
+
+  const syncSnackbarMessage = useMemo(() => {
+    if (librarySyncPrimaryActivity) {
+      return t(
+        librarySyncPrimaryActivity.labelKey as Parameters<typeof t>[0],
+        librarySyncPrimaryActivity.labelParams
+      );
+    }
+    return t("sync.activity.reloadLibrary");
+  }, [librarySyncPrimaryActivity, t]);
+
+  const { open: syncSnackbarOpen, notifySyncClick: notifySyncSnackbar } =
+    useSyncStatusSnackbar(librarySyncBusy);
 
   const onSyncButtonClick = useCallback(() => {
+    notifySyncSnackbar();
     setSyncTapAnim(true);
     if (syncTapTimerRef.current) clearTimeout(syncTapTimerRef.current);
     syncTapTimerRef.current = setTimeout(() => {
@@ -301,7 +315,7 @@ export function AppShell() {
       syncTapTimerRef.current = null;
     }, 500);
     void refreshManual(true);
-  }, [refreshManual]);
+  }, [notifySyncSnackbar, refreshManual]);
 
   useEffect(
     () => () => {
@@ -390,12 +404,6 @@ export function AppShell() {
       cancelIdleCallback?: (id: number) => void;
     };
     const prefetch = () => {
-      void import("../../views/SettingsView");
-      void import("../../views/StatisticsView");
-      void import("../ToolsView");
-      void import("../../views/QueueViewNew");
-      void import("../../views/PlaylistsViewNew");
-      void import("../../views/TrackCollectionView");
       void import("../../views/DashboardView/DashboardView");
       void import("../../views/ListenView/ListenView");
       void import("../../views/LibraryView/LibraryView");
@@ -411,10 +419,19 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
+    indexRef.current = index;
+  }, [index]);
+
+  useEffect(() => {
     if (!index || !user.ready) return;
-    p.resyncTracksFromIndex(index);
-    user.rehydrateTrackListsFromLibrary(index);
-    user.rehydrateShuffleExclusionsFromIndex(index);
+    const sig = `${index.tracks.length}|${index.albums.length}|${index.stats.trackCount}`;
+    const sigChanged = sig !== indexLibrarySigRef.current;
+    if (sigChanged) {
+      indexLibrarySigRef.current = sig;
+      p.resyncTracksFromIndex(index);
+      user.rehydrateTrackListsFromLibrary(index);
+      user.rehydrateShuffleExclusionsFromIndex(index);
+    }
   }, [
     index,
     p.resyncTracksFromIndex,
@@ -631,12 +648,12 @@ export function AppShell() {
   const currentView = (() => {
     if (route.section === "settings") {
       return (
-        <Suspense fallback={<KordSplashLoader />}>
+        <Suspense fallback={<KordViewLoadingFallback />}>
           <LazySettingsView />
         </Suspense>
       );
     }
-    if (loading && !index) return <KordSplashLoader />;
+    if (bootstrapLoading) return <KordSplashLoader />;
     if (error && !index)
       return (
         <div className="panel-empty danger">{formatLoadError(error)}</div>
@@ -645,7 +662,7 @@ export function AppShell() {
     switch (route.section) {
       case "dashboard":
         return (
-          <Suspense fallback={<KordSplashLoader />}>
+          <Suspense fallback={<KordViewLoadingFallback />}>
             <LazyDashboardView
               dashboard={dashboard}
               index={index}
@@ -656,7 +673,7 @@ export function AppShell() {
         );
       case "ascolta":
         return (
-          <Suspense fallback={<KordSplashLoader />}>
+          <Suspense fallback={<KordViewLoadingFallback />}>
             <LazyListenView
               index={index}
               onOpenSection={navToSection}
@@ -665,7 +682,7 @@ export function AppShell() {
         );
       case "libreria":
         return (
-          <Suspense fallback={<KordSplashLoader />}>
+          <Suspense fallback={<KordViewLoadingFallback />}>
             <LazyLibraryView
               index={index}
               route={route}
@@ -690,7 +707,7 @@ export function AppShell() {
       case "studio":
         return (
           <div className="view-page view-page--studio">
-            <Suspense fallback={<KordSplashLoader />}>
+            <Suspense fallback={<KordViewLoadingFallback />}>
               <LazyToolsView
                 library={legacyLibrary}
                 libraryIndex={index}
@@ -703,7 +720,7 @@ export function AppShell() {
         );
       case "queue":
         return (
-          <Suspense fallback={<KordSplashLoader />}>
+          <Suspense fallback={<KordViewLoadingFallback />}>
             <LazyQueueViewNew
               onOpenSavedPlaylist={navToPlaylist}
             />
@@ -711,7 +728,7 @@ export function AppShell() {
         );
       case "playlists":
         return (
-          <Suspense fallback={<KordSplashLoader />}>
+          <Suspense fallback={<KordViewLoadingFallback />}>
             <LazyPlaylistsViewNew
               route={route}
               index={index}
@@ -721,7 +738,7 @@ export function AppShell() {
         );
       case "favorites":
         return (
-          <Suspense fallback={<KordSplashLoader />}>
+          <Suspense fallback={<KordViewLoadingFallback />}>
             <LazyTrackCollectionView
               title={t("collection.favoritesTitle")}
               eyebrow={t("collection.favoritesEyebrow")}
@@ -734,7 +751,7 @@ export function AppShell() {
         );
       case "recent":
         return (
-          <Suspense fallback={<KordSplashLoader />}>
+          <Suspense fallback={<KordViewLoadingFallback />}>
             <LazyTrackCollectionView
               title={t("collection.recentTitle")}
               eyebrow={t("collection.recentEyebrow")}
@@ -747,7 +764,7 @@ export function AppShell() {
         );
       case "statistics":
         return (
-          <Suspense fallback={<KordSplashLoader />}>
+          <Suspense fallback={<KordViewLoadingFallback />}>
             <LazyStatisticsView
               index={index}
               onOpenArtist={navToLibraryArtist}
@@ -783,7 +800,6 @@ export function AppShell() {
               <SideBar
                 activeSection={route.section}
                 syncBusy={syncBusy}
-                syncStatusTitle={syncStatusTitle}
                 syncTapAnim={syncTapAnim}
                 librarySearchBarOpen={librarySearchBarOpen}
                 collapsed={sidebarCollapsed}
@@ -837,6 +853,12 @@ export function AppShell() {
           />
           {isMobileLayout ? (
             <MobileBottomNav active={route.section} onSelect={goAppSection} />
+          ) : null}
+          {syncSnackbarOpen ? (
+            <SyncStatusSnackbar
+              message={syncSnackbarMessage}
+              busy={librarySyncBusy}
+            />
           ) : null}
         </div>
       </AlbumMetaEditProvider>
