@@ -452,10 +452,10 @@ export function AppShell() {
   useEffect(() => {
     if (!index || !user.ready) return;
     p.resyncTracksFromIndex(index);
+    user.rehydrateTrackListsFromLibrary(index);
     const sig = libraryIndexRehydrateSig(index);
     if (sig === indexLibrarySigRef.current) return;
     indexLibrarySigRef.current = sig;
-    user.rehydrateTrackListsFromLibrary(index);
     user.rehydrateShuffleExclusionsFromIndex(index);
   }, [
     index,

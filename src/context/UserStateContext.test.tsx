@@ -53,6 +53,26 @@ function SyncRaceProbe() {
   )
 }
 
+const REHYDRATE_TRACK_REL = "Artist One/Album One/01 Song.mp3"
+
+function RecentMetaRehydrateProbe({ libraryIndex }: { libraryIndex: LibraryIndex }) {
+  const user = useUserState()
+  const rehydratedRef = useRef(false)
+  useEffect(() => {
+    if (!user.ready || rehydratedRef.current) return
+    rehydratedRef.current = true
+    user.rehydrateTrackListsFromLibrary(libraryIndex)
+  }, [libraryIndex, user])
+  if (!user.ready) return <div>loading</div>
+  const recent = user.state.recent[0]
+  return (
+    <>
+      <span data-testid="recent-title">{recent?.title ?? "none"}</span>
+      <span data-testid="recent-genre">{recent?.meta?.genre ?? "none"}</span>
+    </>
+  )
+}
+
 function EarlyRehydrateProbe() {
   const user = useUserState()
   const rehydratedRef = useRef(false)
@@ -377,6 +397,98 @@ describe("UserStateProvider", () => {
         return body.state?.playlists?.length === 0
       }),
     ).toBe(false)
+  })
+
+  it("reidrata i recenti con titolo e metadati aggiornati dall'indice libreria", async () => {
+    const staleRecent = {
+      id: REHYDRATE_TRACK_REL,
+      relPath: REHYDRATE_TRACK_REL,
+      title: "Titolo vecchio",
+      artist: "Artist One",
+      album: "Album One",
+      meta: { genre: "Rock" },
+    }
+    const libraryTrack = {
+      ...staleRecent,
+      title: "Titolo nuovo",
+      meta: { genre: "Jazz", releaseDate: "2020" },
+      updatedAt: Date.now(),
+    }
+    const libraryIndex = {
+      artists: [],
+      albums: [],
+      tracks: [libraryTrack],
+      stats: {
+        artistCount: 1,
+        albumCount: 1,
+        trackCount: 1,
+        favoriteCapableCount: 1,
+        albumsWithoutCover: 0,
+        albumsWithoutMeta: 0,
+        tracksWithoutMeta: 0,
+        looseAlbumCount: 0,
+      },
+    } satisfies LibraryIndex
+    const remoteState = {
+      version: 1,
+      revision: 2,
+      favorites: [],
+      recent: [staleRecent],
+      playlists: [],
+      queue: { tracks: [], currentIndex: 0 },
+      shuffleExcludedAlbumIds: [],
+      shuffleExcludedTrackRelPaths: [],
+      trackPlayCounts: {},
+      settings: {
+        theme: "midnight",
+        vizMode: "bars",
+        restoreSession: true,
+        defaultTab: "dashboard",
+        locale: "en",
+        libBrowse: "artists",
+        libOverviewSort: "name",
+        artistAlbumSort: "date",
+      },
+      migratedLegacy: true,
+    }
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === "/api/accounts") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              ok: true,
+              data: {
+                defaultAccountId: "default",
+                accounts: [{ id: "default", name: "Default" }],
+                lockedByEnv: false,
+              },
+              error: null,
+            }),
+          ),
+        )
+      }
+      if (url.startsWith("/api/user-state")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ ok: true, data: remoteState, error: null })),
+        )
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url}`))
+    })
+    globalThis.fetch = fetchMock as typeof fetch
+
+    render(
+      <LibrarySyncActivityProvider>
+        <UserStateProvider>
+          <RecentMetaRehydrateProbe libraryIndex={libraryIndex} />
+        </UserStateProvider>
+      </LibrarySyncActivityProvider>,
+    )
+
+    await waitFor(() =>
+      expect(screen.getByTestId("recent-title")).toHaveTextContent("Titolo nuovo"),
+    )
+    expect(screen.getByTestId("recent-genre")).toHaveTextContent("Jazz")
   })
 
   it("non perde patch locali quando un sync riceve stato server vecchio", async () => {

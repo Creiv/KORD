@@ -20,6 +20,7 @@ import { randomUUID } from "../lib/randomUUID";
 import { normalizeShuffleAlbumKeysWithIndex } from "../lib/shuffleExclusionKeys";
 import { DEFAULT_CUSTOM_THEME } from "../lib/themeCatalog";
 import { touchListeningActivity } from "../lib/achievements";
+import { enrichedTracksNeedPlayerResync } from "../lib/libraryIndex";
 import {
   applyUserStatePatchFields,
   compactUserStatePatch,
@@ -1008,27 +1009,13 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
         a.title === b.title &&
         a.artist === b.artist &&
         a.album === b.album;
-      const recentEqual = (a: EnrichedTrack, b: EnrichedTrack) =>
-        a.relPath === b.relPath &&
-        a.title === b.title &&
-        a.artist === b.artist &&
-        a.album === b.album &&
-        a.id === b.id;
-
       commit((prev) => {
         let recentChanged = false;
         const recent = prev.recent.map((t) => {
           const full = byPath.get(t.relPath);
-          if (!full) return t;
-          const next: EnrichedTrack = {
-            ...t,
-            relPath: full.relPath,
-            title: full.title,
-            artist: full.artist,
-            album: full.album,
-          };
-          if (!recentEqual(t, next)) recentChanged = true;
-          return next;
+          if (!full || !enrichedTracksNeedPlayerResync(t, full)) return t;
+          recentChanged = true;
+          return full;
         });
         let playlistsChanged = false;
         const playlists = prev.playlists.map((pl) => {
