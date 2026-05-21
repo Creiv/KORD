@@ -11,6 +11,7 @@ import { ytdlpLogDetailForUser } from "../lib/ytdlpLogFilter";
 import type { useI18n } from "../i18n/useI18n";
 import type { LibraryReconcileOptions } from "../lib/libraryReconcile";
 import { UiAlbumIcon, UiMusicNote } from "./KordUiIcons";
+import { StudioDownloadDisclaimer } from "./StudioDownloadDisclaimer";
 
 type TFn = ReturnType<typeof useI18n>["t"];
 
@@ -246,6 +247,7 @@ export function StudioDownloadExplore({
   return (
     <div className="tools-dl-explore">
       <p className="subtle sm tools-dl-explore__lead">{t("tools.exploreLead")}</p>
+      <StudioDownloadDisclaimer t={t} />
 
       <input
         type="search"

@@ -427,6 +427,32 @@ export function getYoutubeCookiesPath() {
   }
 }
 
+/** True se il file è in formato Netscape (richiesto da yt-dlp --cookies). */
+export function isNetscapeCookiesFile(filePath) {
+  const p = String(filePath ?? "").trim();
+  if (!p) return false;
+  try {
+    const head = fs.readFileSync(p, "utf8").slice(0, 8192);
+    const t = head.trimStart();
+    if (
+      t.startsWith("# Netscape HTTP Cookie File") ||
+      t.startsWith("# HTTP Cookie File")
+    ) {
+      return true;
+    }
+    return /\t[^\n]+\t(?:TRUE|FALSE)\t\d+\t[^\n]+\t[^\n]+\t[^\n]+/m.test(head);
+  } catch {
+    return false;
+  }
+}
+
+/** Percorso cookie solo se valido per yt-dlp; altrimenti null (yt-dlp senza --cookies). */
+export function getYoutubeCookiesPathForYtdlp() {
+  const p = getYoutubeCookiesPath();
+  if (!p || !isNetscapeCookiesFile(p)) return null;
+  return p;
+}
+
 export async function setPersistedYoutubeCookiesFile(buffer) {
   if (state.youtubeCookiesFromEnv) {
     const err = new Error(

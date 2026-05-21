@@ -55,10 +55,6 @@ export function isBackendUnreachableError(err: unknown): boolean {
 }
 
 async function readResponseJson<T>(response: Response): Promise<T> {
-  if (response.status === 502 || response.status === 503 || response.status === 504) {
-    markApiUnreachable()
-    throw new BackendUnreachableError()
-  }
   let text: string
   try {
     text = await response.text()
@@ -73,8 +69,9 @@ async function readResponseJson<T>(response: Response): Promise<T> {
     }
     throw new Error("EMPTY_RESPONSE")
   }
+  let parsed: unknown
   try {
-    return JSON.parse(text) as T
+    parsed = JSON.parse(text) as T
   } catch {
     if (!response.ok) {
       markApiUnreachable()
@@ -82,6 +79,24 @@ async function readResponseJson<T>(response: Response): Promise<T> {
     }
     throw new SyntaxError("INVALID_API_JSON")
   }
+  if (
+    !response.ok &&
+    (response.status === 502 ||
+      response.status === 503 ||
+      response.status === 504)
+  ) {
+    const apiErr =
+      parsed &&
+      typeof parsed === "object" &&
+      "error" in parsed &&
+      typeof (parsed as { error?: string }).error === "string"
+        ? (parsed as { error: string }).error.trim()
+        : ""
+    if (apiErr) throw new Error(apiErr)
+    markApiUnreachable()
+    throw new BackendUnreachableError()
+  }
+  return parsed as T
 }
 
 export class UserStateRevisionConflict extends Error {
@@ -201,14 +216,21 @@ function accountHeadersForPath(endpointPath: string, base: HeadersInit = {}) {
 }
 
 function apiUrl(path: string, params: Record<string, string> = {}) {
-  const out = accountParams(params)
-  const pname = pathnameOnly(path)
+  const qIndex = path.indexOf("?")
+  const base = qIndex >= 0 ? path.slice(0, qIndex) : path
+  const out = new URLSearchParams(qIndex >= 0 ? path.slice(qIndex + 1) : "")
+  for (const [key, value] of Object.entries(params)) {
+    if (value != null && String(value).trim() !== "") {
+      out.set(key, String(value))
+    }
+  }
+  const pname = pathnameOnly(base)
   if (pname !== "/api/accounts") {
     const id = getSelectedAccountId()
     if (id) out.set("accountId", id)
   }
   const query = out.toString()
-  return query ? `${path}?${query}` : path
+  return query ? `${base}?${query}` : base
 }
 
 function apiFetch(
@@ -377,12 +399,57 @@ export async function fetchCatalogWebDiscover(
   await ensureSelectedAccountId()
   const nonce = refreshNonce ?? Date.now()
   const response = await apiFetch(
-    `/api/catalog-web-discover?r=${encodeURIComponent(String(nonce))}`,
-    {
-      cache: "no-store",
-    },
+    "/api/catalog-web-discover",
+    { cache: "no-store" },
+    { r: String(nonce) },
   )
   return unwrap<CatalogWebDiscoverResponse>(response)
+}
+
+export type CatalogWebTrack = {
+  id: string
+  title: string
+  url: string
+}
+
+export async function fetchCatalogWebTracks(
+  pageUrl: string,
+): Promise<{
+  tracks: CatalogWebTrack[]
+  title: string | null
+  error?: string | null
+}> {
+  await ensureSelectedAccountId()
+  const response = await apiFetch(
+    "/api/catalog-web-tracks",
+    { cache: "no-store" },
+    { url: pageUrl.trim() },
+  )
+  return unwrap<{
+    tracks: CatalogWebTrack[]
+    title: string | null
+    error?: string | null
+  }>(response)
+}
+
+/** URL per `<audio src>`: streaming progressivo (yt-dlp → pipe), avvio più rapido. */
+export function catalogWebPreviewStreamUrl(watchUrl: string): string {
+  return apiUrl("/api/catalog-web-preview/play", {
+    url: watchUrl.trim(),
+  })
+}
+
+/** @deprecated Usare {@link catalogWebPreviewStreamUrl} per l’anteprima nel player. */
+export async function fetchCatalogWebPreviewPlayUrl(
+  watchUrl: string,
+): Promise<{ playUrl: string }> {
+  await ensureSelectedAccountId()
+  const response = await apiFetch(
+    "/api/catalog-web-preview",
+    { cache: "no-store" },
+    { url: watchUrl.trim() },
+  )
+  return unwrap<{ playUrl: string }>(response)
 }
 
 export async function fetchMyLibrarySelection(): Promise<LibrarySelectionV1> {

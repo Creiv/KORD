@@ -6,17 +6,22 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import {
+  catalogWebPreviewStreamUrl,
   fetchCatalogWebDiscover,
+  fetchCatalogWebTracks,
+  isBackendUnreachableError,
   type CatalogWebDiscoverAlbum,
   type CatalogWebDiscoverSong,
+  type CatalogWebTrack,
 } from "../lib/api";
 import {
   enrichCatalogWebDiscoverItem,
   partitionCatalogWebDiscover,
 } from "../lib/catalogWebDiscover";
 import { CoverImg } from "./CoverImg";
-import { UiAlbumIcon, UiMusicNote } from "./KordUiIcons";
+import { UiAlbumIcon, UiClose, UiMusicNote } from "./KordUiIcons";
 import type { useI18n } from "../i18n/useI18n";
 
 type TFn = ReturnType<typeof useI18n>["t"];
@@ -38,6 +43,8 @@ type EnrichedSong = CatalogWebDiscoverSong & {
   releaseType: string | null;
   artistName: string;
 };
+
+type PickItem = EnrichedAlbum | EnrichedSong;
 
 function WebDiscoverTile({
   enriched,
@@ -111,16 +118,323 @@ function WebDiscoverTile({
   );
 }
 
+function CatalogWebPickDialog({
+  item,
+  t,
+  onClose,
+  onDownload,
+}: {
+  item: PickItem;
+  t: TFn;
+  onClose: () => void;
+  onDownload: () => void;
+}) {
+  const [tracks, setTracks] = useState<CatalogWebTrack[] | null>(null);
+  const [tracksBusy, setTracksBusy] = useState(true);
+  const [tracksErr, setTracksErr] = useState<string | null>(null);
+  const [playingUrl, setPlayingUrl] = useState<string | null>(null);
+  const [previewBusyUrl, setPreviewBusyUrl] = useState<string | null>(null);
+  const [previewErr, setPreviewErr] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const loadGenRef = useRef(0);
+
+  const stopPreview = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+    }
+    setPlayingUrl(null);
+    setPreviewBusyUrl(null);
+  }, []);
+
+  useEffect(() => {
+    return () => stopPreview();
+  }, [stopPreview]);
+
+  useEffect(() => {
+    const gen = ++loadGenRef.current;
+    setTracksBusy(true);
+    setTracksErr(null);
+    setTracks(null);
+    stopPreview();
+    setPreviewErr(null);
+
+    if (item.type === "song") {
+      setTracks([
+        {
+          id: item.id,
+          title: item.title,
+          url: item.url,
+        },
+      ]);
+      setTracksBusy(false);
+      return;
+    }
+
+    const fallbackTrack: CatalogWebTrack = {
+      id: item.id,
+      title: item.title,
+      url: item.url,
+    };
+    fetchCatalogWebTracks(item.url)
+      .then((data) => {
+        if (gen !== loadGenRef.current) return;
+        const list = data.tracks?.length ? data.tracks : [fallbackTrack];
+        setTracks(list);
+        if (data.error) setTracksErr(data.error);
+      })
+      .catch((e: unknown) => {
+        if (gen !== loadGenRef.current) return;
+        setTracks([fallbackTrack]);
+        setTracksErr(
+          isBackendUnreachableError(e)
+            ? t("tools.catalogWebBackendUnreachable")
+            : e instanceof Error
+              ? e.message
+              : String(e),
+        );
+      })
+      .finally(() => {
+        if (gen === loadGenRef.current) setTracksBusy(false);
+      });
+  }, [item, stopPreview]);
+
+  const playPreview = useCallback(
+    async (track: CatalogWebTrack) => {
+      if (previewBusyUrl) return;
+      setPreviewErr(null);
+      setPreviewBusyUrl(track.url);
+      setPlayingUrl(null);
+      const audio = audioRef.current;
+      if (!audio) {
+        setPreviewBusyUrl(null);
+        return;
+      }
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const timeout = window.setTimeout(() => {
+            cleanup();
+            reject(new Error("Preview playback timed out"));
+          }, 45_000);
+          const onPlaying = () => {
+            cleanup();
+            setPlayingUrl(track.url);
+            setPreviewBusyUrl(null);
+            resolve();
+          };
+          const onError = () => {
+            cleanup();
+            reject(new Error("Preview playback failed"));
+          };
+          const cleanup = () => {
+            window.clearTimeout(timeout);
+            audio.removeEventListener("playing", onPlaying);
+            audio.removeEventListener("error", onError);
+          };
+          audio.addEventListener("playing", onPlaying);
+          audio.addEventListener("error", onError);
+          audio.preload = "auto";
+          audio.src = catalogWebPreviewStreamUrl(track.url);
+          void audio.play().catch((err: unknown) => {
+            cleanup();
+            reject(err instanceof Error ? err : new Error(String(err)));
+          });
+        });
+      } catch (e: unknown) {
+        setPreviewBusyUrl(null);
+        setPlayingUrl(null);
+        const errMsg = isBackendUnreachableError(e)
+          ? t("tools.catalogWebBackendUnreachable")
+          : e instanceof Error
+            ? e.message
+            : String(e);
+        setPreviewErr(t("tools.catalogWebPreviewErr", { e: errMsg }));
+      }
+    },
+    [previewBusyUrl, t],
+  );
+
+  const thumb = item.thumbnailUrl?.trim() || null;
+  const isSingle = item.type === "song";
+  const KindIcon = isSingle ? UiMusicNote : UiAlbumIcon;
+  const showTrackList = !tracksBusy && (tracks?.length ?? 0) > 0;
+  const tracksListLabel = isSingle
+    ? t("tools.catalogWebSongsSection")
+    : t("tools.catalogWebAlbumsSection");
+  const downloadLabel = isSingle
+    ? t("tools.catalogWebDownloadTrack")
+    : t("tools.catalogWebDownloadAlbum");
+
+  return createPortal(
+    <div
+      className="meta-edit-backdrop studio-catalog-web-pick-backdrop"
+      role="presentation"
+      onClick={(ev) => {
+        if (ev.target === ev.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="meta-edit-dialog surface-card studio-catalog-web-pick-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("tools.catalogWebPickDialogAria")}
+        onClick={(ev) => ev.stopPropagation()}
+      >
+        <div className="studio-catalog-web-pick-dialog__head">
+          <div className="studio-catalog-web-pick-dialog__lead">
+            {thumb ? (
+              <CoverImg
+                className="studio-catalog-web-pick-dialog__cover"
+                src={thumb}
+                alt=""
+                fallbackClassName="studio-catalog-web-pick-dialog__cover-fallback"
+                fallback={<KindIcon aria-hidden />}
+              />
+            ) : (
+              <div
+                className="studio-catalog-web-pick-dialog__cover-fallback"
+                aria-hidden
+              >
+                <KindIcon />
+              </div>
+            )}
+            <div className="studio-catalog-web-pick-dialog__titles">
+              <p className="studio-catalog-web-pick-dialog__title">
+                {item.title}
+              </p>
+              {item.artistName ? (
+                <p className="subtle sm studio-catalog-web-pick-dialog__artist">
+                  {item.artistName}
+                </p>
+              ) : null}
+              {item.releaseType ? (
+                <p className="subtle sm studio-catalog-web-pick-dialog__type">
+                  {item.releaseType}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <button
+            type="button"
+            className="icon-btn studio-catalog-web-pick-dialog__close"
+            onClick={onClose}
+            aria-label={t("common.close")}
+          >
+            <UiClose />
+          </button>
+        </div>
+
+        {tracksBusy ? (
+          <p className="subtle sm" role="status">
+            {t("tools.catalogWebTracksLoading")}
+          </p>
+        ) : null}
+        {tracksErr && !tracks?.length ? (
+          <p className="subtle sm warnline">{tracksErr}</p>
+        ) : null}
+        {!tracksBusy && tracks && tracks.length === 0 && !tracksErr ? (
+          <p className="subtle sm">{t("tools.catalogWebTracksEmpty")}</p>
+        ) : null}
+
+        {showTrackList && tracks?.length ? (
+          <ul
+            className="list-stack studio-catalog-web-pick-dialog__tracks"
+            aria-label={tracksListLabel}
+          >
+            {tracks.map((track) => {
+              const active = playingUrl === track.url;
+              const loading = previewBusyUrl === track.url;
+              return (
+                <li key={track.id}>
+                  <button
+                    type="button"
+                    className={`studio-catalog-web-pick-dialog__track${
+                      active ? " is-active" : ""
+                    }${loading ? " is-loading" : ""}`}
+                    disabled={Boolean(previewBusyUrl && !loading)}
+                    aria-pressed={active}
+                    aria-busy={loading}
+                    onClick={() => void playPreview(track)}
+                  >
+                    <span className="studio-catalog-web-pick-dialog__track-title">
+                      {track.title}
+                    </span>
+                    {loading ? (
+                      <span
+                        className="subtle sm studio-catalog-web-pick-dialog__track-status"
+                        role="status"
+                      >
+                        {t("tools.catalogWebPreviewLoading")}
+                      </span>
+                    ) : active ? (
+                      <span className="subtle sm studio-catalog-web-pick-dialog__track-status">
+                        {t("tools.catalogWebPreviewPlaying")}
+                      </span>
+                    ) : null}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+
+        {previewErr ? (
+          <p className="subtle sm warnline">{previewErr}</p>
+        ) : null}
+
+        <div className="studio-catalog-web-pick-dialog__actions">
+          <button
+            type="button"
+            className="ghost-btn"
+            onClick={() => {
+              stopPreview();
+              onClose();
+            }}
+          >
+            {t("app.dialogCancel")}
+          </button>
+          <span
+            className="studio-catalog-web-pick-dialog__actions-spacer"
+            aria-hidden
+          />
+          <button
+            type="button"
+            className="primary-btn"
+            disabled={tracksBusy || Boolean(previewBusyUrl)}
+            onClick={() => {
+              stopPreview();
+              onDownload();
+            }}
+          >
+            {downloadLabel}
+          </button>
+        </div>
+
+        <audio ref={audioRef} className="sr-only" preload="auto" />
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 export function StudioCatalogWeb({ t, active, onPickForDownload }: Props) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [albums, setAlbums] = useState<EnrichedAlbum[]>([]);
   const [songs, setSongs] = useState<EnrichedSong[]>([]);
   const [listEpoch, setListEpoch] = useState(0);
+  const [picked, setPicked] = useState<PickItem | null>(null);
   const loadGenRef = useRef(0);
-  const discoverCacheRef = useRef<{ epoch: number; albums: EnrichedAlbum[]; songs: EnrichedSong[] } | null>(
-    null,
-  );
+  const discoverCacheRef = useRef<{
+    epoch: number;
+    albums: EnrichedAlbum[];
+    songs: EnrichedSong[];
+  } | null>(null);
 
   const load = useCallback((force = false) => {
     if (!force && discoverCacheRef.current) {
@@ -181,6 +495,21 @@ export function StudioCatalogWeb({ t, active, onPickForDownload }: Props) {
     load(true);
   }, [load]);
 
+  const openPick = useCallback((item: PickItem) => {
+    setPicked(item);
+  }, []);
+
+  const closePick = useCallback(() => {
+    setPicked(null);
+  }, []);
+
+  const confirmDownload = useCallback(() => {
+    if (!picked) return;
+    const kind = picked.type === "song" ? "song" : "album";
+    onPickForDownload(picked.url, kind);
+    setPicked(null);
+  }, [onPickForDownload, picked]);
+
   const hasResults = albums.length > 0 || songs.length > 0;
   const albumTiles = useMemo(
     () =>
@@ -189,10 +518,10 @@ export function StudioCatalogWeb({ t, active, onPickForDownload }: Props) {
           key={`album-${item.id}`}
           enriched={item}
           pickLabel={t("tools.catalogWebPickAria", { title: item.title })}
-          onPick={() => onPickForDownload(item.url, "album")}
+          onPick={() => openPick(item)}
         />
       )),
-    [albums, onPickForDownload, t],
+    [albums, openPick, t],
   );
   const songTiles = useMemo(
     () =>
@@ -201,10 +530,10 @@ export function StudioCatalogWeb({ t, active, onPickForDownload }: Props) {
           key={`song-${item.id}`}
           enriched={item}
           pickLabel={t("tools.catalogWebPickAria", { title: item.title })}
-          onPick={() => onPickForDownload(item.url, "album")}
+          onPick={() => openPick(item)}
         />
       )),
-    [songs, onPickForDownload, t],
+    [openPick, songs, t],
   );
 
   return (
@@ -269,6 +598,15 @@ export function StudioCatalogWeb({ t, active, onPickForDownload }: Props) {
             {songTiles}
           </div>
         </section>
+      ) : null}
+
+      {picked ? (
+        <CatalogWebPickDialog
+          item={picked}
+          t={t}
+          onClose={closePick}
+          onDownload={confirmDownload}
+        />
       ) : null}
     </div>
   );

@@ -80,6 +80,7 @@ import {
   StudioCatalogArtistTile,
 } from "./library";
 import { StudioDownloadExplore } from "./StudioDownloadExplore";
+import { StudioDownloadDisclaimer } from "./StudioDownloadDisclaimer";
 import { StudioCatalogWeb } from "./StudioCatalogWeb";
 import type { LibraryReconcileOptions } from "../lib/libraryReconcile";
 
@@ -2652,7 +2653,7 @@ export function ToolsView({
                         ) : null}
                       </div>
                     ) : null}
-                    <div className="studio-inline-actions studio-inline-actions--spaced">
+                    <div className="studio-inline-actions studio-inline-actions--spaced tools-dl-actions-row">
                       {!relPayload ? (
                         <button
                           type="button"
@@ -2675,51 +2676,57 @@ export function ToolsView({
                         </span>
                       ) : (
                         <>
-                          <button
-                            type="button"
-                            className="primary-btn"
-                            onClick={runReleasesDl}
-                            disabled={
-                              dlBusy ||
-                              relLoadBusy ||
-                              !hasValidDownloadDest ||
-                              relSel.size === 0 ||
-                              !relStreamComplete ||
-                              !dlUrlValid ||
-                              releasesDlBlockedAlbumFolder
-                            }
-                          >
-                            {t("tools.dlDownloadSelected")}
-                          </button>
-                          {releasesDlBlockedAlbumFolder ? (
-                            <p className="subtle sm tools-dl-releases__blocked-hint">
-                              {t("tools.dlReleasesBlockedAlbumFolderHint")}
-                            </p>
-                          ) : null}
+                          <StudioDownloadDisclaimer t={t} />
+                          <div className="tools-dl-actions-row__cta">
+                            <button
+                              type="button"
+                              className="primary-btn"
+                              onClick={runReleasesDl}
+                              disabled={
+                                dlBusy ||
+                                relLoadBusy ||
+                                !hasValidDownloadDest ||
+                                relSel.size === 0 ||
+                                !relStreamComplete ||
+                                !dlUrlValid ||
+                                releasesDlBlockedAlbumFolder
+                              }
+                            >
+                              {t("tools.dlDownloadSelected")}
+                            </button>
+                            {releasesDlBlockedAlbumFolder ? (
+                              <p className="subtle sm tools-dl-releases__blocked-hint">
+                                {t("tools.dlReleasesBlockedAlbumFolderHint")}
+                              </p>
+                            ) : null}
+                          </div>
                         </>
                       )}
                     </div>
                   </div>
                 ) : (
-                  <div className="studio-inline-actions studio-inline-actions--spaced">
+                  <div className="studio-inline-actions studio-inline-actions--spaced tools-dl-actions-row">
                     {dlBusy ? (
                       <span className="subtle sm" role="status">
                         {t("tools.inProgress")}
                       </span>
                     ) : (
-                      <button
-                        type="button"
-                        className="primary-btn"
-                        onClick={runDl}
-                        disabled={
-                          dlBusy ||
-                          !url.trim() ||
-                          !hasValidDownloadDest ||
-                          !dlUrlValid
-                        }
-                      >
-                        {t("tools.downloadRun")}
-                      </button>
+                      <>
+                        <StudioDownloadDisclaimer t={t} />
+                        <button
+                          type="button"
+                          className="primary-btn tools-dl-actions-row__cta"
+                          onClick={runDl}
+                          disabled={
+                            dlBusy ||
+                            !url.trim() ||
+                            !hasValidDownloadDest ||
+                            !dlUrlValid
+                          }
+                        >
+                          {t("tools.downloadRun")}
+                        </button>
+                      </>
                     )}
                   </div>
                 )}

@@ -223,6 +223,149 @@
   background: transparent;
 }
 
+.studio-catalog-web-pick-backdrop {
+  z-index: var(--z-overlay-raised);
+}
+
+.studio-catalog-web-pick-dialog {
+  width: min(28rem, calc(100vw - 2rem));
+  max-height: min(85vh, 40rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+.studio-catalog-web-pick-dialog__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+
+.studio-catalog-web-pick-dialog__lead {
+  display: flex;
+  gap: 0.65rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.studio-catalog-web-pick-dialog__cover,
+.studio-catalog-web-pick-dialog__cover-fallback {
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.studio-catalog-web-pick-dialog__cover-fallback {
+  display: grid;
+  place-items: center;
+  background: var(--surface2);
+  color: var(--muted);
+}
+
+.studio-catalog-web-pick-dialog__titles {
+  min-width: 0;
+}
+
+.studio-catalog-web-pick-dialog__title {
+  margin: 0;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.studio-catalog-web-pick-dialog__artist,
+.studio-catalog-web-pick-dialog__type {
+  margin: 0.2rem 0 0;
+}
+
+.studio-catalog-web-pick-dialog__close {
+  flex-shrink: 0;
+}
+
+.studio-catalog-web-pick-dialog__tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: min(40vh, 16rem);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.studio-catalog-web-pick-dialog__tracks > li {
+  margin: 0;
+}
+
+.studio-catalog-web-pick-dialog__track {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.28rem 0.55rem;
+  min-height: 0;
+  font-size: 0.88rem;
+  line-height: 1.25;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.studio-catalog-web-pick-dialog__track:last-child {
+  border-bottom: none;
+}
+
+.studio-catalog-web-pick-dialog__track:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.studio-catalog-web-pick-dialog__track.is-active {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.studio-catalog-web-pick-dialog__track.is-loading {
+  cursor: wait;
+}
+
+.studio-catalog-web-pick-dialog__track:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.studio-catalog-web-pick-dialog__track-status {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+
+.studio-catalog-web-pick-dialog__track-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio-catalog-web-pick-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: auto;
+}
+
+.studio-catalog-web-pick-dialog__actions-spacer {
+  flex: 1 1 auto;
+  min-width: 0.5rem;
+}
+
 .studio-catalog-filter-empty {
   margin: 0;
   padding: 0.5rem 0 0.15rem;
@@ -1310,6 +1453,40 @@
 .studio-inline-actions--spaced {
   margin-top: 0.65rem;
   justify-content: flex-end;
+}
+
+.tools-dl-actions-row {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+.tools-dl-actions-row__cta {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.tools-dl-disclaimer {
+  flex: 1 1 22rem;
+  min-width: min(100%, 20rem);
+  max-width: 52rem;
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  line-height: 1.45;
+  opacity: 0.92;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface2) 50%, transparent);
+}
+
+.tools-dl-explore .tools-dl-disclaimer {
+  flex: 1 1 auto;
+  max-width: none;
+  width: 100%;
+  margin-bottom: 0.2rem;
 }
 
 .studio-action-groups {
