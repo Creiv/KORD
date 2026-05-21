@@ -114,16 +114,14 @@ export default function AchievementsView({
             <p className="achievements-hero__xp-caption">
               {loading ? (
                 t("achievements.xpLoadingHint")
-              ) : snapshot.level.xpMax != null ? (
+              ) : (
                 <>
                   <strong>{snapshot.totalXp}</strong>
                   {" XP · "}
                   {t("achievements.xpToNext", {
-                    n: snapshot.level.xpMax + 1 - snapshot.totalXp,
+                    n: Math.max(0, snapshot.level.xpMax + 1 - snapshot.totalXp),
                   })}
                 </>
-              ) : (
-                <strong>{t("achievements.xpMaxLevel")}</strong>
               )}
             </p>
           </div>

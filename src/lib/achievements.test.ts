@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   ACHIEVEMENT_DEFINITIONS,
-  ACHIEVEMENT_RANKS,
+  ACHIEVEMENT_TITLES,
+  ACHIEVEMENT_XP_TIERS,
   buildAchievementsSnapshot,
+  computeAchievementXpBonus,
+  computeBaseXp,
   computeTotalXp,
+  LEVEL_XP_SCALE,
   levelForXp,
+  numericLevelForXp,
+  titleForNumericLevel,
   xpProgressInLevel,
   touchListeningActivity,
   writeStreakState,
@@ -29,27 +35,82 @@ function emptyState(): Pick<
 }
 
 describe("achievements", () => {
-  it("has 10 levels and at least 40 achievements", () => {
-    expect(ACHIEVEMENT_RANKS).toHaveLength(10);
-    expect(ACHIEVEMENT_RANKS[9].title).toBe("KING OF KORD");
+  it("has 10 titles, unchanged XP tiers, and 60 achievements", () => {
+    expect(ACHIEVEMENT_XP_TIERS).toHaveLength(10);
+    expect(ACHIEVEMENT_TITLES[9]).toBe("KING OF KORD");
     expect(ACHIEVEMENT_DEFINITIONS).toHaveLength(60);
   });
 
-  it("levelForXp maps tiers", () => {
-    expect(levelForXp(0).level).toBe(1);
-    expect(levelForXp(0).title).toBe("KICKER");
-    expect(levelForXp(99).level).toBe(1);
-    expect(levelForXp(100).level).toBe(2);
-    expect(levelForXp(5500).level).toBe(10);
+  it("levelForXp maps numeric levels with title every 3 levels", () => {
+    expect(levelForXp(0)).toMatchObject({ level: 1, title: "KICKER" });
+    expect(levelForXp(99).level).toBe(2);
+    expect(levelForXp(99).title).toBe("KICKER");
+    expect(levelForXp(125).level).toBe(3);
+    expect(levelForXp(125).title).toBe("KICKER");
+    expect(levelForXp(250).level).toBe(4);
+    expect(levelForXp(250).title).toBe("KRAFTER");
+    expect(levelForXp(5499).level).toBe(17);
+    expect(levelForXp(5499).title).toBe("KOMPONER");
+    expect(levelForXp(5938).level).toBe(18);
+    expect(levelForXp(6875)).toMatchObject({ level: 19, title: "KREATOR" });
+    expect(levelForXp(7813).level).toBe(20);
+    expect(levelForXp(7813).title).toBe("KREATOR");
+    expect(levelForXp(9000).level).toBe(21);
+    expect(levelForXp(9000).title).toBe("KREATOR");
   });
 
-  it("xpProgressInLevel fills bar at max rank and within tier", () => {
-    const max = levelForXp(9000);
-    expect(xpProgressInLevel(9000, max).pct).toBe(100);
+  it("LEVEL_XP_SCALE makes progression slightly harder", () => {
+    expect(LEVEL_XP_SCALE).toBeGreaterThan(1);
+    expect(levelForXp(1781)).toMatchObject({ level: 10, title: "KEEPER OF KORD" });
+  });
+
+  it("max completion XP unlocks all badges", () => {
+    const signals = {
+      totalPlays: 7500,
+      favoritesCount: 200,
+      playlistsCount: 20,
+      artistsWithPlays: 100,
+      genresWithPlays: 20,
+      tracksWithPlays: 1500,
+      shuffleBlocks: 25,
+      libraryTrackCount: 2000,
+      topArtistPlays: 100,
+      topTrackPlays: 20,
+      albumsWithPlays: 50,
+      playlistTrackCount: 30,
+      streak: 30,
+    };
+    const unlocked = ACHIEVEMENT_DEFINITIONS.filter((a) =>
+      a.check(signals)
+    ).length;
+    expect(unlocked).toBe(60);
+    expect(computeBaseXp(signals)).toBe(9050);
+    expect(computeAchievementXpBonus(signals)).toBe(5605);
+    expect(computeTotalXp(signals)).toBe(14655);
+  });
+
+  it("titleForNumericLevel changes every 3 levels and caps at KING OF KORD", () => {
+    expect(titleForNumericLevel(1)).toBe("KICKER");
+    expect(titleForNumericLevel(3)).toBe("KICKER");
+    expect(titleForNumericLevel(4)).toBe("KRAFTER");
+    expect(titleForNumericLevel(28)).toBe("KING OF KORD");
+    expect(titleForNumericLevel(30)).toBe("KING OF KORD");
+    expect(titleForNumericLevel(50)).toBe("KING OF KORD");
+  });
+
+  it("numericLevelForXp grows without cap", () => {
+    expect(numericLevelForXp(20_000)).toBeGreaterThan(20);
+  });
+
+  it("xpProgressInLevel advances within numeric level", () => {
     const tier = levelForXp(150);
-    expect(tier.level).toBe(2);
-    expect(xpProgressInLevel(150, tier).pct).toBe(25);
-    expect(xpProgressInLevel(299, tier).pct).toBe(100);
+    expect(tier.level).toBe(3);
+    expect(xpProgressInLevel(150, tier).pct).toBe(20);
+    const top = levelForXp(374);
+    expect(top.level).toBe(4);
+    expect(xpProgressInLevel(374, top).pct).toBe(99);
+    const high = levelForXp(9000);
+    expect(xpProgressInLevel(9000, high).pct).toBeLessThan(100);
   });
 
   it("computeTotalXp grows with plays and achievements", () => {

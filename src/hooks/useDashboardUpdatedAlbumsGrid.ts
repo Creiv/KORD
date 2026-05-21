@@ -51,17 +51,31 @@ function dashboardUpdatedAlbumSlotsForDesktop(cols: number): number {
   return Math.min(DASHBOARD_UPDATED_ALBUMS_MAX, c * rows);
 }
 
+export function dashboardUpdatedAlbumsVisibleCount(
+  albumCount: number,
+  maxSlots: number | undefined,
+  _columns?: number | undefined
+): number {
+  const cap = Math.max(0, maxSlots ?? DASHBOARD_UPDATED_ALBUMS_MAX);
+  return Math.min(Math.max(0, albumCount), cap);
+}
+
 export function useDashboardUpdatedAlbumsGrid(isMobile: boolean) {
   const ref: RefObject<HTMLDivElement | null> = useRef(null);
   const [desktopSlots, setDesktopSlots] = useState(8);
+  const [columns, setColumns] = useState(1);
 
   useLayoutEffect(() => {
-    if (isMobile) return;
+    if (isMobile) {
+      setColumns(1);
+      return;
+    }
     const el = ref.current;
     if (!el) return;
 
     const compute = () => {
       const cols = estimateDashboardAlbumGridColumns(el);
+      setColumns(cols);
       setDesktopSlots(dashboardUpdatedAlbumSlotsForDesktop(cols));
     };
 
@@ -76,9 +90,15 @@ export function useDashboardUpdatedAlbumsGrid(isMobile: boolean) {
     };
   }, [isMobile]);
 
-  const maxItems = isMobile
+  const maxSlots = isMobile
     ? MOBILE_MAX_ALBUMS
     : Math.min(DASHBOARD_UPDATED_ALBUMS_MAX, desktopSlots);
 
-  return { ref, maxItems };
+  return {
+    ref,
+    maxSlots,
+    columns: isMobile ? 1 : columns,
+    /** @deprecated Usa {@link maxSlots}. */
+    maxItems: maxSlots,
+  };
 }

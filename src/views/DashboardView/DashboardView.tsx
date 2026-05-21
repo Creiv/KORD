@@ -4,7 +4,10 @@ import { useUserState } from "../../context/UserStateContext";
 import { useLibraryPlayback } from "../../hooks/useLibraryPlayback";
 import { useMatchMedia } from "../../hooks/useMatchMedia";
 import { MOBILE_LAYOUT_MQ } from "../../lib/breakpoints";
-import { useDashboardUpdatedAlbumsGrid } from "../../hooks/useDashboardUpdatedAlbumsGrid";
+import {
+  dashboardUpdatedAlbumsVisibleCount,
+  useDashboardUpdatedAlbumsGrid,
+} from "../../hooks/useDashboardUpdatedAlbumsGrid";
 import { useI18n } from "../../i18n/useI18n";
 import { TrackListRow } from "../../components/AppSharedUi";
 import { AlbumListTile } from "../../components/library";
@@ -32,8 +35,16 @@ export default function DashboardView({
   const user = useUserState();
   const { playGlobalRadio } = useLibraryPlayback(index?.tracks);
   const isDashboardMobileLayout = useMatchMedia(MOBILE_LAYOUT_MQ);
-  const { ref: updatedAlbumsGridRef, maxItems: updatedAlbumsMax } =
-    useDashboardUpdatedAlbumsGrid(isDashboardMobileLayout);
+  const {
+    ref: updatedAlbumsGridRef,
+    maxSlots: updatedAlbumsMaxSlots,
+    columns: updatedAlbumsColumns,
+  } = useDashboardUpdatedAlbumsGrid(isDashboardMobileLayout);
+  const updatedAlbumsVisible = dashboardUpdatedAlbumsVisibleCount(
+    dashboard?.recentlyUpdatedAlbums.length ?? 0,
+    updatedAlbumsMaxSlots,
+    updatedAlbumsColumns
+  );
   const favoriteTracksSorted = useMemo(
     () =>
       [...(dashboard?.favoriteTracks || [])].sort(
@@ -119,7 +130,7 @@ export default function DashboardView({
             className="library-overview-cols library-overview-cols--dashboard"
           >
             {dashboard.recentlyUpdatedAlbums
-              .slice(0, updatedAlbumsMax)
+              .slice(0, updatedAlbumsVisible)
               .map((album) => (
                 <AlbumListTile
                   key={album.id}

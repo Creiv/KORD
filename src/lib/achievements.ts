@@ -3,25 +3,107 @@ import type { LibraryIndex, UserStateV1 } from "../types";
 
 const STREAK_STORAGE_KEY = "kord-achievements-streak";
 
+/** Soglie XP originali (invariate): ogni fascia vale 2 livelli numerici. */
+export type AchievementXpTier = {
+  xpMin: number;
+  xpMax: number | null;
+  title: string;
+};
+
+export const ACHIEVEMENT_XP_TIERS: AchievementXpTier[] = [
+  { title: "KICKER", xpMin: 0, xpMax: 99 },
+  { title: "KRAFTER", xpMin: 100, xpMax: 299 },
+  { title: "KURATORE", xpMin: 300, xpMax: 599 },
+  { title: "KEEPER OF KORD", xpMin: 600, xpMax: 999 },
+  { title: "KONDUCTOR", xpMin: 1000, xpMax: 1499 },
+  { title: "KOMPONER", xpMin: 1500, xpMax: 2199 },
+  { title: "KREATOR", xpMin: 2200, xpMax: 2999 },
+  { title: "KONTROLLER", xpMin: 3000, xpMax: 3999 },
+  { title: "KORDMASTER", xpMin: 4000, xpMax: 5499 },
+  { title: "KING OF KORD", xpMin: 5500, xpMax: null },
+];
+
+/** @deprecated Usa {@link ACHIEVEMENT_XP_TIERS}. */
+export const ACHIEVEMENT_RANKS = ACHIEVEMENT_XP_TIERS;
+
+export const ACHIEVEMENT_TITLES = ACHIEVEMENT_XP_TIERS.map((t) => t.title);
+
 export type AchievementRank = {
   level: number;
   title: string;
   xpMin: number;
-  xpMax: number | null;
+  xpMax: number;
 };
 
-export const ACHIEVEMENT_RANKS: AchievementRank[] = [
-  { level: 1, title: "KICKER", xpMin: 0, xpMax: 99 },
-  { level: 2, title: "KRAFTER", xpMin: 100, xpMax: 299 },
-  { level: 3, title: "KURATORE", xpMin: 300, xpMax: 599 },
-  { level: 4, title: "KEEPER OF KORD", xpMin: 600, xpMax: 999 },
-  { level: 5, title: "KONDUCTOR", xpMin: 1000, xpMax: 1499 },
-  { level: 6, title: "KOMPONER", xpMin: 1500, xpMax: 2199 },
-  { level: 7, title: "KREATOR", xpMin: 2200, xpMax: 2999 },
-  { level: 8, title: "KONTROLLER", xpMin: 3000, xpMax: 3999 },
-  { level: 9, title: "KORDMASTER", xpMin: 4000, xpMax: 5499 },
-  { level: 10, title: "KING OF KORD", xpMin: 5500, xpMax: null },
-];
+function tierSpan(tier: AchievementXpTier, prevSpan: number): number {
+  if (tier.xpMax != null) return tier.xpMax - tier.xpMin + 1;
+  return prevSpan;
+}
+
+/** XP minimo per livelli 1–20 (ogni fascia originale divisa in due). */
+function buildNumericLevelXpMins(): number[] {
+  const mins: number[] = [];
+  let prevSpan = 100;
+  for (const tier of ACHIEVEMENT_XP_TIERS) {
+    const span = tierSpan(tier, prevSpan);
+    prevSpan = span;
+    const half = Math.floor(span / 2);
+    mins.push(tier.xpMin, tier.xpMin + half);
+  }
+  return mins;
+}
+
+const NUMERIC_LEVEL_XP_MINS = buildNumericLevelXpMins();
+
+/** XP per salire oltre il livello 20 (metà dell'ultima fascia con tetto). */
+const POST_TITLE_LEVEL_SPAN = Math.floor(
+  (ACHIEVEMENT_XP_TIERS[8].xpMax! - ACHIEVEMENT_XP_TIERS[8].xpMin + 1) / 2
+);
+
+/** >1 rende più difficile salire di livello (soglie XP livello, non badge). */
+export const LEVEL_XP_SCALE = 1.25;
+
+function scaledLevelXp(xp: number): number {
+  return Math.ceil(xp * LEVEL_XP_SCALE);
+}
+
+function scaledPostTitleLevelSpan(): number {
+  return Math.ceil(POST_TITLE_LEVEL_SPAN * LEVEL_XP_SCALE);
+}
+
+export function titleForNumericLevel(level: number): string {
+  const idx = Math.min(
+    ACHIEVEMENT_TITLES.length - 1,
+    Math.floor((level - 1) / 3)
+  );
+  return ACHIEVEMENT_TITLES[idx];
+}
+
+export function numericLevelForXp(xp: number): number {
+  const kingMin = scaledLevelXp(NUMERIC_LEVEL_XP_MINS[18]);
+  const postKingMin = scaledLevelXp(NUMERIC_LEVEL_XP_MINS[19]);
+  const postSpan = scaledPostTitleLevelSpan();
+  if (xp >= postKingMin) {
+    return 20 + Math.floor((xp - postKingMin) / postSpan);
+  }
+  if (xp >= kingMin) return 19;
+  for (let i = NUMERIC_LEVEL_XP_MINS.length - 2; i >= 0; i--) {
+    if (xp >= scaledLevelXp(NUMERIC_LEVEL_XP_MINS[i])) return i + 1;
+  }
+  return 1;
+}
+
+export function xpMinForNumericLevel(level: number): number {
+  if (level <= 20) {
+    return scaledLevelXp(NUMERIC_LEVEL_XP_MINS[level - 1]);
+  }
+  const postKingMin = scaledLevelXp(NUMERIC_LEVEL_XP_MINS[19]);
+  return postKingMin + (level - 20) * scaledPostTitleLevelSpan();
+}
+
+export function xpMaxForNumericLevel(level: number): number {
+  return xpMinForNumericLevel(level + 1) - 1;
+}
 
 export type AchievementIconKind =
   | "play"
@@ -650,20 +732,21 @@ export function computeTotalXp(signals: AchievementSignals): number {
 }
 
 export function levelForXp(xp: number): AchievementRank {
-  let current = ACHIEVEMENT_RANKS[0];
-  for (const tier of ACHIEVEMENT_RANKS) {
-    if (xp >= tier.xpMin) current = tier;
-  }
-  return current;
+  const level = numericLevelForXp(xp);
+  const xpMin = xpMinForNumericLevel(level);
+  const xpMax = xpMaxForNumericLevel(level);
+  return {
+    level,
+    title: titleForNumericLevel(level),
+    xpMin,
+    xpMax,
+  };
 }
 
 export function xpProgressInLevel(
   xp: number,
   tier: AchievementRank
 ): { current: number; span: number; pct: number } {
-  if (tier.xpMax == null) {
-    return { current: 1, span: 1, pct: 100 };
-  }
   const span = Math.max(1, tier.xpMax - tier.xpMin + 1);
   const current = Math.min(span, Math.max(0, xp - tier.xpMin));
   const pct = Math.min(100, Math.max(0, Math.round((current / span) * 100)));
