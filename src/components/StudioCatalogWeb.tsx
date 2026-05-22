@@ -449,7 +449,7 @@ export function StudioCatalogWeb({ t, active, onPickForDownload }: Props) {
     const refreshNonce = Date.now();
     setBusy(true);
     setErr(null);
-    fetchCatalogWebDiscover(refreshNonce)
+    fetchCatalogWebDiscover({ force })
       .then((d) => {
         if (gen !== loadGenRef.current) return;
         const merged = [...(d.albums ?? []), ...(d.songs ?? [])];

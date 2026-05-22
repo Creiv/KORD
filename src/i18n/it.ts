@@ -913,6 +913,8 @@ export const IT: Record<string, string> = {
   "tools.dlReleasesListTitle": "Album",
   "tools.dlTrackCount": "{{n}} brani",
   "tools.dlTrackCountUnknown": "—",
+  "tools.dlTrackCountPending": "…",
+  "tools.dlTrackCountPendingAria": "Conteggio brani in caricamento",
   "tools.dlTrackCountAria": "{{n}} brani in questo album",
   "tools.dlReleasesUploader": "Canale: {{name}}",
   "tools.dlSelectAll": "Seleziona tutti",

@@ -129,6 +129,38 @@ export function applyLibraryDeltasToIndex(
   );
 }
 
+/**
+ * Dopo un refresh completo dall’API: non perdere copertine già applicate in UI se
+ * la cache server era ancora stale (file cover.jpg presente, coverRelPath assente).
+ */
+export function mergeLibraryIndexFromServer(
+  prev: LibraryIndex | null,
+  next: LibraryIndex,
+): LibraryIndex {
+  if (!prev) return next;
+  const prevAlbums = new Map(prev.albums.map((album) => [album.relPath, album]));
+  const albums = next.albums.map((album) => {
+    const prior = prevAlbums.get(album.relPath);
+    if (!prior?.coverRelPath || album.coverRelPath) return album;
+    return {
+      ...album,
+      coverRelPath: prior.coverRelPath,
+      hasCover: true,
+      updatedAt: Math.max(prior.updatedAt ?? 0, album.updatedAt ?? 0) || prior.updatedAt,
+    };
+  });
+  const albumById = new Map(albums.map((album) => [album.id, album]));
+  const artists = next.artists.map((artist) => {
+    const artistAlbums = artist.albums
+      .map((id) => albumById.get(id))
+      .filter((row): row is LibraryAlbumIndex => Boolean(row));
+    const coverRelPath =
+      artistAlbums.find((row) => row.coverRelPath)?.coverRelPath ?? null;
+    return coverRelPath ? { ...artist, coverRelPath } : artist;
+  });
+  return recomputeLibraryStats({ ...next, albums, artists });
+}
+
 export function recomputeLibraryStats(index: LibraryIndex): LibraryIndex {
   const stats = {
     artistCount: index.artists.length,
@@ -234,6 +266,16 @@ export function applyLibraryDeltaToIndex(
               ...album,
               ...patch,
               name: patch.name || patch.title || album.name,
+              coverRelPath:
+                patch.coverRelPath !== undefined
+                  ? patch.coverRelPath
+                  : album.coverRelPath,
+              hasCover:
+                patch.hasCover !== undefined
+                  ? patch.hasCover
+                  : patch.coverRelPath !== undefined
+                    ? Boolean(patch.coverRelPath)
+                    : album.hasCover,
               hasAlbumMeta: patch.hasAlbumMeta ?? album.hasAlbumMeta,
             }
           : album

@@ -75,6 +75,7 @@ import {
   stripClientControlledKeysFromPutPatch,
   writeUserTrackMoodsWithCAS,
 } from "./userState.mjs";
+import { kordApiUserAgent } from "./kordVersion.mjs";
 import { resolveYtdlpPath } from "./ytdlpPath.mjs";
 import {
   appendActivityLog,
@@ -979,10 +980,9 @@ async function invalidateLibraryIndex(root = getMusicRoot()) {
   await invalidateLibraryIndexCache(root);
 }
 
-/** Metadati/copertina: patch cache se possibile; refresh completo in background senza bloccare le GET. */
+/** Metadati/copertina: patch cache se possibile; refresh completo solo se la patch non è andata a buon fine. */
 function scheduleLibraryIndexMetaRefresh(root, cachePatched) {
   if (!cachePatched) scheduleBackgroundLibraryRefresh(root);
-  else scheduleBackgroundLibraryRefresh(root);
 }
 
 function albumDeltaFromMeta(albumPath, meta, albumNameFallback) {
@@ -1563,15 +1563,36 @@ app.get("/api/catalog", async (req, res) => {
   }
 });
 
+const CATALOG_WEB_DISCOVER_CACHE_TTL_MS = 8 * 60 * 1000;
+/** @type {{ at: number, epoch: number, payload: object } | null} */
+let catalogWebDiscoverCache = null;
+
 app.get("/api/catalog-web-discover", async (req, res) => {
   try {
     const root = getMusicRoot();
+    const force = String(req.query.force ?? "") === "1";
+    const epoch = getLibraryIndexCacheEpochSnapshot(root);
+    const now = Date.now();
+    if (
+      !force &&
+      catalogWebDiscoverCache &&
+      catalogWebDiscoverCache.epoch === epoch &&
+      now - catalogWebDiscoverCache.at < CATALOG_WEB_DISCOVER_CACHE_TTL_MS
+    ) {
+      res.set("Cache-Control", "no-store, must-revalidate");
+      return sendOk(res, catalogWebDiscoverCache.payload);
+    }
     const index = await getLibraryIndex(root);
-    res.set("Cache-Control", "no-store, must-revalidate");
     const payload = await fetchCatalogWebDiscover(index);
     if (payload.error) {
       return sendError(res, 502, payload.error);
     }
+    catalogWebDiscoverCache = {
+      at: now,
+      epoch,
+      payload,
+    };
+    res.set("Cache-Control", "no-store, must-revalidate");
     return sendOk(res, payload);
   } catch (error) {
     console.error(error);
@@ -2187,6 +2208,7 @@ app.post("/api/youtube-releases-list", async (req, res) => {
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("X-Accel-Buffering", "no");
       if (typeof res.flushHeaders === "function") res.flushHeaders();
+      const wantEnrichCounts = Boolean(req.body?.enrichCounts);
       const { max, timeoutMs, concurrency } = releaseEnrichConfig();
       try {
         writeYoutubeReleasesNdjsonLine(res, {
@@ -2196,16 +2218,25 @@ app.post("/api/youtube-releases-list", async (req, res) => {
           channelUrl,
           total: entries.length,
         });
-        await enrichReleaseEntriesInOrder(
-          program,
-          entries,
-          max,
-          timeoutMs,
-          concurrency,
-          (entry) => {
-            writeYoutubeReleasesNdjsonLine(res, { type: "entry", entry });
-          }
-        );
+        for (const entry of entries) {
+          writeYoutubeReleasesNdjsonLine(res, {
+            type: "entry",
+            entry: { ...entry, trackCount: null },
+          });
+        }
+        writeYoutubeReleasesNdjsonLine(res, { type: "list_ready" });
+        if (wantEnrichCounts) {
+          await enrichReleaseEntriesInOrder(
+            program,
+            entries,
+            max,
+            timeoutMs,
+            concurrency,
+            (entry) => {
+              writeYoutubeReleasesNdjsonLine(res, { type: "entry_patch", entry });
+            }
+          );
+        }
         writeYoutubeReleasesNdjsonLine(res, { type: "done" });
         res.end();
       } catch (err) {
@@ -2861,7 +2892,7 @@ app.post("/api/artwork/apply", async (req, res) => {
     if (!statSync(full).isDirectory())
       return sendError(res, 400, "Not a directory");
     const response = await fetch(imageUrl, {
-      headers: { "User-Agent": "Kord/2.9" },
+      headers: { "User-Agent": kordApiUserAgent() },
     });
     if (!response.ok) return sendError(res, 400, "Image download failed");
     const type = (response.headers.get("content-type") || "").toLowerCase();

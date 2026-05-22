@@ -35,6 +35,7 @@ import type {
 } from "../lib/api";
 import { fmtDate } from "../lib/metaFormat";
 import { albumFolderFromTrackRelPath } from "../lib/trackPaths";
+import { partitionYoutubeReleaseEntries } from "../lib/youtubeReleases";
 import type {
   CatalogArtistEntry,
   LibArtist,
@@ -584,8 +585,8 @@ export function ToolsView({
   const [relPayload, setRelPayload] = useState<YoutubeReleasesList | null>(
     null
   );
-  const [relStreamTotal, setRelStreamTotal] = useState<number | null>(null);
   const [relStreamComplete, setRelStreamComplete] = useState(false);
+  const [relEnrichBusy, setRelEnrichBusy] = useState(false);
   const [relSel, setRelSel] = useState<Set<string>>(() => new Set());
   const [relQuery, setRelQuery] = useState("");
   const [relLoadBusy, setRelLoadBusy] = useState(false);
@@ -752,7 +753,6 @@ export function ToolsView({
 
   useEffect(() => {
     setRelPayload(null);
-    setRelStreamTotal(null);
     setRelStreamComplete(false);
     setRelSel(new Set());
     setRelQuery("");
@@ -902,6 +902,11 @@ export function ToolsView({
         entry.url.toLowerCase().includes(q)
     );
   }, [relPayload?.entries, relQuery]);
+
+  const { albums: filteredRelAlbums, songs: filteredRelSongs } = useMemo(
+    () => partitionYoutubeReleaseEntries(filteredRelEntries),
+    [filteredRelEntries],
+  );
 
   const dlUrlValid = useMemo(
     () => urlMatchesStudioDlMode(url, "video", dlUrlMode),
@@ -1209,9 +1214,6 @@ export function ToolsView({
               err: String((e as Error)?.message || e),
             })
         );
-      }
-      if (i < toFetch.length - 1) {
-        await new Promise((r) => setTimeout(r, 1100));
       }
     }
     setMetaScanProg(null);
@@ -1627,7 +1629,7 @@ export function ToolsView({
     }
     setRelLoadBusy(true);
     setRelStreamComplete(false);
-    setRelStreamTotal(null);
+    setRelEnrichBusy(false);
     setRelPayload(null);
     setRelSel(new Set());
     void streamYoutubeReleasesList(
@@ -1636,7 +1638,6 @@ export function ToolsView({
         onMeta: (m) => {
           relLogTotalRef.current = m.total;
           relLogUploaderRef.current = m.uploader;
-          setRelStreamTotal(m.total);
           setRelPayload({
             listTitle: m.listTitle,
             uploader: m.uploader,
@@ -1657,9 +1658,21 @@ export function ToolsView({
             );
           });
         },
-        onDone: () => {
+        onListReady: () => {
+          if (relEntryFlushRafRef.current != null) {
+            window.cancelAnimationFrame(relEntryFlushRafRef.current);
+            relEntryFlushRafRef.current = null;
+          }
+          const batch = relEntryBatchRef.current;
+          relEntryBatchRef.current = [];
+          if (batch.length) {
+            setRelPayload((p) =>
+              p ? { ...p, entries: [...p.entries, ...batch] } : null,
+            );
+          }
           setRelStreamComplete(true);
           setRelLoadBusy(false);
+          setRelEnrichBusy(true);
           const n = relLogTotalRef.current;
           const u = relLogUploaderRef.current;
           setLog(
@@ -1671,8 +1684,25 @@ export function ToolsView({
               "\n"
           );
         },
+        onEntryPatch: (e) => {
+          setRelPayload((p) => {
+            if (!p) return p;
+            return {
+              ...p,
+              entries: p.entries.map((row) =>
+                row.id === e.id
+                  ? { ...row, trackCount: e.trackCount ?? row.trackCount }
+                  : row,
+              ),
+            };
+          });
+        },
+        onDone: () => {
+          setRelLoadBusy(false);
+          setRelEnrichBusy(false);
+        },
       },
-      signal
+      { enrichCounts: true, signal },
     ).catch((e) => {
       if (String((e as Error)?.name) === "AbortError") {
         setRelLoadBusy(false);
@@ -1684,8 +1714,8 @@ export function ToolsView({
       );
       setRelLoadBusy(false);
       setRelPayload(null);
-      setRelStreamTotal(null);
       setRelStreamComplete(false);
+      setRelEnrichBusy(false);
     });
   };
 
@@ -2578,72 +2608,134 @@ export function ToolsView({
                             {t("tools.dlSelectNone")}
                           </button>
                         </div>
-                        <ul
-                          className="tools-dl-releases__list tools-dl-releases__list--grid"
-                          aria-label={t("tools.dlReleasesListTitle")}
+                        <div
+                          className="tools-dl-releases__sections"
                           aria-busy={!relStreamComplete}
                         >
-                          {filteredRelEntries.map((e) => (
-                            <li key={e.id} className="tools-dl-releases__row">
-                              <label className="tools-dl-releases__check">
-                                <input
-                                  type="checkbox"
-                                  checked={relSel.has(e.id)}
-                                  onChange={() => toggleRelEntry(e.id)}
-                                />
-                                <span
-                                  className="tools-dl-releases__title"
-                                  title={e.url}
-                                >
-                                  {e.title}
+                          {filteredRelAlbums.length > 0 ? (
+                            <section
+                              className="tools-dl-releases__section"
+                              aria-label={t("tools.catalogWebAlbumsSection")}
+                            >
+                              <h4 className="tools-dl-releases__section-title">
+                                {t("tools.catalogWebAlbumsSection")}
+                                <span className="tools-dl-releases__section-count">
+                                  {filteredRelAlbums.length}
                                 </span>
-                                <span
-                                  className="tools-dl-releases__trackcount"
-                                  aria-label={
-                                    e.trackCount != null
-                                      ? t("tools.dlTrackCountAria", {
-                                          n: e.trackCount,
-                                        })
-                                      : undefined
-                                  }
-                                >
-                                  {e.trackCount != null
-                                    ? t("tools.dlTrackCount", {
-                                        n: e.trackCount,
-                                      })
-                                    : t("tools.dlTrackCountUnknown")}
-                                </span>
-                              </label>
-                            </li>
-                          ))}
-                          {relStreamTotal != null && !relStreamComplete
-                            ? Array.from(
-                                {
-                                  length: Math.max(
-                                    0,
-                                    relStreamTotal - relPayload.entries.length
-                                  ),
-                                },
-                                (_, sk) => (
+                              </h4>
+                              <ul className="tools-dl-releases__list tools-dl-releases__list--grid">
+                                {filteredRelAlbums.map((e) => (
                                   <li
-                                    key={`rel-sk-${sk}`}
-                                    className="tools-dl-releases__row tools-dl-releases__row--skeleton"
-                                    aria-hidden
+                                    key={e.id}
+                                    className="tools-dl-releases__row"
                                   >
-                                    <div className="tools-dl-releases__check tools-dl-releases__check--skeleton">
-                                      <span className="tools-dl-releases__sk-pad" />
-                                      <div className="tools-dl-releases__sk-text">
-                                        <div className="tools-dl-releases__skeleton-bar" />
-                                        <div className="tools-dl-releases__skeleton-bar tools-dl-releases__skeleton-bar--sub" />
-                                      </div>
-                                      <div className="tools-dl-releases__skeleton-bar tools-dl-releases__skeleton-bcount" />
-                                    </div>
+                                    <label className="tools-dl-releases__check">
+                                      <input
+                                        type="checkbox"
+                                        checked={relSel.has(e.id)}
+                                        onChange={() => toggleRelEntry(e.id)}
+                                      />
+                                      <span
+                                        className="tools-dl-releases__title"
+                                        title={e.url}
+                                      >
+                                        {e.title}
+                                      </span>
+                                      <span
+                                        className={`tools-dl-releases__trackcount${
+                                          relEnrichBusy && e.trackCount == null
+                                            ? " tools-dl-releases__trackcount--pending"
+                                            : ""
+                                        }`}
+                                        aria-label={
+                                          e.trackCount != null
+                                            ? t("tools.dlTrackCountAria", {
+                                                n: e.trackCount,
+                                              })
+                                            : relEnrichBusy
+                                              ? t(
+                                                  "tools.dlTrackCountPendingAria",
+                                                )
+                                              : undefined
+                                        }
+                                      >
+                                        {e.trackCount != null
+                                          ? t("tools.dlTrackCount", {
+                                              n: e.trackCount,
+                                            })
+                                          : relEnrichBusy
+                                            ? t("tools.dlTrackCountPending")
+                                            : t("tools.dlTrackCountUnknown")}
+                                      </span>
+                                    </label>
                                   </li>
-                                )
-                              )
-                            : null}
-                        </ul>
-                        {relPayload && !relStreamComplete ? (
+                                ))}
+                              </ul>
+                            </section>
+                          ) : null}
+                          {filteredRelSongs.length > 0 ? (
+                            <section
+                              className="tools-dl-releases__section"
+                              aria-label={t("tools.catalogWebSongsSection")}
+                            >
+                              <h4 className="tools-dl-releases__section-title">
+                                {t("tools.catalogWebSongsSection")}
+                                <span className="tools-dl-releases__section-count">
+                                  {filteredRelSongs.length}
+                                </span>
+                              </h4>
+                              <ul className="tools-dl-releases__list tools-dl-releases__list--grid">
+                                {filteredRelSongs.map((e) => (
+                                  <li
+                                    key={e.id}
+                                    className="tools-dl-releases__row"
+                                  >
+                                    <label className="tools-dl-releases__check">
+                                      <input
+                                        type="checkbox"
+                                        checked={relSel.has(e.id)}
+                                        onChange={() => toggleRelEntry(e.id)}
+                                      />
+                                      <span
+                                        className="tools-dl-releases__title"
+                                        title={e.url}
+                                      >
+                                        {e.title}
+                                      </span>
+                                      <span
+                                        className={`tools-dl-releases__trackcount${
+                                          relEnrichBusy && e.trackCount == null
+                                            ? " tools-dl-releases__trackcount--pending"
+                                            : ""
+                                        }`}
+                                        aria-label={
+                                          e.trackCount != null
+                                            ? t("tools.dlTrackCountAria", {
+                                                n: e.trackCount,
+                                              })
+                                            : relEnrichBusy
+                                              ? t(
+                                                  "tools.dlTrackCountPendingAria",
+                                                )
+                                              : undefined
+                                        }
+                                      >
+                                        {e.trackCount != null
+                                          ? t("tools.dlTrackCount", {
+                                              n: e.trackCount,
+                                            })
+                                          : relEnrichBusy
+                                            ? t("tools.dlTrackCountPending")
+                                            : t("tools.dlTrackCountUnknown")}
+                                      </span>
+                                    </label>
+                                  </li>
+                                ))}
+                              </ul>
+                            </section>
+                          ) : null}
+                        </div>
+                        {relEnrichBusy ? (
                           <p
                             className="subtle sm tools-dl-releases__enrich"
                             role="status"

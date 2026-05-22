@@ -178,14 +178,9 @@ export function PlayerBarTrackArt({
   relPath: string;
   version?: number | null;
 }) {
-  const user = useUserState();
-  const transitionsOn =
-    user.state.settings.audioCrossfadeSec > 0;
   const cacheKey =
     version && Number.isFinite(version) ? Math.floor(version) : null;
-  const remountKey = transitionsOn
-    ? `${relPath}:${cacheKey ?? ""}`
-    : "__player-dock-art__";
+  const remountKey = `${relPath}:${cacheKey ?? ""}`;
   return (
     <PlayerBarTrackArtInner
       key={remountKey}
@@ -884,9 +879,9 @@ export function AlbumCover({
   album: LibraryAlbumIndex;
   compact?: boolean;
 }) {
-  if (album.coverRelPath) {
-    const base = coverUrlForAlbumRelPath(album.relPath);
-    const src = versionedUrl(base, album.updatedAt);
+  const coverPath = album.coverRelPath?.trim() || album.relPath;
+  if (coverPath) {
+    const src = versionedUrl(coverUrlForAlbumRelPath(coverPath), album.updatedAt);
     return (
       <CoverImg
         className={`album-cover ${compact ? "is-compact" : ""}`}

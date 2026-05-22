@@ -134,6 +134,43 @@ function shuffleTailFromCurrent<T>(items: T[], currentIdx: number): T[] {
   return [...prefix, ...fisherYatesShuffle(tail)];
 }
 
+function deckAudio(
+  ix: DeckIx,
+  d0: HTMLAudioElement | null,
+  d1: HTMLAudioElement | null,
+): HTMLAudioElement | null {
+  return ix === 0 ? d0 : d1;
+}
+
+function audioReadyEnough(audio: HTMLAudioElement): boolean {
+  return audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA;
+}
+
+function waitForAudioReady(audio: HTMLAudioElement): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (audioReadyEnough(audio)) {
+      resolve();
+      return;
+    }
+    const done = () => {
+      cleanup();
+      resolve();
+    };
+    const fail = () => {
+      cleanup();
+      reject(new Error("audio load failed"));
+    };
+    const cleanup = () => {
+      audio.removeEventListener("canplaythrough", done);
+      audio.removeEventListener("loadeddata", done);
+      audio.removeEventListener("error", fail);
+    };
+    audio.addEventListener("canplaythrough", done, { once: true });
+    audio.addEventListener("loadeddata", done, { once: true });
+    audio.addEventListener("error", fail, { once: true });
+  });
+}
+
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const user = useUserState();
   const userReady = user.ready;
@@ -157,6 +194,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const crossfadeInIxRef = useRef<DeckIx | null>(null);
   const crossfadeNextIdxRef = useRef<number | null>(null);
   const skipNextCurrentLoadRef = useRef(false);
+  const trackLoadGenRef = useRef(0);
+  const prefetchedRelPathRef = useRef<string | null>(null);
   const audioCrossfadeSecRef = useRef<AudioCrossfadeSec>(
     user.state.settings.audioCrossfadeSec,
   );
@@ -348,7 +387,34 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       inactiveEl.removeAttribute("src");
       void inactiveEl.load();
     }
+    prefetchedRelPathRef.current = null;
   }, [snapGainsToSolo]);
+
+  const prefetchNextOnInactiveDeck = useCallback(() => {
+    if (crossfadeBusyRef.current) return;
+    if (audioCrossfadeSecRef.current > 0) return;
+    if (repeatRef.current === "one") return;
+    const q = queueRef.current;
+    const idx = indexRef.current;
+    const nextIdx = pickNextIndex(q.length, idx, repeatRef.current);
+    if (nextIdx == null) return;
+    const nextTr = q[nextIdx];
+    if (!nextTr) return;
+    const outIx = activeDeckRef.current;
+    const inIx: DeckIx = outIx === 0 ? 1 : 0;
+    const outEl = deckAudio(outIx, audioDeck0Ref.current, audioDeck1Ref.current);
+    const inEl = deckAudio(inIx, audioDeck0Ref.current, audioDeck1Ref.current);
+    if (!outEl || !inEl) return;
+    const d = outEl.duration;
+    if (!Number.isFinite(d) || d <= 0) return;
+    const remain = d - outEl.currentTime;
+    if (remain > 12 || remain < 0.25) return;
+    const path = nextTr.relPath;
+    if (prefetchedRelPathRef.current === path && audioReadyEnough(inEl)) return;
+    prefetchedRelPathRef.current = path;
+    inEl.src = mediaUrl(path);
+    inEl.load();
+  }, []);
 
   const startCrossfade = useCallback(async () => {
     const sec = audioCrossfadeSecRef.current;
@@ -456,6 +522,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       repeatRef.current,
     );
     if (nextIndex == null) {
+      keepPlayingRef.current = false;
       setIsPlaying(false);
       return;
     }
@@ -566,6 +633,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!current) {
+      trackLoadGenRef.current += 1;
+      prefetchedRelPathRef.current = null;
       void abortCrossfade();
       activeDeckRef.current = 0;
       setActiveDeckIx(0);
@@ -582,30 +651,81 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     }
     if (skipNextCurrentLoadRef.current) {
       skipNextCurrentLoadRef.current = false;
+      const ready = deckAudio(
+        activeDeckRef.current,
+        audioDeck0Ref.current,
+        audioDeck1Ref.current,
+      );
+      if (ready) {
+        if (Number.isFinite(ready.duration) && ready.duration > 0) {
+          setDuration(ready.duration);
+        }
+        setCurrentTime(ready.currentTime);
+      }
       return;
     }
 
     void abortCrossfade();
 
-    const ix = activeDeckRef.current;
-    const audio = ix === 0 ? audioDeck0Ref.current : audioDeck1Ref.current;
-    if (!audio) return;
-    audio.src = mediaUrl(current.relPath);
-    audio.load();
-    if (keepPlayingRef.current) {
-      const run = async () => {
+    const track = current;
+    const gen = ++trackLoadGenRef.current;
+    const outIx = activeDeckRef.current;
+    const inIx: DeckIx = outIx === 0 ? 1 : 0;
+    const outEl = deckAudio(outIx, audioDeck0Ref.current, audioDeck1Ref.current);
+    const inEl = deckAudio(inIx, audioDeck0Ref.current, audioDeck1Ref.current);
+    if (!outEl || !inEl) return;
+
+    const run = async () => {
+      const url = mediaUrl(track.relPath);
+      const alreadyBuffered =
+        prefetchedRelPathRef.current === track.relPath &&
+        audioReadyEnough(inEl);
+      if (!alreadyBuffered) {
+        prefetchedRelPathRef.current = track.relPath;
+        inEl.src = url;
+        inEl.load();
+        try {
+          await waitForAudioReady(inEl);
+        } catch {
+          if (gen !== trackLoadGenRef.current) return;
+          setIsPlaying(false);
+          return;
+        }
+      }
+      if (gen !== trackLoadGenRef.current) return;
+
+      outEl.pause();
+      outEl.removeAttribute("src");
+      void outEl.load();
+
+      snapGainsToSolo(inIx);
+      activeDeckRef.current = inIx;
+      setActiveDeckIx(inIx);
+
+      if (Number.isFinite(inEl.duration) && inEl.duration > 0) {
+        setDuration(inEl.duration);
+      }
+      setCurrentTime(inEl.currentTime);
+
+      if (keepPlayingRef.current) {
         const ctx = audioCtxRef.current;
         if (ctx && ctx.state === "suspended") await ctx.resume();
         try {
-          await audio.play();
+          await inEl.play();
+          if (gen !== trackLoadGenRef.current) return;
           setIsPlaying(true);
-          pushRecent(current);
+          pushRecent(track);
         } catch {
+          if (gen !== trackLoadGenRef.current) return;
           setIsPlaying(false);
         }
-      };
-      void run();
-    }
+      }
+    };
+    void run();
+
+    return () => {
+      trackLoadGenRef.current += 1;
+    };
   }, [abortCrossfade, current?.relPath, pushRecent, snapGainsToSolo]);
 
   useEffect(() => {
@@ -624,8 +744,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       const onTime = () => {
         if (ixFor(audio) !== activeDeckRef.current) return;
         setCurrentTime(audio.currentTime);
-        if (audio.duration && !Number.isNaN(audio.duration))
+        if (
+          audio.duration &&
+          !Number.isNaN(audio.duration) &&
+          audio.duration > 0
+        ) {
           setDuration(audio.duration);
+        }
+        prefetchNextOnInactiveDeck();
         const relPath = currentRef.current?.relPath;
         if (!relPath) return;
         if (halfListenTrackRef.current !== relPath) {
@@ -649,8 +775,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       };
       const onMeta = () => {
         if (ixFor(audio) !== activeDeckRef.current) return;
-        if (audio.duration && !Number.isNaN(audio.duration))
+        if (
+          audio.duration &&
+          !Number.isNaN(audio.duration) &&
+          audio.duration > 0
+        ) {
           setDuration(audio.duration);
+        }
       };
       const onEnd = () => {
         if (ixFor(audio) !== activeDeckRef.current) return;
@@ -680,6 +811,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     advanceAfterTrackCompleted,
     finalizeCrossfade,
     incrementTrackPlayCount,
+    prefetchNextOnInactiveDeck,
     startCrossfade,
   ]);
 
@@ -952,6 +1084,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const next = useCallback(() => {
+    void abortCrossfade();
     if (!queue.length) return;
     const nextIndex = pickNextIndex(
       queue.length,
@@ -959,13 +1092,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       repeat,
     );
     if (nextIndex == null) {
+      keepPlayingRef.current = false;
       setIsPlaying(false);
       return;
     }
     setCurrentIndex(nextIndex);
     setCurrent(queue[nextIndex] || null);
     keepPlayingRef.current = true;
-  }, [currentIndex, queue, repeat]);
+  }, [abortCrossfade, currentIndex, queue, repeat]);
 
   const setShuffle = useCallback((enable: boolean) => {
     if (!enable) {
@@ -1090,7 +1224,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     setMediaSessionMetadata(current);
-    setMediaSessionPlaybackState(isPlaying ? "playing" : "paused");
+    setMediaSessionPlaybackState(
+      isPlaying || keepPlayingRef.current ? "playing" : "paused",
+    );
   }, [current, isPlaying]);
 
   useEffect(() => {

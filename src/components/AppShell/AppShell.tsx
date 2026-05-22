@@ -30,6 +30,7 @@ import { clientLegacyLibrary } from "../../lib/libraryIndex";
 import {
   applyLibraryDeltaToIndex,
   applyLibraryDeltasToIndex,
+  mergeLibraryIndexFromServer,
   libraryIndexRehydrateSig,
 } from "../../lib/libraryIndex";
 import type { LibraryReconcileOptions } from "../../lib/libraryReconcile";
@@ -169,7 +170,7 @@ export function AppShell() {
       const task = Promise.all([fetchLibraryIndex(), fetchDashboard()])
         .then(async ([libraryData, dashboardData]) => {
           if (seq !== refreshSeqRef.current) return;
-          setIndex(libraryData);
+          setIndex((prev) => mergeLibraryIndexFromServer(prev, libraryData));
           setDashboard(dashboardData);
           setError(null);
           if (mode === "manual" && syncUser) await syncUserStateFromServer();

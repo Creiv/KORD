@@ -3,7 +3,43 @@ import { useEffect, useRef } from "react"
 import { beforeEach, vi } from "vitest"
 import { LibrarySyncActivityProvider } from "./LibrarySyncActivityContext"
 import { UserStateProvider, useUserState } from "./UserStateContext"
-import type { LibraryIndex } from "../types"
+import type { LibraryIndex, LibraryTrackIndex, TrackMeta } from "../types"
+
+const REHYDRATE_TRACK_REL = "Artist One/Album One/01 Song.mp3"
+
+function rehydrateTrackMeta(patch: Partial<TrackMeta> = {}): TrackMeta {
+  return {
+    fileName: "01 Song.mp3",
+    size: 1,
+    mtime: 1,
+    releaseDate: null,
+    genre: null,
+    durationMs: null,
+    trackNumber: null,
+    discNumber: null,
+    source: null,
+    url: null,
+    ...patch,
+  }
+}
+
+function rehydrateLibraryTrack(
+  patch: Partial<LibraryTrackIndex> = {},
+): LibraryTrackIndex {
+  return {
+    id: REHYDRATE_TRACK_REL,
+    relPath: REHYDRATE_TRACK_REL,
+    title: "Titolo nuovo",
+    artist: "Artist One",
+    album: "Album One",
+    albumId: "al1",
+    loose: false,
+    addedAt: null,
+    updatedAt: Date.now(),
+    meta: rehydrateTrackMeta({ genre: "Jazz", releaseDate: "2020" }),
+    ...patch,
+  }
+}
 
 function Probe() {
   const user = useUserState()
@@ -52,8 +88,6 @@ function SyncRaceProbe() {
     </div>
   )
 }
-
-const REHYDRATE_TRACK_REL = "Artist One/Album One/01 Song.mp3"
 
 function RecentMetaRehydrateProbe({ libraryIndex }: { libraryIndex: LibraryIndex }) {
   const user = useUserState()
@@ -408,13 +442,8 @@ describe("UserStateProvider", () => {
       album: "Album One",
       meta: { genre: "Rock" },
     }
-    const libraryTrack = {
-      ...staleRecent,
-      title: "Titolo nuovo",
-      meta: { genre: "Jazz", releaseDate: "2020" },
-      updatedAt: Date.now(),
-    }
-    const libraryIndex = {
+    const libraryTrack = rehydrateLibraryTrack()
+    const libraryIndex: LibraryIndex = {
       artists: [],
       albums: [],
       tracks: [libraryTrack],
@@ -428,7 +457,7 @@ describe("UserStateProvider", () => {
         tracksWithoutMeta: 0,
         looseAlbumCount: 0,
       },
-    } satisfies LibraryIndex
+    }
     const remoteState = {
       version: 1,
       revision: 2,

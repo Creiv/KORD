@@ -905,6 +905,8 @@ export const EN: Record<string, string> = {
   "tools.dlReleasesListTitle": "Albums",
   "tools.dlTrackCount": "{{n}} tracks",
   "tools.dlTrackCountUnknown": "—",
+  "tools.dlTrackCountPending": "…",
+  "tools.dlTrackCountPendingAria": "Track count loading",
   "tools.dlTrackCountAria": "{{n}} tracks in this release",
   "tools.dlReleasesUploader": "Channel: {{name}}",
   "tools.dlSelectAll": "Select all",

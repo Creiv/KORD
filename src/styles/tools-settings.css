@@ -1213,8 +1213,44 @@
   white-space: nowrap;
 }
 
+.tools-dl-releases__trackcount--pending {
+  opacity: 0.55;
+}
+
 .tools-dl-releases__enrich {
   margin: 0.35rem 0 0;
+}
+
+.tools-dl-releases__sections {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.tools-dl-releases__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.tools-dl-releases__section-title {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.tools-dl-releases__section-count {
+  font-size: 0.75rem;
+  font-weight: 500;
+  opacity: 0.85;
 }
 
 .tools-dl-releases__row--skeleton {

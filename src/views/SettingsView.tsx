@@ -110,7 +110,7 @@ function SettingsView() {
       return false;
     }
   });
-  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "2.9.0");
+  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "3.0.0");
 
   useEffect(() => {
     Promise.all([fetchConfig(), fetchAccounts()])

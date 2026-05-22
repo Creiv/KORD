@@ -1,4 +1,6 @@
-const UA = "Kord/2.9 (https://github.com/local)"
+import { kordApiUserAgentWithUrl } from "./kordVersion.mjs"
+
+const UA = kordApiUserAgentWithUrl()
 
 function pushUnique(out, seen, item) {
   if (!item.artwork || seen.has(item.artwork)) return

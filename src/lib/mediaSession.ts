@@ -35,6 +35,11 @@ export function setMediaSessionMetadata(
       { src: cover, sizes: "256x256", type: "image/jpeg" },
     ],
   })
+  if (typeof Image !== "undefined") {
+    const warm = new Image()
+    warm.decoding = "async"
+    warm.src = cover
+  }
 }
 
 export function setMediaSessionPlaybackState(

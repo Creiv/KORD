@@ -200,11 +200,6 @@ function pathnameOnly(full: string) {
   return full.split(/[?#]/)[0] ?? full
 }
 
-function accountParams(params: Record<string, string> = {}) {
-  const out = new URLSearchParams(params)
-  return out
-}
-
 function accountHeaders(base: HeadersInit = {}) {
   const id = getSelectedAccountId()
   return id ? { ...base, "X-KORD-Account-Id": id } : base
@@ -394,14 +389,13 @@ export type CatalogWebDiscoverResponse = {
 }
 
 export async function fetchCatalogWebDiscover(
-  refreshNonce?: number,
+  opts: { force?: boolean } = {},
 ): Promise<CatalogWebDiscoverResponse> {
   await ensureSelectedAccountId()
-  const nonce = refreshNonce ?? Date.now()
   const response = await apiFetch(
     "/api/catalog-web-discover",
     { cache: "no-store" },
-    { r: String(nonce) },
+    opts.force ? { force: "1" } : {},
   )
   return unwrap<CatalogWebDiscoverResponse>(response)
 }
@@ -844,15 +838,22 @@ export async function streamYoutubeReleasesList(
   cbs: {
     onMeta: (m: YoutubeReleasesListMeta) => void
     onEntry: (e: YoutubeReleaseEntry) => void
+    onListReady?: () => void
+    onEntryPatch?: (e: YoutubeReleaseEntry) => void
     onDone: () => void
   },
-  signal?: AbortSignal,
+  opts?: { enrichCounts?: boolean; signal?: AbortSignal },
 ): Promise<void> {
+  const signal = opts?.signal
   const response = await apiFetch("/api/youtube-releases-list", {
     method: "POST",
     signal,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url, stream: true }),
+    body: JSON.stringify({
+      url,
+      stream: true,
+      ...(opts?.enrichCounts ? { enrichCounts: true } : {}),
+    }),
   })
   if (!response.ok) {
     let msg = `Request failed (${response.status})`
@@ -896,6 +897,14 @@ export async function streamYoutubeReleasesList(
     }
     if (row.type === "entry" && row.entry) {
       cbs.onEntry(row.entry)
+      return
+    }
+    if (row.type === "list_ready") {
+      cbs.onListReady?.()
+      return
+    }
+    if (row.type === "entry_patch" && row.entry) {
+      cbs.onEntryPatch?.(row.entry)
       return
     }
     if (row.type === "done") {

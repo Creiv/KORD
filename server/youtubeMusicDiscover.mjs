@@ -362,18 +362,22 @@ async function fetchNewReleasesRaw(sourceKind) {
 export async function fetchCatalogWebDiscover(index) {
   const lookup = buildLibraryDiscoverLookup(index)
   const errors = []
+  const [albumsResult, singlesResult] = await Promise.all([
+    fetchNewReleasesRaw("albums").then(
+      (items) => ({ ok: true, items }),
+      (e) => ({ ok: false, error: String(e?.message || e) }),
+    ),
+    fetchNewReleasesRaw("singles").then(
+      (items) => ({ ok: true, items }),
+      (e) => ({ ok: false, error: String(e?.message || e) }),
+    ),
+  ])
   let rawAlbums = []
   let rawSingles = []
-  try {
-    rawAlbums = await fetchNewReleasesRaw("albums")
-  } catch (e) {
-    errors.push(String(e?.message || e))
-  }
-  try {
-    rawSingles = await fetchNewReleasesRaw("singles")
-  } catch (e) {
-    errors.push(String(e?.message || e))
-  }
+  if (albumsResult.ok) rawAlbums = albumsResult.items
+  else errors.push(albumsResult.error)
+  if (singlesResult.ok) rawSingles = singlesResult.items
+  else errors.push(singlesResult.error)
 
   const seen = new Set()
   const albums = []

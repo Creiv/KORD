@@ -3,6 +3,7 @@ import {
   applyLibraryDeltasToIndex,
   enrichedTracksNeedPlayerResync,
   libraryIndexRehydrateSig,
+  mergeLibraryIndexFromServer,
 } from "./libraryIndex";
 import type { LibraryTrackIndex, TrackMeta } from "../types";
 
@@ -138,6 +139,26 @@ describe("libraryIndex", () => {
         meta: sampleMeta({ ...meta, lyrics: "[00:01.00] Hello" }),
       })
     ).toBe(true);
+  });
+
+  it("mergeLibraryIndexFromServer keeps cover when server index is stale", () => {
+    const prev = miniIndex();
+    prev.albums[0] = {
+      ...prev.albums[0]!,
+      coverRelPath: "Artist/Album/cover.jpg",
+      hasCover: true,
+      updatedAt: 9_000,
+    };
+    const next = miniIndex();
+    next.albums[0] = {
+      ...next.albums[0]!,
+      coverRelPath: null,
+      hasCover: false,
+      updatedAt: 1_000,
+    };
+    const merged = mergeLibraryIndexFromServer(prev, next);
+    expect(merged.albums[0]?.coverRelPath).toBe("Artist/Album/cover.jpg");
+    expect(merged.albums[0]?.hasCover).toBe(true);
   });
 
   it("applyLibraryDeltasToIndex applies multiple album patches in one pass", () => {
