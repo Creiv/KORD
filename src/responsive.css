@@ -16,6 +16,17 @@ body,
   max-width: 100vw;
 }
 
+@media (max-width: 1000px) {
+  html,
+  body,
+  #root {
+    min-height: 100dvh;
+    min-height: 100svh;
+    height: 100dvh;
+    height: 100svh;
+  }
+}
+
 .content-shell {
   max-width: 100%;
   box-sizing: border-box;

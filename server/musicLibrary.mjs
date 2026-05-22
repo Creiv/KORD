@@ -69,6 +69,21 @@ function albumKey(artistName, albumName) {
   return `${artistName}::${albumName}`
 }
 
+function parsePlectrBestFromMeta(raw) {
+  if (!raw || typeof raw !== "object") return null
+  const score = Number(raw.score)
+  if (!Number.isFinite(score)) return null
+  return {
+    score: Math.max(0, Math.round(score)),
+    grade: String(raw.grade ?? "").slice(0, 8),
+    accuracy: Math.min(1, Math.max(0, Number(raw.accuracy) || 0)),
+    maxCombo: Math.max(0, Math.round(Number(raw.maxCombo) || 0)),
+    hits: Math.max(0, Math.round(Number(raw.hits) || 0)),
+    misses: Math.max(0, Math.round(Number(raw.misses) || 0)),
+    updatedAt: raw.updatedAt ? String(raw.updatedAt) : null,
+  }
+}
+
 function trackFromFile({
   artistName,
   albumFolderName,
@@ -114,6 +129,7 @@ function trackFromFile({
       discNumber: numOrNull(trackMeta?.discNumber),
       source: trackMeta?.source || null,
       url: trackMeta?.url || null,
+      plectrBest: parsePlectrBestFromMeta(trackMeta?.plectrBest),
     },
     ...(albumMeta ? { albumMeta } : {}),
     loose: Boolean(loose),

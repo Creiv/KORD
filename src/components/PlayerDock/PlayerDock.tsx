@@ -1,8 +1,11 @@
 import { memo, useMemo } from "react";
+import { createPortal } from "react-dom";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { usePlayer } from "../../context/PlayerContext";
-import { useUserState } from "../../context/UserStateContext";
+import { useRhythmMode } from "../../context/RhythmModeContext";
 import { useI18n } from "../../i18n/useI18n";
+import { useUserState } from "../../context/UserStateContext";
+import { RhythmDockPanel } from "./RhythmDockPanel";
 import { PlayerBarTrackArt } from "../AppSharedUi";
 import { PlayerProgressTrack } from "../PlayerProgressTrack";
 import { ExcludeShuffleIcon } from "../ExcludeShuffleIcon";
@@ -18,20 +21,23 @@ import {
 } from "../KordUiIcons";
 import { isTrackAlbumShuffleExcluded } from "../../lib/randomExclusions";
 import { formatDuration } from "../../lib/duration";
-import type { LibraryTrackIndex } from "../../types";
+import type { LibraryEntityDelta, LibraryTrackIndex } from "../../types";
 
 interface PlayerDockProps {
   onGoToAscolta: () => void;
   onOpenLibraryArtist: (artist: string) => void;
   onOpenLibraryAlbum: (artist: string, album: string) => void;
+  onLibraryDelta?: (delta: LibraryEntityDelta, reconcile?: boolean) => void;
 }
 
 export const PlayerDock = memo(function PlayerDock({
   onGoToAscolta,
   onOpenLibraryArtist,
   onOpenLibraryAlbum,
+  onLibraryDelta,
 }: PlayerDockProps) {
   const p = usePlayer();
+  const { open: rhythmOpen, setOpen: setRhythmOpen } = useRhythmMode();
   const user = useUserState();
   const { t } = useI18n();
   const exAlbums = useMemo(
@@ -61,7 +67,25 @@ export const PlayerDock = memo(function PlayerDock({
   if (p.queue.length === 0) return null;
 
   return (
-    <div className="player-dock2">
+    <>
+      {rhythmOpen
+        ? createPortal(<div className="plectr-scrim" aria-hidden />, document.body)
+        : null}
+      <div className="player-dock2" data-rhythm-open={rhythmOpen ? "1" : "0"}>
+      {rhythmOpen && cur ? (
+        <RhythmDockPanel track={cur} onLibraryDelta={onLibraryDelta} />
+      ) : rhythmOpen ? (
+        <section className="rhythm-dock-panel rhythm-dock-panel--idle">
+          <p>{t("rhythm.noTrackHint")}</p>
+          <button
+            type="button"
+            className="rhythm-dock-panel__play-btn"
+            onClick={() => setRhythmOpen(false)}
+          >
+            {t("rhythm.back")}
+          </button>
+        </section>
+      ) : null}
       <footer className="player-bar2">
         <div
           className="player-bar2__row player-bar2__row--top player-bar2__row--open-listen"
@@ -279,5 +303,6 @@ export const PlayerDock = memo(function PlayerDock({
         </div>
       </footer>
     </div>
+    </>
   );
 });

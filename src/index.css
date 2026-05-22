@@ -954,11 +954,13 @@ html,
 body,
 #root {
   height: 100%;
+  min-height: 100dvh;
   margin: 0;
 }
 
 #root {
-  max-height: 100dvh;
+  min-height: 100dvh;
+  max-height: none;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -968,6 +970,7 @@ body,
 body {
   overflow: hidden;
   box-sizing: border-box;
+  min-height: 100dvh;
   background: linear-gradient(180deg, var(--page-lg-1) 0%, var(--page-lg-2) 100%);
 }
 

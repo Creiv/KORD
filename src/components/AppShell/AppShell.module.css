@@ -56,6 +56,10 @@
 @media (max-width: 1000px) {
   .shell {
     flex-direction: column;
+    min-height: 100dvh;
+    min-height: 100svh;
+    height: 100dvh;
+    height: 100svh;
   }
 
   .body {

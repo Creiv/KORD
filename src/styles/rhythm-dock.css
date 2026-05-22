@@ -1,0 +1,637 @@
+/* Plectr — gameplay (caricato on-demand via ensurePlectrStyles) */
+
+.rhythm-dock-panel .game-screen {
+  position: relative;
+  width: 100%;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  background: #090b12;
+}
+
+.rhythm-dock-panel .game-screen * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.rhythm-dock-panel .touch-pads {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  z-index: 3;
+}
+
+.rhythm-dock-panel .lane-pad {
+  min-width: 0;
+  border: 0;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  outline: none;
+}
+
+.rhythm-dock-panel .lane-pad:focus,
+.rhythm-dock-panel .lane-pad:focus-visible {
+  outline: none;
+}
+
+.rhythm-dock-panel .lane-pip {
+  display: block;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.rhythm-dock-panel .hud.top {
+  position: absolute;
+  display: grid;
+  align-items: center;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.rhythm-dock-panel .feedback {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  text-transform: uppercase;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.rhythm-dock-panel .feedback strong {
+  display: block;
+  font-weight: 900;
+  line-height: 1;
+}
+
+/* Scrim su tutta l’app quando Plectr è aperto (sotto il dock player). */
+.plectr-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-player) - 1);
+  pointer-events: none;
+  background: rgba(4, 6, 12, 0.52);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: plectr-scrim-in 0.22s ease;
+}
+
+@keyframes plectr-scrim-in {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+    -webkit-backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+}
+
+/* Pannello rhythm — occupa la viewport sopra la barra player; player-bar2 invariata */
+
+.player-dock2[data-rhythm-open="1"] {
+  --rhythm-dock-h: min(
+    88dvh,
+    calc(100dvh - env(safe-area-inset-top, 0px) - 10px)
+  );
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-end;
+  height: var(--rhythm-dock-h);
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px));
+}
+
+.player-dock2[data-rhythm-open="1"] > .player-bar2 {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 1000px) {
+  .player-dock2[data-rhythm-open="1"] {
+    left: 0;
+    right: 0;
+    --rhythm-dock-h: calc(
+      100dvh - var(--mobile-nav-h, 3.25rem) - env(safe-area-inset-bottom, 0px) -
+        env(safe-area-inset-top, 0px)
+    );
+    height: var(--rhythm-dock-h);
+    max-height: var(--rhythm-dock-h);
+  }
+
+  .rhythm-dock-panel {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+    border-radius: 0;
+  }
+
+  .rhythm-dock-panel .game-screen--dock .note-canvas {
+    width: 100% !important;
+  }
+
+  .rhythm-dock-panel__body > .game-screen--dock {
+    min-height: max(240px, calc(var(--rhythm-dock-h, 90dvh) - 9.5rem));
+  }
+
+  .rhythm-dock-panel .game-screen--dock .feedback--compact {
+    top: 4.5rem;
+  }
+}
+
+.rhythm-dock-panel--idle {
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+
+.rhythm-dock-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: min(100%, 420px);
+  margin-inline: auto;
+  box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface2) 96%, var(--accent) 4%) 0%,
+    var(--surface) 100%
+  );
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.32);
+}
+
+.rhythm-dock-panel__head {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.rhythm-dock-panel__head-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.rhythm-dock-panel__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent2);
+}
+
+.rhythm-dock-panel__brand-ic {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+}
+
+.rhythm-dock-panel__record {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex: 1 1 auto;
+  gap: 0.35rem;
+  margin: 0;
+  min-width: 0;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  line-height: 1.2;
+  text-align: center;
+}
+
+.rhythm-dock-panel__record-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rhythm-dock-panel__record strong {
+  font-size: var(--text-sm);
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+
+.rhythm-dock-panel__record-empty {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.rhythm-dock-panel__head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.rhythm-dock-panel__diffs {
+  display: flex;
+  width: 100%;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.rhythm-dock-panel__diff {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 0.35rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface3);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+}
+
+.rhythm-dock-panel__diff.is-active {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface3));
+  color: var(--text);
+}
+
+.rhythm-dock-panel__diff:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.rhythm-dock-panel__replay {
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface3));
+  color: var(--text);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rhythm-dock-panel__close {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface3);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.rhythm-dock-panel__close-ic {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.rhythm-dock-panel__body {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.rhythm-dock-panel__status {
+  flex: 1;
+  display: grid;
+  place-content: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--muted);
+}
+
+.rhythm-dock-panel__status-sub {
+  margin: 0;
+  font-size: var(--text-xs);
+  opacity: 0.85;
+}
+
+.rhythm-dock-panel__status--error {
+  color: var(--danger);
+}
+
+/* GameCanvas — flex column: highway in crescita + pad in basso */
+.rhythm-dock-panel__body > .game-screen--dock {
+  flex: 1 1 0;
+  min-height: max(
+    220px,
+    min(420px, calc(var(--rhythm-dock-h, 80dvh) - 12rem))
+  );
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  contain: layout paint;
+}
+
+.rhythm-dock-panel .game-screen--dock::before,
+.rhythm-dock-panel .game-screen--dock::after {
+  display: none;
+}
+
+.rhythm-dock-panel .game-screen--dock .note-canvas {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+  inset: unset;
+  contain: strict;
+}
+
+.rhythm-dock-panel .game-screen--dock .rhythm-lane-strip {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  min-height: 12px;
+  padding: 1px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.rhythm-dock-panel .game-screen--dock .rhythm-lane-strip__cell {
+  display: grid;
+  place-items: center;
+  min-height: 10px;
+}
+
+.rhythm-dock-panel .game-screen--dock .rhythm-lane-strip__mark {
+  width: min(36px, 70%);
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--lane-color) 55%, transparent);
+  opacity: 0.55;
+  transition:
+    background 120ms ease,
+    opacity 120ms ease,
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.rhythm-dock-panel .game-screen--dock .rhythm-lane-strip__cell--hit .rhythm-lane-strip__mark {
+  background: var(--lane-color);
+  opacity: 1;
+  transform: scaleY(1.35);
+  box-shadow: 0 0 10px var(--lane-shadow);
+}
+
+.rhythm-dock-panel .game-screen--dock .rhythm-lane-strip__cell--miss .rhythm-lane-strip__mark {
+  background: #ff6f82;
+  opacity: 1;
+  transform: scaleY(1.35);
+  box-shadow: 0 0 10px rgba(255, 111, 130, 0.55);
+}
+
+.rhythm-dock-panel .game-screen--dock .touch-pads {
+  position: relative;
+  flex: 0 0 clamp(44px, 6.5vh, 56px);
+  left: auto;
+  right: auto;
+  bottom: auto;
+  height: auto;
+  min-height: 44px;
+  max-height: 56px;
+  padding-bottom: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.rhythm-dock-panel .game-screen--dock .lane-pad {
+  min-width: 0;
+  min-height: 0;
+  opacity: 1;
+  filter: saturate(0.92) brightness(0.9);
+  border-top-width: 3px;
+  border-top-color: var(--lane-color);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--lane-color) 28%, #10141f) 0%,
+    #06080f 100%
+  );
+  transition:
+    filter 100ms ease,
+    background 100ms ease,
+    box-shadow 100ms ease;
+}
+
+.rhythm-dock-panel .game-screen--dock .lane-pad.is-pressed,
+.rhythm-dock-panel .game-screen--dock .lane-pad:active {
+  filter: none;
+  border-top-color: var(--lane-color);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--lane-color) 48%, #12182a),
+    #05070d
+  );
+  box-shadow: 0 -5px 16px color-mix(in srgb, var(--lane-shadow) 60%, transparent);
+}
+
+.rhythm-dock-panel .game-screen--dock .lane-pad--hit {
+  border-top-color: var(--lane-color);
+  box-shadow: 0 -4px 14px color-mix(in srgb, var(--lane-shadow) 45%, transparent);
+}
+
+.rhythm-dock-panel .game-screen--dock .lane-pad--miss {
+  border-top-color: #ff6f82;
+  box-shadow: 0 -4px 14px rgba(255, 111, 130, 0.35);
+}
+
+.rhythm-dock-panel .game-screen--dock .lane-pip {
+  width: min(36px, 34%);
+  height: 7px;
+  opacity: 0.82;
+  background: var(--lane-color);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--lane-shadow) 40%, transparent);
+}
+
+.rhythm-dock-panel .game-screen--dock .lane-pad.is-pressed .lane-pip,
+.rhythm-dock-panel .game-screen--dock .lane-pad:active .lane-pip {
+  opacity: 1;
+  background: var(--lane-color);
+  box-shadow: 0 0 14px var(--lane-shadow);
+}
+
+.rhythm-dock-panel .game-screen--dock .lane-pad--hit .lane-pip {
+  background: var(--lane-color);
+  box-shadow: 0 0 12px var(--lane-shadow);
+}
+
+.rhythm-dock-panel .game-screen--dock .lane-pad--miss .lane-pip {
+  background: #ff6f82;
+  box-shadow: 0 0 12px rgba(255, 111, 130, 0.65);
+}
+
+.rhythm-dock-panel .game-screen--dock .hud.top,
+.rhythm-dock-panel .game-screen--dock .hud--kord {
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  min-height: 40px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
+.rhythm-dock-panel .game-screen--dock .hud.top > div:not(.health),
+.rhythm-dock-panel .game-screen--dock .hud-stat {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--accent2) 22%, transparent),
+      transparent 78%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--surface3) 94%, var(--bg)),
+      color-mix(in srgb, var(--surface2) 90%, var(--bg))
+    );
+  border: 1px solid color-mix(in srgb, var(--accent2) 32%, var(--border));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--accent2) 14%, transparent),
+    0 4px 14px color-mix(in srgb, var(--bg) 55%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.rhythm-dock-panel .game-screen--dock .hud-stat__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--muted-strong);
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1.15;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rhythm-dock-panel .game-screen--dock .hud-stat__value {
+  flex: 0 0 auto;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text);
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.rhythm-dock-panel .game-screen--dock .hud-stat--score .hud-stat__value {
+  color: var(--accent2);
+}
+
+.rhythm-dock-panel .game-screen--dock .hud-stat--combo .hud-stat__value {
+  color: var(--accent);
+}
+
+.rhythm-dock-panel .game-screen--dock .time-readout,
+.rhythm-dock-panel .game-screen--dock .song-progress,
+.rhythm-dock-panel .game-screen--dock .combo-burst,
+.rhythm-dock-panel .game-screen--dock .start-overlay {
+  display: none !important;
+}
+
+.rhythm-dock-panel .game-screen--dock .feedback.feedback-neutral {
+  display: none;
+}
+
+.rhythm-dock-panel .game-screen--dock .fever-button {
+  width: 56px;
+  height: 56px;
+}
+
+.rhythm-dock-panel .game-screen--dock .feedback--compact {
+  top: 4.35rem;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  min-width: 0;
+  max-width: 92%;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  backdrop-filter: none;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.rhythm-dock-panel .game-screen--dock .feedback--compact::before,
+.rhythm-dock-panel .game-screen--dock .feedback--compact::after {
+  display: none;
+}
+
+.rhythm-dock-panel .game-screen--dock .feedback--compact strong {
+  font-size: clamp(1rem, 4.5vw, 1.35rem);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-shadow:
+    0 0 12px rgba(0, 0, 0, 0.85),
+    0 2px 8px rgba(0, 0, 0, 0.65);
+}
+
+.rhythm-dock-panel .game-screen--dock .feedback--compact.feedback-perfect strong {
+  color: #46e7ff;
+}
+
+.rhythm-dock-panel .game-screen--dock .feedback--compact.feedback-good strong {
+  color: #35d26f;
+}
+
+.rhythm-dock-panel .game-screen--dock .feedback--compact.feedback-timing strong {
+  color: #f2ce4a;
+}
+
+.rhythm-dock-panel .game-screen--dock .feedback--compact.feedback-miss strong {
+  color: #ff6f82;
+}
+
+@media (min-width: 760px) {
+  .rhythm-dock-panel {
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+}

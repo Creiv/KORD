@@ -1,6 +1,7 @@
 import { AppConfirmProvider } from "./context/AppConfirmContext";
 import { LibrarySyncActivityProvider } from "./context/LibrarySyncActivityContext";
 import { PlayerProvider } from "./context/PlayerContext";
+import { RhythmModeProvider } from "./context/RhythmModeContext";
 import { ToolsActivityProvider } from "./context/ToolsActivityContext";
 import { UserStateProvider } from "./context/UserStateContext";
 import { AppShell } from "./components/AppShell/AppShell";
@@ -15,9 +16,11 @@ export default function App() {
       <UserStateProvider>
         <AppConfirmProvider>
           <PlayerProvider>
-            <ToolsActivityProvider>
-              <AppShell />
-            </ToolsActivityProvider>
+            <RhythmModeProvider>
+              <ToolsActivityProvider>
+                <AppShell />
+              </ToolsActivityProvider>
+            </RhythmModeProvider>
           </PlayerProvider>
         </AppConfirmProvider>
       </UserStateProvider>

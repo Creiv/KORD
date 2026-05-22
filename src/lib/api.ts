@@ -1476,6 +1476,49 @@ export async function saveTrackInfoManual(
   return json as { ok: true; relPath: string; meta: Record<string, unknown>; track?: LibraryEntityDelta["track"]; album?: LibraryEntityDelta["album"] }
 }
 
+export async function savePlectrBestScore(
+  relPath: string,
+  result: {
+    score: number;
+    grade: string;
+    accuracy: number;
+    maxCombo: number;
+    hits?: number;
+    misses?: number;
+    updatedAt?: string;
+  },
+): Promise<{
+  ok: true;
+  relPath: string;
+  meta: Record<string, unknown>;
+  track?: LibraryEntityDelta["track"];
+}> {
+  const response = await apiFetch("/api/plectr/save-best", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ relPath, result }),
+  });
+  const json = (await response.json()) as
+    | {
+        ok: true;
+        relPath: string;
+        meta: Record<string, unknown>;
+        track?: LibraryEntityDelta["track"];
+      }
+    | { error?: string };
+  if (!response.ok) {
+    throw new Error(
+      "error" in json ? json.error || "Failed to save Plectr score" : "Failed to save Plectr score",
+    );
+  }
+  return json as {
+    ok: true;
+    relPath: string;
+    meta: Record<string, unknown>;
+    track?: LibraryEntityDelta["track"];
+  };
+}
+
 export async function pruneOrphanTrackMetaForAlbum(
   albumPath: string,
 ): Promise<{ albumPath: string; removed: string[]; written: boolean }> {

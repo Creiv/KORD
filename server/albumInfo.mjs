@@ -375,6 +375,43 @@ export async function saveTrackManualMeta(albumDir, fileName, patch) {
   })
 }
 
+/**
+ * Salva il miglior punteggio Plectr in kord-trackinfo.json (solo se migliore del precedente).
+ * @param {Record<string, unknown>} result score, grade, accuracy, maxCombo, hits, misses
+ */
+export async function savePlectrBestMeta(albumDir, fileName, result) {
+  const readPath = pickTrackMetaPath(albumDir)
+  const writePath = path.join(albumDir, FILE_TRACK)
+  return withMetaMutation(writePath, async () => {
+    const json = await readJsonObjectFile(readPath)
+    const prev =
+      json[fileName] && typeof json[fileName] === "object"
+        ? { ...json[fileName] }
+        : {}
+    const score = Math.max(0, Math.round(Number(result?.score) || 0))
+    const current = prev.plectrBest
+    if (current && typeof current === "object" && Number(current.score) >= score) {
+      return prev
+    }
+    const next = {
+      ...prev,
+      plectrBest: {
+        score,
+        grade: String(result?.grade ?? "").slice(0, 8),
+        accuracy: Math.min(1, Math.max(0, Number(result?.accuracy) || 0)),
+        maxCombo: Math.max(0, Math.round(Number(result?.maxCombo) || 0)),
+        hits: Math.max(0, Math.round(Number(result?.hits) || 0)),
+        misses: Math.max(0, Math.round(Number(result?.misses) || 0)),
+        updatedAt: new Date().toISOString(),
+      },
+      editedAt: prev.editedAt || new Date().toISOString(),
+    }
+    json[fileName] = next
+    await writeJsonObjectAtomic(writePath, json)
+    return next
+  })
+}
+
 export async function saveTrackFetchedMeta(albumDir, fileName, patch) {
   const fpKord = path.join(albumDir, FILE_TRACK)
   const readPath = pickTrackMetaPath(albumDir)

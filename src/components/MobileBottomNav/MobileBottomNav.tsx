@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import type { AppSection } from "../../types";
+import { useRhythmMode } from "../../context/RhythmModeContext";
+import { usePlayer } from "../../context/PlayerContext";
 import { useI18n } from "../../i18n/useI18n";
 import { KordNavIcon, UiClose } from "../KordUiIcons";
 import styles from "./MobileBottomNav.module.css";
 
 const MORE_KEYS: { id: AppSection; labelKey: string }[] = [
   { id: "queue", labelKey: "nav.queue" },
-  { id: "settings", labelKey: "nav.settings" },
   { id: "playlists", labelKey: "nav.playlists" },
   { id: "favorites", labelKey: "nav.favorites" },
   { id: "recent", labelKey: "nav.recent" },
   { id: "statistics", labelKey: "nav.statistics" },
   { id: "achievements", labelKey: "nav.achievements" },
+  { id: "gioco", labelKey: "nav.plectr" },
+  { id: "settings", labelKey: "nav.settings" },
 ];
 
 const PRIMARY: { id: AppSection; labelKey: string }[] = [
@@ -28,9 +31,12 @@ interface MobileBottomNavProps {
 
 export function MobileBottomNav({ active, onSelect }: MobileBottomNavProps) {
   const { t } = useI18n();
+  const { open: rhythmOpen, toggle: toggleRhythm } = useRhythmMode();
+  const player = usePlayer();
   const sheetId = useId();
   const [moreOpen, setMoreOpen] = useState(false);
-  const isMoreGroup = MORE_KEYS.some((x) => x.id === active);
+  const isMoreGroup =
+    MORE_KEYS.some((x) => x.id === active) || rhythmOpen;
 
   useEffect(() => {
     if (!moreOpen) return;
@@ -52,9 +58,14 @@ export function MobileBottomNav({ active, onSelect }: MobileBottomNavProps) {
 
   const go = useCallback(
     (s: AppSection) => {
+      if (s === "gioco") {
+        if (player.queue.length === 0) return;
+        toggleRhythm();
+        return;
+      }
       onSelect(s);
     },
-    [onSelect]
+    [onSelect, player.queue.length, toggleRhythm]
   );
 
   return (
@@ -123,7 +134,8 @@ export function MobileBottomNav({ active, onSelect }: MobileBottomNavProps) {
             </div>
             <ul className={styles.sheetList}>
               {MORE_KEYS.map((item) => {
-                const isActive = active === item.id;
+                const isActive =
+                  item.id === "gioco" ? rhythmOpen : active === item.id;
                 return (
                   <li key={item.id}>
                     <button

@@ -13,6 +13,7 @@ import {
 import type { CSSProperties, RefObject } from "react";
 import { useAppConfirm } from "../../context/AppConfirmContext";
 import { usePlayer } from "../../context/PlayerContext";
+import { useRhythmMode } from "../../context/RhythmModeContext";
 import { useLibrarySyncActivity } from "../../context/LibrarySyncActivityContext";
 import { useToolsActivity } from "../../context/ToolsActivityContext";
 import { useUserState } from "../../context/UserStateContext";
@@ -81,13 +82,13 @@ const LazySettingsView = lazy(() => import("../../views/SettingsView"));
 const LazyToolsView = lazy(() =>
   import("../ToolsView").then((m) => ({ default: m.ToolsView }))
 );
-
 /** Dopo modifiche ai metadati il server ricostruisce l'indice; evitiamo tsunami di GET /library-index. */
 const LIBRARY_RECONCILE_DEBOUNCE_MS = 1400;
 
 export function AppShell() {
   const { route, navigate } = useAppRoute();
   const p = usePlayer();
+  const { setOpen: setRhythmOpen } = useRhythmMode();
   usePlayerDockCssVars(p.queue.length);
   const isMobileLayout = useMatchMedia(MOBILE_LAYOUT_MQ);
   const user = useUserState();
@@ -628,6 +629,11 @@ export function AppShell() {
 
   const goAppSection = useCallback(
     (section: AppSection) => {
+      if (section === "gioco") {
+        if (p.queue.length > 0) setRhythmOpen(true);
+        startTransition(() => navigate({ section: "dashboard" }));
+        return;
+      }
       if (section === "libreria") {
         closeLibrarySearch();
         setLibraryHomeTick((n) => n + 1);
@@ -636,8 +642,14 @@ export function AppShell() {
         navigate({ section });
       });
     },
-    [navigate, closeLibrarySearch]
+    [closeLibrarySearch, navigate, p.queue.length, setRhythmOpen]
   );
+
+  useEffect(() => {
+    if (route.section !== "gioco") return;
+    if (p.queue.length > 0) setRhythmOpen(true);
+    startTransition(() => navigate({ section: "dashboard" }));
+  }, [navigate, p.queue.length, route.section, setRhythmOpen]);
 
   const navToSection = useCallback(
     (section: AppSection) => navigate({ section }),
@@ -885,6 +897,7 @@ export function AppShell() {
             onGoToAscolta={onGoToAscolta}
             onOpenLibraryArtist={navToLibraryArtist}
             onOpenLibraryAlbum={navToLibraryAlbum}
+            onLibraryDelta={applyLibraryDelta}
           />
           {isMobileLayout ? (
             <MobileBottomNav active={route.section} onSelect={goAppSection} />

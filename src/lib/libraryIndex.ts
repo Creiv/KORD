@@ -44,6 +44,10 @@ export function enrichedTracksNeedPlayerResync(
   if ((qm.lyrics ?? "") !== (im.lyrics ?? "")) return true;
   if ((qm.releaseDate ?? "") !== (im.releaseDate ?? "")) return true;
   if ((qm.durationMs ?? 0) !== (im.durationMs ?? 0)) return true;
+  const qb = qm.plectrBest?.score;
+  const ib = im.plectrBest?.score;
+  if (qb !== ib) return true;
+  if ((qm.plectrBest?.grade ?? "") !== (im.plectrBest?.grade ?? "")) return true;
   return false;
 }
 

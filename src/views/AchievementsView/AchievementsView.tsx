@@ -9,6 +9,7 @@ import {
   UiFavorite,
   UiGraphicEq,
   UiHistory,
+  UiJoystick,
   UiNavDisc,
   UiPlayArrow,
   UiQueueMusic,
@@ -40,6 +41,8 @@ function BadgeIcon({
       return <UiHistory className={className} />;
     case "flame":
       return <UiHistory className={className} />;
+    case "plectr":
+      return <UiJoystick className={className} />;
     default:
       return <UiPlayArrow className={className} />;
   }

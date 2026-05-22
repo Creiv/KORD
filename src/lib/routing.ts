@@ -17,6 +17,7 @@ export const NAV_DEF: {
   { id: "ascolta", labelKey: "nav.listen", group: "core" },
   { id: "libreria", labelKey: "nav.library", group: "core" },
   { id: "studio", labelKey: "nav.studio", group: "core" },
+  { id: "gioco", labelKey: "nav.plectr", group: "core" },
   { id: "queue", labelKey: "nav.queue", group: "secondary" },
   { id: "playlists", labelKey: "nav.playlists", group: "secondary" },
   { id: "favorites", labelKey: "nav.favorites", group: "secondary" },
@@ -29,13 +30,11 @@ export const NAV_DEF: {
 export function parseRoute(): RouteState {
   const params = new URLSearchParams(window.location.search);
   const raw = window.location.pathname.replace(/^\/+/, "").split("/")[0];
-  const section = (
-    raw === "resonance" ? "achievements" : raw
-  ) as AppSection;
+  const normalized = raw === "resonance" ? "achievements" : raw;
+  const section = normalized as AppSection;
+  const known = NAV_DEF.some((item) => item.id === section);
   return {
-    section: NAV_DEF.some((item) => item.id === section)
-      ? section
-      : "dashboard",
+    section: known ? section : "dashboard",
     artist: params.get("artist"),
     album: params.get("album"),
     playlist: params.get("playlist"),

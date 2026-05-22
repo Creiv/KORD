@@ -10,7 +10,8 @@
   box-sizing: border-box;
   padding: 0;
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: color-mix(in srgb, var(--surface-elev-b) 94%, transparent);
+  min-height: calc(3.25rem + env(safe-area-inset-bottom, 0px));
+  background: color-mix(in srgb, var(--surface-elev-b) 98%, var(--bg));
   border-top: 1px solid var(--border);
   box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.3);
 }

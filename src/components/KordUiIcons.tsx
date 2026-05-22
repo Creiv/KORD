@@ -271,6 +271,28 @@ export function UiGraphicEq({ className }: { className?: string }) {
   );
 }
 
+/** Plectr — joystick arcade (pallina + asta + base) */
+export function UiJoystick({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="7.25" r="3.25" fill="currentColor" />
+      <path
+        fill="currentColor"
+        d="M10.75 10.5h2.5v5.75H10.75V10.5z"
+      />
+      <path
+        fill="currentColor"
+        d="M7 16.25h10c1.24 0 2.25 1.01 2.25 2.25V21.5c0 .28-.22.5-.5.5h-13c-.28 0-.5-.22-.5-.5v-3c0-1.24 1.01-2.25 2.25-2.25z"
+      />
+    </svg>
+  );
+}
+
+/** @deprecated Usa UiJoystick */
+export function UiSportsEsports({ className }: { className?: string }) {
+  return <UiJoystick className={className} />;
+}
+
 /** Libreria → mood (non confondere con Studio / equalizzatore) */
 export function UiPalette({ className }: { className?: string }) {
   return (
@@ -509,6 +531,8 @@ export function KordNavIcon({
       return <UiBarChart {...p} />;
     case "achievements":
       return <UiEmojiEvents {...p} />;
+    case "gioco":
+      return <UiJoystick {...p} />;
     case "settings":
       return <UiSettings {...p} />;
     case "more":

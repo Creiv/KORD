@@ -35,10 +35,10 @@ function emptyState(): Pick<
 }
 
 describe("achievements", () => {
-  it("has 10 titles, unchanged XP tiers, and 60 achievements", () => {
+  it("has 10 titles, unchanged XP tiers, and 65 achievements", () => {
     expect(ACHIEVEMENT_XP_TIERS).toHaveLength(10);
     expect(ACHIEVEMENT_TITLES[9]).toBe("KING OF KORD");
-    expect(ACHIEVEMENT_DEFINITIONS).toHaveLength(60);
+    expect(ACHIEVEMENT_DEFINITIONS).toHaveLength(65);
   });
 
   it("levelForXp maps numeric levels with title every 3 levels", () => {
@@ -79,14 +79,15 @@ describe("achievements", () => {
       albumsWithPlays: 50,
       playlistTrackCount: 30,
       streak: 30,
+      plectrTracksPlayed: 500,
     };
     const unlocked = ACHIEVEMENT_DEFINITIONS.filter((a) =>
       a.check(signals)
     ).length;
-    expect(unlocked).toBe(60);
+    expect(unlocked).toBe(65);
     expect(computeBaseXp(signals)).toBe(9050);
-    expect(computeAchievementXpBonus(signals)).toBe(5605);
-    expect(computeTotalXp(signals)).toBe(14655);
+    expect(computeAchievementXpBonus(signals)).toBe(6105);
+    expect(computeTotalXp(signals)).toBe(15155);
   });
 
   it("titleForNumericLevel changes every 3 levels and caps at KING OF KORD", () => {

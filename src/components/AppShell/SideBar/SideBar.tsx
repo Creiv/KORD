@@ -1,4 +1,6 @@
 import { memo, useCallback } from "react";
+import { useRhythmMode } from "../../../context/RhythmModeContext";
+import { usePlayer } from "../../../context/PlayerContext";
 import { useI18n } from "../../../i18n/useI18n";
 import { KordNavIcon, UiSearch } from "../../KordUiIcons";
 import { KordBrandLogo } from "../../KordBrandLogo";
@@ -33,16 +35,23 @@ export const SideBar = memo(function SideBar({
   onToggleCollapse,
 }: SideBarProps) {
   const { t } = useI18n();
+  const { open: rhythmOpen, toggle: toggleRhythm } = useRhythmMode();
+  const player = usePlayer();
 
   const handleNavClick = useCallback(
     (id: AppSection) => {
+      if (id === "gioco") {
+        if (player.queue.length === 0) return;
+        toggleRhythm();
+        return;
+      }
       if (id === "libreria") {
         onLibraryHome();
       } else {
         onNavigate(id);
       }
     },
-    [onNavigate, onLibraryHome]
+    [onNavigate, onLibraryHome, player.queue.length, toggleRhythm]
   );
 
   const coreItems = NAV_DEF.filter((item) => item.group === "core");
@@ -102,7 +111,11 @@ export const SideBar = memo(function SideBar({
               key={item.id}
               type="button"
               className={`${styles.navItem}${
-                activeSection === item.id ? ` ${styles.active}` : ""
+                item.id === "gioco" && rhythmOpen
+                  ? ` ${styles.active}`
+                  : activeSection === item.id
+                    ? ` ${styles.active}`
+                    : ""
               }`}
               aria-label={t(item.labelKey)}
               aria-current={activeSection === item.id ? "page" : undefined}

@@ -1,3 +1,4 @@
+import { countPlectrTracksPlayed } from "../game/lib/plectrStorage";
 import { parseTrackGenres } from "./genres";
 import type { LibraryIndex, UserStateV1 } from "../types";
 
@@ -114,7 +115,8 @@ export type AchievementIconKind =
   | "shuffle"
   | "library"
   | "flame"
-  | "streak";
+  | "streak"
+  | "plectr";
 
 export type AchievementDefinition = {
   id: string;
@@ -612,6 +614,46 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     icon: "library",
     check: (s) => libraryPctPlayed(s, 0.75),
   },
+  {
+    id: "plectr_tracks_10",
+    titleKey: "achievements.badge.plectrTracks10Title",
+    descKey: "achievements.badge.plectrTracks10Desc",
+    xpBonus: 30,
+    icon: "plectr",
+    check: (s) => s.plectrTracksPlayed >= 10,
+  },
+  {
+    id: "plectr_tracks_50",
+    titleKey: "achievements.badge.plectrTracks50Title",
+    descKey: "achievements.badge.plectrTracks50Desc",
+    xpBonus: 55,
+    icon: "plectr",
+    check: (s) => s.plectrTracksPlayed >= 50,
+  },
+  {
+    id: "plectr_tracks_100",
+    titleKey: "achievements.badge.plectrTracks100Title",
+    descKey: "achievements.badge.plectrTracks100Desc",
+    xpBonus: 85,
+    icon: "plectr",
+    check: (s) => s.plectrTracksPlayed >= 100,
+  },
+  {
+    id: "plectr_tracks_250",
+    titleKey: "achievements.badge.plectrTracks250Title",
+    descKey: "achievements.badge.plectrTracks250Desc",
+    xpBonus: 130,
+    icon: "plectr",
+    check: (s) => s.plectrTracksPlayed >= 250,
+  },
+  {
+    id: "plectr_tracks_500",
+    titleKey: "achievements.badge.plectrTracks500Title",
+    descKey: "achievements.badge.plectrTracks500Desc",
+    xpBonus: 200,
+    icon: "plectr",
+    check: (s) => s.plectrTracksPlayed >= 500,
+  },
 ];
 
 export type AchievementSignals = {
@@ -628,6 +670,8 @@ export type AchievementSignals = {
   albumsWithPlays: number;
   playlistTrackCount: number;
   streak: number;
+  /** Brani distinti con record Plectr salvato (libreria + localStorage). */
+  plectrTracksPlayed: number;
 };
 
 export function sumTrackPlayCounts(counts: Record<string, number>): number {
@@ -706,6 +750,7 @@ export function computeAchievementSignals(
     albumsWithPlays: albumsWithPlaysSet.size,
     playlistTrackCount,
     streak,
+    plectrTracksPlayed: countPlectrTracksPlayed(index),
   };
 }
 

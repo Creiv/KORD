@@ -45,6 +45,7 @@ import {
   sanitizeTrackTitlesInAlbumDir,
   saveTrackFetchedMeta,
   saveTrackManualMeta,
+  savePlectrBestMeta,
   pruneOrphanTrackMetaInAlbumDir,
 } from "./albumInfo.mjs";
 import { normalizeStoredGenreString, parseTrackGenres } from "./genres.mjs";
@@ -3333,6 +3334,54 @@ app.post("/api/track-info/save", async (req, res) => {
       track: trackDelta,
       album: { relPath: albumRel },
     });
+  } catch (error) {
+    return sendError(res, 500, String(error?.message || error));
+  }
+});
+
+app.post("/api/plectr/save-best", async (req, res) => {
+  const root = getMusicRoot();
+  const relPath = safeRelSeg(String(req.body?.relPath || ""));
+  const result = req.body?.result;
+  if (!relPath) return sendError(res, 400, "relPath is required");
+  if (!result || typeof result !== "object" || Array.isArray(result)) {
+    return sendError(res, 400, "result object is required");
+  }
+  try {
+    const fullTrackPath = path.join(root, relPath.replaceAll("/", path.sep));
+    if (
+      !underRoot(fullTrackPath, root) ||
+      !existsSync(fullTrackPath) ||
+      !isAudioFile(fullTrackPath)
+    ) {
+      return sendError(res, 404, "Track not found");
+    }
+    const parts = relPath.split("/").filter(Boolean);
+    const fileName = parts[parts.length - 1];
+    const albumRel = albumFolderFromRelPath(relPath);
+    if (!albumRel) return sendError(res, 400, "Invalid track path");
+    const albumDir = path.join(root, albumRel.replaceAll("/", path.sep));
+    if (!underRoot(albumDir, root) || !existsSync(albumDir)) {
+      return sendError(res, 404, "Album folder not found");
+    }
+    const meta = await savePlectrBestMeta(albumDir, fileName, result);
+    void actLog(req, {
+      kind: "library",
+      action: "plectr_best_save",
+      folder: albumRel,
+      detail: `${fileName}: ${meta?.plectrBest?.score ?? result.score}`,
+    });
+    const trackDelta = {
+      relPath,
+      meta: { plectrBest: meta?.plectrBest ?? null },
+    };
+    const cachePatched = await patchTrackInLibraryIndexCache(
+      root,
+      relPath,
+      trackDelta,
+    );
+    scheduleLibraryIndexMetaRefresh(root, cachePatched);
+    return res.json({ ok: true, relPath, meta, track: trackDelta });
   } catch (error) {
     return sendError(res, 500, String(error?.message || error));
   }

@@ -16,6 +16,18 @@ export type TrackMeta = {
   source: string | null;
   url: string | null;
   lyrics?: string | null;
+  /** Miglior punteggio Plectr (kord-trackinfo.json). */
+  plectrBest?: PlectrBestScore | null;
+};
+
+export type PlectrBestScore = {
+  score: number;
+  grade: string;
+  accuracy: number;
+  maxCombo: number;
+  hits?: number;
+  misses?: number;
+  updatedAt?: string;
 };
 
 export type LibTrack = {
@@ -326,6 +338,7 @@ export type AppSection =
   | "recent"
   | "settings"
   | "statistics"
-  | "achievements";
+  | "achievements"
+  | "gioco";
 
 export type RepeatMode = "off" | "all" | "one";
