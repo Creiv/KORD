@@ -21,23 +21,6 @@ interface FeedbackBadgeProps {
   compact?: boolean;
 }
 
-export const FEEDBACK_NAMES = [
-  "Ready",
-  "Paused",
-  "Tap Start again",
-  "Stay on track",
-  "Perfect",
-  "Good",
-  "Early",
-  "Late",
-  "Flick",
-  "Swipe",
-  "Slide",
-  "Miss",
-  "Dropped",
-  "Slide Miss",
-] as const;
-
 const FEEDBACK_PRESENTATIONS: Record<string, FeedbackPresentation> = {
   Ready: { kicker: "Stand by", label: "Ready", tone: "neutral" },
   Paused: { kicker: "Hold", label: "Paused", tone: "pause" },
@@ -53,6 +36,7 @@ const FEEDBACK_PRESENTATIONS: Record<string, FeedbackPresentation> = {
   Miss: { kicker: "Break", label: "Miss", tone: "miss" },
   Dropped: { kicker: "Hold lost", label: "Dropped", tone: "miss" },
   "Slide Miss": { kicker: "Wrong lane", label: "Slide miss", tone: "miss" },
+  "Hold Miss": { kicker: "Too soon", label: "Hold miss", tone: "miss" },
 };
 
 export function FeedbackBadge({ feedback, combo, pulse, paused = false, compact = false }: FeedbackBadgeProps) {
@@ -76,7 +60,7 @@ export function FeedbackBadge({ feedback, combo, pulse, paused = false, compact 
   );
 }
 
-export function feedbackPresentation(feedback: string, combo: number): FeedbackPresentation {
+function feedbackPresentation(feedback: string, combo: number): FeedbackPresentation {
   const base = FEEDBACK_PRESENTATIONS[feedback] ?? { kicker: "Update", label: feedback, tone: "neutral" };
   if ((base.tone === "perfect" || base.tone === "good") && combo >= 48) return { ...base, kicker: `${combo} chain` };
   if ((base.tone === "perfect" || base.tone === "good") && combo >= 16) return { ...base, kicker: "Combo rising" };

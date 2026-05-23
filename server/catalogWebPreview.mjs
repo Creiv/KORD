@@ -436,6 +436,9 @@ export async function fetchCatalogWebReleaseTracks({
 export const CATALOG_WEB_PREVIEW_YTDLP_FORMAT =
   "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best"
 
+/** Anteprima Discover: solo i primi 30 secondi (meno dati). */
+export const CATALOG_WEB_PREVIEW_MAX_SECONDS = 30
+
 /**
  * Argomenti yt-dlp per anteprima in pipe (-o -): il browser riceve i primi byte subito.
  * @param {string} watchUrl
@@ -457,6 +460,8 @@ export function buildCatalogWebPreviewYtdlpArgs(watchUrl, ytdlpExtraArgs) {
       "--no-progress",
       "--socket-timeout",
       "15",
+      "--download-sections",
+      `*0:00-0:${String(CATALOG_WEB_PREVIEW_MAX_SECONDS).padStart(2, "0")}`,
       ...(playlist ? ["--playlist-items", "1"] : ["--no-playlist"]),
       ...ytdlpExtraArgs(),
       url,

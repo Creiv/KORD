@@ -12,6 +12,8 @@ export type PopoverLayerPlacement = {
   right?: number;
   /** Esclusivo con `right`: distanza dal bordo sinistro del viewport. */
   left?: number;
+  /** Ancora sopra l’elemento (`translateY(-100%)` nel CSS del menu). */
+  above?: boolean;
 };
 
 export type PopoverLayerOptions = {
@@ -22,23 +24,29 @@ export type PopoverLayerOptions = {
    */
   alignMinWidthPx?: number;
   edgeMarginPx?: number;
+  /** Menu verso l’alto (es. playbar mobile). */
+  preferAbove?: boolean;
 };
 
 export function popoverPlacementStyle(
   placement: PopoverLayerPlacement | null
 ): CSSProperties | undefined {
   if (!placement) return undefined;
+  const aboveShift =
+    placement.above ? { transform: "translateY(calc(-100% - 6px))" } : undefined;
   if (placement.left != null) {
     return {
       top: placement.top,
       left: placement.left,
       right: "auto",
+      ...aboveShift,
     };
   }
   return {
     top: placement.top,
     right: placement.right ?? 8,
     left: "auto",
+    ...aboveShift,
   };
 }
 
@@ -58,30 +66,63 @@ export function usePopoverLayerAnchored(
   );
 
   useLayoutEffect(() => {
+    let cancelled = false;
+    const commitPlacement = (next: PopoverLayerPlacement | null) => {
+      queueMicrotask(() => {
+        if (!cancelled) setPlacement(next);
+      });
+    };
     if (!open) {
-      setPlacement(null);
-      return;
+      commitPlacement(null);
+      return () => {
+        cancelled = true;
+      };
     }
     const el = anchorRef.current;
     if (!el) {
-      setPlacement(null);
-      return;
+      commitPlacement(null);
+      return () => {
+        cancelled = true;
+      };
     }
     const rect = el.getBoundingClientRect();
     const m = Math.max(0, options?.edgeMarginPx ?? 8);
     const minW = options?.alignMinWidthPx;
     const vw = window.innerWidth;
 
+    const preferAbove = options?.preferAbove === true;
+    if (preferAbove) {
+      if (minW != null && minW > 0 && rect.right - m < minW) {
+        const left = Math.max(m, Math.min(rect.left, vw - minW - m));
+        commitPlacement({ top: rect.top, left, above: true });
+      } else {
+        commitPlacement({
+          top: rect.top,
+          right: Math.max(m, vw - rect.right),
+          above: true,
+        });
+      }
+      return;
+    }
     if (minW != null && minW > 0 && rect.right - m < minW) {
       const left = Math.max(m, Math.min(rect.left, vw - minW - m));
-      setPlacement({ top: rect.bottom + 4, left });
+      commitPlacement({ top: rect.bottom + 4, left });
     } else {
-      setPlacement({
+      commitPlacement({
         top: rect.bottom + 4,
         right: Math.max(m, vw - rect.right),
       });
     }
-  }, [open, anchorRef, options?.alignMinWidthPx, options?.edgeMarginPx]);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    open,
+    anchorRef,
+    options?.alignMinWidthPx,
+    options?.edgeMarginPx,
+    options?.preferAbove,
+  ]);
 
   useEffect(() => {
     if (!open) return;

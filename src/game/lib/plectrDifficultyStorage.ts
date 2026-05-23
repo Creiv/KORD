@@ -2,31 +2,48 @@ import type { DifficultyId } from "../types";
 
 export const PLECTR_DIFFICULTY_KEY = "kord-plectr-difficulty";
 
-const VALID: readonly DifficultyId[] = ["easy", "normal", "hard"];
+export type PlectrPlayMode = DifficultyId | "extreme";
 
+const VALID_DIFF: readonly DifficultyId[] = ["easy", "normal", "hard"];
 function isDifficultyId(raw: string): raw is DifficultyId {
-  return (VALID as readonly string[]).includes(raw);
+  return (VALID_DIFF as readonly string[]).includes(raw);
 }
 
-/** Maps legacy saved values; current ids are returned unchanged. */
+/** @deprecated use migratePlectrPlayMode */
 export function migratePlectrDifficulty(raw: string | null): DifficultyId {
-  if (raw === "extreme") return "hard";
+  const mode = migratePlectrPlayMode(raw);
+  return mode === "extreme" ? "hard" : mode;
+}
+
+export function migratePlectrPlayMode(raw: string | null): PlectrPlayMode {
+  if (raw === "extreme") return "extreme";
   if (raw && isDifficultyId(raw)) return raw;
   return "easy";
 }
 
-export function loadPlectrDifficulty(): DifficultyId {
+export function loadPlectrPlayMode(): PlectrPlayMode {
   try {
-    return migratePlectrDifficulty(localStorage.getItem(PLECTR_DIFFICULTY_KEY));
+    return migratePlectrPlayMode(localStorage.getItem(PLECTR_DIFFICULTY_KEY));
   } catch {
     return "easy";
   }
 }
 
-export function savePlectrDifficulty(id: DifficultyId): void {
+export function savePlectrPlayMode(id: PlectrPlayMode): void {
   try {
     localStorage.setItem(PLECTR_DIFFICULTY_KEY, id);
   } catch {
     /* ignore quota / private mode */
   }
+}
+
+/** @deprecated use loadPlectrPlayMode */
+export function loadPlectrDifficulty(): DifficultyId {
+  const mode = loadPlectrPlayMode();
+  return mode === "extreme" ? "hard" : mode;
+}
+
+/** @deprecated use savePlectrPlayMode */
+export function savePlectrDifficulty(id: DifficultyId): void {
+  savePlectrPlayMode(id);
 }

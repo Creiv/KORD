@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveRunEndTime } from "./GameCanvas";
+import { resolveRunEndTime } from "../lib/runTiming";
 
 describe("resolveRunEndTime", () => {
   it("uses audio duration when available", () => {

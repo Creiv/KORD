@@ -21,7 +21,7 @@ export function useSyncStatusSnackbar(syncBusy: boolean) {
     }
   }, []);
 
-  const scheduleHide = useCallback(() => {
+  const scheduleHide = useCallback(function scheduleHideInner() {
     clearHideTimer();
     const wait = hideUntilRef.current - Date.now();
     if (wait <= 0) {
@@ -35,7 +35,7 @@ export function useSyncStatusSnackbar(syncBusy: boolean) {
         return;
       }
       if (Date.now() < hideUntilRef.current) {
-        scheduleHide();
+        scheduleHideInner();
         return;
       }
       setOpen(false);
@@ -50,8 +50,8 @@ export function useSyncStatusSnackbar(syncBusy: boolean) {
         hideUntilRef.current,
         Date.now() + MIN_VISIBLE_MS
       );
-      setOpen(true);
-      return;
+      const timer = window.setTimeout(() => setOpen(true), 0);
+      return () => window.clearTimeout(timer);
     }
     if (!hadBusyRef.current) return;
     hideUntilRef.current = Math.max(

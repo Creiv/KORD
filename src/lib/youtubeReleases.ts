@@ -30,7 +30,7 @@ export function classifyYoutubeReleaseEntry(
 ): YoutubeReleaseKind {
   const title = String(entry.title ?? "").trim()
   const prefix = title.match(
-    /^(Album|EP|Single|Singolo|Video)\s*(?:[•·|–—\-]|\s*-\s*)/i,
+    /^(Album|EP|Single|Singolo|Video)\s*(?:[•·|–—-]|\s*-\s*)/i,
   )
   if (prefix) {
     return releaseTypeToDiscoverKind(prefix[1])

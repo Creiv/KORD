@@ -17,6 +17,7 @@ import {
   UiBuild,
   UiFavorite,
 } from "../../components/KordUiIcons";
+import { emitStudioPane } from "../../context/StudioNavigationContext";
 import type { AppSection, DashboardPayload, LibraryIndex } from "../../types";
 interface DashboardViewProps {
   dashboard: DashboardPayload | null;
@@ -71,7 +72,10 @@ export default function DashboardView({
           <button
             type="button"
             className="primary-btn"
-            onClick={() => onOpenSection("ascolta")}
+            onClick={() => {
+              emitStudioPane("listen");
+              onOpenSection("studio");
+            }}
           >
             {t("dashboard.resumeListen")}
           </button>

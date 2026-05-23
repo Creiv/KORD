@@ -60,7 +60,7 @@ export async function analyzeLibraryTrack(
   const cached = getCachedChart(track.relPath);
   if (cached) {
     onProgress?.(1, "ready");
-    return sanitizeChartSetForKord(cached);
+    return cached;
   }
 
   onProgress?.(0.08, "fetch");
@@ -99,8 +99,8 @@ export async function analyzeLibraryTrack(
         throw new RhythmAnalyzeError("sparse");
       }
       onProgress?.(1, "ready");
-      setCachedChart(track.relPath, playable);
-      return playable;
+      setCachedChart(track.relPath, chartSet);
+      return chartSet;
     } finally {
       void ctx.close();
     }

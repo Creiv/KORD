@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   loadPlectrDifficulty,
+  loadPlectrPlayMode,
   migratePlectrDifficulty,
+  migratePlectrPlayMode,
   PLECTR_DIFFICULTY_KEY,
-  savePlectrDifficulty,
+  savePlectrPlayMode,
 } from "./plectrDifficultyStorage";
 
 describe("plectrDifficultyStorage", () => {
@@ -11,27 +13,31 @@ describe("plectrDifficultyStorage", () => {
     localStorage.clear();
   });
 
-  describe("migratePlectrDifficulty", () => {
-    it("keeps current difficulty ids", () => {
-      expect(migratePlectrDifficulty("easy")).toBe("easy");
-      expect(migratePlectrDifficulty("normal")).toBe("normal");
-      expect(migratePlectrDifficulty("hard")).toBe("hard");
-    });
-
-    it("maps legacy extreme to hard", () => {
-      expect(migratePlectrDifficulty("extreme")).toBe("hard");
+  describe("migratePlectrPlayMode", () => {
+    it("keeps current difficulty ids and extreme", () => {
+      expect(migratePlectrPlayMode("easy")).toBe("easy");
+      expect(migratePlectrPlayMode("normal")).toBe("normal");
+      expect(migratePlectrPlayMode("hard")).toBe("hard");
+      expect(migratePlectrPlayMode("extreme")).toBe("extreme");
     });
 
     it("defaults unknown values to easy", () => {
-      expect(migratePlectrDifficulty(null)).toBe("easy");
-      expect(migratePlectrDifficulty("insane")).toBe("easy");
+      expect(migratePlectrPlayMode(null)).toBe("easy");
+      expect(migratePlectrPlayMode("insane")).toBe("easy");
+    });
+  });
+
+  describe("migratePlectrDifficulty (legacy)", () => {
+    it("maps extreme to hard for score difficulty", () => {
+      expect(migratePlectrDifficulty("extreme")).toBe("hard");
     });
   });
 
   describe("load/save", () => {
-    it("persists selection in localStorage", () => {
-      savePlectrDifficulty("hard");
-      expect(localStorage.getItem(PLECTR_DIFFICULTY_KEY)).toBe("hard");
+    it("persists play mode in localStorage", () => {
+      savePlectrPlayMode("extreme");
+      expect(localStorage.getItem(PLECTR_DIFFICULTY_KEY)).toBe("extreme");
+      expect(loadPlectrPlayMode()).toBe("extreme");
       expect(loadPlectrDifficulty()).toBe("hard");
     });
   });

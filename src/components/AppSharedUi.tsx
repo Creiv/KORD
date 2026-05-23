@@ -19,6 +19,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { usePlayer } from "../context/PlayerContext";
+import { useStudioNavigation } from "../context/StudioNavigationContext";
 import { useUserState } from "../context/UserStateContext";
 import { useI18n } from "../i18n/useI18n";
 import {
@@ -47,6 +48,7 @@ import {
 import {
   UiAdd,
   UiFavorite,
+  UiGraphicEq,
   UiLyrics,
   UiMoreVert,
   UiMusicNote,
@@ -126,26 +128,46 @@ export function TrackRowArt({ relPath }: { relPath: string }) {
 function TrackRowArtPlay({
   relPath,
   onPlay,
+  isNowPlaying = false,
 }: {
   relPath: string;
   onPlay: () => void;
+  isNowPlaying?: boolean;
 }) {
   const { t } = useI18n();
+  const studioNav = useStudioNavigation();
+  const showStudio = isNowPlaying && studioNav?.openStudioListen;
+
   return (
     <div className="track-row__art-wrap">
       <TrackRowArt relPath={relPath} />
-      <button
-        type="button"
-        className="track-row__art-play"
-        onClick={(event) => {
-          event.stopPropagation();
-          onPlay();
-        }}
-        title={t("player.playTitle")}
-        aria-label={t("player.playTitle")}
-      >
-        <UiPlayArrow />
-      </button>
+      {showStudio ? (
+        <button
+          type="button"
+          className="track-row__art-studio"
+          onClick={(event) => {
+            event.stopPropagation();
+            studioNav.openStudioListen();
+          }}
+          title={t("trackRow.openStudioListenTitle")}
+          aria-label={t("trackRow.openStudioListenAria")}
+        >
+          <UiGraphicEq />
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="track-row__art-play"
+          onClick={(event) => {
+            event.stopPropagation();
+            onPlay();
+          }}
+          title={t("player.playTitle")}
+          aria-label={t("player.playTitle")}
+        >
+          <UiPlayArrow />
+        </button>
+      )}
     </div>
   );
 }
@@ -395,7 +417,7 @@ export const TrackListRow = memo(function TrackListRow({
   const [overflowOpen, setOverflowOpen] = useState(false);
   const overflowRef = useRef<HTMLDivElement | null>(null);
   const overflowMenuRef = useRef<HTMLUListElement | null>(null);
-  const closeOverflow = useCallback(() => setOverflowOpen(false), []);
+  const closeOverflow = useCallback(() => setOverflowOpen(false), [setOverflowOpen]);
   const overflowPlacement = usePopoverLayerAnchored(
     overflowOpen,
     overflowRef,
@@ -407,16 +429,23 @@ export const TrackListRow = memo(function TrackListRow({
   const playlistAnchorRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    setOverflowOpen(false);
-    setPlaylistPickerOpen(false);
+    const timer = window.setTimeout(() => {
+      setOverflowOpen(false);
+      setPlaylistPickerOpen(false);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [track.relPath]);
 
   useEffect(() => {
-    if (overflowOpen) setPlaylistPickerOpen(false);
+    if (!overflowOpen) return;
+    const timer = window.setTimeout(() => setPlaylistPickerOpen(false), 0);
+    return () => window.clearTimeout(timer);
   }, [overflowOpen]);
 
   useEffect(() => {
-    if (playlistPickerOpen) setOverflowOpen(false);
+    if (!playlistPickerOpen) return;
+    const timer = window.setTimeout(() => setOverflowOpen(false), 0);
+    return () => window.clearTimeout(timer);
   }, [playlistPickerOpen]);
 
   useLayoutEffect(() => {
@@ -439,7 +468,11 @@ export const TrackListRow = memo(function TrackListRow({
       ref={rowRef}
       className={`track-row${rowActive ? " is-active" : ""}`}
     >
-      <TrackRowArtPlay relPath={track.relPath} onPlay={onPlay} />
+      <TrackRowArtPlay
+        relPath={track.relPath}
+        onPlay={onPlay}
+        isNowPlaying={rowActive}
+      />
       <button
         type="button"
         className="track-row__main"
@@ -999,11 +1032,11 @@ export function LibraryAlbumMetaChips({
   );
 }
 
-export function albumExclusionKey(album: LibraryAlbumIndex) {
+function albumExclusionKey(album: LibraryAlbumIndex) {
   return album.id;
 }
 
-export function albumHasExpectedReleaseMeta(album: LibraryAlbumIndex): boolean {
+function albumHasExpectedReleaseMeta(album: LibraryAlbumIndex): boolean {
   return (
     (typeof album.expectedTrackCount === "number" &&
       album.expectedTrackCount > 0) ||

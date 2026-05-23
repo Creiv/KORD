@@ -26,6 +26,8 @@ import type { useI18n } from "../i18n/useI18n";
 
 type TFn = ReturnType<typeof useI18n>["t"];
 
+const CATALOG_WEB_PREVIEW_MAX_SEC = 30;
+
 type Props = {
   t: TFn;
   active: boolean;
@@ -155,51 +157,55 @@ function CatalogWebPickDialog({
 
   useEffect(() => {
     const gen = ++loadGenRef.current;
-    setTracksBusy(true);
-    setTracksErr(null);
-    setTracks(null);
-    stopPreview();
-    setPreviewErr(null);
+    const timer = window.setTimeout(() => {
+      if (gen !== loadGenRef.current) return;
+      setTracksBusy(true);
+      setTracksErr(null);
+      setTracks(null);
+      stopPreview();
+      setPreviewErr(null);
 
-    if (item.type === "song") {
-      setTracks([
-        {
-          id: item.id,
-          title: item.title,
-          url: item.url,
-        },
-      ]);
-      setTracksBusy(false);
-      return;
-    }
+      if (item.type === "song") {
+        setTracks([
+          {
+            id: item.id,
+            title: item.title,
+            url: item.url,
+          },
+        ]);
+        setTracksBusy(false);
+        return;
+      }
 
-    const fallbackTrack: CatalogWebTrack = {
-      id: item.id,
-      title: item.title,
-      url: item.url,
-    };
-    fetchCatalogWebTracks(item.url)
-      .then((data) => {
-        if (gen !== loadGenRef.current) return;
-        const list = data.tracks?.length ? data.tracks : [fallbackTrack];
-        setTracks(list);
-        if (data.error) setTracksErr(data.error);
-      })
-      .catch((e: unknown) => {
-        if (gen !== loadGenRef.current) return;
-        setTracks([fallbackTrack]);
-        setTracksErr(
-          isBackendUnreachableError(e)
-            ? t("tools.catalogWebBackendUnreachable")
-            : e instanceof Error
-              ? e.message
-              : String(e),
-        );
-      })
-      .finally(() => {
-        if (gen === loadGenRef.current) setTracksBusy(false);
-      });
-  }, [item, stopPreview]);
+      const fallbackTrack: CatalogWebTrack = {
+        id: item.id,
+        title: item.title,
+        url: item.url,
+      };
+      fetchCatalogWebTracks(item.url)
+        .then((data) => {
+          if (gen !== loadGenRef.current) return;
+          const list = data.tracks?.length ? data.tracks : [fallbackTrack];
+          setTracks(list);
+          if (data.error) setTracksErr(data.error);
+        })
+        .catch((e: unknown) => {
+          if (gen !== loadGenRef.current) return;
+          setTracks([fallbackTrack]);
+          setTracksErr(
+            isBackendUnreachableError(e)
+              ? t("tools.catalogWebBackendUnreachable")
+              : e instanceof Error
+                ? e.message
+                : String(e),
+          );
+        })
+        .finally(() => {
+          if (gen === loadGenRef.current) setTracksBusy(false);
+        });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [item, stopPreview, t]);
 
   const playPreview = useCallback(
     async (track: CatalogWebTrack) => {
@@ -225,6 +231,13 @@ function CatalogWebPickDialog({
             cleanup();
             setPlayingUrl(track.url);
             setPreviewBusyUrl(null);
+            const onTimeUpdate = () => {
+              if (audio.currentTime >= CATALOG_WEB_PREVIEW_MAX_SEC) {
+                audio.removeEventListener("timeupdate", onTimeUpdate);
+                stopPreview();
+              }
+            };
+            audio.addEventListener("timeupdate", onTimeUpdate);
             resolve();
           };
           const onError = () => {
@@ -256,7 +269,7 @@ function CatalogWebPickDialog({
         setPreviewErr(t("tools.catalogWebPreviewErr", { e: errMsg }));
       }
     },
-    [previewBusyUrl, t],
+    [previewBusyUrl, stopPreview, t],
   );
 
   const thumb = item.thumbnailUrl?.trim() || null;

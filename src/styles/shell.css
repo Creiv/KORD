@@ -12,8 +12,8 @@
 }
 
 .shortcut-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.65rem;
 }
 
@@ -22,6 +22,12 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem 0.6rem;
+}
+
+@media (max-width: 640px) {
+  .shortcut-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 .shortcut-keys {
@@ -248,11 +254,23 @@
 
 @media (max-width: 1000px) {
   .sync-status-snackbar {
+    top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+    bottom: auto;
     left: max(1rem, env(safe-area-inset-left, 0px));
     max-width: min(22rem, calc(100vw - 2rem));
-    bottom: calc(
-      var(--bar-h, 0px) + 4.25rem + env(safe-area-inset-bottom, 0px)
-    );
+    animation: syncStatusSnackbarInMobile 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes syncStatusSnackbarInMobile {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -544,10 +562,13 @@
 .metric-card,
 .alert-card,
 .setting-card,
-.player-bar2,
 .inline-banner {
   border: 1px solid var(--border);
   background: var(--surface2);
   box-shadow: var(--shadow-elev-1);
+}
+
+.player-bar2 {
+  border: 1px solid var(--border);
 }
 

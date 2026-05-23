@@ -1,4 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { AppSection } from "../types";
+import {
+  K_STUDIO_PANE,
+  STUDIO_PANE_EVENT,
+  type StudioPaneId,
+} from "../context/StudioNavigationContext";
 import { usePlayer } from "../context/PlayerContext";
 import { useToolsActivity } from "../context/ToolsActivityContext";
 import { useAppConfirm } from "../context/AppConfirmContext";
@@ -71,8 +85,9 @@ import {
   UiChevronLeft,
   UiChevronRight,
   UiDownload,
-  UiGraphicEq,
+  UiTrackChanges,
   UiImage,
+  UiNavHeadphones,
   UiNote,
 } from "./KordUiIcons";
 import { CoverImg } from "./CoverImg";
@@ -85,6 +100,8 @@ import { StudioDownloadDisclaimer } from "./StudioDownloadDisclaimer";
 import { StudioCatalogWeb } from "./StudioCatalogWeb";
 import type { LibraryReconcileOptions } from "../lib/libraryReconcile";
 
+const LazyListenView = lazy(() => import("../views/ListenView/ListenView"));
+
 type P = {
   library: LibraryResponse | null;
   libraryIndex: LibraryIndex | null;
@@ -92,6 +109,7 @@ type P = {
   onLibraryDelta?: (delta: LibraryEntityDelta, reconcile?: boolean) => void;
   /** Applica più delta in un solo aggiornamento indice (scan metadati). */
   onLibraryDeltas?: (deltas: LibraryEntityDelta[], reconcile?: boolean) => void;
+  onOpenSection?: (section: AppSection) => void;
 };
 
 function sourceLabel(s: string | undefined): string {
@@ -135,11 +153,10 @@ const K_DL_OUT = "kord-dl-out";
 const W_DL_OUT = "wpp-dl-out";
 const K_COVER_ALB = "kord-cover-album";
 const W_COVER_ALB = "wpp-cover-album";
-const K_STUDIO_PANE = "kord-studio-pane";
 const K_DL_STUDIO_MODE = "kord-dl-studio-mode";
 const K_CATALOG_STUDIO_MODE = "kord-catalog-studio-mode";
 
-type StudioPane = "catalog" | "download" | "meta" | "covers";
+type StudioPane = StudioPaneId;
 type DlStudioMode = "classic" | "explore";
 type CatalogStudioMode = "local" | "web";
 
@@ -167,7 +184,13 @@ function readStoredStudioPane(): StudioPane | null {
   try {
     const v = localStorage.getItem(K_STUDIO_PANE);
     if (v === "shared") return "catalog";
-    if (v === "catalog" || v === "download" || v === "meta" || v === "covers") {
+    if (
+      v === "listen" ||
+      v === "catalog" ||
+      v === "download" ||
+      v === "meta" ||
+      v === "covers"
+    ) {
       return v;
     }
   } catch {
@@ -418,6 +441,7 @@ export function ToolsView({
   onReconcileLibrary,
   onLibraryDelta,
   onLibraryDeltas,
+  onOpenSection,
 }: P) {
   const p = usePlayer();
   const { t, sortLocale } = useI18n();
@@ -617,7 +641,7 @@ export function ToolsView({
   >(null);
   const [metaOptionalOpen, setMetaOptionalOpen] = useState(false);
   const [studioPane, setStudioPane] = useState<StudioPane>(() => {
-    return readStoredStudioPane() ?? "catalog";
+    return readStoredStudioPane() ?? "listen";
   });
 
   useEffect(() => {
@@ -627,6 +651,15 @@ export function ToolsView({
       /* ignore */
     }
   }, [studioPane]);
+
+  useEffect(() => {
+    const onPane = (event: Event) => {
+      const pane = (event as CustomEvent<StudioPaneId>).detail;
+      if (pane) setStudioPane(pane);
+    };
+    window.addEventListener(STUDIO_PANE_EVENT, onPane);
+    return () => window.removeEventListener(STUDIO_PANE_EVENT, onPane);
+  }, []);
 
   useEffect(() => {
     try {
@@ -1477,6 +1510,9 @@ export function ToolsView({
   const prepareExploreDownload = useCallback(
     async (item: YoutubeExploreResult) => {
       const scope = exploreScopeForItem(item);
+      if (scope === "single" && exploreSingleBlockedArtistFolder) {
+        return false;
+      }
       let trackCount: number | null = null;
       if (scope === "playlist") {
         try {
@@ -1504,7 +1540,7 @@ export function ToolsView({
         onLog: setLog,
       });
     },
-    [hasValidDownloadDest, dlPath, appConfirm, t],
+    [hasValidDownloadDest, dlPath, exploreSingleBlockedArtistFolder, appConfirm, t],
   );
 
   const runDl = () => {
@@ -1931,8 +1967,10 @@ export function ToolsView({
 
   const studioOverviewIcon = useMemo(() => {
     switch (studioPane) {
+      case "listen":
+        return <UiNavHeadphones className="section-head__ic" />;
       case "catalog":
-        return <UiGraphicEq className="section-head__ic" />;
+        return <UiTrackChanges className="section-head__ic" />;
       case "download":
         return <UiDownload className="section-head__ic" />;
       case "meta":
@@ -1940,7 +1978,7 @@ export function ToolsView({
       case "covers":
         return <UiImage className="section-head__ic" />;
       default:
-        return <UiGraphicEq className="section-head__ic" />;
+        return <UiTrackChanges className="section-head__ic" />;
     }
   }, [studioPane]);
 
@@ -1959,6 +1997,15 @@ export function ToolsView({
                 role="group"
                 aria-label={t("tools.studioPaneAria")}
               >
+                <button
+                  type="button"
+                  className={`section-nav-tab${
+                    studioPane === "listen" ? " is-on" : ""
+                  }`}
+                  onClick={() => setStudioPane("listen")}
+                >
+                  {t("tools.studioTabListen")}
+                </button>
                 <button
                   type="button"
                   className={`section-nav-tab${
@@ -2003,6 +2050,20 @@ export function ToolsView({
 
       <section className="surface-card studio-page-card">
         <div className="tools tool-studio-layout">
+          {studioPane === "listen" && libraryIndex ? (
+            <div
+              className="studio-pane studio-pane--listen"
+              role="region"
+              aria-label={t("tools.studioTabListen")}
+            >
+              <Suspense fallback={<p className="subtle sm">…</p>}>
+                <LazyListenView
+                  index={libraryIndex}
+                  onOpenSection={onOpenSection ?? (() => {})}
+                />
+              </Suspense>
+            </div>
+          ) : null}
           {studioPane === "catalog" ? (
             <div
               className="studio-pane tools-shared-lib"
@@ -2498,6 +2559,9 @@ export function ToolsView({
                     onReconcileLibrary={onReconcileLibrary}
                     onPrepareDownload={prepareExploreDownload}
                     downloadSummaryLine={downloadSummaryLine}
+                    onDownloadIdChange={(id) => {
+                      dlActiveDownloadIdRef.current = id;
+                    }}
                   />
                 ) : (
                   <>

@@ -9,7 +9,7 @@ export type CatalogWebDiscoverItem =
 
 /** Sottotitoli YTM: «Album • Artista», «Single · …», ecc. */
 const SUBTITLE_LINE_RE =
-  /^(Album|EP|Single|Singolo|Video)\s*(?:[•·|–—\-]|\s*-\s*)\s*(.+)$/i
+  /^(Album|EP|Single|Singolo|Video)\s*(?:[•·|–—-]|\s*-\s*)\s*(.+)$/i
 
 export function parseCatalogWebSubtitle(subtitle: string): {
   releaseType: string | null

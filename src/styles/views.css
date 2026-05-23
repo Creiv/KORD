@@ -15,8 +15,8 @@
 }
 
 .shortcut-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.65rem;
 }
 
@@ -25,6 +25,12 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem 0.6rem;
+}
+
+@media (max-width: 640px) {
+  .shortcut-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 .shortcut-keys {
@@ -1839,6 +1845,27 @@ button.settings-network-qr:focus-visible {
 .track-row.is-active .track-row__art-play {
   opacity: 1;
   pointer-events: auto;
+}
+
+.track-row__art-studio {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border: none;
+  background: transparent;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.track-row__art-studio svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.45));
 }
 
 .playlist-row {

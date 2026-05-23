@@ -30,8 +30,8 @@ export function RhythmModeProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (!open) return;
     if (isPlectrStylesLoaded()) {
-      setStylesReady(true);
-      return;
+      const timer = window.setTimeout(() => setStylesReady(true), 0);
+      return () => window.clearTimeout(timer);
     }
     let cancelled = false;
     void ensurePlectrStyles().then(() => {

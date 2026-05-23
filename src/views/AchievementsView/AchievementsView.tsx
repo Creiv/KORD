@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { emitStudioPane } from "../../context/StudioNavigationContext";
 import { useUserState } from "../../context/UserStateContext";
 import { useI18n } from "../../i18n/useI18n";
 import {
@@ -174,7 +175,10 @@ export default function AchievementsView({
             <button
               type="button"
               className="primary-btn"
-              onClick={() => onOpenSection("ascolta")}
+              onClick={() => {
+                emitStudioPane("listen");
+                onOpenSection("studio");
+              }}
             >
               {t("achievements.ctaListen")}
             </button>

@@ -12,8 +12,6 @@ import type { EnrichedTrack } from "../../types";
 export type RhythmChartPhase = "idle" | "loading" | "ready" | "error";
 
 export function useRhythmChart(track: EnrichedTrack | null) {
-  const trackRef = useRef(track);
-  trackRef.current = track;
   const loadGenRef = useRef(0);
 
   const [phase, setPhase] = useState<RhythmChartPhase>("idle");
@@ -32,61 +30,64 @@ export function useRhythmChart(track: EnrichedTrack | null) {
 
   useEffect(() => {
     if (!track) {
-      reset();
-      return;
+      const timer = window.setTimeout(reset, 0);
+      return () => window.clearTimeout(timer);
     }
 
     const relPath = track.relPath;
     const gen = ++loadGenRef.current;
     const cached = getCachedChart(relPath);
     if (cached) {
-      setChartSet(sanitizeChartSetForKord(cached));
-      setPhase("ready");
-      setErrorCode(null);
-      prefetchRhythmChart(track);
-      return;
+      const timer = window.setTimeout(() => {
+        if (loadGenRef.current !== gen) return;
+        setChartSet(sanitizeChartSetForKord(cached));
+        setPhase("ready");
+        setErrorCode(null);
+        prefetchRhythmChart(track);
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
     const abort = new AbortController();
 
-    setPhase("loading");
-    setChartSet(null);
-    setErrorCode(null);
-    setLoadMessage("fetch");
-
-    void (async () => {
-      const tr = trackRef.current;
-      if (!tr || tr.relPath !== relPath) return;
-
-      try {
-        const set = await analyzeLibraryTrack(
-          tr,
-          (_p, message) => {
-            if (!abort.signal.aborted && loadGenRef.current === gen) {
-              setLoadMessage(message);
-            }
-          },
-          abort.signal
-        );
-        if (abort.signal.aborted || loadGenRef.current !== gen) return;
-        setChartSet(set);
-        setPhase("ready");
-        setErrorCode(null);
-        prefetchRhythmChart(tr);
-      } catch (err) {
-        if (abort.signal.aborted || loadGenRef.current !== gen) return;
-        if (err instanceof RhythmAnalyzeError) {
-          setErrorCode(err.code);
-        } else {
-          setErrorCode("decode");
+    const timer = window.setTimeout(() => {
+      if (abort.signal.aborted || loadGenRef.current !== gen) return;
+      setPhase("loading");
+      setChartSet(null);
+      setErrorCode(null);
+      setLoadMessage("fetch");
+      void (async () => {
+        try {
+          const raw = await analyzeLibraryTrack(
+            track,
+            (_p, message) => {
+              if (!abort.signal.aborted && loadGenRef.current === gen) {
+                setLoadMessage(message);
+              }
+            },
+            abort.signal,
+          );
+          if (abort.signal.aborted || loadGenRef.current !== gen) return;
+          setChartSet(sanitizeChartSetForKord(raw));
+          setPhase("ready");
+          setErrorCode(null);
+          prefetchRhythmChart(track);
+        } catch (err) {
+          if (abort.signal.aborted || loadGenRef.current !== gen) return;
+          if (err instanceof RhythmAnalyzeError) {
+            setErrorCode(err.code);
+          } else {
+            setErrorCode("decode");
+          }
+          setPhase("error");
         }
-        setPhase("error");
-      }
-    })();
+      })();
+    }, 0);
 
     return () => {
+      window.clearTimeout(timer);
       abort.abort();
     };
-  }, [track?.relPath, reset]);
+  }, [track, track?.relPath, reset]);
 
   return { phase, chartSet, loadMessage, errorCode, reset };
 }

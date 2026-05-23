@@ -70,16 +70,25 @@
   line-height: 1;
 }
 
-/* Scrim su tutta l’app quando Plectr è aperto (sotto il dock player). */
+/* Scrim sull’area contenuto quando Plectr è aperto (sidebar desktop esclusa). */
 .plectr-scrim {
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: var(--side-w, 0px);
   z-index: calc(var(--z-player) - 1);
   pointer-events: none;
   background: rgba(4, 6, 12, 0.52);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   animation: plectr-scrim-in 0.22s ease;
+}
+
+@media (max-width: 1000px) {
+  .plectr-scrim {
+    left: 0;
+  }
 }
 
 @keyframes plectr-scrim-in {
@@ -98,34 +107,55 @@
 /* Pannello rhythm — occupa la viewport sopra la barra player; player-bar2 invariata */
 
 .player-dock2[data-rhythm-open="1"] {
-  --rhythm-dock-h: min(
-    88dvh,
-    calc(100dvh - env(safe-area-inset-top, 0px) - 10px)
-  );
   display: flex;
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-end;
-  height: var(--rhythm-dock-h);
-  max-height: calc(100dvh - env(safe-area-inset-top, 0px));
 }
 
 .player-dock2[data-rhythm-open="1"] > .player-bar2 {
   flex: 0 0 auto;
 }
 
-@media (max-width: 1000px) {
+@media (min-width: 1001px) {
   .player-dock2[data-rhythm-open="1"] {
-    left: 0;
-    right: 0;
-    --rhythm-dock-h: calc(
-      100dvh - var(--mobile-nav-h, 3.25rem) - env(safe-area-inset-bottom, 0px) -
-        env(safe-area-inset-top, 0px)
+    --rhythm-dock-h: min(
+      88dvh,
+      calc(100dvh - env(safe-area-inset-top, 0px) - 10px)
     );
     height: var(--rhythm-dock-h);
-    max-height: var(--rhythm-dock-h);
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px));
+  }
+}
+
+@media (max-width: 1000px) {
+  .player-dock2[data-rhythm-open="1"] {
+    top: env(safe-area-inset-top, 0px);
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: auto;
+    max-height: none;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-sizing: border-box;
   }
 
+  .player-dock2[data-rhythm-open="1"] .rhythm-dock-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+  }
+
+  .player-dock2[data-rhythm-open="1"] .rhythm-dock-panel__body {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+}
+
+@media (max-width: 1000px) {
   .rhythm-dock-panel {
     width: 100%;
     max-width: none;
@@ -138,7 +168,9 @@
   }
 
   .rhythm-dock-panel__body > .game-screen--dock {
-    min-height: max(240px, calc(var(--rhythm-dock-h, 90dvh) - 9.5rem));
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
   }
 
   .rhythm-dock-panel .game-screen--dock .feedback--compact {
@@ -230,6 +262,21 @@
   letter-spacing: 0.04em;
 }
 
+.rhythm-dock-panel__record-label--trophy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: none;
+  line-height: 0;
+}
+
+.rhythm-dock-panel__trophy-ic {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: var(--accent2);
+  opacity: 0.92;
+}
+
 .rhythm-dock-panel__record strong {
   font-size: var(--text-sm);
   font-weight: 800;
@@ -282,6 +329,17 @@
 .rhythm-dock-panel__diff:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+.rhythm-dock-panel__diff--extreme.is-active {
+  border-color: color-mix(in srgb, var(--accent2) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent2) 22%, var(--surface3));
+}
+
+@media (min-width: 1001px) {
+  .rhythm-dock-panel {
+    max-width: min(100%, 500px);
+  }
 }
 
 .rhythm-dock-panel__replay {
@@ -374,14 +432,7 @@
 }
 
 .rhythm-dock-panel .game-screen--dock .rhythm-lane-strip {
-  flex: 0 0 auto;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0;
-  min-height: 12px;
-  padding: 1px 0 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(0, 0, 0, 0.28);
+  display: none !important;
 }
 
 .rhythm-dock-panel .game-screen--dock .rhythm-lane-strip__cell {
@@ -419,20 +470,22 @@
 
 .rhythm-dock-panel .game-screen--dock .touch-pads {
   position: relative;
-  flex: 0 0 clamp(44px, 6.5vh, 56px);
+  flex: 0 0 clamp(58px, 9.5vh, 76px);
   left: auto;
   right: auto;
   bottom: auto;
   height: auto;
-  min-height: 44px;
-  max-height: 56px;
+  min-height: 58px;
+  max-height: none;
   padding-bottom: 0;
+  gap: 0.28rem;
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .rhythm-dock-panel .game-screen--dock .lane-pad {
   min-width: 0;
   min-height: 0;
+  border-radius: var(--radius-sm);
   opacity: 1;
   filter: saturate(0.92) brightness(0.9);
   border-top-width: 3px;
@@ -458,6 +511,25 @@
     #05070d
   );
   box-shadow: 0 -5px 16px color-mix(in srgb, var(--lane-shadow) 60%, transparent);
+}
+
+.rhythm-dock-panel .game-screen--dock .lane-pad--holding {
+  filter: none;
+  border-top-color: var(--lane-color);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--lane-color) 62%, #1a2438),
+    #070a12
+  );
+  box-shadow:
+    0 -6px 20px color-mix(in srgb, var(--lane-shadow) 70%, transparent),
+    inset 0 0 12px color-mix(in srgb, var(--lane-color) 35%, transparent);
+}
+
+.rhythm-dock-panel .game-screen--dock .lane-pad--holding .lane-pip {
+  opacity: 1;
+  height: 9px;
+  box-shadow: 0 0 16px var(--lane-shadow);
 }
 
 .rhythm-dock-panel .game-screen--dock .lane-pad--hit {

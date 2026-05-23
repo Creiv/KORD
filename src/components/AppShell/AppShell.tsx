@@ -14,6 +14,10 @@ import type { CSSProperties, RefObject } from "react";
 import { useAppConfirm } from "../../context/AppConfirmContext";
 import { usePlayer } from "../../context/PlayerContext";
 import { useRhythmMode } from "../../context/RhythmModeContext";
+import {
+  emitStudioPane,
+  StudioNavigationProvider,
+} from "../../context/StudioNavigationContext";
 import { useLibrarySyncActivity } from "../../context/LibrarySyncActivityContext";
 import { useToolsActivity } from "../../context/ToolsActivityContext";
 import { useUserState } from "../../context/UserStateContext";
@@ -69,7 +73,6 @@ type BeforeInstallPromptEvent = Event & {
 };
 
 const LazyDashboardView = lazy(() => import("../../views/DashboardView/DashboardView"));
-const LazyListenView = lazy(() => import("../../views/ListenView/ListenView"));
 const LazyLibraryView = lazy(() => import("../../views/LibraryView/LibraryView"));
 const LazyQueueViewNew = lazy(() => import("../../views/QueueViewNew"));
 const LazyPlaylistsViewNew = lazy(() => import("../../views/PlaylistsViewNew"));
@@ -153,7 +156,9 @@ export function AppShell() {
       const next = !prev;
       try {
         localStorage.setItem("kord.sidebar.collapsed", next ? "1" : "0");
-      } catch {}
+      } catch {
+        /* ignore storage failures */
+      }
       return next;
     });
   }, []);
@@ -199,15 +204,17 @@ export function AppShell() {
       return backgroundRefreshRef.current;
     }
     libraryRefreshQueuedAfterFlightRef.current = false;
-    const task = refreshLibrary("background");
+    const task = (async () => {
+      await refreshLibrary("background");
+      while (libraryRefreshQueuedAfterFlightRef.current) {
+        libraryRefreshQueuedAfterFlightRef.current = false;
+        await refreshLibrary("background");
+      }
+    })();
     backgroundRefreshRef.current = task;
     void task.finally(() => {
       if (backgroundRefreshRef.current !== task) return;
       backgroundRefreshRef.current = null;
-      if (libraryRefreshQueuedAfterFlightRef.current) {
-        libraryRefreshQueuedAfterFlightRef.current = false;
-        void runCoalescedBackgroundRefresh();
-      }
     });
     return task;
   }, [refreshLibrary]);
@@ -540,40 +547,6 @@ export function AppShell() {
     focusLibrarySearchInput,
   ]);
 
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement;
-      const inField =
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable;
-
-      if (event.ctrlKey && event.key.toLowerCase() === "k" && !event.altKey) {
-        event.preventDefault();
-        openLibrarySearch();
-        return;
-      }
-
-      if (inField) return;
-
-      if (event.key === "/" && !event.altKey) {
-        event.preventDefault();
-        openLibrarySearch();
-        return;
-      }
-
-      if (event.code === "Space") {
-        event.preventDefault();
-        p.toggle();
-      } else if (event.code === "KeyI") {
-        event.preventDefault();
-        navigate({ section: "ascolta" });
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [p, navigate, openLibrarySearch]);
-
   const legacyLibrary = useMemo(() => {
     if (!index || route.section !== "studio") return null;
     return clientLegacyLibrary(index);
@@ -635,24 +608,6 @@ export function AppShell() {
     };
   }, [index]);
 
-  const goAppSection = useCallback(
-    (section: AppSection) => {
-      if (section === "gioco") {
-        if (p.queue.length > 0) setRhythmOpen(true);
-        startTransition(() => navigate({ section: "dashboard" }));
-        return;
-      }
-      if (section === "libreria") {
-        closeLibrarySearch();
-        setLibraryHomeTick((n) => n + 1);
-      }
-      startTransition(() => {
-        navigate({ section });
-      });
-    },
-    [closeLibrarySearch, navigate, p.queue.length, setRhythmOpen]
-  );
-
   useEffect(() => {
     if (route.section !== "gioco") return;
     if (p.queue.length > 0) setRhythmOpen(true);
@@ -681,10 +636,84 @@ export function AppShell() {
     (id: string | null) => navigate({ section: "playlists", playlist: id }),
     [navigate]
   );
-  const onGoToAscolta = useCallback(
-    () => navigate({ section: "ascolta" }),
-    [navigate]
+  const openStudioListen = useCallback(() => {
+    emitStudioPane("listen");
+    startTransition(() => navigate({ section: "studio" }));
+  }, [navigate]);
+
+  const openStudioMeta = useCallback(() => {
+    emitStudioPane("meta");
+    startTransition(() => navigate({ section: "studio" }));
+  }, [navigate]);
+
+  const onGoToAscolta = openStudioListen;
+
+  const goAppSection = useCallback(
+    (section: AppSection) => {
+      if (section === "ascolta") {
+        openStudioListen();
+        return;
+      }
+      if (section === "gioco") {
+        if (p.queue.length > 0) setRhythmOpen(true);
+        startTransition(() => navigate({ section: "dashboard" }));
+        return;
+      }
+      if (section === "libreria") {
+        closeLibrarySearch();
+        setLibraryHomeTick((n) => n + 1);
+      }
+      startTransition(() => {
+        navigate({ section });
+      });
+    },
+    [closeLibrarySearch, navigate, openStudioListen, p.queue.length, setRhythmOpen],
   );
+
+  useEffect(() => {
+    const raw = window.location.pathname.replace(/^\/+/, "").split("/")[0];
+    if (raw !== "ascolta") return;
+    openStudioListen();
+  }, [openStudioListen]);
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      const inField =
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable;
+
+      if (event.ctrlKey && event.key.toLowerCase() === "k" && !event.altKey) {
+        event.preventDefault();
+        openLibrarySearch();
+        return;
+      }
+
+      if (inField) return;
+
+      if (event.key === "/" && !event.altKey) {
+        event.preventDefault();
+        openLibrarySearch();
+        return;
+      }
+
+      if (event.code === "Space") {
+        event.preventDefault();
+        p.toggle();
+      } else if (event.code === "KeyI") {
+        event.preventDefault();
+        openStudioListen();
+      } else if (event.code === "KeyP") {
+        event.preventDefault();
+        if (p.queue.length > 0) setRhythmOpen(true);
+        startTransition(() => navigate({ section: "dashboard" }));
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [navigate, openLibrarySearch, openStudioListen, p, setRhythmOpen]);
+
   const onLibraryHome = useCallback(() => {
     closeLibrarySearch();
     setLibraryHomeTick((n) => n + 1);
@@ -713,15 +742,6 @@ export function AppShell() {
               dashboard={dashboard}
               index={index}
               onOpenAlbum={navToLibraryAlbum}
-              onOpenSection={navToSection}
-            />
-          </Suspense>
-        );
-      case "ascolta":
-        return (
-          <Suspense fallback={<KordViewLoadingFallback />}>
-            <LazyListenView
-              index={index}
               onOpenSection={navToSection}
             />
           </Suspense>
@@ -759,6 +779,7 @@ export function AppShell() {
                 onReconcileLibrary={reconcileLibrary}
                 onLibraryDelta={applyLibraryDelta}
                 onLibraryDeltas={applyLibraryDeltas}
+                onOpenSection={navToSection}
               />
             </Suspense>
           </div>
@@ -838,6 +859,10 @@ export function AppShell() {
   }, [sideW]);
 
   return (
+    <StudioNavigationProvider
+      openStudioListen={openStudioListen}
+      openStudioMeta={openStudioMeta}
+    >
     <TrackMetaEditProvider
       genreOptions={libraryGenreOptions}
       onSaved={refreshAfterTrackMetaSaved}
@@ -918,5 +943,6 @@ export function AppShell() {
         </div>
       </AlbumMetaEditProvider>
     </TrackMetaEditProvider>
+    </StudioNavigationProvider>
   );
 }

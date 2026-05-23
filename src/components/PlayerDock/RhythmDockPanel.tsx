@@ -14,9 +14,11 @@ import { GameCanvas } from "../../game/components/GameCanvas";
 import { DIFFICULTIES } from "../../game/config/gameConfig";
 import { useRhythmChart } from "../../game/hooks/useRhythmChart";
 import { prefetchRhythmChart } from "../../game/lib/analyzeLibraryTrack";
+import { buildExtremeChart } from "../../game/lib/extremeChart";
 import {
-  loadPlectrDifficulty,
-  savePlectrDifficulty,
+  loadPlectrPlayMode,
+  savePlectrPlayMode,
+  type PlectrPlayMode,
 } from "../../game/lib/plectrDifficultyStorage";
 import {
   getSessionTrackBest,
@@ -29,14 +31,10 @@ import {
   pickBetterPlectrScore,
   plectrBestFromUserState,
 } from "../../game/lib/plectrStorage";
-import type {
-  Chart,
-  DifficultyId,
-  GameResult,
-} from "../../game/types";
+import type { Chart, GameResult } from "../../game/types";
 import { audioElementMatchesTrack } from "../../lib/mediaTrackMatch";
 import type { EnrichedTrack, LibraryEntityDelta, PlectrBestScore } from "../../types";
-import { UiClose, UiJoystick } from "../KordUiIcons";
+import { UiClose, UiEmojiEvents, UiPlectrum } from "../KordUiIcons";
 
 function resolveDisplayBest(
   relPath: string,
@@ -74,7 +72,7 @@ export const RhythmDockPanel = memo(function RhythmDockPanel({
     }
   }, [phase, p.currentIndex, p.queue, track.relPath]);
 
-  const [difficulty, setDifficulty] = useState<DifficultyId>(loadPlectrDifficulty);
+  const [playMode, setPlayMode] = useState<PlectrPlayMode>(loadPlectrPlayMode);
   const [runId, setRunId] = useState(0);
   const [lastResult, setLastResult] = useState<GameResult | null>(null);
   const [bestRevision, setBestRevision] = useState(0);
@@ -88,9 +86,13 @@ export const RhythmDockPanel = memo(function RhythmDockPanel({
   );
 
   const chart = useMemo((): Chart | null => {
+    if (playMode === "extreme") {
+      const hard = chartSet?.charts.hard;
+      return hard ? buildExtremeChart(hard) : null;
+    }
     if (!chartSet) return null;
-    return chartSet.charts[difficulty] ?? null;
-  }, [chartSet, difficulty]);
+    return chartSet.charts[playMode] ?? null;
+  }, [chartSet, playMode]);
 
   useLayoutEffect(() => {
     resumePlaybackOnCloseRef.current = p.isPlaying;
@@ -186,9 +188,9 @@ export const RhythmDockPanel = memo(function RhythmDockPanel({
     return t("rhythm.analyzingChart");
   }, [loadMessage, t]);
 
-  const onDifficulty = useCallback((id: DifficultyId) => {
-    setDifficulty(id);
-    savePlectrDifficulty(id);
+  const onPlayMode = useCallback((id: PlectrPlayMode) => {
+    setPlayMode(id);
+    savePlectrPlayMode(id);
     setLastResult(null);
     setRunId((n) => n + 1);
   }, []);
@@ -251,7 +253,7 @@ export const RhythmDockPanel = memo(function RhythmDockPanel({
       <header className="rhythm-dock-panel__head">
         <div className="rhythm-dock-panel__head-top">
           <div className="rhythm-dock-panel__brand">
-            <UiJoystick className="rhythm-dock-panel__brand-ic" aria-hidden />
+            <UiPlectrum className="rhythm-dock-panel__brand-ic" aria-hidden />
             <span>{t("plectr.title")}</span>
           </div>
           <p className="rhythm-dock-panel__record" aria-live="polite">
@@ -267,8 +269,14 @@ export const RhythmDockPanel = memo(function RhythmDockPanel({
               </>
             ) : displayBest ? (
               <>
-                <span className="rhythm-dock-panel__record-label">
-                  {t("rhythm.statBest")}
+                <span
+                  className="rhythm-dock-panel__record-label rhythm-dock-panel__record-label--trophy"
+                  aria-label={t("rhythm.statBest")}
+                >
+                  <UiEmojiEvents
+                    className="rhythm-dock-panel__trophy-ic"
+                    aria-hidden
+                  />
                 </span>
                 <strong>
                   {displayBest.score.toLocaleString()}
@@ -277,8 +285,14 @@ export const RhythmDockPanel = memo(function RhythmDockPanel({
               </>
             ) : (
               <>
-                <span className="rhythm-dock-panel__record-label">
-                  {t("rhythm.statBest")}
+                <span
+                  className="rhythm-dock-panel__record-label rhythm-dock-panel__record-label--trophy"
+                  aria-label={t("rhythm.statBest")}
+                >
+                  <UiEmojiEvents
+                    className="rhythm-dock-panel__trophy-ic"
+                    aria-hidden
+                  />
                 </span>
                 <span className="rhythm-dock-panel__record-empty">—</span>
               </>
@@ -318,16 +332,30 @@ export const RhythmDockPanel = memo(function RhythmDockPanel({
                 key={d.id}
                 type="button"
                 className={`rhythm-dock-panel__diff${
-                  difficulty === d.id ? " is-active" : ""
+                  playMode === d.id ? " is-active" : ""
                 }`}
                 disabled={disabled || phase !== "ready"}
-                aria-pressed={difficulty === d.id}
-                onClick={() => onDifficulty(d.id)}
+                aria-pressed={playMode === d.id}
+                onClick={() => onPlayMode(d.id)}
               >
                 {d.label}
               </button>
             );
           })}
+          <button
+            type="button"
+            className={`rhythm-dock-panel__diff rhythm-dock-panel__diff--extreme${
+              playMode === "extreme" ? " is-active" : ""
+            }`}
+            disabled={
+              (chartSet?.charts.hard?.notes.length ?? 0) < 12 ||
+              phase !== "ready"
+            }
+            aria-pressed={playMode === "extreme"}
+            onClick={() => onPlayMode("extreme")}
+          >
+            Extreme
+          </button>
         </div>
       </header>
 
@@ -353,7 +381,7 @@ export const RhythmDockPanel = memo(function RhythmDockPanel({
 
         {phase === "ready" && chart ? (
           <GameCanvas
-            key={`${track.relPath}-${difficulty}-${runId}`}
+            key={`${track.relPath}-${playMode}-${runId}`}
             chart={chart}
             runId={runId}
             embedded

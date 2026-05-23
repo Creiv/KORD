@@ -13,6 +13,7 @@ import {
 } from "../config/gameConfig";
 import { roundedRect } from "../lib/canvasDrawing";
 import { clamp } from "../lib/math";
+import { resolveRunEndTime } from "../lib/runTiming";
 import { buildGameResult } from "../lib/runResult";
 import type { Chart, ChartNote, GameResult, Lane } from "../types";
 import { FeedbackBadge } from "./FeedbackBadge";
@@ -123,6 +124,7 @@ export function GameCanvas({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef(0);
+  const drawRef = useRef<() => void>(() => {});
   const stateRef = useRef<RunState | null>(null);
   const hudSyncRef = useRef({
     score: -1,
@@ -136,6 +138,7 @@ export function GameCanvas({
     Array<ReturnType<typeof setTimeout> | null>
   >([null, null, null, null]);
   const [pressedLanes, setPressedLanes] = useState([false, false, false, false]);
+  const [holdingLanes, setHoldingLanes] = useState([false, false, false, false]);
   const [laneFlash, setLaneFlash] = useState<LaneFlashKind[]>([null, null, null, null]);
   const canvasLayoutRef = useRef({ width: 0, height: 0, dpr: 1, bufferW: 0, bufferH: 0 });
 
@@ -144,6 +147,17 @@ export function GameCanvas({
     if (!s) return;
     const now = performance.now();
     setLaneFlash(s.laneFlash.map((f) => (f && f.until > now ? f.kind : null)));
+    const nextHold = LANES.map((_, i) =>
+      s.activeHolds.some(
+        (n) =>
+          n.holding &&
+          !n.completed &&
+          (n.lane === i || noteEndLane(n) === i),
+      ),
+    );
+    setHoldingLanes((prev) =>
+      prev.every((v, i) => v === nextHold[i]) ? prev : nextHold,
+    );
   }, []);
 
   useLayoutEffect(() => {
@@ -424,10 +438,11 @@ export function GameCanvas({
       }));
     }
 
-    rafRef.current = requestAnimationFrame(draw);
+    rafRef.current = requestAnimationFrame(() => drawRef.current());
   }, [
     canvasLite,
     chart.duration,
+    embedded,
     finish,
     maybeReportRunProgress,
     playerSync,
@@ -436,6 +451,10 @@ export function GameCanvas({
     usePlayer,
     vibrateMiss,
   ]);
+
+  useLayoutEffect(() => {
+    drawRef.current = draw;
+  }, [draw]);
 
   const beginRef = useRef<(offset?: number) => void>(() => {});
 
@@ -461,7 +480,9 @@ export function GameCanvas({
     [chart.duration, draw, finish]
   );
 
-  beginRef.current = begin;
+  useLayoutEffect(() => {
+    beginRef.current = begin;
+  }, [begin]);
 
   const beginLiveRef = useRef<(offset?: number) => void>(() => {});
 
@@ -494,7 +515,9 @@ export function GameCanvas({
     [chart.duration, draw, embedded, finish, playerSync]
   );
 
-  beginLiveRef.current = beginLive;
+  useLayoutEffect(() => {
+    beginLiveRef.current = beginLive;
+  }, [beginLive]);
 
   const canJudge = useCallback(() => {
     const state = stateRef.current;
@@ -502,6 +525,25 @@ export function GameCanvas({
     if (syncLive && usePlayer) return state.started;
     return state.started && !state.paused;
   }, [syncLive, usePlayer]);
+
+  const syncHudNow = useCallback((state: RunState) => {
+    hudSyncRef.current = {
+      score: state.score,
+      combo: state.combo,
+      feedback: state.feedback,
+      feedbackPulse: state.feedbackPulse,
+      at: performance.now(),
+    };
+    setHud((prev) => ({
+      ...prev,
+      score: state.score,
+      combo: state.combo,
+      health: state.health,
+      feedback: state.feedback,
+      feedbackPulse: state.feedbackPulse,
+    }));
+    syncLaneFlashUi();
+  }, [syncLaneFlashUi]);
 
   const releaseLanePress = useCallback((laneIndex: number) => {
     const timers = lanePressReleaseTimersRef.current;
@@ -512,10 +554,41 @@ export function GameCanvas({
     }
     const state = stateRef.current;
     if (!state) return;
-    if (!state.pressedLanes[laneIndex]) return;
+    const hadActiveHold = state.activeHolds.some(
+      (note) =>
+        note.holding &&
+        !note.completed &&
+        !note.missed &&
+        (note.lane === laneIndex || noteEndLane(note) === laneIndex),
+    );
     state.pressedLanes[laneIndex] = false;
     setPressedLanes([...state.pressedLanes]);
-  }, []);
+
+    if (canJudge() && hadActiveHold) {
+      if (syncLive && usePlayer && playerSync) {
+        state.songTime = resolveSmoothSongTime(
+          state,
+          performance.now(),
+          playerSync,
+        );
+      } else {
+        const nextSongTime = usePlayer
+          ? playerSync?.getCurrentTime()
+          : audioRef.current?.currentTime;
+        if (typeof nextSongTime === "number" && Number.isFinite(nextSongTime)) {
+          state.songTime = nextSongTime;
+        }
+      }
+      const pulseBefore = state.feedbackPulse;
+      judgeHoldRelease(state, laneIndex);
+      if (state.feedbackPulse !== pulseBefore) {
+        if (state.feedback === "Hold Miss") {
+          vibrateMiss();
+        }
+        syncHudNow(state);
+      }
+    }
+  }, [canJudge, playerSync, syncHudNow, syncLive, usePlayer, vibrateMiss]);
 
   const judgeLane = useCallback(
     (laneIndex: number, pressed: boolean) => {
@@ -542,16 +615,26 @@ export function GameCanvas({
       if (syncLive && usePlayer && playerSync) {
         state.songTime = resolveSmoothSongTime(state, performance.now(), playerSync);
       }
-      judgeTap(state, laneIndex);
+      const startedHold = judgeHoldStart(state, laneIndex);
+      if (!startedHold) {
+        judgeTap(state, laneIndex);
+      }
       setPressedLanes([...state.pressedLanes]);
       if (embedded) {
         const timers = lanePressReleaseTimersRef.current;
         const pending = timers[laneIndex];
         if (pending) clearTimeout(pending);
-        timers[laneIndex] = window.setTimeout(
-          () => releaseLanePress(laneIndex),
-          90
+        const holdingLane = state.activeHolds.some(
+          (n) =>
+            n.holding &&
+            (n.lane === laneIndex || noteEndLane(n) === laneIndex),
         );
+        if (!holdingLane) {
+          timers[laneIndex] = window.setTimeout(
+            () => releaseLanePress(laneIndex),
+            90,
+          );
+        }
       }
     },
     [canJudge, embedded, playerSync, releaseLanePress, syncLive, usePlayer]
@@ -600,9 +683,14 @@ export function GameCanvas({
   useEffect(() => {
     const shouldLive = embedded && syncLive;
     const shouldCountdownBegin = embedded && autoBegin && !syncLive;
+    let cancelled = false;
     stateRef.current = initialRunState(chart.notes);
     lastRunUpdateScoreRef.current = -1;
-    setWaitingForStart(!(shouldLive || shouldCountdownBegin));
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setWaitingForStart(!(shouldLive || shouldCountdownBegin));
+      }
+    });
     cancelAnimationFrame(rafRef.current);
 
     if (shouldLive) {
@@ -614,6 +702,7 @@ export function GameCanvas({
     }
 
     return () => {
+      cancelled = true;
       const state = stateRef.current;
       if (state) state.finished = true;
       cancelAnimationFrame(rafRef.current);
@@ -717,7 +806,7 @@ export function GameCanvas({
         </div>
         <div className="hud-stat hud-stat--combo">
           <span className="hud-stat__label">{labels.combo}</span>
-          <strong className="hud-stat__value">{stateRef.current?.combo || 0}x</strong>
+          <strong className="hud-stat__value">{hud.combo}x</strong>
         </div>
       </div>
       <FeedbackBadge
@@ -774,7 +863,8 @@ export function GameCanvas({
             key={lane.name}
             className={[
               "lane-pad",
-              !embedded && pressedLanes[index] ? "is-pressed" : "",
+              pressedLanes[index] || holdingLanes[index] ? "is-pressed" : "",
+              holdingLanes[index] ? "lane-pad--holding" : "",
               laneFlash[index] ? `lane-pad--${laneFlash[index]}` : "",
             ]
               .filter(Boolean)
@@ -784,17 +874,25 @@ export function GameCanvas({
             tabIndex={-1}
             onPointerDown={(event) => {
               event.preventDefault();
+              event.currentTarget.setPointerCapture(event.pointerId);
               judgeLane(index, true);
             }}
             onPointerUp={(event) => {
               event.preventDefault();
               releaseLanePress(index);
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                event.currentTarget.releasePointerCapture(event.pointerId);
+              }
             }}
             onPointerCancel={(event) => {
               event.preventDefault();
               releaseLanePress(index);
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                event.currentTarget.releasePointerCapture(event.pointerId);
+              }
             }}
             onPointerLeave={(event) => {
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) return;
               if (event.buttons !== 0) return;
               releaseLanePress(index);
             }}
@@ -928,21 +1026,6 @@ function noteEndLane(note: ChartNote): number {
   return note.endLane ?? note.lane;
 }
 
-/** Fine run: preferisci durata audio reale (crossfade / fine brano nel player). */
-export function resolveRunEndTime(
-  chartDuration: number,
-  audioDuration?: number
-): number {
-  if (
-    typeof audioDuration === "number" &&
-    Number.isFinite(audioDuration) &&
-    audioDuration > 0
-  ) {
-    return audioDuration;
-  }
-  return chartDuration;
-}
-
 function dockHitLineY(cssHeight: number): number {
   const y = cssHeight * DOCK_HIT_LINE_Y;
   return Math.min(
@@ -963,6 +1046,34 @@ function noteVisibleTimeRange(
     min: songTime - (cssHeight - hitY + bottomTrail) / noteSpeed,
     max: songTime + (hitY + topLead) / noteSpeed,
   };
+}
+
+function holdReleaseAt(note: ChartNote): number {
+  return note.time + note.duration;
+}
+
+function failHoldRelease(state: RunState, note: ChartNote, message: string): void {
+  note.holding = false;
+  note.missed = true;
+  state.combo = 0;
+  state.misses += 1;
+  flashLane(state, note.lane, "miss");
+  const endLane = noteEndLane(note);
+  if (endLane !== note.lane) {
+    flashLane(state, endLane, "miss");
+  }
+  setFeedback(state, message);
+}
+
+function isHoldLanePressed(state: RunState, note: ChartNote): boolean {
+  const endLane = noteEndLane(note);
+  return state.pressedLanes[note.lane] || state.pressedLanes[endLane];
+}
+
+function completeHeldNote(note: ChartNote): void {
+  note.holding = false;
+  note.completed = true;
+  laneFlashNotifier.sync?.();
 }
 
 function lowerBoundNoteIndex(notes: ChartNote[], time: number): number {
@@ -1014,7 +1125,7 @@ function drawStage(ctx: CanvasRenderingContext2D, { cssWidth, cssHeight, hitY, l
       ctx.fillRect(x + laneWidth - 3, 0, 2, cssHeight);
       ctx.globalAlpha = 1;
     }
-    drawReceptors(ctx, { cssWidth, hitY, laneWidth, state, lite: true });
+    drawReceptors(ctx, { cssWidth, hitY, laneWidth, state, lite: true, songTime });
     return;
   }
   const gradient = ctx.createLinearGradient(0, 0, 0, cssHeight);
@@ -1077,29 +1188,39 @@ function drawStage(ctx: CanvasRenderingContext2D, { cssWidth, cssHeight, hitY, l
 
 function drawReceptors(
   ctx: CanvasRenderingContext2D,
-  { cssWidth, hitY, laneWidth, state, lite }: Pick<DrawContext, "cssWidth" | "hitY" | "laneWidth" | "state" | "lite">
+  { cssWidth, hitY, laneWidth, state, lite }: Pick<DrawContext, "cssWidth" | "hitY" | "laneWidth" | "state" | "lite"> & { songTime?: number }
 ): void {
   const feverActive = false;
+  const holdLanes = new Set<number>();
+  for (const note of state.activeHolds) {
+    if (!note.holding || note.completed) continue;
+    holdLanes.add(note.lane);
+    holdLanes.add(noteEndLane(note));
+  }
   if (lite) {
     const now = performance.now();
     ctx.fillStyle = "rgba(255,255,255,0.06)";
     ctx.fillRect(0, hitY - 2, cssWidth, 4);
     for (let lane = 0; lane < LANES.length; lane += 1) {
-      const x = lane * laneWidth + laneWidth * 0.18;
+      const x = lane * laneWidth + laneWidth * 0.08;
+      const w = laneWidth * 0.84;
       const pressed = state.pressedLanes[lane];
       const flash = state.laneFlash[lane];
       const flashKind =
         flash && flash.until > now ? flash.kind : null;
+      const holding = holdLanes.has(lane);
       if (flashKind === "hit") {
         ctx.fillStyle = LANES[lane].color;
       } else if (flashKind === "miss") {
         ctx.fillStyle = "#ff6f82";
+      } else if (holding) {
+        ctx.fillStyle = LANES[lane].color;
       } else if (pressed) {
         ctx.fillStyle = LANES[lane].color;
       } else {
         ctx.fillStyle = "rgba(255,255,255,0.22)";
       }
-      ctx.fillRect(x, hitY - 11, laneWidth * 0.64, 22);
+      ctx.fillRect(x, hitY - 11, w, 22);
     }
     return;
   }
@@ -1131,24 +1252,64 @@ function drawNotes(ctx: CanvasRenderingContext2D, drawCtx: DrawContext): void {
   const yMin = -travel;
   const yMax = cssHeight + 80;
   const { min, max } = noteVisibleTimeRange(songTime, hitY, cssHeight, noteSpeed);
-  const start = lowerBoundNoteIndex(state.notes, min);
-  const end = upperBoundNoteIndex(state.notes, max);
+  let start = lowerBoundNoteIndex(state.notes, min);
+  let end = upperBoundNoteIndex(state.notes, max);
+  for (const holdNote of state.activeHolds) {
+    if (!holdNote.holding || holdNote.completed) continue;
+    start = Math.min(start, holdNote.id);
+    end = Math.max(end, holdNote.id + 1);
+  }
   const noteWidth = laneWidth * 0.62;
   const noteHeight = lite ? 14 : 20;
-  const halfH = noteHeight / 2;
 
   if (lite) {
-    ctx.fillStyle = "#fff";
+    const feverActive = false;
     for (let i = start; i < end; i += 1) {
       const note = state.notes[i];
       if (note.completed || note.missed) continue;
       const y = hitY - (note.time - songTime) * noteSpeed;
-      if (y < yMin || y > yMax) continue;
+      const holdEndY =
+        note.duration > 0
+          ? hitY - (note.time + note.duration - songTime) * noteSpeed
+          : y;
+      const holdingActive = note.duration > 0 && note.holding;
+      const headOnScreen = y >= yMin && y <= yMax;
+      const trailOnScreen =
+        note.duration > 0 &&
+        Math.min(y, holdEndY) <= yMax + noteHeight &&
+        Math.max(y, holdEndY) >= yMin;
+      if (!holdingActive && !headOnScreen && !trailOnScreen) continue;
       const lane = LANES[note.lane];
       if (!lane) continue;
-      ctx.fillStyle = lane.color;
-      const noteX = laneCenterX(note.lane, laneWidth) - noteWidth / 2;
-      ctx.fillRect(noteX, y - halfH, noteWidth, noteHeight);
+      const centerX = laneCenterX(note.lane, laneWidth);
+      const noteX = centerX - noteWidth / 2;
+      if (note.duration > 0) {
+        drawHoldTrail(ctx, {
+          centerX,
+          feverActive,
+          hitY,
+          lane,
+          laneWidth,
+          note,
+          noteHeight,
+          noteSpeed,
+          songTime,
+          headY: y,
+        });
+      }
+      if (!holdingActive && headOnScreen) {
+        ctx.fillStyle = lane.color;
+        drawNoteHead(ctx, {
+          feverActive,
+          isSwipeNote: false,
+          lane,
+          noteHeight,
+          noteWidth,
+          noteX,
+          y,
+          lite: true,
+        });
+      }
     }
     return;
   }
@@ -1158,7 +1319,17 @@ function drawNotes(ctx: CanvasRenderingContext2D, drawCtx: DrawContext): void {
     const note = state.notes[i];
     if (note.completed || note.missed) continue;
     const y = hitY - (note.time - songTime) * noteSpeed;
-    if (y < yMin || y > yMax) continue;
+    const holdEndY =
+      note.duration > 0
+        ? hitY - (note.time + note.duration - songTime) * noteSpeed
+        : y;
+    const holdingActive = note.duration > 0 && note.holding;
+    const headOnScreen = y >= yMin && y <= yMax;
+    const trailOnScreen =
+      note.duration > 0 &&
+      Math.min(y, holdEndY) <= yMax + noteHeight &&
+      Math.max(y, holdEndY) >= yMin;
+    if (!holdingActive && !headOnScreen && !trailOnScreen) continue;
     const lane = LANES[note.lane];
     if (!lane) continue;
     const centerX = laneCenterX(note.lane, laneWidth);
@@ -1175,10 +1346,21 @@ function drawNotes(ctx: CanvasRenderingContext2D, drawCtx: DrawContext): void {
         noteHeight,
         noteSpeed,
         songTime,
-        y,
+        headY: y,
       });
     }
-    drawNoteHead(ctx, { feverActive, isSwipeNote: false, lane, noteHeight, noteWidth, noteX, y, lite });
+    if (!holdingActive && headOnScreen) {
+      drawNoteHead(ctx, {
+        feverActive,
+        isSwipeNote: false,
+        lane,
+        noteHeight,
+        noteWidth,
+        noteX,
+        y,
+        lite,
+      });
+    }
   }
 }
 
@@ -1186,7 +1368,6 @@ function drawHoldTrail(
   ctx: CanvasRenderingContext2D,
   {
     centerX,
-    feverActive,
     hitY,
     lane,
     laneWidth,
@@ -1194,7 +1375,7 @@ function drawHoldTrail(
     noteHeight,
     noteSpeed,
     songTime,
-    y,
+    headY,
   }: {
     centerX: number;
     feverActive: boolean;
@@ -1205,38 +1386,83 @@ function drawHoldTrail(
     noteHeight: number;
     noteSpeed: number;
     songTime: number;
-    y: number;
+    headY: number;
   }
 ): void {
   const holdEndY = hitY - (note.time + note.duration - songTime) * noteSpeed;
-  const top = Math.min(y, holdEndY);
-  const height = Math.max(y, holdEndY) - top;
   const endX = laneCenterX(noteEndLane(note), laneWidth);
-  ctx.fillStyle = feverActive ? "rgba(255,232,102,0.42)" : note.holding ? "rgba(255,255,255,0.42)" : lane.shadow;
-  ctx.shadowColor = lane.shadow;
-  ctx.shadowBlur = feverActive ? 24 : 16;
-  if (endX === centerX) {
-    roundedRect(ctx, centerX - HOLD_WIDTH / 2, top, HOLD_WIDTH, height + noteHeight, 8);
-    ctx.fill();
-  } else {
-    const switchY = y + (holdEndY - y) * 0.54;
+  const trailW = HOLD_WIDTH + (note.holding ? 4 : 0);
+
+  ctx.shadowBlur = 0;
+
+  if (endX !== centerX) {
+    const anchorY = note.holding ? hitY : headY;
+    ctx.fillStyle = note.holding ? lane.color : lane.shadow;
+    ctx.globalAlpha = note.holding ? 0.72 : 1;
+    ctx.shadowColor = lane.shadow;
+    ctx.shadowBlur = note.holding ? 16 : 10;
+    const switchY = anchorY + (holdEndY - anchorY) * 0.54;
     ctx.lineWidth = HOLD_WIDTH;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.beginPath();
-    ctx.moveTo(centerX, y);
+    ctx.moveTo(centerX, anchorY);
     ctx.lineTo(centerX, switchY);
     ctx.lineTo(endX, switchY);
     ctx.lineTo(endX, holdEndY);
-    ctx.strokeStyle = ctx.fillStyle;
+    ctx.strokeStyle = ctx.fillStyle as string;
     ctx.stroke();
     ctx.fillStyle = "rgba(255,255,255,0.55)";
     ctx.beginPath();
     ctx.arc(endX, holdEndY, 8, 0, Math.PI * 2);
     ctx.fill();
-    ctx.lineWidth = 1;
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+    return;
   }
-  ctx.shadowBlur = 0;
+
+  if (note.holding) {
+    const topY = Math.min(holdEndY, hitY - noteHeight * 0.5);
+    const bottomY = hitY;
+    const height = Math.max(6, bottomY - topY);
+    const progress = clamp((songTime - note.time) / Math.max(0.001, note.duration), 0, 1);
+
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    roundedRect(ctx, centerX - trailW / 2, topY, trailW, height, 6);
+    ctx.fill();
+
+    const filledH = height * progress;
+    if (filledH > 2) {
+      ctx.fillStyle = lane.color;
+      ctx.globalAlpha = 0.58;
+      roundedRect(ctx, centerX - trailW / 2, bottomY - filledH, trailW, filledH, 6);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.fillStyle = lane.color;
+    ctx.fillRect(
+      centerX - trailW / 2,
+      hitY - noteHeight / 2,
+      trailW,
+      noteHeight,
+    );
+    return;
+  }
+
+  const topY = Math.min(headY, holdEndY);
+  const barHeight = Math.max(headY, holdEndY) - topY + noteHeight;
+
+  ctx.fillStyle = "rgba(255,255,255,0.08)";
+  roundedRect(ctx, centerX - trailW / 2, topY, trailW, barHeight, 8);
+  ctx.fill();
+
+  ctx.strokeStyle = lane.color;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 4]);
+  roundedRect(ctx, centerX - trailW / 2, topY, trailW, barHeight, 8);
+  ctx.stroke();
+  ctx.setLineDash([]);
 }
 
 function drawNoteHead(
@@ -1310,26 +1536,107 @@ function applyMisses({ songTime, state, vibrateMiss }: { songTime: number; state
 
 function completeHeldNotes({ songTime, state, vibrateMiss }: { songTime: number; state: RunState; vibrateMiss: () => void }): void {
   for (const note of state.activeHolds) {
-    if (!note.holding || note.completed) continue;
-    if (songTime >= note.time + note.duration - HIT_WINDOWS.holdSlack) {
+    if (!note.holding || note.completed || note.missed) continue;
+    const holdEnd = holdReleaseAt(note);
+
+    if (songTime >= holdReleaseAt(note) - HIT_WINDOWS.holdSlack) {
       const requiredLane = noteEndLane(note);
       if (requiredLane !== note.lane && !state.pressedLanes[requiredLane]) {
         note.holding = false;
-        note.completed = true;
+        note.missed = true;
         state.combo = 0;
         state.misses += 1;
+        flashLane(state, note.lane, "miss");
+        flashLane(state, requiredLane, "miss");
         setFeedback(state, "Slide Miss");
         vibrateMiss();
         continue;
       }
-      note.completed = true;
-      note.holding = false;
-      awardScore(state, requiredLane !== note.lane ? 220 : 120);
-      state.health = clamp(state.health + (requiredLane !== note.lane ? 2 : 1), 0, 100);
-      if (requiredLane !== note.lane) setFeedback(state, "Slide");
+    }
+
+    if (!isHoldLanePressed(state, note) && songTime < holdEnd) {
+      failHoldRelease(state, note, "Hold Miss");
+      vibrateMiss();
+      continue;
+    }
+
+    if (songTime >= holdEnd) {
+      completeHeldNote(note);
     }
   }
   state.activeHolds = state.activeHolds.filter((note) => note.holding && !note.completed);
+}
+
+function judgeHoldStart(state: RunState, laneIndex: number): boolean {
+  const songTime = state.songTime;
+  let best: ChartNote | null = null;
+  let bestDelta = Infinity;
+  const start = lowerBoundNoteIndex(state.notes, songTime - HIT_WINDOWS.ok);
+  const end = upperBoundNoteIndex(state.notes, songTime + HIT_WINDOWS.ok);
+  for (let i = start; i < end; i += 1) {
+    const note = state.notes[i];
+    if (
+      note.type !== "hold" ||
+      note.lane !== laneIndex ||
+      note.hit ||
+      note.missed ||
+      note.holding
+    ) {
+      continue;
+    }
+    const delta = Math.abs(note.time - songTime);
+    if (delta < bestDelta) {
+      best = note;
+      bestDelta = delta;
+    }
+  }
+  if (!best) return false;
+  best.hit = true;
+  best.holding = true;
+  state.activeHolds.push(best);
+  state.hits += 1;
+  state.combo += 1;
+  state.maxCombo = Math.max(state.maxCombo, state.combo);
+  const perfect = bestDelta <= HIT_WINDOWS.perfect;
+  const good = bestDelta <= HIT_WINDOWS.good;
+  const points = perfect ? 300 : good ? 180 : 90;
+  const multiplier = 1 + Math.min(3, Math.floor(state.combo / 12));
+  awardScore(state, points, multiplier);
+  setFeedback(
+    state,
+    perfect ? "Perfect" : good ? "Good" : songTime > best.time ? "Late" : "Early",
+  );
+  flashLane(state, laneIndex, "hit");
+  return true;
+}
+
+function judgeHoldRelease(state: RunState, laneIndex: number): void {
+  const songTime = state.songTime;
+  let best: ChartNote | null = null;
+  let bestEnd = Infinity;
+
+  for (const note of state.activeHolds) {
+    if (!note.holding || note.completed || note.missed) continue;
+    const endLane = noteEndLane(note);
+    if (note.lane !== laneIndex && endLane !== laneIndex) continue;
+    const holdEnd = holdReleaseAt(note);
+    if (holdEnd < bestEnd) {
+      best = note;
+      bestEnd = holdEnd;
+    }
+  }
+
+  if (best) {
+    if (songTime < bestEnd) {
+      failHoldRelease(state, best, "Hold Miss");
+    } else {
+      completeHeldNote(best);
+    }
+  }
+
+  state.activeHolds = state.activeHolds.filter(
+    (n) => n.holding && !n.completed,
+  );
 }
 
 function judgeTap(state: RunState, laneIndex: number): void {

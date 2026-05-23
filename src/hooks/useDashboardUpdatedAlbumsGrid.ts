@@ -54,8 +54,9 @@ function dashboardUpdatedAlbumSlotsForDesktop(cols: number): number {
 export function dashboardUpdatedAlbumsVisibleCount(
   albumCount: number,
   maxSlots: number | undefined,
-  _columns?: number | undefined
+  columns?: number | undefined
 ): number {
+  void columns;
   const cap = Math.max(0, maxSlots ?? DASHBOARD_UPDATED_ALBUMS_MAX);
   return Math.min(Math.max(0, albumCount), cap);
 }
@@ -67,8 +68,8 @@ export function useDashboardUpdatedAlbumsGrid(isMobile: boolean) {
 
   useLayoutEffect(() => {
     if (isMobile) {
-      setColumns(1);
-      return;
+      const timer = window.setTimeout(() => setColumns(1), 0);
+      return () => window.clearTimeout(timer);
     }
     const el = ref.current;
     if (!el) return;

@@ -29,7 +29,6 @@ export const TopBar = memo(function TopBar({
   onSync,
   onToggleSearch,
   onInstall,
-  onOpenSettings: _onOpenSettings,
 }: TopBarProps) {
   const { t } = useI18n();
 

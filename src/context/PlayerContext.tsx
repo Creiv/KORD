@@ -278,7 +278,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   useLayoutEffect(() => {
     if (!current) return;
-    setCurrentTime(0);
+    const timer = window.setTimeout(() => setCurrentTime(0), 0);
+    return () => window.clearTimeout(timer);
   }, [current?.relPath]);
 
   useEffect(() => {
@@ -642,7 +643,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       prefetchedRelPathRef.current = null;
       void abortCrossfade();
       activeDeckRef.current = 0;
-      setActiveDeckIx(0);
+      window.setTimeout(() => setActiveDeckIx(0), 0);
       snapGainsToSolo(0);
       const a0 = audioDeck0Ref.current;
       const a1 = audioDeck1Ref.current;

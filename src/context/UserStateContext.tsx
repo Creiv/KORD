@@ -610,7 +610,9 @@ const UserStateContext = createContext<UserStateContextValue | null>(null);
 export function UserStateProvider({ children }: { children: React.ReactNode }) {
   const { beginActivity: beginLibrarySyncActivity } = useLibrarySyncActivity();
   const beginLibrarySyncActivityRef = useRef(beginLibrarySyncActivity);
-  beginLibrarySyncActivityRef.current = beginLibrarySyncActivity;
+  useEffect(() => {
+    beginLibrarySyncActivityRef.current = beginLibrarySyncActivity;
+  }, [beginLibrarySyncActivity]);
   const [state, setState] = useState<UserStateV1>(defaultUserState);
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -927,7 +929,9 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
     }, delayMs);
   }, []);
 
-  schedulePendingFlushRef.current = schedulePendingFlush;
+  useEffect(() => {
+    schedulePendingFlushRef.current = schedulePendingFlush;
+  }, [schedulePendingFlush]);
 
   const flushUserStateNow = useCallback(() => {
     if (flushTimerRef.current != null) {

@@ -19,7 +19,6 @@ const MORE_KEYS: { id: AppSection; labelKey: string }[] = [
 
 const PRIMARY: { id: AppSection; labelKey: string }[] = [
   { id: "dashboard", labelKey: "nav.dashboard" },
-  { id: "ascolta", labelKey: "nav.listen" },
   { id: "libreria", labelKey: "nav.library" },
   { id: "studio", labelKey: "nav.studio" },
 ];
@@ -67,6 +66,8 @@ export function MobileBottomNav({ active, onSelect }: MobileBottomNavProps) {
     },
     [onSelect, player.queue.length, toggleRhythm]
   );
+
+  if (rhythmOpen) return null;
 
   return (
     <>

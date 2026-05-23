@@ -111,7 +111,7 @@ function TrackMetaEditorModal({
   const [lyricsOpen, setLyricsOpen] = useState(false);
   const [lyricsValue, setLyricsValue] = useState("");
   const [lyricsFetchBusy, setLyricsFetchBusy] = useState(false);
-  const [, setLyricsAutoStatus] = useState<
+  const [lyricsAutoStatus, setLyricsAutoStatus] = useState<
     "idle" | "okLrc" | "okPlain" | "missing" | "error"
   >("idle");
   const [busy, setBusy] = useState(false);
@@ -380,8 +380,14 @@ function TrackMetaEditorModal({
 
   if (!track) return null;
   const currentLyrics = lyricsValue.trim();
-  const lyricsDotStatus: "idle" | "okLrc" | "okPlain" =
-    !currentLyrics ? "idle" : hasLrcTimecodes(currentLyrics) ? "okLrc" : "okPlain";
+  const lyricsDotStatus: "idle" | "okLrc" | "okPlain" | "missing" | "error" =
+    lyricsAutoStatus === "missing" || lyricsAutoStatus === "error"
+      ? lyricsAutoStatus
+      : !currentLyrics
+        ? lyricsAutoStatus
+        : hasLrcTimecodes(currentLyrics)
+          ? "okLrc"
+          : "okPlain";
 
   const lyricsPortal = lyricsOpen
     ? createPortal(

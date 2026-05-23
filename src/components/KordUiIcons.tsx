@@ -271,26 +271,46 @@ export function UiGraphicEq({ className }: { className?: string }) {
   );
 }
 
-/** Plectr — joystick arcade (pallina + asta + base) */
-export function UiJoystick({ className }: { className?: string }) {
+/** Plettro per chitarra — punta in basso, angoli arrotondati, ~25% più largo. */
+export function UiPlectrum({ className }: { className?: string }) {
+  const cls = className
+    ? `kord-plectrum-ic ${className}`
+    : "kord-plectrum-ic";
   return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="7.25" r="3.25" fill="currentColor" />
+    <svg className={cls} viewBox="0 0 30 24" aria-hidden="true">
       <path
         fill="currentColor"
-        d="M10.75 10.5h2.5v5.75H10.75V10.5z"
-      />
-      <path
-        fill="currentColor"
-        d="M7 16.25h10c1.24 0 2.25 1.01 2.25 2.25V21.5c0 .28-.22.5-.5.5h-13c-.28 0-.5-.22-.5-.5v-3c0-1.24 1.01-2.25 2.25-2.25z"
+        d="M15 21.4Q16.1 22.2 17.5 20.3L23.9 6.2Q24.7 4.3 22.6 3.2Q18.9 1.7 15 1.7Q11.1 1.7 7.4 3.2Q5.3 4.3 6.1 6.2L12.5 20.3Q13.9 22.2 15 21.4Z"
       />
     </svg>
   );
 }
 
-/** @deprecated Usa UiJoystick */
+/** Scopri — come Material TrackChanges. */
+export function UiTrackChanges({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="m19.07 4.93-1.41 1.41C19.1 7.79 20 9.79 20 12c0 4.42-3.58 8-8 8s-8-3.58-8-8c0-4.08 3.05-7.44 7-7.93v2.02C8.16 6.57 6 9.03 6 12c0 3.31 2.69 6 6 6s6-2.69 6-6c0-1.66-.67-3.16-1.76-4.24l-1.41 1.41C15.55 9.9 16 10.9 16 12c0 2.21-1.79 4-4 4s-4-1.79-4-4c0-1.86 1.28-3.41 3-3.86v2.14c-.6.35-1 .98-1 1.72 0 1.1.9 2 2 2s2-.9 2-2c0-.74-.4-1.38-1-1.72V2h-1C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10c0-2.76-1.12-5.26-2.93-7.07"
+      />
+    </svg>
+  );
+}
+
+/** @deprecated Usa UiTrackChanges */
+export function UiExplore({ className }: { className?: string }) {
+  return <UiTrackChanges className={className} />;
+}
+
+/** Plectr — usa il plettro */
+export function UiJoystick({ className }: { className?: string }) {
+  return <UiPlectrum className={className} />;
+}
+
+/** @deprecated Usa UiPlectrum */
 export function UiSportsEsports({ className }: { className?: string }) {
-  return <UiJoystick className={className} />;
+  return <UiPlectrum className={className} />;
 }
 
 /** Libreria → mood (non confondere con Studio / equalizzatore) */

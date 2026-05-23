@@ -2,7 +2,7 @@
 
 **Kord** is a local music hub: browse your library, play tracks with a persistent queue, manage playlists, and keep metadata organized. This repository provides a full-stack web app, an **Electron** desktop shell, and separate **packaged** builds for a **desktop server** and a **lightweight client** for remote use on the same network.
 
-Kord **3.0** ships with the behavior and packaging described below. **`package.json`** is the single source for the exact semver of a given commit.
+Kord **3.1** ships with the behavior and packaging described below. **`package.json`** is the single source for the exact semver of a given commit.
 
 ---
 
@@ -85,7 +85,7 @@ On **Linux**, Chromium may warn about **sandbox**; **`ELECTRON_DISABLE_SANDBOX=1
 
 ## Builds and installers
 
-### Release 3.0
+### Release 3.1
 
 Produce a fresh UI bundle:
 
@@ -167,7 +167,7 @@ npm run lint
 
 ---
 
-## Release 3.0 — notes for publishers
+## Release 3.1 — notes for publishers
 
 - **LAN / firewall:** default bind is **all interfaces**; restrict with **`KORD_LISTEN_HOST=127.0.0.1`** if the machine must not accept remote connections on the API port.
 - **`pack:*:server`** is the intended path for a **standalone Studio** with bundled **yt-dlp** (remove binaries for other platforms from `server/bin/` before packing if you want a smaller installer).

@@ -110,7 +110,7 @@ function SettingsView() {
       return false;
     }
   });
-  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "3.0.0");
+  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "3.1.0");
 
   useEffect(() => {
     Promise.all([fetchConfig(), fetchAccounts()])
@@ -400,7 +400,8 @@ function SettingsView() {
   }, [remoteAccess?.publicUrl, t, appAlert]);
 
   useEffect(() => {
-    setRemoteUrlCopyOk(null);
+    const timer = window.setTimeout(() => setRemoteUrlCopyOk(null), 0);
+    return () => window.clearTimeout(timer);
   }, [remoteAccess?.publicUrl]);
 
   useEffect(() => {
@@ -634,6 +635,15 @@ function SettingsView() {
               </span>
               <span className="shortcut-row__desc">
                 {t("settings.shortcutListenDesc")}
+              </span>
+            </div>
+            <div className="shortcut-row">
+              <kbd className="shortcut-kbd">{t("settings.kbdP")}</kbd>
+              <span className="shortcut-row__dash" aria-hidden>
+                —
+              </span>
+              <span className="shortcut-row__desc">
+                {t("settings.shortcutPlectrDesc")}
               </span>
             </div>
           </div>

@@ -1669,6 +1669,8 @@ app.get("/api/catalog-web-preview/play", async (req, res) => {
     req.removeListener("aborted", onClientGone);
     res.removeListener("close", onClientGone);
   };
+  const previewMaxMs = 31_000;
+  let previewCapTimer = null;
   const beginStream = () => {
     if (streamStarted) return;
     streamStarted = true;
@@ -1679,6 +1681,10 @@ app.get("/api/catalog-web-preview/play", async (req, res) => {
     res.setHeader("X-Accel-Buffering", "no");
     res.setHeader("Connection", "close");
     if (typeof res.flushHeaders === "function") res.flushHeaders();
+    previewCapTimer = setTimeout(() => {
+      killChild();
+      if (!res.writableEnded) res.end();
+    }, previewMaxMs);
   };
   child.stderr?.on("data", (chunk) => {
     const s = String(chunk);
@@ -1702,6 +1708,7 @@ app.get("/api/catalog-web-preview/play", async (req, res) => {
   });
   child.on("close", (code) => {
     removeListeners();
+    if (previewCapTimer) clearTimeout(previewCapTimer);
     if (code !== 0 && bytesOut === 0 && !res.headersSent) {
       const detail = stderrAcc.buffer.trim().slice(-600) || `yt-dlp exit ${code}`;
       return sendError(res, 422, detail);

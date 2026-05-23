@@ -21,7 +21,7 @@ type Props = {
   /** Cartella effettiva per yt-dlp (album → sottocartella sotto artista, come in classico). */
   resolveOutputDir: (dlPath: string, item: YoutubeExploreResult) => string;
   downloadKindForItem: (item: YoutubeExploreResult) => StudioDownloadKind;
-  /** Destinazione solo artista: i singoli richiedono cartella album (come in Classico). */
+  /** I singoli seguono il vincolo classico: destinazione Artista/Album. */
   singleBlockedArtistFolder: boolean;
   hasValidDownloadDest: boolean;
   dlBusy: boolean;
@@ -32,6 +32,7 @@ type Props = {
   onReconcileLibrary: (opts?: LibraryReconcileOptions) => void | Promise<void>;
   onPrepareDownload: (item: YoutubeExploreResult) => Promise<boolean>;
   downloadSummaryLine: (r: DownloadItemSummary) => string;
+  onDownloadIdChange?: (downloadId: string | null) => void;
 };
 
 function exploreItemKey(item: YoutubeExploreResult) {
@@ -53,6 +54,7 @@ export function StudioDownloadExplore({
   onReconcileLibrary,
   onPrepareDownload,
   downloadSummaryLine,
+  onDownloadIdChange,
 }: Props) {
   const [query, setQuery] = useState("");
   const [searchBusy, setSearchBusy] = useState(false);
@@ -112,7 +114,7 @@ export function StudioDownloadExplore({
     async (item: YoutubeExploreResult) => {
       const itemKey = exploreItemKey(item);
       setPreparingKey(itemKey);
-      let proceed = false;
+      let proceed: boolean;
       try {
         if (!hasValidDownloadDest) {
           onLog((x) => x + t("tools.dlPickFolder"));
@@ -130,6 +132,7 @@ export function StudioDownloadExplore({
       onTrackProgress(null);
       const outputDir = resolveOutputDir(dlPath, item);
       const dlId = newStudioDownloadId();
+      onDownloadIdChange?.(dlId);
       onLog(
         (x) =>
           x +
@@ -171,6 +174,7 @@ export function StudioDownloadExplore({
             }),
         );
       } finally {
+        onDownloadIdChange?.(null);
         onBusyChange(false);
         runLatch.current = false;
       }
@@ -188,6 +192,7 @@ export function StudioDownloadExplore({
       onReconcileLibrary,
       onPrepareDownload,
       downloadSummaryLine,
+      onDownloadIdChange,
       t,
     ],
   );
@@ -196,7 +201,8 @@ export function StudioDownloadExplore({
     const key = exploreItemKey(item);
     const isPreparing = preparingKey === key;
     const isAlbum = item.type === "album";
-    const rowBusy = dlBusy || preparingKey != null;
+    const blockedSingle = !isAlbum && singleBlockedArtistFolder;
+    const rowBusy = dlBusy || preparingKey != null || blockedSingle;
 
     return (
       <li key={key}>
@@ -272,12 +278,6 @@ export function StudioDownloadExplore({
       albums.length === 0 &&
       songs.length === 0 ? (
         <p className="subtle sm">{t("tools.exploreEmpty")}</p>
-      ) : null}
-
-      {singleBlockedArtistFolder ? (
-        <p className="subtle sm warnline tools-dl-explore__blocked-hint">
-          {t("tools.exploreSingleNeedAlbumFolderHint")}
-        </p>
       ) : null}
 
       {albums.length > 0 ? (
