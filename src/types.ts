@@ -16,7 +16,7 @@ export type TrackMeta = {
   source: string | null;
   url: string | null;
   lyrics?: string | null;
-  /** Miglior punteggio Plectr (kord-trackinfo.json). */
+  /** Miglior punteggio Plectr (per account, da user state). */
   plectrBest?: PlectrBestScore | null;
 };
 
@@ -167,6 +167,8 @@ export type UserStateV1 = {
   trackMoods?: Record<string, string[]>;
   trackMoodsMigrated?: boolean;
   playlistsMigrated?: boolean;
+  /** Migliori punteggi Plectr per relPath (per account). */
+  plectrBests?: Record<string, PlectrBestScore>;
 };
 
 export type LibraryArtistIndex = {

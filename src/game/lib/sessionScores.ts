@@ -1,10 +1,9 @@
 import {
-  plectrBestFromLocal,
-  plectrBestFromTrack,
+  plectrBestFromUserState,
   pickBetterPlectrScore,
 } from "./plectrStorage";
 import type { GameResult } from "../types";
-import type { EnrichedTrack } from "../../types";
+import type { PlectrBestScore } from "../../types";
 
 /** Miglior risultato per brano (relPath) nella sessione corrente. */
 const bestByTrack = new Map<string, GameResult>();
@@ -20,14 +19,12 @@ export function saveSessionTrackBest(relPath: string, result: GameResult): GameR
   return next;
 }
 
-/** Allinea la sessione con il record salvato nel brano (kord-trackinfo). */
+/** Allinea la sessione con il record salvato per l'account. */
 export function hydrateSessionTrackBest(
   relPath: string,
-  track: EnrichedTrack | null
+  plectrBests?: Record<string, PlectrBestScore>
 ): void {
-  const fromTrack = plectrBestFromTrack(track);
-  const fromLocal = plectrBestFromLocal(relPath);
-  const seed = pickBetterPlectrScore(fromTrack, fromLocal);
+  const seed = plectrBestFromUserState(plectrBests, relPath);
   if (!seed) return;
   const current = bestByTrack.get(relPath) ?? null;
   const merged = pickBetterPlectrScore(seed, current);

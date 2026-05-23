@@ -75,4 +75,32 @@ describe("userStatePatch", () => {
     expect(merged.favorites).toEqual(["new.mp3"]);
     expect(merged.queue).toEqual({ tracks: [], currentIndex: 0 });
   });
+
+  it("mergeUserStatePatches merges plectrBests by relPath", () => {
+    const merged = mergeUserStatePatches(
+      {
+        plectrBests: {
+          "a.mp3": {
+            score: 100,
+            grade: "B",
+            accuracy: 0.8,
+            maxCombo: 5,
+            hits: 10,
+          },
+        },
+      },
+      {
+        plectrBests: {
+          "b.mp3": {
+            score: 200,
+            grade: "A",
+            accuracy: 0.9,
+            maxCombo: 8,
+            hits: 15,
+          },
+        },
+      }
+    );
+    expect(Object.keys(merged.plectrBests ?? {})).toEqual(["a.mp3", "b.mp3"]);
+  });
 });

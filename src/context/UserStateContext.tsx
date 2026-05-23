@@ -29,6 +29,12 @@ import {
   mergeUserStatePatches,
 } from "../lib/userStatePatch";
 import {
+  gameResultToPlectrBest,
+  isBetterPlectrScore,
+  plectrBestFromUserState,
+} from "../game/lib/plectrStorage";
+import type { GameResult } from "../game/types";
+import {
   APP_LOCALES,
   THEME_MODES,
   type AppLocale,
@@ -399,6 +405,7 @@ function normalizeUserState(s: UserStateV1): UserStateV1 {
     ...s,
     revision,
     trackPlayCounts,
+    plectrBests: s.plectrBests ?? {},
     settings: normalizeSettings(s.settings),
     shuffleExcludedAlbumIds: uniqStrings(s.shuffleExcludedAlbumIds || []),
     shuffleExcludedTrackRelPaths: uniqStrings(
@@ -421,6 +428,7 @@ function defaultUserState(): UserStateV1 {
     shuffleExcludedTrackRelPaths: [],
     migratedLegacy: false,
     playlistsMigrated: false,
+    plectrBests: {},
   };
 }
 
@@ -451,6 +459,7 @@ function userStateToPatch(state: UserStateV1, omitPlaylists = false): UserStateP
     shuffleExcludedAlbumIds: state.shuffleExcludedAlbumIds,
     shuffleExcludedTrackRelPaths: state.shuffleExcludedTrackRelPaths,
     trackMoods: state.trackMoods,
+    plectrBests: state.plectrBests,
     migratedLegacy: state.migratedLegacy,
     trackMoodsMigrated: state.trackMoodsMigrated,
     playlistsMigrated: state.playlistsMigrated,
@@ -593,6 +602,7 @@ type UserStateContextValue = {
   rehydrateShuffleExclusionsFromIndex: (index: LibraryIndex) => void;
   stripUserStateForRelPaths: (deletedRelPaths: string[]) => void;
   syncUserStateFromServer: () => Promise<void>;
+  savePlectrBest: (relPath: string, result: GameResult) => boolean;
 };
 
 const UserStateContext = createContext<UserStateContextValue | null>(null);
@@ -758,7 +768,12 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const flushPendingPatch = useCallback(() => {
-    if (!ready || !hydratedRef.current || flushingRef.current) return;
+    if (!hydratedRef.current || flushingRef.current) {
+      if (hydratedRef.current && dirtyRef.current) {
+        schedulePendingFlushRef.current?.();
+      }
+      return;
+    }
     const patch = compactUserStatePatch(pendingPatchRef.current);
     if (Object.keys(patch).length === 0) {
       dirtyRef.current = false;
@@ -814,7 +829,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
           schedulePendingFlushRef.current?.();
         }
       });
-  }, [beginLibrarySyncActivity, ready]);
+  }, [beginLibrarySyncActivity]);
   useEffect(() => {
     flushPendingPatchRef.current = flushPendingPatch;
   }, [flushPendingPatch]);
@@ -945,7 +960,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
           );
         }
         if (options?.immediate) {
-          window.setTimeout(() => flushPendingPatch(), 0);
+          window.setTimeout(() => flushPendingPatchRef.current?.(), 0);
         } else {
           schedulePendingFlush();
         }
@@ -966,6 +981,39 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
             : [...prev.favorites, relPath],
         };
       }, { patch: (next) => ({ favorites: next.favorites }) });
+    },
+    [commit]
+  );
+
+  const savePlectrBest = useCallback(
+    (relPath: string, result: GameResult) => {
+      if (result.score <= 0 && result.hits <= 0) return false;
+      let saved = false;
+      commit(
+        (prev) => {
+          const current = plectrBestFromUserState(prev.plectrBests, relPath);
+          if (!isBetterPlectrScore(result, current)) return prev;
+          saved = true;
+          const payload = gameResultToPlectrBest(result);
+          return {
+            ...prev,
+            plectrBests: {
+              ...(prev.plectrBests || {}),
+              [relPath]: payload,
+            },
+          };
+        },
+        {
+          immediate: true,
+          patch: (next, prev) => {
+            const entry = next.plectrBests?.[relPath];
+            const prevEntry = prev.plectrBests?.[relPath];
+            if (!entry || entry === prevEntry) return {};
+            return { plectrBests: { [relPath]: entry } };
+          },
+        }
+      );
+      return saved;
     },
     [commit]
   );
@@ -1147,6 +1195,11 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
                 ([rel]) => !deleted.has(rel)
               )
             ) as UserStateV1["trackPlayCounts"],
+            plectrBests: Object.fromEntries(
+              Object.entries(prev.plectrBests || {}).filter(
+                ([rel]) => !deleted.has(rel)
+              )
+            ) as UserStateV1["plectrBests"],
             recent: prev.recent.filter((tr) => !deleted.has(tr.relPath)),
             playlists: prev.playlists.map((pl) => ({
               ...pl,
@@ -1404,6 +1457,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       rehydrateShuffleExclusionsFromIndex,
       stripUserStateForRelPaths,
       syncUserStateFromServer,
+      savePlectrBest,
     }),
     [
       addTrackToPlaylist,
@@ -1421,6 +1475,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       ready,
       removeTrackFromPlaylist,
       renamePlaylist,
+      savePlectrBest,
       saveQueueAsPlaylist,
       saving,
       selectedPlaylist,

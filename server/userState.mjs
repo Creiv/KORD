@@ -53,6 +53,46 @@ function sanitizeTrackMoodsMap(raw) {
   return out
 }
 
+function sanitizePlectrBestEntry(raw) {
+  if (!isObj(raw)) return null
+  const score = Number(raw.score)
+  if (!Number.isFinite(score)) return null
+  const hits = Math.max(0, Math.round(Number(raw.hits) || 0))
+  const rounded = Math.max(0, Math.round(score))
+  if (rounded <= 0 && hits <= 0) return null
+  return {
+    score: rounded,
+    grade: String(raw.grade ?? "").slice(0, 8),
+    accuracy: Math.min(1, Math.max(0, Number(raw.accuracy) || 0)),
+    maxCombo: Math.max(0, Math.round(Number(raw.maxCombo) || 0)),
+    hits,
+    misses: Math.max(0, Math.round(Number(raw.misses) || 0)),
+    updatedAt:
+      typeof raw.updatedAt === "string" && raw.updatedAt.trim()
+        ? raw.updatedAt.trim()
+        : new Date().toISOString(),
+  }
+}
+
+function sanitizePlectrBestsMap(raw) {
+  if (!isObj(raw)) return {}
+  const out = {}
+  for (const [k, v] of Object.entries(raw)) {
+    if (typeof k !== "string" || !k.trim()) continue
+    const best = sanitizePlectrBestEntry(v)
+    if (best) out[k.trim()] = best
+  }
+  return out
+}
+
+function isBetterPlectrBest(next, current) {
+  if (!current) return next.score > 0 || (next.hits ?? 0) > 0
+  if (next.score !== current.score) return next.score > current.score
+  const na = Number(next.accuracy) || 0
+  const ca = Number(current.accuracy) || 0
+  return na > ca
+}
+
 function sanitizeTrack(track) {
   if (!isObj(track)) return null
   const relPath = typeof track.relPath === "string" ? track.relPath.trim() : ""
@@ -216,6 +256,7 @@ export function defaultUserState() {
     shuffleExcludedAlbumIds: [],
     shuffleExcludedTrackRelPaths: [],
     trackMoods: {},
+    plectrBests: {},
     playlistsMigrated: false,
   }
 }
@@ -305,6 +346,13 @@ export function mergeUserStateForPut(prev, patch) {
       out.trackMoods = { ...(prev.trackMoods || {}), ...sanitizeTrackMoodsMap(patch.trackMoods) }
       continue
     }
+    if (k === "plectrBests" && isObj(patch.plectrBests)) {
+      out.plectrBests = {
+        ...(prev.plectrBests || {}),
+        ...sanitizePlectrBestsMap(patch.plectrBests),
+      }
+      continue
+    }
     out[k] = patch[k]
   }
   return out
@@ -340,6 +388,7 @@ export function sanitizeUserState(input) {
     shuffleExcludedAlbumIds: sanitizeShuffleIdList(src.shuffleExcludedAlbumIds),
     shuffleExcludedTrackRelPaths: sanitizeShuffleIdList(src.shuffleExcludedTrackRelPaths),
     trackMoods: sanitizeTrackMoodsMap(src.trackMoods),
+    plectrBests: sanitizePlectrBestsMap(src.plectrBests),
     migratedLegacy: src.migratedLegacy === true,
     trackMoodsMigrated: src.trackMoodsMigrated === true,
     playlistsMigrated: src.playlistsMigrated === true,
@@ -461,6 +510,57 @@ export async function writeUserState(musicRoot, input, accountId = null) {
     sanitized.revision = currentRevision(prev) + 1
     return writeUserStatePersist(musicRoot, sanitized, accountId)
   })
+}
+
+export async function writeUserPlectrBestWithCAS(
+  musicRoot,
+  accountId,
+  relPath,
+  result,
+  maxRetries = 8,
+) {
+  const pathKey = String(relPath || "").trim()
+  if (!pathKey) {
+    const err = new Error("relPath is required")
+    err.code = "INVALID_REL_PATH"
+    throw err
+  }
+  const next = sanitizePlectrBestEntry(result)
+  if (!next) {
+    const err = new Error("Invalid Plectr score")
+    err.code = "INVALID_PLECTR_SCORE"
+    throw err
+  }
+
+  for (let attempt = 0; attempt < maxRetries; attempt += 1) {
+    try {
+      const prev = await readUserState(musicRoot, accountId)
+      const exp = currentRevision(prev)
+      const current = prev.plectrBests?.[pathKey] ?? null
+      if (current && !isBetterPlectrBest(next, current)) {
+        return { state: prev, saved: false, best: current }
+      }
+      const merged = await mergeAndWriteUserStateWithRevision(
+        musicRoot,
+        accountId,
+        exp,
+        (fresh) => {
+          const tm = { ...(fresh.plectrBests || {}) }
+          tm[pathKey] = next
+          return {
+            ...fresh,
+            plectrBests: sanitizePlectrBestsMap(tm),
+          }
+        },
+      )
+      return { state: merged, saved: true, best: merged.plectrBests?.[pathKey] ?? next }
+    } catch (e) {
+      if (e?.code !== "USER_STATE_REVISION_CONFLICT") throw e
+      if (attempt === maxRetries - 1) throw e
+      await new Promise((r) => setTimeout(r, 20 + attempt * 30))
+    }
+  }
+  throw new Error("writeUserPlectrBestWithCAS exhausted retries")
 }
 
 export async function writeUserTrackMoodsWithCAS(musicRoot, accountId, relPath, moodsList, maxRetries = 8) {

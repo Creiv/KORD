@@ -11,7 +11,7 @@ function isDifficultyId(raw: string): raw is DifficultyId {
 /** Maps legacy saved values; current ids are returned unchanged. */
 export function migratePlectrDifficulty(raw: string | null): DifficultyId {
   if (raw === "extreme") return "hard";
-  if (isDifficultyId(raw)) return raw;
+  if (raw && isDifficultyId(raw)) return raw;
   return "easy";
 }
 

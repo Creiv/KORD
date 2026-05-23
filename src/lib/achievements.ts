@@ -688,6 +688,7 @@ export function computeAchievementSignals(
     | "playlists"
     | "shuffleExcludedAlbumIds"
     | "shuffleExcludedTrackRelPaths"
+    | "plectrBests"
   >,
   index: LibraryIndex | null,
   streak = 0
@@ -750,7 +751,7 @@ export function computeAchievementSignals(
     albumsWithPlays: albumsWithPlaysSet.size,
     playlistTrackCount,
     streak,
-    plectrTracksPlayed: countPlectrTracksPlayed(index),
+    plectrTracksPlayed: countPlectrTracksPlayed(state.plectrBests),
   };
 }
 
@@ -886,6 +887,7 @@ export function buildAchievementsSnapshot(
     | "playlists"
     | "shuffleExcludedAlbumIds"
     | "shuffleExcludedTrackRelPaths"
+    | "plectrBests"
   >,
   index: LibraryIndex | null,
   streakState = readStreakState()

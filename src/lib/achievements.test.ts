@@ -24,6 +24,7 @@ function emptyState(): Pick<
   | "playlists"
   | "shuffleExcludedAlbumIds"
   | "shuffleExcludedTrackRelPaths"
+  | "plectrBests"
 > {
   return {
     trackPlayCounts: {},
@@ -31,6 +32,7 @@ function emptyState(): Pick<
     playlists: [],
     shuffleExcludedAlbumIds: [],
     shuffleExcludedTrackRelPaths: [],
+    plectrBests: {},
   };
 }
 
@@ -112,6 +114,30 @@ describe("achievements", () => {
     expect(xpProgressInLevel(374, top).pct).toBe(99);
     const high = levelForXp(9000);
     expect(xpProgressInLevel(9000, high).pct).toBeLessThan(100);
+  });
+
+  it("plectr achievements count only saved account records", () => {
+    const plectrBests: UserStateV1["plectrBests"] = {};
+    for (let i = 0; i < 10; i += 1) {
+      plectrBests[`track-${i}.mp3`] = {
+        score: 1000 + i,
+        grade: "A",
+        accuracy: 0.9,
+        maxCombo: 10,
+        hits: 20,
+      };
+    }
+    const snapshot = buildAchievementsSnapshot(
+      { ...emptyState(), plectrBests },
+      null
+    );
+    expect(snapshot.signals.plectrTracksPlayed).toBe(10);
+    expect(
+      snapshot.achievements.find((a) => a.def.id === "plectr_tracks_10")?.unlocked
+    ).toBe(true);
+    expect(
+      snapshot.achievements.find((a) => a.def.id === "plectr_tracks_50")?.unlocked
+    ).toBe(false);
   });
 
   it("computeTotalXp grows with plays and achievements", () => {

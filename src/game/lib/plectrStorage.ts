@@ -1,19 +1,10 @@
 import { savePlectrBestScore } from "../../lib/api";
 import type {
-  EnrichedTrack,
   LibraryEntityDelta,
-  LibraryIndex,
   PlectrBestScore,
 } from "../../types";
 import type { GameResult } from "../types";
 import { buildGameResult } from "./runResult";
-
-export const PLECTR_BEST_LS_PREFIX = "kord-plectr-best:";
-const LS_PREFIX = PLECTR_BEST_LS_PREFIX;
-
-function lsKey(relPath: string): string {
-  return `${LS_PREFIX}${relPath}`;
-}
 
 export function hasPlectrPlayRecord(
   raw: PlectrBestScore | null | undefined
@@ -24,7 +15,9 @@ export function hasPlectrPlayRecord(
   return raw.score > 0 || (raw.hits ?? 0) > 0;
 }
 
-function plectrBestFromRaw(raw: PlectrBestScore | null | undefined): GameResult | null {
+export function plectrBestFromRaw(
+  raw: PlectrBestScore | null | undefined
+): GameResult | null {
   if (!hasPlectrPlayRecord(raw)) {
     return null;
   }
@@ -36,28 +29,24 @@ function plectrBestFromRaw(raw: PlectrBestScore | null | undefined): GameResult 
   });
 }
 
-export function plectrBestFromLocal(relPath: string): GameResult | null {
-  try {
-    const raw = localStorage.getItem(lsKey(relPath));
-    if (!raw) return null;
-    return plectrBestFromRaw(JSON.parse(raw) as PlectrBestScore);
-  } catch {
-    return null;
-  }
+export function plectrBestFromUserState(
+  plectrBests: Record<string, PlectrBestScore> | undefined,
+  relPath: string
+): GameResult | null {
+  if (!plectrBests) return null;
+  return plectrBestFromRaw(plectrBests[relPath]);
 }
 
-export function writePlectrBestLocal(relPath: string, best: PlectrBestScore): void {
-  try {
-    localStorage.setItem(lsKey(relPath), JSON.stringify(best));
-  } catch {
-    /* ignore */
-  }
-}
-
-export function plectrBestFromTrack(track: EnrichedTrack | null): GameResult | null {
-  const fromMeta = plectrBestFromRaw(track?.meta?.plectrBest ?? null);
-  const fromLocal = track ? plectrBestFromLocal(track.relPath) : null;
-  return pickBetterPlectrScore(fromMeta, fromLocal);
+export function gameResultToPlectrBest(result: GameResult): PlectrBestScore {
+  return {
+    score: result.score,
+    grade: result.grade,
+    accuracy: result.accuracy,
+    maxCombo: result.maxCombo,
+    hits: result.hits,
+    misses: result.misses,
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 export function isBetterPlectrScore(
@@ -78,61 +67,16 @@ export function pickBetterPlectrScore(
   return isBetterPlectrScore(a, b) ? a : b;
 }
 
-/** Solo browser (nessuna chiamata API): aggiorna subito il record in UI. */
-export function cachePlectrBestLocal(
-  relPath: string,
-  result: GameResult,
-  current: GameResult | null
-): boolean {
-  if (!isBetterPlectrScore(result, current)) return false;
-  writePlectrBestLocal(relPath, {
-    score: result.score,
-    grade: result.grade,
-    accuracy: result.accuracy,
-    maxCombo: result.maxCombo,
-    hits: result.hits,
-    misses: result.misses,
-    updatedAt: new Date().toISOString(),
-  });
-  return true;
-}
-
-/** Brani con almeno un record Plectr (meta libreria + localStorage). */
-export function collectPlectrPlayedRelPaths(
-  index: LibraryIndex | null
-): Set<string> {
-  const paths = new Set<string>();
-  if (index) {
-    for (const tr of index.tracks) {
-      if (hasPlectrPlayRecord(tr.meta?.plectrBest)) {
-        paths.add(tr.relPath);
-      }
-    }
+/** Brani distinti con almeno un record Plectr salvato nell'account. */
+export function countPlectrTracksPlayed(
+  plectrBests: Record<string, PlectrBestScore> | undefined
+): number {
+  if (!plectrBests) return 0;
+  let n = 0;
+  for (const best of Object.values(plectrBests)) {
+    if (hasPlectrPlayRecord(best)) n += 1;
   }
-  try {
-    for (let i = 0; i < localStorage.length; i += 1) {
-      const key = localStorage.key(i);
-      if (!key?.startsWith(LS_PREFIX)) continue;
-      const relPath = key.slice(LS_PREFIX.length);
-      if (!relPath) continue;
-      try {
-        const raw = localStorage.getItem(key);
-        if (!raw) continue;
-        if (hasPlectrPlayRecord(JSON.parse(raw) as PlectrBestScore)) {
-          paths.add(relPath);
-        }
-      } catch {
-        /* ignore malformed entry */
-      }
-    }
-  } catch {
-    /* private mode / quota */
-  }
-  return paths;
-}
-
-export function countPlectrTracksPlayed(index: LibraryIndex | null): number {
-  return collectPlectrPlayedRelPaths(index).size;
+  return n;
 }
 
 export async function persistPlectrBest(
@@ -143,16 +87,7 @@ export async function persistPlectrBest(
   if (!isBetterPlectrScore(result, current)) {
     return { saved: current ?? result, delta: null };
   }
-  const payload: PlectrBestScore = {
-    score: result.score,
-    grade: result.grade,
-    accuracy: result.accuracy,
-    maxCombo: result.maxCombo,
-    hits: result.hits,
-    misses: result.misses,
-    updatedAt: new Date().toISOString(),
-  };
-  writePlectrBestLocal(relPath, payload);
+  const payload = gameResultToPlectrBest(result);
   try {
     const res = await savePlectrBestScore(relPath, payload);
     return {

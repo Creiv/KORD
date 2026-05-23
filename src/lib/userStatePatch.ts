@@ -1,4 +1,4 @@
-import type { UserSettings, UserStatePatch, UserStateV1 } from "../types";
+import type { UserSettings, UserStatePatch, UserStateV1, PlectrBestScore } from "../types";
 
 export const FLUSH_DELAY_DEFAULT_MS = 400;
 export const FLUSH_DELAY_QUEUE_MS = 3000;
@@ -31,6 +31,12 @@ export function mergeUserStatePatches(
     next.trackMoods = {
       ...(a.trackMoods || {}),
       ...(b.trackMoods || {}),
+    };
+  }
+  if (a.plectrBests || b.plectrBests) {
+    next.plectrBests = {
+      ...(a.plectrBests || {}),
+      ...(b.plectrBests || {}),
     };
   }
   return compactUserStatePatch(next);
@@ -74,6 +80,7 @@ export function mergeSavedUserState(
   keepPrevUnlessPatched("shuffleExcludedAlbumIds");
   keepPrevUnlessPatched("shuffleExcludedTrackRelPaths");
   keepPrevUnlessPatched("trackMoods");
+  keepPrevUnlessPatched("plectrBests");
   keepPrevUnlessPatched("migratedLegacy");
   keepPrevUnlessPatched("trackMoodsMigrated");
   keepPrevUnlessPatched("playlistsMigrated");
@@ -106,6 +113,13 @@ export function applyUserStatePatchFields(
       next.trackMoods = {
         ...(next.trackMoods || {}),
         ...(value as Record<string, string[]>),
+      };
+      continue;
+    }
+    if (key === "plectrBests") {
+      next.plectrBests = {
+        ...(next.plectrBests || {}),
+        ...(value as Record<string, PlectrBestScore>),
       };
       continue;
     }

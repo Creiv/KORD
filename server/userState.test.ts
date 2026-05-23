@@ -10,6 +10,7 @@ import {
   readUserState,
   stripSettingsFromUserStatePatch,
   writeUserState,
+  writeUserPlectrBestWithCAS,
   defaultUserState,
 } from "./userState.mjs"
 
@@ -132,5 +133,87 @@ describe("userState", () => {
     expect(saved.trackPlayCounts).toEqual({ "artist/album/b.mp3": 2 })
     expect(saved.settings.locale).toBe("it")
     expect(saved.revision).toBe(5)
+  })
+
+  it("writeUserPlectrBestWithCAS saves and keeps only if better", async () => {
+    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kord-plectr-cas-"))
+    await writeUserState(musicRoot, defaultUserState(), "plectracct")
+
+    const first = {
+      score: 1200,
+      grade: "A",
+      accuracy: 0.92,
+      maxCombo: 40,
+      hits: 80,
+      misses: 3,
+    }
+    const saved = await writeUserPlectrBestWithCAS(
+      musicRoot,
+      "plectracct",
+      "artist/album/song.mp3",
+      first,
+    )
+    expect(saved.saved).toBe(true)
+    expect(saved.best?.score).toBe(1200)
+
+    const reloaded = await readUserState(musicRoot, "plectracct")
+    expect(reloaded.plectrBests?.["artist/album/song.mp3"]?.score).toBe(1200)
+    expect(reloaded.revision).toBe(3)
+
+    const worse = await writeUserPlectrBestWithCAS(
+      musicRoot,
+      "plectracct",
+      "artist/album/song.mp3",
+      { ...first, score: 900, accuracy: 0.5 },
+    )
+    expect(worse.saved).toBe(false)
+    expect(worse.best?.score).toBe(1200)
+
+    const afterWorse = await readUserState(musicRoot, "plectracct")
+    expect(afterWorse.plectrBests?.["artist/album/song.mp3"]?.score).toBe(1200)
+    expect(afterWorse.revision).toBe(3)
+
+    const better = await writeUserPlectrBestWithCAS(
+      musicRoot,
+      "plectracct",
+      "artist/album/song.mp3",
+      { ...first, score: 1500, accuracy: 0.95 },
+    )
+    expect(better.saved).toBe(true)
+    expect(better.best?.score).toBe(1500)
+
+    const afterBetter = await readUserState(musicRoot, "plectracct")
+    expect(afterBetter.plectrBests?.["artist/album/song.mp3"]?.score).toBe(1500)
+    expect(afterBetter.revision).toBe(4)
+  })
+
+  it("mergeUserStateForPut merges plectrBests by relPath", () => {
+    const prev = {
+      ...defaultUserState(),
+      plectrBests: {
+        "a.mp3": {
+          score: 100,
+          grade: "B",
+          accuracy: 0.8,
+          maxCombo: 5,
+          hits: 10,
+          misses: 1,
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    }
+    const merged = mergeUserStateForPut(prev, {
+      plectrBests: {
+        "b.mp3": {
+          score: 200,
+          grade: "A",
+          accuracy: 0.9,
+          maxCombo: 8,
+          hits: 15,
+          misses: 0,
+        },
+      },
+    })
+    expect(Object.keys(merged.plectrBests ?? {})).toEqual(["a.mp3", "b.mp3"])
   })
 })

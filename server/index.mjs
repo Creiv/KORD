@@ -45,7 +45,6 @@ import {
   sanitizeTrackTitlesInAlbumDir,
   saveTrackFetchedMeta,
   saveTrackManualMeta,
-  savePlectrBestMeta,
   pruneOrphanTrackMetaInAlbumDir,
 } from "./albumInfo.mjs";
 import { normalizeStoredGenreString, parseTrackGenres } from "./genres.mjs";
@@ -54,6 +53,7 @@ import {
   buildCatalogFromIndex,
   filterLibraryIndexBySelection,
   mergeTrackMoodsIntoIndex,
+  mergePlectrBestsIntoIndex,
   readLibrarySelection,
   removeAlbumsFromSelectionSets,
   sanitizeLibrarySelection,
@@ -75,6 +75,7 @@ import {
   readUserState,
   stripClientControlledKeysFromPutPatch,
   writeUserTrackMoodsWithCAS,
+  writeUserPlectrBestWithCAS,
 } from "./userState.mjs";
 import { kordApiUserAgent } from "./kordVersion.mjs";
 import { resolveYtdlpPath } from "./ytdlpPath.mjs";
@@ -1012,7 +1013,10 @@ async function getFilteredIndexForAccount(accountId) {
     readLibrarySelection(root, accountId),
   ]);
   const filt = filterLibraryIndexBySelection(full, sel, accountId);
-  const merged = mergeTrackMoodsIntoIndex(filt, state.trackMoods);
+  const merged = mergePlectrBestsIntoIndex(
+    mergeTrackMoodsIntoIndex(filt, state.trackMoods),
+    state.plectrBests,
+  );
   return {
     ...merged,
     indexEpoch: getLibraryIndexCacheEpochSnapshot(root),
@@ -3360,28 +3364,30 @@ app.post("/api/plectr/save-best", async (req, res) => {
     const fileName = parts[parts.length - 1];
     const albumRel = albumFolderFromRelPath(relPath);
     if (!albumRel) return sendError(res, 400, "Invalid track path");
-    const albumDir = path.join(root, albumRel.replaceAll("/", path.sep));
-    if (!underRoot(albumDir, root) || !existsSync(albumDir)) {
-      return sendError(res, 404, "Album folder not found");
-    }
-    const meta = await savePlectrBestMeta(albumDir, fileName, result);
+    const accId = accountIdFromReq(req);
+    const { saved, best } = await writeUserPlectrBestWithCAS(
+      root,
+      accId,
+      relPath,
+      result,
+    );
     void actLog(req, {
       kind: "library",
       action: "plectr_best_save",
       folder: albumRel,
-      detail: `${fileName}: ${meta?.plectrBest?.score ?? result.score}`,
+      detail: `${fileName}: ${best?.score ?? result.score}${saved ? "" : " (unchanged)"}`,
     });
     const trackDelta = {
       relPath,
-      meta: { plectrBest: meta?.plectrBest ?? null },
+      meta: { plectrBest: best ?? null },
     };
-    const cachePatched = await patchTrackInLibraryIndexCache(
-      root,
+    return res.json({
+      ok: true,
       relPath,
-      trackDelta,
-    );
-    scheduleLibraryIndexMetaRefresh(root, cachePatched);
-    return res.json({ ok: true, relPath, meta, track: trackDelta });
+      saved,
+      meta: { plectrBest: best ?? null },
+      track: trackDelta,
+    });
   } catch (error) {
     return sendError(res, 500, String(error?.message || error));
   }

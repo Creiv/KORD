@@ -223,3 +223,19 @@ export function mergeTrackMoodsIntoIndex(index, trackMoods) {
   })
   return { ...index, tracks }
 }
+
+export function mergePlectrBestsIntoIndex(index, plectrBests) {
+  const map =
+    plectrBests && typeof plectrBests === "object" ? plectrBests : {}
+  const tracks = index.tracks.map((t) => {
+    const best = map[t.relPath]
+    const meta = { ...(t.meta || {}) }
+    if (best && typeof best === "object" && Number.isFinite(Number(best.score))) {
+      meta.plectrBest = best
+    } else {
+      meta.plectrBest = null
+    }
+    return { ...t, meta }
+  })
+  return { ...index, tracks }
+}

@@ -8,6 +8,7 @@ import {
 } from "react";
 import { usePlayer } from "../../context/PlayerContext";
 import { useRhythmMode } from "../../context/RhythmModeContext";
+import { useUserState } from "../../context/UserStateContext";
 import { useI18n } from "../../i18n/useI18n";
 import { GameCanvas } from "../../game/components/GameCanvas";
 import { DIFFICULTIES } from "../../game/config/gameConfig";
@@ -23,11 +24,10 @@ import {
   saveSessionTrackBest,
 } from "../../game/lib/sessionScores";
 import {
-  cachePlectrBestLocal,
   isBetterPlectrScore,
   persistPlectrBest,
   pickBetterPlectrScore,
-  plectrBestFromTrack,
+  plectrBestFromUserState,
 } from "../../game/lib/plectrStorage";
 import type {
   Chart,
@@ -35,16 +35,16 @@ import type {
   GameResult,
 } from "../../game/types";
 import { audioElementMatchesTrack } from "../../lib/mediaTrackMatch";
-import type { EnrichedTrack, LibraryEntityDelta } from "../../types";
+import type { EnrichedTrack, LibraryEntityDelta, PlectrBestScore } from "../../types";
 import { UiClose, UiJoystick } from "../KordUiIcons";
 
 function resolveDisplayBest(
   relPath: string,
-  track: EnrichedTrack
+  plectrBests: Record<string, PlectrBestScore> | undefined
 ): GameResult | null {
   return pickBetterPlectrScore(
     getSessionTrackBest(relPath),
-    plectrBestFromTrack(track)
+    plectrBestFromUserState(plectrBests, relPath)
   );
 }
 
@@ -59,6 +59,7 @@ export const RhythmDockPanel = memo(function RhythmDockPanel({
 }: RhythmDockPanelProps) {
   const { t } = useI18n();
   const p = usePlayer();
+  const user = useUserState();
   const { setOpen } = useRhythmMode();
   const { phase, chartSet, loadMessage, errorCode } = useRhythmChart(track);
 
@@ -79,10 +80,11 @@ export const RhythmDockPanel = memo(function RhythmDockPanel({
   const [bestRevision, setBestRevision] = useState(0);
   const resumePlaybackOnCloseRef = useRef(false);
   const lastRunRef = useRef<GameResult | null>(null);
+  const prevTrackRelRef = useRef(track.relPath);
 
   const displayBest = useMemo(
-    () => resolveDisplayBest(track.relPath, track),
-    [track, track.relPath, track.meta?.plectrBest, bestRevision]
+    () => resolveDisplayBest(track.relPath, user.state.plectrBests),
+    [track.relPath, user.state.plectrBests, bestRevision]
   );
 
   const chart = useMemo((): Chart | null => {
@@ -94,18 +96,48 @@ export const RhythmDockPanel = memo(function RhythmDockPanel({
     resumePlaybackOnCloseRef.current = p.isPlaying;
   }, [p.isPlaying]);
 
-  useLayoutEffect(() => {
-    setLastResult(null);
-    setRunId((n) => n + 1);
-    lastRunRef.current = null;
-    hydrateSessionTrackBest(track.relPath, track);
-    setBestRevision((n) => n + 1);
-  }, [track.relPath]);
+  const persistRunScore = useCallback(
+    (relPath: string, result: GameResult, showLast = false) => {
+      if (result.score <= 0 && result.hits <= 0) return;
+      lastRunRef.current = result;
+      const accountBest = plectrBestFromUserState(user.state.plectrBests, relPath);
+      saveSessionTrackBest(relPath, result);
+      setBestRevision((n) => n + 1);
+      if (showLast && relPath === track.relPath) setLastResult(result);
+      // Confronta solo col record account: la sessione può già avere lo stesso
+      // punteggio (syncRunScore) e altrimenti non si persiste mai su server.
+      if (!isBetterPlectrScore(result, accountBest)) return;
+      user.savePlectrBest(relPath, result);
+      void persistPlectrBest(relPath, result, accountBest).then(({ delta }) => {
+        if (delta && onLibraryDelta) onLibraryDelta(delta, false);
+      });
+    },
+    [onLibraryDelta, track.relPath, user]
+  );
+
+  const flushPendingRun = useCallback(
+    (relPath: string) => {
+      const pending = lastRunRef.current;
+      if (!pending) return;
+      persistRunScore(relPath, pending, false);
+      lastRunRef.current = null;
+      user.flushUserStateNow();
+    },
+    [persistRunScore, user]
+  );
 
   useLayoutEffect(() => {
-    hydrateSessionTrackBest(track.relPath, track);
+    const prevRel = prevTrackRelRef.current;
+    if (prevRel !== track.relPath) {
+      flushPendingRun(prevRel);
+      prevTrackRelRef.current = track.relPath;
+      setLastResult(null);
+      setRunId((n) => n + 1);
+      lastRunRef.current = null;
+    }
+    hydrateSessionTrackBest(track.relPath, user.state.plectrBests);
     setBestRevision((n) => n + 1);
-  }, [track.meta?.plectrBest, track.relPath]);
+  }, [track.relPath, user.state.plectrBests, flushPendingRun]);
 
   const playerSync = useMemo(
     () => ({
@@ -165,28 +197,10 @@ export const RhythmDockPanel = memo(function RhythmDockPanel({
     (result: GameResult) => {
       if (result.score <= 0 && result.hits <= 0) return;
       lastRunRef.current = result;
-      const baseline = resolveDisplayBest(track.relPath, track);
-      saveSessionTrackBest(track.relPath, result);
-      cachePlectrBestLocal(track.relPath, result, baseline);
-      setBestRevision((n) => n + 1);
-    },
-    [track]
-  );
-
-  const persistRunScore = useCallback(
-    (result: GameResult, showLast = false) => {
-      if (result.score <= 0 && result.hits <= 0) return;
-      lastRunRef.current = result;
-      const baseline = resolveDisplayBest(track.relPath, track);
       saveSessionTrackBest(track.relPath, result);
       setBestRevision((n) => n + 1);
-      if (showLast) setLastResult(result);
-      if (!isBetterPlectrScore(result, baseline)) return;
-      void persistPlectrBest(track.relPath, result, baseline).then(({ delta }) => {
-        if (delta && onLibraryDelta) onLibraryDelta(delta, false);
-      });
     },
-    [onLibraryDelta, track]
+    [track.relPath]
   );
 
   const onRunUpdate = useCallback(
@@ -198,9 +212,9 @@ export const RhythmDockPanel = memo(function RhythmDockPanel({
 
   const onFinish = useCallback(
     (result: GameResult) => {
-      persistRunScore(result, true);
+      persistRunScore(track.relPath, result, true);
     },
-    [persistRunScore]
+    [persistRunScore, track.relPath]
   );
 
   const onReplay = useCallback(() => {
@@ -208,15 +222,26 @@ export const RhythmDockPanel = memo(function RhythmDockPanel({
     setRunId((n) => n + 1);
   }, []);
 
+  const flushPendingRunRef = useRef(flushPendingRun);
+  const flushUserStateNowRef = useRef(user.flushUserStateNow);
+  flushPendingRunRef.current = flushPendingRun;
+  flushUserStateNowRef.current = user.flushUserStateNow;
+
   const onClose = useCallback(() => {
-    if (lastRunRef.current) {
-      persistRunScore(lastRunRef.current, false);
-    }
+    flushPendingRun(track.relPath);
+    user.flushUserStateNow();
     setOpen(false);
     if (resumePlaybackOnCloseRef.current && !p.isPlaying) {
       p.play();
     }
-  }, [p, persistRunScore, setOpen]);
+  }, [flushPendingRun, p, setOpen, track.relPath, user]);
+
+  useLayoutEffect(() => {
+    return () => {
+      flushPendingRunRef.current(prevTrackRelRef.current);
+      flushUserStateNowRef.current();
+    };
+  }, []);
 
   return (
     <section
