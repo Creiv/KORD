@@ -70,4 +70,48 @@ describe("useRhythmChart", () => {
 
     await waitFor(() => expect(result.current.phase).toBe("ready"));
   });
+
+  it("ignores stale async result after fast return to cached track", async () => {
+    const chartA = {
+      baseSongId: "a",
+      title: "a",
+      duration: 60,
+      charts: {},
+    } as ChartSet;
+    const chartB = {
+      baseSongId: "b",
+      title: "b",
+      duration: 60,
+      charts: {},
+    } as ChartSet;
+
+    let resolveB: (value: ChartSet) => void = () => {};
+    const bPromise = new Promise<ChartSet>((resolve) => {
+      resolveB = resolve;
+    });
+
+    vi.mocked(getCachedChart).mockImplementation((relPath) =>
+      relPath === "a.mp3" ? chartA : null
+    );
+    vi.mocked(analyzeLibraryTrack).mockImplementation(() => bPromise);
+
+    const { result, rerender } = renderHook(
+      ({ tr }) => useRhythmChart(tr),
+      { initialProps: { tr: track("a.mp3") } }
+    );
+
+    await waitFor(() => expect(result.current.phase).toBe("ready"));
+    expect(result.current.chartSet?.baseSongId).toBe("a");
+
+    rerender({ tr: track("b.mp3") });
+    await waitFor(() => expect(result.current.phase).toBe("loading"));
+
+    rerender({ tr: track("a.mp3") });
+    await waitFor(() => expect(result.current.phase).toBe("ready"));
+    expect(result.current.chartSet?.baseSongId).toBe("a");
+
+    resolveB(chartB);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(result.current.chartSet?.baseSongId).toBe("a");
+  });
 });

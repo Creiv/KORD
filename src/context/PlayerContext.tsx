@@ -276,6 +276,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     currentRef.current = current;
   }, [current]);
 
+  useLayoutEffect(() => {
+    if (!current) return;
+    setCurrentTime(0);
+  }, [current?.relPath]);
+
   useEffect(() => {
     activeDeckRef.current = activeDeckIx;
   }, [activeDeckIx]);

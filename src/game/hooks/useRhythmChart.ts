@@ -37,6 +37,7 @@ export function useRhythmChart(track: EnrichedTrack | null) {
     }
 
     const relPath = track.relPath;
+    const gen = ++loadGenRef.current;
     const cached = getCachedChart(relPath);
     if (cached) {
       setChartSet(sanitizeChartSetForKord(cached));
@@ -45,8 +46,6 @@ export function useRhythmChart(track: EnrichedTrack | null) {
       prefetchRhythmChart(track);
       return;
     }
-
-    const gen = ++loadGenRef.current;
     const abort = new AbortController();
 
     setPhase("loading");

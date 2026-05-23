@@ -30,6 +30,7 @@ import type {
   DifficultyId,
   GameResult,
 } from "../../game/types";
+import { audioElementMatchesTrack } from "../../lib/mediaTrackMatch";
 import type { EnrichedTrack, LibraryEntityDelta } from "../../types";
 import { UiClose, UiJoystick } from "../KordUiIcons";
 
@@ -110,7 +111,7 @@ export const RhythmDockPanel = memo(function RhythmDockPanel({
 
   useLayoutEffect(() => {
     setLastResult(null);
-    setRunId(0);
+    setRunId((n) => n + 1);
     lastRunRef.current = null;
     hydrateSessionTrackBest(track.relPath, track);
     setBestRevision((n) => n + 1);
@@ -125,9 +126,18 @@ export const RhythmDockPanel = memo(function RhythmDockPanel({
     () => ({
       getCurrentTime: () => {
         const audio = p.audioRef.current;
-        return audio ? audio.currentTime : p.currentTime;
+        if (audio && audioElementMatchesTrack(audio, track.relPath)) {
+          return audio.currentTime;
+        }
+        return 0;
       },
-      getAudio: () => p.audioRef.current,
+      getAudio: () => {
+        const audio = p.audioRef.current;
+        if (audio && audioElementMatchesTrack(audio, track.relPath)) {
+          return audio;
+        }
+        return null;
+      },
       seek: (seconds: number) => {
         p.seek(seconds);
       },
@@ -138,7 +148,7 @@ export const RhythmDockPanel = memo(function RhythmDockPanel({
         if (p.isPlaying) p.pause();
       },
     }),
-    [p]
+    [p, track.relPath]
   );
 
   const gameLabels = useMemo(
@@ -337,7 +347,7 @@ export const RhythmDockPanel = memo(function RhythmDockPanel({
 
         {phase === "ready" && chart ? (
           <GameCanvas
-            key={`${chart.songId}-${difficulty}-${runId}`}
+            key={`${track.relPath}-${difficulty}-${runId}`}
             chart={chart}
             runId={runId}
             embedded
