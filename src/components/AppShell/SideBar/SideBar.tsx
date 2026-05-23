@@ -185,6 +185,7 @@ export const SideBar = memo(function SideBar({
             ]
               .filter(Boolean)
               .join(" ")}
+            onMouseDown={(event) => event.preventDefault()}
             onClick={onToggleSearch}
             title={
               librarySearchBarOpen

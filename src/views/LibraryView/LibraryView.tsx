@@ -2,6 +2,7 @@ import {
   startTransition,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -94,7 +95,6 @@ interface LibraryViewProps {
   search: string;
   onSearchChange: (value: string) => void;
   searchInputRef: RefObject<HTMLInputElement | null>;
-  onSearchFocus: () => void;
   showSearchBar: boolean;
   onSearchBarClose: () => void;
   onReconcileLibrary: (
@@ -114,7 +114,6 @@ export default function LibraryView({
   search,
   onSearchChange,
   searchInputRef,
-  onSearchFocus,
   showSearchBar,
   onSearchBarClose,
   onReconcileLibrary,
@@ -161,6 +160,14 @@ export default function LibraryView({
       setMode("all");
     });
   }, [libraryHomeTick]);
+
+  useLayoutEffect(() => {
+    if (!showSearchBar) return;
+    const el = searchInputRef.current;
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    el.select();
+  }, [showSearchBar, searchInputRef, route.artist, route.album]);
 
   const artist = route.artist
     ? index.artists.find((item) => item.id === route.artist) || null
@@ -669,7 +676,6 @@ export default function LibraryView({
               placeholder={t("topbar.searchPlaceholder")}
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
-              onFocus={onSearchFocus}
               autoComplete="off"
               role="searchbox"
               aria-label={t("topbar.searchAria")}

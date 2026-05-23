@@ -503,9 +503,13 @@ export function AppShell() {
     }
   }, [navigate, route.section, route.artist, route.album]);
 
-  const ensureLibrarySectionForSearch = useCallback(() => {
-    goLibraryRootForBrowse();
-  }, [goLibraryRootForBrowse]);
+  const focusLibrarySearchInput = useCallback(() => {
+    const el = searchInputRef.current;
+    if (!el) return false;
+    el.focus({ preventScroll: true });
+    el.select();
+    return true;
+  }, []);
 
   const openLibrarySearch = useCallback(() => {
     setLibrarySearchBarOpen(true);
@@ -522,15 +526,19 @@ export function AppShell() {
 
   useLayoutEffect(() => {
     if (!librarySearchBarOpen || route.section !== "libreria") return;
-    const id = window.requestAnimationFrame(() => {
-      const el = searchInputRef.current;
-      if (el) {
-        el.focus();
-        el.select();
-      }
-    });
-    return () => window.cancelAnimationFrame(id);
-  }, [librarySearchBarOpen, route.section, route.artist, route.album]);
+    if (focusLibrarySearchInput()) return;
+    const id = window.setTimeout(() => {
+      focusLibrarySearchInput();
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [
+    librarySearchBarOpen,
+    route.section,
+    route.artist,
+    route.album,
+    libraryHomeTick,
+    focusLibrarySearchInput,
+  ]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -729,7 +737,6 @@ export function AppShell() {
               search={search}
               onSearchChange={setSearch}
               searchInputRef={searchInputRef}
-              onSearchFocus={ensureLibrarySectionForSearch}
               showSearchBar={librarySearchBarOpen}
               onSearchBarClose={closeLibrarySearch}
               onReconcileLibrary={reconcileLibrary}

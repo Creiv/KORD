@@ -83,6 +83,7 @@ export const TopBar = memo(function TopBar({
             ]
               .filter(Boolean)
               .join(" ")}
+            onMouseDown={(event) => event.preventDefault()}
             onClick={onToggleSearch}
             title={
               librarySearchBarOpen
