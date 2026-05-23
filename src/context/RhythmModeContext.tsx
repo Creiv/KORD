@@ -7,10 +7,15 @@ import {
   useMemo,
   useState,
 } from "react";
-import { ensurePlectrStyles } from "../lib/ensurePlectrStyles";
+import {
+  ensurePlectrStyles,
+  isPlectrStylesLoaded,
+} from "../lib/ensurePlectrStyles";
 
 type RhythmModeCtx = {
   open: boolean;
+  /** Stili Plectr pronti (evita flash UI non stilizzata). */
+  stylesReady: boolean;
   setOpen: (open: boolean) => void;
   toggle: () => void;
 };
@@ -19,14 +24,27 @@ const RhythmModeContext = createContext<RhythmModeCtx | null>(null);
 
 export function RhythmModeProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [stylesReady, setStylesReady] = useState(isPlectrStylesLoaded());
   const toggle = useCallback(() => setOpen((v) => !v), []);
 
   useEffect(() => {
-    if (open) ensurePlectrStyles();
+    if (!open) return;
+    if (isPlectrStylesLoaded()) {
+      setStylesReady(true);
+      return;
+    }
+    let cancelled = false;
+    void ensurePlectrStyles().then(() => {
+      if (!cancelled) setStylesReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
+
   const value = useMemo(
-    () => ({ open, setOpen, toggle }),
-    [open, toggle]
+    () => ({ open, stylesReady, setOpen, toggle }),
+    [open, stylesReady, toggle]
   );
   return (
     <RhythmModeContext.Provider value={value}>

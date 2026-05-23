@@ -4,7 +4,8 @@ import { MOBILE_LAYOUT_MQ } from "../lib/breakpoints";
 const ROOT = document.documentElement;
 
 /**
- * Sincronizza --bar-h e data-player-dock con l'altezza reale del dock (ResizeObserver).
+ * Sincronizza --bar-h e data-player-dock con l'altezza della sola barra player
+ * (`.player-bar2`), non del pannello Plectr sopra di essa.
  */
 export function usePlayerDockCssVars(queueLength: number) {
   useLayoutEffect(() => {
@@ -21,22 +22,22 @@ export function usePlayerDockCssVars(queueLength: number) {
       ROOT.style.setProperty("--bar-h", `${h}px`);
     };
 
-    const dock = document.querySelector<HTMLElement>(".player-dock2");
-    if (!dock) {
+    const bar = document.querySelector<HTMLElement>(".player-dock2 .player-bar2");
+    if (!bar) {
       applyHeight(parseFallbackBarHeight());
       return;
     }
 
-    applyHeight(dock.getBoundingClientRect().height);
+    applyHeight(bar.getBoundingClientRect().height);
 
     const ro = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (!entry) return;
       applyHeight(entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height);
     });
-    ro.observe(dock);
+    ro.observe(bar);
 
-    const onMq = () => applyHeight(dock.getBoundingClientRect().height);
+    const onMq = () => applyHeight(bar.getBoundingClientRect().height);
     const mql = window.matchMedia(MOBILE_LAYOUT_MQ);
     mql.addEventListener("change", onMq);
 

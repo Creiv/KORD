@@ -1,8 +1,22 @@
 let loaded = false;
+let loadPromise: Promise<void> | null = null;
 
-/** Carica gli stili Plectr solo alla prima apertura (evita CSS globale a riposo). */
-export function ensurePlectrStyles(): void {
-  if (loaded) return;
-  loaded = true;
-  void import("../styles/rhythm-dock.css");
+/** True dopo il primo caricamento di rhythm-dock.css. */
+export function isPlectrStylesLoaded(): boolean {
+  return loaded;
+}
+
+/** Carica gli stili Plectr (idempotente; riusa la stessa promise). */
+export function ensurePlectrStyles(): Promise<void> {
+  if (loaded) return Promise.resolve();
+  if (loadPromise) return loadPromise;
+  loadPromise = import("../styles/rhythm-dock.css").then(() => {
+    loaded = true;
+  });
+  return loadPromise;
+}
+
+/** Precarica in background quando c'è un brano in coda. */
+export function prefetchPlectrStyles(): void {
+  void ensurePlectrStyles();
 }

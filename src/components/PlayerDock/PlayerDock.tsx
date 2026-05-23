@@ -1,10 +1,11 @@
-import { memo, useMemo } from "react";
+import { memo, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { usePlayer } from "../../context/PlayerContext";
 import { useRhythmMode } from "../../context/RhythmModeContext";
 import { useI18n } from "../../i18n/useI18n";
 import { useUserState } from "../../context/UserStateContext";
+import { prefetchPlectrStyles } from "../../lib/ensurePlectrStyles";
 import { RhythmDockPanel } from "./RhythmDockPanel";
 import { PlayerBarTrackArt } from "../AppSharedUi";
 import { PlayerProgressTrack } from "../PlayerProgressTrack";
@@ -37,9 +38,15 @@ export const PlayerDock = memo(function PlayerDock({
   onLibraryDelta,
 }: PlayerDockProps) {
   const p = usePlayer();
-  const { open: rhythmOpen, setOpen: setRhythmOpen } = useRhythmMode();
+  const { open: rhythmOpen, stylesReady, setOpen: setRhythmOpen } = useRhythmMode();
   const user = useUserState();
   const { t } = useI18n();
+
+  useEffect(() => {
+    if (p.queue.length > 0) prefetchPlectrStyles();
+  }, [p.queue.length]);
+
+  const plectrVisible = rhythmOpen && stylesReady;
   const exAlbums = useMemo(
     () => new Set(user.state.shuffleExcludedAlbumIds),
     [user.state.shuffleExcludedAlbumIds]
@@ -68,13 +75,13 @@ export const PlayerDock = memo(function PlayerDock({
 
   return (
     <>
-      {rhythmOpen
+      {plectrVisible
         ? createPortal(<div className="plectr-scrim" aria-hidden />, document.body)
         : null}
-      <div className="player-dock2" data-rhythm-open={rhythmOpen ? "1" : "0"}>
-      {rhythmOpen && cur ? (
+      <div className="player-dock2" data-rhythm-open={plectrVisible ? "1" : "0"}>
+      {plectrVisible && cur ? (
         <RhythmDockPanel track={cur} onLibraryDelta={onLibraryDelta} />
-      ) : rhythmOpen ? (
+      ) : plectrVisible ? (
         <section className="rhythm-dock-panel rhythm-dock-panel--idle">
           <p>{t("rhythm.noTrackHint")}</p>
           <button
