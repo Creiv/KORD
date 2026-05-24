@@ -4,16 +4,16 @@ import { fileURLToPath } from "node:url"
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..")
 
-/** Semver da package.json (es. 3.0.0). */
+/** Semver da package.json (es. 3.2.0). */
 export const KORD_VERSION = (() => {
   try {
     const pkg = JSON.parse(
       readFileSync(path.join(root, "package.json"), "utf8"),
     )
     const v = String(pkg?.version ?? "").trim()
-    return v || "3.0.0"
+    return v || "3.2.0"
   } catch {
-    return "3.0.0"
+    return "3.2.0"
   }
 })()
 

@@ -133,8 +133,8 @@ function normalizeSettings(raw: Partial<UserSettings>): UserSettings {
     vizMode: (() => {
       const legacy = raw.vizMode as string | undefined;
       let m: typeof raw.vizMode = raw.vizMode;
-      if (legacy === "soft") m = "signals";
-      else if (legacy === "horizon") m = "embers";
+      if (legacy === "soft" || legacy === "horizon" || legacy === "embers")
+        m = "signals";
       else if (legacy === "prism") m = "bars";
       return m === "mirror" ||
         m === "osc" ||
@@ -142,7 +142,6 @@ function normalizeSettings(raw: Partial<UserSettings>): UserSettings {
         m === "hmb" ||
         m === "bars" ||
         m === "signals" ||
-        m === "embers" ||
         m === "karaoke"
         ? m
         : "hmb";
@@ -517,15 +516,15 @@ function legacyImport(): Partial<UserStateV1> {
         ? {
             ...defaultSettings(),
             vizMode:
-              vizMode === "soft"
+              vizMode === "soft" ||
+              vizMode === "horizon" ||
+              vizMode === "embers"
                 ? "signals"
-                : vizMode === "horizon"
-                  ? "embers"
-                  : vizMode === "prism"
-                    ? "bars"
-                    : vizMode === "kord"
-                      ? "hmb"
-                      : vizMode,
+                : vizMode === "prism"
+                  ? "bars"
+                  : vizMode === "kord"
+                    ? "hmb"
+                    : vizMode,
           }
         : undefined,
   };

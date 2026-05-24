@@ -7,7 +7,7 @@ import type { VizMode } from "../types";
 /**
  * Sensibilità: vedi blocchi commentati in testa nella versione precedente; parametri chiave —
  * SPEC_GAMMA / SPEC_FLOOR, FFT_*, OSC_GAIN; `freqMap.binAmplitude` e `NYQUIST_TAIL` in freqMap.ts;
- * buildSilkLayers gamma inline; ramo embers `bandAt`.
+ * buildSilkLayers gamma inline.
  */
 const BARS = 64;
 const MIRROR_BARS = 48;
@@ -1007,124 +1007,6 @@ export function Visualizer({ mode }: { mode: VizMode }) {
         strokeLayer(ys2, expanded ? 1.75 : 2.1, 0.25, 10);
         strokeLayer(ys1, expanded ? 2 : 2.45, 0.38, 14);
         strokeLayer(ys0, expanded ? 1.85 : 2.15, 0.32, 12);
-        ctx.restore();
-        return;
-      }
-
-      if (mode === "embers") {
-        const padY = edgePad;
-        const span = h - padY * 2;
-        const midY = padY + span * 0.5;
-        const tick = tRef.current;
-        const ph = tick * 0.0021;
-        const ph2 = tick * 0.0014;
-
-        let sum = 0;
-        const nn = Math.min(100, fLen);
-        for (let j = 0; j < nn; j++) sum += fv[j]!;
-        const room = Math.min(1, (sum / (nn * 255)) * 1.06);
-        const beat = isPlaying ? 0.32 + 0.68 * room : 0.18 + 0.38 * room;
-
-        const bandAt = (frac: number) => {
-          const bi = Math.min(
-            SILK_SPEC_DIV,
-            Math.max(0, Math.floor(frac * SILK_SPEC_DIV)),
-          );
-          const xt = logBinT(bi, BARS, fLen);
-          return binAmplitude(sampleSpectrumLinear(fv, fLen, xt), {
-            gamma: 0.48,
-            floor: 0.018,
-          });
-        };
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(0, padY, w, Math.max(1, h - 2 * padY));
-        ctx.clip();
-
-        const bgA = mix(
-          pal.pageL1,
-          pal.accent2,
-          0.07 + 0.14 * beat + 0.05 * Math.sin(ph),
-        );
-        const bgB = mix(
-          pal.pageL2,
-          pal.accent,
-          0.05 + 0.11 * beat + 0.04 * Math.sin(ph2 * 1.27),
-        );
-        const bgM = mix(pal.pageL1, pal.pageL2, 0.48);
-        const baseGrad = ctx.createLinearGradient(0, padY, w * 0.75, h - padY);
-        baseGrad.addColorStop(0, rgba(bgA, 1));
-        baseGrad.addColorStop(0.48, rgba(mix(bgA, bgM, 0.45), 1));
-        baseGrad.addColorStop(1, rgba(bgB, 1));
-        ctx.fillStyle = baseGrad;
-        ctx.fillRect(0, padY, w, h - 2 * padY);
-
-        ctx.save();
-        ctx.globalCompositeOperation = "screen";
-
-        const eco = expanded ? 3 : 4;
-        for (let layer = 0; layer < eco; layer++) {
-          const frac = (layer + 0.5) / eco;
-          const e = bandAt(frac * 0.82 + 0.06);
-          const shrink = expanded ? 0.74 : 1;
-          const cx =
-            w *
-            (0.18 + frac * 0.64 + 0.07 * Math.sin(ph * 1.1 + layer * 1.05));
-          const cy =
-            midY +
-            span * (0.22 * Math.sin(ph2 * 0.85 + layer * 0.95 + e * 2.2));
-          const rx =
-            w *
-            (0.32 + e * (expanded ? 0.17 : 0.24)) *
-            shrink *
-            (0.55 + 0.45 * beat);
-          const ry =
-            span * (0.34 + e * (expanded ? 0.29 : 0.38));
-          const col = mix(
-            pal.accent,
-            pal.accent2,
-            0.22 + frac * 0.58 + 0.08 * Math.sin(tick * 0.009 + layer),
-          );
-          const rad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(rx, ry));
-          const aCore =
-            ((expanded ? 0.17 : 0.11) + e * (expanded ? 0.52 : 0.5)) *
-            (0.42 + 0.58 * beat);
-          rad.addColorStop(0, rgba(col, aCore));
-          rad.addColorStop(
-            expanded ? 0.35 : 0.48,
-            rgba(mix(col, pal.accent2, 0.38), expanded ? aCore * 0.38 : aCore * 0.32),
-          );
-          rad.addColorStop(
-            expanded ? 0.74 : 1,
-            expanded ? rgba(col, aCore * 0.02) : rgba(col, 0),
-          );
-          ctx.fillStyle = rad;
-          ctx.beginPath();
-          if (typeof ctx.ellipse === "function") {
-            ctx.ellipse(
-              cx,
-              cy,
-              rx,
-              ry,
-              layer * (expanded ? 0.34 : 0.28) + ph * 0.06,
-              0,
-              TAU,
-            );
-          } else {
-            ctx.save();
-            ctx.translate(cx, cy);
-            ctx.scale(rx, Math.max(ry, 1));
-            ctx.beginPath();
-            ctx.arc(0, 0, 1, 0, TAU);
-            ctx.fill();
-            ctx.restore();
-            continue;
-          }
-          ctx.fill();
-        }
-
-        ctx.restore();
         ctx.restore();
         return;
       }

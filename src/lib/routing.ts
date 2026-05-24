@@ -16,6 +16,7 @@ export const NAV_DEF: {
   { id: "dashboard", labelKey: "nav.dashboard", group: "core" },
   { id: "libreria", labelKey: "nav.library", group: "core" },
   { id: "studio", labelKey: "nav.studio", group: "core" },
+  { id: "discowall", labelKey: "nav.discowall", group: "core" },
   { id: "gioco", labelKey: "nav.plectr", group: "core" },
   { id: "queue", labelKey: "nav.queue", group: "secondary" },
   { id: "playlists", labelKey: "nav.playlists", group: "secondary" },

@@ -110,7 +110,7 @@ function SettingsView() {
       return false;
     }
   });
-  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "3.1.0");
+  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "3.2.0");
 
   useEffect(() => {
     Promise.all([fetchConfig(), fetchAccounts()])
@@ -558,7 +558,6 @@ function SettingsView() {
                     | "oscSoft"
                     | "hmb"
                     | "signals"
-                    | "embers"
                     | "karaoke",
                 })
               }
@@ -569,7 +568,6 @@ function SettingsView() {
               <option value="oscSoft">{t("settings.vizOscSoft")}</option>
               <option value="hmb">{t("settings.vizHmb")}</option>
               <option value="signals">{t("settings.vizSignals")}</option>
-              <option value="embers">{t("settings.vizEmbers")}</option>
               <option value="karaoke">{t("settings.vizKaraoke")}</option>
             </select>
           </label>

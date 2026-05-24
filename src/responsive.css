@@ -232,7 +232,7 @@ body,
     padding-bottom: 0;
   }
 
-  /* Player mobile v3.1: meta + ⋮ + play, seek sotto */
+  /* Player mobile v3.2: meta + ⋮ + play, seek sotto */
   .player-bar2.player-bar2--mobile {
     margin: 0;
     padding: 0.38rem 0.55rem 0.22rem;

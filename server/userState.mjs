@@ -210,8 +210,8 @@ function sanitizeSettings(settings) {
     theme: THEME_MODES.has(src.theme) ? src.theme : "midnight",
     customTheme: sanitizeCustomTheme(src.customTheme),
     vizMode: (() => {
-      let m = src.vizMode === "soft" ? "signals" : src.vizMode
-      if (m === "horizon") m = "embers"
+      let m = src.vizMode
+      if (m === "soft" || m === "horizon" || m === "embers") m = "signals"
       if (m === "prism") m = "bars"
       return m === "mirror" ||
         m === "osc" ||
@@ -219,7 +219,6 @@ function sanitizeSettings(settings) {
         m === "hmb" ||
         m === "bars" ||
         m === "signals" ||
-        m === "embers" ||
         m === "karaoke"
         ? m
         : "hmb"
