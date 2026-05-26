@@ -74,7 +74,8 @@ interface RunState {
   /** Orologio fluido: ancorato al player audio ma avanzato con performance.now(). */
   clockAnchorSong: number;
   clockAnchorPerf: number;
-  lastClockResyncAt: number;
+  /** Ultimo frame per delta nel clock fluido (syncLive). */
+  smoothFramePerf: number;
   missScanIndex: number;
   finished: boolean;
   /** syncLive: note esaurite, in attesa della fine del brano nel player. */
@@ -106,10 +107,12 @@ const DEFAULT_LABELS = {
   timeAria: "Song progress",
 };
 
-const CLOCK_RESYNC_INTERVAL_MS = 120;
-const CLOCK_SOFT_SYNC_THRESHOLD_SECONDS = 0.012;
+/** Seek / drift grande: riallinea subito al player. */
 const CLOCK_HARD_SYNC_THRESHOLD_SECONDS = 0.45;
-const CLOCK_CORRECTION_RATIO = 0.18;
+/** Costante tempo per inseguire audio.currentTime senza scatti a intervalli fissi. */
+const CLOCK_SMOOTH_TAU_SECONDS = 0.14;
+/** Sotto questa soglia l’extrapolazione performance.now basta (niente micro-correzioni). */
+const CLOCK_MIN_CORRECTION_SECONDS = 0.0025;
 
 export function GameCanvas({
   chart,
@@ -962,7 +965,7 @@ function initialRunState(notes: ChartNote[]): RunState {
     laneFlash: [null, null, null, null],
     clockAnchorSong: 0,
     clockAnchorPerf: 0,
-    lastClockResyncAt: 0,
+    smoothFramePerf: 0,
     missScanIndex: 0,
     finished: false,
     awaitingTrackEnd: false,
@@ -972,7 +975,7 @@ function initialRunState(notes: ChartNote[]): RunState {
 function resetSongClock(state: RunState, songTime: number, perfNow: number): void {
   state.clockAnchorSong = songTime;
   state.clockAnchorPerf = perfNow;
-  state.lastClockResyncAt = perfNow;
+  state.smoothFramePerf = perfNow;
 }
 
 function resolveSmoothSongTime(
@@ -997,26 +1000,28 @@ function resolveSmoothSongTime(
     return audioT;
   }
 
-  let t =
+  const prevPerf = state.smoothFramePerf > 0 ? state.smoothFramePerf : perfNow;
+  const dtSec = Math.min(0.05, Math.max(0, (perfNow - prevPerf) / 1000));
+  state.smoothFramePerf = perfNow;
+
+  const t =
     state.clockAnchorSong +
     ((perfNow - state.clockAnchorPerf) / 1000) * playbackRate;
+  const err = audioT - t;
 
-  if (perfNow - state.lastClockResyncAt >= CLOCK_RESYNC_INTERVAL_MS) {
-    state.lastClockResyncAt = perfNow;
-    const err = audioT - t;
-    if (Math.abs(err) > CLOCK_HARD_SYNC_THRESHOLD_SECONDS) {
-      resetSongClock(state, audioT, perfNow);
-      return audioT;
-    }
-    if (Math.abs(err) > CLOCK_SOFT_SYNC_THRESHOLD_SECONDS) {
-      state.clockAnchorSong += err * CLOCK_CORRECTION_RATIO;
-      t =
-        state.clockAnchorSong +
-        ((perfNow - state.clockAnchorPerf) / 1000) * playbackRate;
-    }
+  if (Math.abs(err) > CLOCK_HARD_SYNC_THRESHOLD_SECONDS) {
+    resetSongClock(state, audioT, perfNow);
+    return audioT;
   }
 
-  return t;
+  if (Math.abs(err) <= CLOCK_MIN_CORRECTION_SECONDS) {
+    return t;
+  }
+
+  const blend = 1 - Math.exp(-dtSec / CLOCK_SMOOTH_TAU_SECONDS);
+  const corrected = t + err * blend;
+  resetSongClock(state, corrected, perfNow);
+  return corrected;
 }
 
 function isChartRunComplete(state: RunState, songTime: number): boolean {
@@ -1527,7 +1532,8 @@ function drawNoteHead(
 ): void {
   if (lite) {
     ctx.fillStyle = lane.color;
-    ctx.fillRect(noteX, y - noteHeight / 2, noteWidth, noteHeight);
+    roundedRect(ctx, noteX, y - noteHeight / 2, noteWidth, noteHeight, 2);
+    ctx.fill();
     return;
   }
   const noteGradient = ctx.createLinearGradient(noteX, y - noteHeight / 2, noteX, y + noteHeight / 2);
