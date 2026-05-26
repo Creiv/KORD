@@ -34,19 +34,13 @@
   flex-direction: column;
   gap: var(--space-2) var(--space-3);
   box-shadow: none;
-  background: transparent;
+  background: var(--sidebar-bg);
 }
 
-.player-bar2::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  pointer-events: none;
-  background: color-mix(in srgb, var(--surface2) 76%, transparent);
-  backdrop-filter: blur(14px) saturate(1.12);
-  -webkit-backdrop-filter: blur(14px) saturate(1.12);
+@media (max-width: 1000px) {
+  .player-bar2 {
+    background: color-mix(in srgb, var(--surface-elev-b) 98%, var(--bg));
+  }
 }
 
 @media (min-width: 1001px) {

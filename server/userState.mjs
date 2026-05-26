@@ -219,6 +219,7 @@ function sanitizeSettings(settings) {
         m === "hmb" ||
         m === "bars" ||
         m === "signals" ||
+        m === "discowall" ||
         m === "karaoke"
         ? m
         : "hmb"

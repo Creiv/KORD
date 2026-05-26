@@ -539,8 +539,6 @@ export function KordNavIcon({
       return <UiNavDisc {...p} />;
     case "studio":
       return <UiGraphicEq {...p} />;
-    case "discowall":
-      return <UiViewModule {...p} />;
     case "queue":
       return <UiNavList {...p} />;
     case "playlists":

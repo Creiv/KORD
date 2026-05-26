@@ -7,7 +7,6 @@ import {
   LibraryArtistMetaChips,
 } from "../AppSharedUi";
 import { UiPerson } from "../KordUiIcons";
-import { coverUrlForAlbumRelPath } from "../../lib/api";
 import { initials } from "../../lib/initials";
 import { useI18n } from "../../i18n/useI18n";
 import type { LibraryArtistIndex, LibraryIndex } from "../../types";
@@ -45,7 +44,8 @@ export const ArtistListTile = memo(function ArtistListTile({
         {coverAlbumRelPath ? (
           <CoverImg
             className="library-list-tile__cover"
-            src={coverUrlForAlbumRelPath(coverAlbumRelPath)}
+            preset="tile"
+            coverPath={coverAlbumRelPath}
             alt=""
             fallbackClassName="library-list-tile__badge"
             fallback={initials(artist.name)}

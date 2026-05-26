@@ -142,6 +142,7 @@ function normalizeSettings(raw: Partial<UserSettings>): UserSettings {
         m === "hmb" ||
         m === "bars" ||
         m === "signals" ||
+        m === "discowall" ||
         m === "karaoke"
         ? m
         : "hmb";
@@ -507,6 +508,7 @@ function legacyImport(): Partial<UserStateV1> {
       vizMode === "oscSoft" ||
       vizMode === "hmb" ||
       vizMode === "signals" ||
+      vizMode === "discowall" ||
       vizMode === "embers" ||
       vizMode === "karaoke" ||
       vizMode === "kord" ||

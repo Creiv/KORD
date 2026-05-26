@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -14,6 +16,10 @@ import { TrackMetaEditGlyph } from "../../components/TrackMetaEditor";
 import { CoverImg } from "../../components/CoverImg";
 import { ExcludeShuffleIcon } from "../../components/ExcludeShuffleIcon";
 import { Visualizer } from "../../components/Visualizer";
+
+const LazyDiscoWallVisualizer = lazy(
+  () => import("../../components/DiscoWallVisualizer"),
+);
 import { SectionHeadLead } from "../../components/SectionHeadLead";
 import {
   TrackFileMetaChip,
@@ -27,8 +33,6 @@ import {
   UiNavList,
   UiNote,
 } from "../../components/KordUiIcons";
-import { coverUrlForTrackRelPath } from "../../lib/api";
-import { versionedUrl } from "../../lib/versionedUrl";
 import { isTrackAlbumShuffleExcluded } from "../../lib/randomExclusions";
 import { eligibleTracksForIntelligentRandom } from "../../lib/randomExclusions";
 import { PlayCollectionButton } from "../../components/PlayCollectionButton";
@@ -181,16 +185,16 @@ export default function ListenView({ index, onOpenSection }: ListenViewProps) {
             <div className="listen-stage__head">
               {p.current?.relPath ? (
                 <CoverImg
-                  priority
-                  className="listen-stage__art"
-                  src={versionedUrl(
-                    coverUrlForTrackRelPath(p.current.relPath),
+                  preset="listen"
+                  trackPath={p.current.relPath}
+                  coverVersion={
                     typeof (p.current as unknown as { updatedAt?: unknown })
                       .updatedAt === "number"
                       ? (p.current as unknown as { updatedAt: number })
                           .updatedAt
                       : null
-                  )}
+                  }
+                  className="listen-stage__art"
                   alt=""
                   fallbackClassName="listen-stage__art listen-stage__art--empty"
                   fallback={<UiMusicNote className="listen-stage__empty-ic" />}
@@ -339,7 +343,20 @@ export default function ListenView({ index, onOpenSection }: ListenViewProps) {
           </div>
           </div>
           <div className="listen-stage__viz" ref={vizScrollRef}>
-            <Visualizer mode={user.state.settings.vizMode} />
+            {user.state.settings.vizMode === "discowall" ? (
+              <Suspense
+                fallback={
+                  <div
+                    className="viz-wrap is-discowall is-discowall--dormant"
+                    aria-hidden
+                  />
+                }
+              >
+                <LazyDiscoWallVisualizer />
+              </Suspense>
+            ) : (
+              <Visualizer mode={user.state.settings.vizMode} />
+            )}
           </div>
         </section>
 

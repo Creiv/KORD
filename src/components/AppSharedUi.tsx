@@ -22,14 +22,9 @@ import { usePlayer } from "../context/PlayerContext";
 import { useStudioNavigation } from "../context/StudioNavigationContext";
 import { useUserState } from "../context/UserStateContext";
 import { useI18n } from "../i18n/useI18n";
-import {
-  coverUrlForAlbumRelPath,
-  coverUrlForTrackRelPath,
-} from "../lib/api";
 import { isTrackAlbumShuffleExcluded } from "../lib/randomExclusions";
 import { fmtDate } from "../lib/metaFormat";
 import { formatDurationMs } from "../lib/duration";
-import { versionedUrl } from "../lib/versionedUrl";
 import { initials } from "../lib/initials";
 import { parseLrcLyrics } from "../lib/lrc";
 import { parseTrackGenres, trackBelongsToGenreKey } from "../lib/genres";
@@ -117,7 +112,8 @@ export function TrackRowArt({ relPath }: { relPath: string }) {
   return (
     <CoverImg
       className="track-row__art"
-      src={coverUrlForTrackRelPath(relPath)}
+      preset="thumb"
+      trackPath={relPath}
       alt=""
       fallbackClassName="track-row__art track-row__art--fallback"
       fallback={<UiMusicNote className="track-row__art-fallback-ic" />}
@@ -179,13 +175,12 @@ function PlayerBarTrackArtInner({
   relPath: string;
   version?: number | null;
 }) {
-  const base = coverUrlForTrackRelPath(relPath);
-  const src = versionedUrl(base, version);
   return (
     <CoverImg
-      priority
+      preset="player"
+      trackPath={relPath}
+      coverVersion={version}
       className="player-bar2__art"
-      src={src}
       alt=""
       fallbackClassName="player-bar2__art fallback"
       fallback={<UiMusicNote className="player-bar2__art-fallback-ic" />}
@@ -914,11 +909,12 @@ export function AlbumCover({
 }) {
   const coverPath = album.coverRelPath?.trim() || album.relPath;
   if (coverPath) {
-    const src = versionedUrl(coverUrlForAlbumRelPath(coverPath), album.updatedAt);
     return (
       <CoverImg
         className={`album-cover ${compact ? "is-compact" : ""}`}
-        src={src}
+        preset={compact ? "card" : "hero"}
+        coverPath={coverPath}
+        coverVersion={album.updatedAt}
         alt=""
         fallbackClassName={`album-cover is-fallback ${
           compact ? "is-compact" : ""

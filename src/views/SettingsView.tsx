@@ -558,6 +558,7 @@ function SettingsView() {
                     | "oscSoft"
                     | "hmb"
                     | "signals"
+                    | "discowall"
                     | "karaoke",
                 })
               }
@@ -568,6 +569,7 @@ function SettingsView() {
               <option value="oscSoft">{t("settings.vizOscSoft")}</option>
               <option value="hmb">{t("settings.vizHmb")}</option>
               <option value="signals">{t("settings.vizSignals")}</option>
+              <option value="discowall">{t("settings.vizDiscowall")}</option>
               <option value="karaoke">{t("settings.vizKaraoke")}</option>
             </select>
           </label>

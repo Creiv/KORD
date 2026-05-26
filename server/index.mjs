@@ -67,6 +67,10 @@ import {
   isAudioFile,
   toLegacyLibrary,
 } from "./musicLibrary.mjs";
+import {
+  parseCoverThumbWidth,
+  sendCoverResponse,
+} from "./coverServe.mjs";
 import { normalizeTrackMoodsList } from "./trackMoods.mjs";
 import {
   mergeAndWriteUserStateWithRevision,
@@ -2054,7 +2058,7 @@ app.patch("/api/user-state/settings", async (req, res) => {
   }
 });
 
-app.get("/api/cover", (req, res) => {
+app.get("/api/cover", async (req, res) => {
   const root = getMusicRoot();
   const relPath = String(req.query.path || "");
   if (
@@ -2065,19 +2069,16 @@ app.get("/api/cover", (req, res) => {
     return res.status(400).end();
   }
   const filePath = path.join(root, relPath.replaceAll("/", path.sep));
-  if (!underRoot(filePath, root) || !existsSync(filePath))
+  if (!underRoot(filePath, root) || !existsSync(filePath)) {
     return res.status(404).end();
-  const dir = statSync(filePath).isDirectory()
-    ? filePath
-    : path.dirname(filePath);
-  for (const name of coverCandidates()) {
-    const full = path.join(dir, name);
-    if (existsSync(full) && underRoot(full, root)) {
-      res.setHeader("Cache-Control", "private, max-age=86400, immutable");
-      return res.sendFile(full);
-    }
   }
-  return res.status(404).end();
+  const width = parseCoverThumbWidth(req.query.w);
+  try {
+    await sendCoverResponse(res, { root, relPath, width, underRoot });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).end();
+  }
 });
 
 app.get("/api/track-stat", (req, res) => {

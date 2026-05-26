@@ -1,7 +1,6 @@
 import { memo, useCallback, type KeyboardEvent } from "react";
 import { CoverImg } from "../CoverImg";
 import { UiAlbumIcon, UiPerson } from "../KordUiIcons";
-import { coverUrlForAlbumRelPath } from "../../lib/api";
 import { initials } from "../../lib/initials";
 import { useI18n } from "../../i18n/useI18n";
 import type { CatalogAlbumEntry, CatalogArtistEntry } from "../../types";
@@ -79,7 +78,8 @@ export const StudioCatalogArtistTile = memo(function StudioCatalogArtistTile({
           {coverRelPath ? (
             <CoverImg
               className="library-list-tile__cover"
-              src={coverUrlForAlbumRelPath(coverRelPath)}
+              preset="tile"
+              coverPath={coverRelPath}
               alt=""
               fallbackClassName="library-list-tile__badge"
               fallback={initials(artist.name)}
@@ -180,7 +180,8 @@ export const StudioCatalogAlbumTile = memo(function StudioCatalogAlbumTile({
         <div className="library-list-tile__album-wrap">
           <CoverImg
             className="album-cover is-compact"
-            src={coverUrlForAlbumRelPath(coverPath)}
+            preset="card"
+            coverPath={coverPath}
             alt=""
             fallbackClassName="album-cover is-fallback is-compact"
             fallback={initials(artistName)}

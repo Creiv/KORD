@@ -286,12 +286,20 @@ export function mediaUrl(relPath: string, baseUrl?: string | null) {
   }
 }
 
-export function coverUrlForTrackRelPath(relPath: string) {
-  return apiUrl("/api/cover", { path: relPath })
+export function coverUrlForTrackRelPath(relPath: string, width?: number) {
+  const params: Record<string, string> = { path: relPath }
+  if (width != null && Number.isFinite(width) && width > 0) {
+    params.w = String(Math.round(width))
+  }
+  return apiUrl("/api/cover", params)
 }
 
-export function coverUrlForAlbumRelPath(relPath: string) {
-  return apiUrl("/api/cover", { path: relPath })
+export function coverUrlForAlbumRelPath(relPath: string, width?: number) {
+  const params: Record<string, string> = { path: relPath }
+  if (width != null && Number.isFinite(width) && width > 0) {
+    params.w = String(Math.round(width))
+  }
+  return apiUrl("/api/cover", params)
 }
 
 export async function fetchLibrary(): Promise<LibraryResponse> {

@@ -20,6 +20,7 @@ import {
   setMediaSessionPlaybackState,
   setMediaSessionPosition,
 } from "../lib/mediaSession";
+import { preloadTrackCover } from "../lib/preloadCover";
 import { fisherYatesShuffle } from "../lib/smartShuffle";
 import { useUserState } from "./UserStateContext";
 import type {
@@ -1234,6 +1235,20 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       isPlaying || keepPlayingRef.current ? "playing" : "paused",
     );
   }, [current, isPlaying]);
+
+  useEffect(() => {
+    if (!current || queue.length < 2) return;
+    let nextIdx = currentIndex + 1;
+    if (nextIdx >= queue.length) {
+      if (repeat !== "all") return;
+      nextIdx = 0;
+    }
+    const nextTr = queue[nextIdx];
+    if (!nextTr || nextTr.relPath === current.relPath) return;
+    const ver = (nextTr as EnrichedTrack & { updatedAt?: number | null })
+      .updatedAt;
+    preloadTrackCover(nextTr.relPath, ver ?? null);
+  }, [current, queue, currentIndex, repeat]);
 
   useEffect(() => {
     if (!current) return;

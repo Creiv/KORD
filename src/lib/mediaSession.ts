@@ -1,4 +1,5 @@
 import { coverUrlForTrackRelPath } from "./api"
+import { COVER_WIDTHS } from "./coverArt"
 import type { EnrichedTrack } from "../types"
 
 function toAbsoluteUrl(path: string): string {
@@ -20,19 +21,25 @@ export function setMediaSessionMetadata(
     return
   }
   const version = (track as EnrichedTrack & { updatedAt?: number | null }).updatedAt
-  const baseCover = coverUrlForTrackRelPath(track.relPath)
+  const baseCover = coverUrlForTrackRelPath(track.relPath, COVER_WIDTHS.player)
+  const cover256 = coverUrlForTrackRelPath(track.relPath, COVER_WIDTHS.card)
   const cover = toAbsoluteUrl(
     version
       ? `${baseCover}${baseCover.includes("?") ? "&" : "?"}v=${Math.floor(version)}`
       : baseCover,
+  )
+  const coverMid = toAbsoluteUrl(
+    version
+      ? `${cover256}${cover256.includes("?") ? "&" : "?"}v=${Math.floor(version)}`
+      : cover256,
   )
   navigator.mediaSession.metadata = new MediaMetadata({
     title: track.title,
     artist: track.artist,
     album: track.album,
     artwork: [
-      { src: cover, sizes: "512x512", type: "image/jpeg" },
-      { src: cover, sizes: "256x256", type: "image/jpeg" },
+      { src: cover, sizes: "512x512", type: "image/webp" },
+      { src: coverMid, sizes: "256x256", type: "image/webp" },
     ],
   })
   if (typeof Image !== "undefined") {

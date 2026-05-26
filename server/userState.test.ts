@@ -89,6 +89,21 @@ describe("userState", () => {
     expect(merged.favorites).toEqual([])
   })
 
+  it("conserva vizMode discowall in sanitizeSettings", async () => {
+    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kord-user-state-dw-"))
+    const state = await writeUserState(
+      musicRoot,
+      {
+        ...defaultUserState(),
+        settings: { ...defaultUserState().settings, vizMode: "discowall" },
+      },
+      "dwacct",
+    )
+    expect(state.settings.vizMode).toBe("discowall")
+    const reloaded = await readUserState(musicRoot, "dwacct")
+    expect(reloaded.settings.vizMode).toBe("discowall")
+  })
+
   it("PATCH server-side mergea su stato fresco senza expectedRevision", async () => {
     const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kord-user-state-patch-"))
     await writeUserState(

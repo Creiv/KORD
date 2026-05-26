@@ -7,7 +7,6 @@ import { KordNavIcon, UiClose } from "../KordUiIcons";
 import styles from "./MobileBottomNav.module.css";
 
 const MORE_KEYS: { id: AppSection; labelKey: string }[] = [
-  { id: "discowall", labelKey: "nav.discowall" },
   { id: "queue", labelKey: "nav.queue" },
   { id: "playlists", labelKey: "nav.playlists" },
   { id: "favorites", labelKey: "nav.favorites" },

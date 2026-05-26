@@ -503,3 +503,85 @@ export function samplePlectrField(
 
   return { field: clamp(field), accent: clamp(accent), colorW };
 }
+
+/** Griglia interna per il campo Plectr (una sample per frame, non per cella visiva). */
+export const PLECTR_FIELD_COLS = 40;
+export const PLECTR_FIELD_ROWS = 30;
+
+export type PlectrFieldGrid = {
+  field: Float32Array;
+  accent: Float32Array;
+  colorW0: Float32Array;
+  colorW1: Float32Array;
+  colorW2: Float32Array;
+};
+
+export function buildPlectrFieldGrid(
+  motifs: MotifInstance[],
+  styleW: Record<DiscoSceneStyle, number>,
+  time: number,
+  constellationTaps: MotifInstance[],
+): PlectrFieldGrid {
+  const n = PLECTR_FIELD_COLS * PLECTR_FIELD_ROWS;
+  const field = new Float32Array(n);
+  const accent = new Float32Array(n);
+  const colorW0 = new Float32Array(n);
+  const colorW1 = new Float32Array(n);
+  const colorW2 = new Float32Array(n);
+  const colDenom = PLECTR_FIELD_COLS <= 1 ? 1 : PLECTR_FIELD_COLS - 1;
+  const rowDenom = PLECTR_FIELD_ROWS <= 1 ? 1 : PLECTR_FIELD_ROWS - 1;
+
+  for (let gy = 0; gy < PLECTR_FIELD_ROWS; gy += 1) {
+    const yn = PLECTR_FIELD_ROWS <= 1 ? 0 : gy / rowDenom;
+    for (let gx = 0; gx < PLECTR_FIELD_COLS; gx += 1) {
+      const xn = PLECTR_FIELD_COLS <= 1 ? 0 : gx / colDenom;
+      const i = gy * PLECTR_FIELD_COLS + gx;
+      const s = samplePlectrField(motifs, styleW, xn, yn, time, constellationTaps);
+      field[i] = s.field;
+      accent[i] = s.accent;
+      colorW0[i] = s.colorW[0];
+      colorW1[i] = s.colorW[1];
+      colorW2[i] = s.colorW[2];
+    }
+  }
+
+  return { field, accent, colorW0, colorW1, colorW2 };
+}
+
+function lerpGrid(a: number, b: number, t: number) {
+  return a + (b - a) * t;
+}
+
+/** Campiona il campo precalcolato (bilineare) in coordinate normalizzate 0–1. */
+export function samplePlectrFieldGrid(
+  grid: PlectrFieldGrid,
+  xn: number,
+  yn: number,
+): PlectrSample {
+  const fx = clamp(xn, 0, 1) * (PLECTR_FIELD_COLS - 1);
+  const fy = clamp(yn, 0, 1) * (PLECTR_FIELD_ROWS - 1);
+  const x0 = Math.floor(fx);
+  const y0 = Math.floor(fy);
+  const x1 = Math.min(PLECTR_FIELD_COLS - 1, x0 + 1);
+  const y1 = Math.min(PLECTR_FIELD_ROWS - 1, y0 + 1);
+  const tx = fx - x0;
+  const ty = fy - y0;
+
+  const i00 = y0 * PLECTR_FIELD_COLS + x0;
+  const i10 = y0 * PLECTR_FIELD_COLS + x1;
+  const i01 = y1 * PLECTR_FIELD_COLS + x0;
+  const i11 = y1 * PLECTR_FIELD_COLS + x1;
+
+  const field =
+    lerpGrid(lerpGrid(grid.field[i00]!, grid.field[i10]!, tx), lerpGrid(grid.field[i01]!, grid.field[i11]!, tx), ty);
+  const accent =
+    lerpGrid(lerpGrid(grid.accent[i00]!, grid.accent[i10]!, tx), lerpGrid(grid.accent[i01]!, grid.accent[i11]!, tx), ty);
+  const w0 =
+    lerpGrid(lerpGrid(grid.colorW0[i00]!, grid.colorW0[i10]!, tx), lerpGrid(grid.colorW0[i01]!, grid.colorW0[i11]!, tx), ty);
+  const w1 =
+    lerpGrid(lerpGrid(grid.colorW1[i00]!, grid.colorW1[i10]!, tx), lerpGrid(grid.colorW1[i01]!, grid.colorW1[i11]!, tx), ty);
+  const w2 =
+    lerpGrid(lerpGrid(grid.colorW2[i00]!, grid.colorW2[i10]!, tx), lerpGrid(grid.colorW2[i01]!, grid.colorW2[i11]!, tx), ty);
+
+  return { field, accent, colorW: [w0, w1, w2] };
+}

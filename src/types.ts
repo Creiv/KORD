@@ -111,6 +111,7 @@ export type VizMode =
   | "oscSoft"
   | "hmb"
   | "signals"
+  | "discowall"
   | "karaoke";
 
 export const APP_LOCALES = ["en", "it"] as const;
@@ -333,7 +334,6 @@ export type AppSection =
   | "ascolta"
   | "libreria"
   | "studio"
-  | "discowall"
   | "queue"
   | "playlists"
   | "favorites"

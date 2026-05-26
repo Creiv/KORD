@@ -74,7 +74,6 @@ type BeforeInstallPromptEvent = Event & {
 
 const LazyDashboardView = lazy(() => import("../../views/DashboardView/DashboardView"));
 const LazyLibraryView = lazy(() => import("../../views/LibraryView/LibraryView"));
-const LazyDiscoWallView = lazy(() => import("../../views/DiscoWallView"));
 const LazyQueueViewNew = lazy(() => import("../../views/QueueViewNew"));
 const LazyPlaylistsViewNew = lazy(() => import("../../views/PlaylistsViewNew"));
 const LazyTrackCollectionView = lazy(() => import("../../views/TrackCollectionView"));
@@ -444,7 +443,6 @@ export function AppShell() {
       void import("../../views/DashboardView/DashboardView");
       void import("../../views/ListenView/ListenView");
       void import("../../views/LibraryView/LibraryView");
-      void import("../../views/DiscoWallView");
     };
     const id =
       typeof w.requestIdleCallback === "function"
@@ -784,12 +782,6 @@ export function AppShell() {
               />
             </Suspense>
           </div>
-        );
-      case "discowall":
-        return (
-          <Suspense fallback={<KordViewLoadingFallback />}>
-            <LazyDiscoWallView />
-          </Suspense>
         );
       case "queue":
         return (

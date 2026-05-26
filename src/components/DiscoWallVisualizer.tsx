@@ -1,7 +1,16 @@
-import { useEffect, useMemo, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { usePlayer } from "../context/PlayerContext";
 import { useRhythmChart } from "../game/hooks/useRhythmChart";
 import type { ChartNote } from "../game/types";
+import { useI18n } from "../i18n/useI18n";
 import {
   buildTriads,
   burstPoint,
@@ -10,16 +19,20 @@ import {
   frameHues,
   mathPixelHue,
   pixelMathPhase,
+  buildPlectrFieldGrid,
   prepareConstellationTaps,
-  samplePlectrField,
+  samplePlectrFieldGrid,
   seededNoise,
   writeSceneStyleWeights,
-} from "./discowallPlectr";
-import styles from "./DiscoWallView.module.css";
+} from "../views/discowallPlectr";
 
-const MAX_CELLS = 4600;
+const MAX_CELLS_PANEL = 1800;
+const MAX_CELLS_EXPANDED = 4000;
 const MIN_CELL = 9;
 const MAX_CELL = 18;
+const FPS_PANEL = 30;
+const FPS_EXPANDED_CALM = 45;
+const FPS_EXPANDED_ACTIVE = 60;
 
 function clamp(v: number, lo = 0, hi = 1) {
   return Math.max(lo, Math.min(hi, v));
@@ -34,7 +47,6 @@ function hashText(text: string) {
   return h >>> 0;
 }
 
-/** Indice massimo con note[i].time <= time + slack (note ordinate per time). */
 function lastNoteIndexAt(notes: ChartNote[], time: number, slack = 0.035): number {
   if (!notes.length) return -1;
   const target = time + slack;
@@ -137,10 +149,13 @@ function chooseNotes(chartSet: ReturnType<typeof useRhythmChart>["chartSet"]) {
   return [...raw].sort((a, b) => a.time - b.time);
 }
 
-export default function DiscoWallView() {
+export function DiscoWallVisualizer() {
+  const { t } = useI18n();
   const { audioRef, current, currentTime, getAnalyser } = usePlayer();
   const { chartSet } = useRhythmChart(current);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const resizeRef = useRef<(() => void) | null>(null);
   const pulseRef = useRef(0);
   const flashRef = useRef(0);
   const colorNudgeRef = useRef(0);
@@ -151,6 +166,9 @@ export default function DiscoWallView() {
   const visibleRef = useRef(
     typeof document !== "undefined" ? !document.hidden : true,
   );
+  const inViewRef = useRef(true);
+  const drawKickRef = useRef<(() => void) | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   const notes = useMemo(() => chooseNotes(chartSet), [chartSet]);
   const bpm = chartSet?.charts.hard?.stats.bpm ?? chartSet?.charts.normal?.stats.bpm ?? null;
@@ -159,9 +177,55 @@ export default function DiscoWallView() {
     [current?.relPath, current?.title],
   );
   const triads = useMemo(() => buildTriads(seed, bpm), [seed, bpm]);
-  const subtitle = current
-    ? `${current.artist} · ${current.album}`
-    : "Avvia un brano per accendere la parete.";
+
+  const showIdle = !current;
+
+  const toggleExpanded = useCallback(() => {
+    setExpanded((v) => !v);
+  }, []);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expanded]);
+
+  useEffect(() => {
+    if (!expanded || typeof document === "undefined") return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [expanded]);
+
+  useLayoutEffect(() => {
+    visibleRef.current = !document.hidden;
+    resizeRef.current?.();
+    const id = requestAnimationFrame(() => resizeRef.current?.());
+    const id2 = requestAnimationFrame(() => resizeRef.current?.());
+    return () => {
+      cancelAnimationFrame(id);
+      cancelAnimationFrame(id2);
+    };
+  }, [expanded]);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        inViewRef.current = Boolean(entry?.isIntersecting);
+        if (inViewRef.current && visibleRef.current) drawKickRef.current?.();
+      },
+      { threshold: [0, 0.04, 0.12] },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [expanded]);
 
   useEffect(() => {
     currentTimeRef.current = currentTime;
@@ -192,6 +256,10 @@ export default function DiscoWallView() {
     let cell = 12;
     let pad = 1;
     let fftScratch: Uint8Array | null = null;
+    let frameIx = 0;
+    let lastFrameMs = 0;
+    let lastLiveEnergy = 0;
+    let lastBassEnergy = 0;
     let frameImage: ImageData | null = null;
     let noiseArr: Float32Array | null = null;
     let grainArr: Float32Array | null = null;
@@ -201,13 +269,15 @@ export default function DiscoWallView() {
 
     const rebuildCellCaches = () => {
       const n = cols * rows;
-      if (!noiseArr || noiseArr.length !== n) {
+      if (!noiseArr || !grainArr || noiseArr.length !== n) {
         noiseArr = new Float32Array(n);
         grainArr = new Float32Array(n);
       }
+      const noise = noiseArr;
+      const grain = grainArr;
       for (let i = 0; i < n; i += 1) {
-        noiseArr[i] = seededNoise(seed, i);
-        grainArr[i] = seededNoise(seed + 31, i);
+        noise[i] = seededNoise(seed, i);
+        grain[i] = seededNoise(seed + 31, i);
       }
       if (!xnArr || xnArr.length !== cols) xnArr = new Float32Array(cols);
       if (!ynArr || ynArr.length !== rows) ynArr = new Float32Array(rows);
@@ -218,17 +288,31 @@ export default function DiscoWallView() {
     };
 
     const resize = () => {
-      const parent = canvas.parentElement;
-      width = Math.max(320, parent?.clientWidth ?? canvas.clientWidth ?? 320);
-      height = Math.max(360, parent?.clientHeight ?? canvas.clientHeight ?? 520);
-      dpr = Math.min(window.devicePixelRatio || 1, width < 760 ? 1.15 : 1.35);
+      const parent = wrapRef.current ?? canvas.parentElement;
+      let nextW = parent?.clientWidth ?? canvas.clientWidth ?? 0;
+      let nextH = parent?.clientHeight ?? canvas.clientHeight ?? 0;
+      if (expanded && (nextW < 120 || nextH < 120)) {
+        const sideW =
+          parseFloat(
+            getComputedStyle(document.documentElement).getPropertyValue("--side-w") ||
+              "0",
+          ) || 0;
+        nextW = Math.max(nextW, window.innerWidth - sideW);
+        nextH = Math.max(nextH, window.innerHeight);
+      }
+      width = Math.max(120, nextW || 320);
+      height = Math.max(120, nextH || 200);
+      dpr = expanded
+        ? Math.min(window.devicePixelRatio || 1, 1.25)
+        : 1;
+      const maxCells = expanded ? MAX_CELLS_EXPANDED : MAX_CELLS_PANEL;
       cell = clamp(Math.round(width / 92), MIN_CELL, MAX_CELL);
       cols = Math.max(18, Math.floor(width / cell));
-      rows = Math.max(20, Math.floor(height / cell));
-      while (cols * rows > MAX_CELLS) {
+      rows = Math.max(12, Math.floor(height / cell));
+      while (cols * rows > maxCells) {
         cell += 1;
         cols = Math.max(18, Math.floor(width / cell));
-        rows = Math.max(20, Math.floor(height / cell));
+        rows = Math.max(12, Math.floor(height / cell));
       }
       pad = Math.max(1, cell * 0.11);
       bufW = Math.round(width * dpr);
@@ -245,7 +329,9 @@ export default function DiscoWallView() {
 
     const onVisibility = () => {
       visibleRef.current = !document.hidden;
-      if (visibleRef.current && raf === 0) raf = requestAnimationFrame(draw);
+      if (visibleRef.current && inViewRef.current && raf === 0) {
+        raf = requestAnimationFrame(draw);
+      }
     };
 
     const notePulseAt = (time: number) => {
@@ -281,16 +367,29 @@ export default function DiscoWallView() {
     };
 
     const draw = () => {
-      if (!visibleRef.current) {
+      if (!visibleRef.current || !inViewRef.current) {
         raf = 0;
         return;
       }
       raf = requestAnimationFrame(draw);
 
+      const now = performance.now();
+      const prevPulse = pulseRef.current;
+      const prevFlash = flashRef.current;
+      const targetFps = expanded
+        ? prevPulse > 0.12 || prevFlash > 0.08
+          ? FPS_EXPANDED_ACTIVE
+          : FPS_EXPANDED_CALM
+        : FPS_PANEL;
+      const minInterval = 1000 / targetFps;
+      if (now - lastFrameMs < minInterval) return;
+      lastFrameMs = now;
+      frameIx += 1;
+
       const analyser = getAnalyser();
-      let liveEnergy = 0;
-      let bassEnergy = 0;
-      if (analyser) {
+      let liveEnergy = lastLiveEnergy;
+      let bassEnergy = lastBassEnergy;
+      if (analyser && frameIx % 2 === 0) {
         const len = Math.min(96, analyser.frequencyBinCount);
         if (!fftScratch || fftScratch.length < len) fftScratch = new Uint8Array(len);
         const scratch = fftScratch.subarray(0, len);
@@ -305,6 +404,8 @@ export default function DiscoWallView() {
         }
         liveEnergy = sum / (len * 255);
         bassEnergy = bass / (bassN * 255);
+        lastLiveEnergy = liveEnergy;
+        lastBassEnergy = bassEnergy;
       }
 
       const audioTime = audioRef.current?.currentTime;
@@ -328,11 +429,21 @@ export default function DiscoWallView() {
 
       const beatHz = bpm ? bpm / 60 : 1.25;
       const beatIndex = liveTime * beatHz;
-      writeSceneStyleWeights(styleW, beatIndex, seed);
-      const motifs = collectMotifs(chartNotes, liveTime, seed);
-      const constellationTaps = prepareConstellationTaps(motifs, liveTime);
-      const hues = frameHues(triads, beatIndex, liveTime, colorNudgeRef.current);
       const hasChart = chartNotes.length > 0;
+      const hues = frameHues(
+        triads,
+        beatIndex,
+        liveTime,
+        hasChart ? colorNudgeRef.current : 0,
+      );
+      const motifs = hasChart ? collectMotifs(chartNotes, liveTime, seed) : [];
+      const constellationTaps = hasChart
+        ? prepareConstellationTaps(motifs, liveTime)
+        : [];
+      if (hasChart) writeSceneStyleWeights(styleW, beatIndex, seed);
+      const plectrGrid = hasChart
+        ? buildPlectrFieldGrid(motifs, styleW, liveTime, constellationTaps)
+        : null;
 
       if (!frameImage || frameImage.width !== bufW || frameImage.height !== bufH) {
         frameImage = ctx.createImageData(bufW, bufH);
@@ -364,44 +475,47 @@ export default function DiscoWallView() {
           let colorW1 = 0.2;
           let colorW2 = 0.2;
 
-          if (hasChart) {
-            const sampled = samplePlectrField(
-              motifs,
-              styleW,
-              xn,
-              yn,
-              liveTime,
-              constellationTaps,
-            );
+          if (hasChart && plectrGrid) {
+            const sampled = samplePlectrFieldGrid(plectrGrid, xn, yn);
             field = sampled.field;
             accent = sampled.accent;
             colorW0 = sampled.colorW[0];
             colorW1 = sampled.colorW[1];
             colorW2 = sampled.colorW[2];
           } else {
-            field = 0.14 + pulse * 0.28;
+            // Parete spenta (pre-chart / silenzio): pochi pixel, solo energia audio
+            field = 0.05 + pulse * 0.14 + bassEnergy * 0.06;
           }
 
           const bdx = xn - burst.x;
           const bdy = yn - burst.y;
           const burstDist = Math.sqrt(bdx * bdx + bdy * bdy);
-          const burstHit =
-            flash > 0.08 ? Math.max(0, 1 - burstDist * (3 - flash * 0.7)) ** 1.7 : 0;
+          const burstHit = hasChart
+            ? flash > 0.08
+              ? Math.max(0, 1 - burstDist * (3 - flash * 0.7)) ** 1.7
+              : 0
+            : 0;
 
           const phase = pixelMathPhase(seed, i, beatIndex, field, accent);
-          const shimmer = 0.08 * (0.5 + 0.5 * Math.sin(phase * 1.25));
+          const shimmer = hasChart
+            ? 0.08 * (0.5 + 0.5 * Math.sin(phase * 1.25))
+            : 0.03 * (0.5 + 0.5 * Math.sin(phase * 1.1));
           field += shimmer;
 
-          const gateThreshold = 0.4 - field * 0.18 + Math.sin(phase * 2.1) * 0.05;
+          const gateThreshold = hasChart
+            ? 0.4 - field * 0.18 + Math.sin(phase * 2.1) * 0.05
+            : 0.5 - field * 0.12 + Math.sin(phase * 2.1) * 0.04;
           const pixelGate = grain[i]! > gateThreshold;
           const core = clamp(
-            field * 1.08 +
-              pulse * 0.16 +
+            field * (hasChart ? 1.08 : 0.92) +
+              pulse * (hasChart ? 0.16 : 0.1) +
               bassEnergy * 0.08 +
               burstHit * (0.48 + flash * 0.45) -
               (pixelGate ? 0.1 : 0),
           );
-          if (core < 0.14 || (pixelGate && core < 0.34)) continue;
+          const coreMin = hasChart ? 0.14 : 0.2;
+          const coreGate = hasChart ? 0.34 : 0.4;
+          if (core < coreMin || (pixelGate && core < coreGate)) continue;
 
           const hue =
             mathPixelHue(hues, [colorW0, colorW1, colorW2], phase, accent * 0.2) +
@@ -423,40 +537,77 @@ export default function DiscoWallView() {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.putImageData(frameImage, 0, 0);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = `rgba(0, 0, 0, ${0.38 - Math.min(0.1, flash * 0.08)})`;
+      const scrim = expanded
+        ? 0.28 - Math.min(0.08, flash * 0.06)
+        : 0.38 - Math.min(0.1, flash * 0.08);
+      ctx.fillStyle = `rgba(0, 0, 0, ${scrim})`;
       ctx.fillRect(0, 0, width, height);
     };
 
+    resizeRef.current = resize;
+    drawKickRef.current = () => {
+      if (raf === 0 && visibleRef.current && inViewRef.current) {
+        raf = requestAnimationFrame(draw);
+      }
+    };
     resize();
-    const ro = new ResizeObserver(resize);
-    if (canvas.parentElement) ro.observe(canvas.parentElement);
+    const ro = new ResizeObserver(() => resize());
+    const observeTarget = wrapRef.current ?? canvas.parentElement;
+    if (observeTarget) ro.observe(observeTarget);
+    const onWindowResize = () => resize();
+    if (expanded) window.addEventListener("resize", onWindowResize);
     document.addEventListener("visibilitychange", onVisibility);
     visibleRef.current = !document.hidden;
-    if (visibleRef.current) raf = requestAnimationFrame(draw);
+    raf = requestAnimationFrame(draw);
 
     return () => {
+      resizeRef.current = null;
+      drawKickRef.current = null;
       cancelAnimationFrame(raf);
+      window.removeEventListener("resize", onWindowResize);
       document.removeEventListener("visibilitychange", onVisibility);
       ro.disconnect();
     };
-  }, [audioRef, bpm, current?.relPath, getAnalyser, seed, triads]);
+  }, [audioRef, bpm, current?.relPath, expanded, getAnalyser, seed, triads]);
 
-  return (
-    <section className={styles.page} aria-label="DiscoWall">
-      <canvas ref={canvasRef} className={styles.canvas} />
-      <div className={styles.chrome}>
-        <div className={styles.copy}>
-          <p className={styles.eyebrow}>DiscoWall</p>
-          <h1 className={styles.title}>{current?.title || "DiscoWall"}</h1>
-          <p className={styles.subtitle}>{subtitle}</p>
-        </div>
-      </div>
-      {!current ? (
-        <div className={styles.empty}>
-          Avvia un brano dalla libreria: DiscoWall usera l'analisi Plectr per animare la parete a
-          ritmo con forme e colori sincronizzati al chart.
+  const wrap = (
+    <div
+      ref={wrapRef}
+      className={`viz-wrap is-discowall ${expanded ? "is-expanded" : ""}`}
+      role="button"
+      tabIndex={0}
+      aria-label={
+        expanded
+          ? t("settings.vizCloseExpanded")
+          : t("settings.vizExpand")
+      }
+      onClick={() => toggleExpanded()}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          toggleExpanded();
+        }
+      }}
+    >
+      <canvas ref={canvasRef} className="viz-canvas" aria-hidden />
+      {showIdle ? (
+        <div className="viz-discowall-status" role="status">
+          <p>{t("settings.vizDiscowallIdle")}</p>
         </div>
       ) : null}
-    </section>
+    </div>
   );
+
+  if (expanded && typeof document !== "undefined") {
+    return (
+      <>
+        <div className="listen-stage__viz-placeholder" aria-hidden />
+        {createPortal(wrap, document.body)}
+      </>
+    );
+  }
+
+  return wrap;
 }
+
+export default DiscoWallVisualizer;
