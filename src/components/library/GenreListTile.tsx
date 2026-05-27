@@ -6,7 +6,7 @@ import {
   LibraryGenreMetaChips,
 } from "../AppSharedUi";
 import { CoverImg } from "../CoverImg";
-import { UiStyle } from "../KordUiIcons";
+import { UiStyle } from "../RekordUiIcons";
 import { useI18n } from "../../i18n/useI18n";
 import type { LibraryIndex } from "../../types";
 

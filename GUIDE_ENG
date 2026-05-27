@@ -1,15 +1,15 @@
-# KORD 2.9 - Complete beginner guide
+# RE-KORD 3.3 — Complete beginner guide
 
-This guide is written for people who have never used KORD before.
+This guide is written for people who have never used RE-KORD before.
 It takes you from first launch to daily usage with clear, practical steps.
 
 ---
 
-## 1) What KORD is
+## 1) What RE-KORD is
 
-KORD is a local music management and playback software.
+RE-KORD is a local music management and playback software.
 
-With KORD you can:
+With RE-KORD you can:
 - use your audio files stored on disk;
 - organize library, metadata, covers, playlists, and queue;
 - use download/import tools (Studio area);
@@ -23,7 +23,7 @@ In short: player + library + maintenance tools.
 
 You need:
 - a music folder with audio files;
-- KORD running (web or desktop app);
+- RE-KORD running (web or desktop app);
 - internet (optional, but useful for metadata/covers/downloads).
 
 If this is your first launch, your top priority is configuring the library folder.
@@ -40,7 +40,7 @@ In the Library section:
 - set the root path of your music folder (when allowed);
 - save and reload.
 
-KORD will index your files and build your library from there.
+RE-KORD will index your files and build your library from there.
 
 ### Step 3 - Personalize UI
 In Settings:
@@ -60,21 +60,27 @@ If nothing appears, use refresh/sync.
 - collection overview;
 - quick access to listening, favorites, and quality alerts.
 
-## Listen
-- now playing track;
-- upcoming queue;
-- lyrics and recents.
+## Studio
+Workspace with tabs:
+
+### Listen (Studio tab)
+- now playing, queue, lyrics, recents;
+- **visualizer** on the player (same list as in Settings: bars, mirror, waves, signals, **DiscoWall**, karaoke);
+- **DiscoWall** is not a separate menu section — it is a visualizer mode like the others. Enable it under **Settings → Theme and visualizer**, then play a track in **Studio → Listen**.
+
+### Catalog / Download / Metadata / Covers
+- catalog discovery, downloads, metadata tools, artwork (see §11).
+
+## Plectr (nav item)
+- rhythm game on charts generated from audio;
+- per-track records per account;
+- synced with the player (no separate countdown);
+- shortcut **P** when a queue is active, or open **Plectr** from the nav.
 
 ## Library
 - browse by artists, genres, moods;
 - search and filters;
 - quick actions on albums and tracks.
-
-## Studio
-- download/import;
-- album/track metadata tools;
-- cover management;
-- advanced library utilities.
 
 ## Queue
 - current playback order;
@@ -209,7 +215,7 @@ You can:
 - update album metadata;
 - update track metadata;
 - scan missing-only or full library;
-- clean obsolete entries in `kord-trackinfo`;
+- clean obsolete entries in `kord-trackinfo.json`;
 - infer genres at scale.
 
 Recommended flow for large libraries:
@@ -234,7 +240,8 @@ Use artist/genre/mood filters when browsing.
 Shortcuts:
 - `/` or `Ctrl+K`: focus search;
 - `Space`: play/pause;
-- `I`: open Listen section.
+- `I`: open **Studio → Listen**;
+- `P`: open **Plectr** (when a queue is active).
 
 ---
 
@@ -249,14 +256,15 @@ Shortcuts:
 - remote sessions may be read-only.
 
 ## UI
-- language, theme, visualizer.
+- language, theme, **visualizer** (bars, mirror, wave, smooth wave, H·M·B waves, signals, **DiscoWall**, karaoke).
+- library and account data stay in the **`.kord/`** folder under your music root (legacy folder name, unchanged on disk).
 
 ## Network
 - API port and estimated LAN URL.
 
 ## External sharing (Cloudflare)
 - in Settings > Network you can log into Cloudflare and start external sharing;
-- when sharing is active, KORD shows a public HTTPS URL for access outside your LAN;
+- when sharing is active, RE-KORD shows a public HTTPS URL for access outside your LAN;
 - with `trycloudflare` mode, the URL is temporary and may change after each restart;
 - so if you restart the server/app, it is normal to get a different `https://...trycloudflare.com` link;
 - for a permanent URL, use a named Cloudflare tunnel with your own domain (advanced setup).
@@ -266,7 +274,7 @@ Shortcuts:
 
 ## Backup/Restore
 - backup settings and metadata (no audio files);
-- restore from KORD zip backup.
+- restore from RE-KORD zip backup.
 
 ## Activity log
 - server activity history.
@@ -332,13 +340,27 @@ This keeps your library clean, consistent, and easy to maintain.
 
 ## 17) Essential legal notes
 
-- KORD and its creators assume no responsibility for content users download/manage.
+- RE-KORD and its creators assume no responsibility for content users download/manage.
 - The tool is intended for legal/no-copyright content or content with proper usage rights.
 - Each user is responsible for their own actions and applicable law compliance.
 
 ---
 
-## 18) One-line summary
+## 18) Desktop builds (AppImage / Windows)
 
-Set up the library correctly, use queue/playlists for listening, maintain metadata and covers in Studio, and run regular backups.
+For versioned official packs:
+
+```bash
+npm run build
+npm run pack:linux:server -- 3.3.0   # AppImage → release/RE-KORD-Server-…
+npm run pack:win:server -- 3.3.0     # prefer building on Windows
+```
+
+The **server** flavor bundles the API, built UI, **yt-dlp**, and **cloudflared** for the target OS. On-disk user data remains in **`.kord/`**.
+
+---
+
+## 19) One-line summary
+
+Set up the library, listen in **Studio → Listen**, pick a visualizer (including **DiscoWall**), use queue/playlists and **Plectr**, maintain metadata in Studio, and run regular backups.
 

@@ -1,6 +1,6 @@
 /**
- * Layout strutturale KORD — gerarchia pagine, griglie, player dock.
- * Breakpoint width: 640 · 900 · 1100 · 1280 · 1600 (+ container queries su kord-page).
+ * Layout strutturale RE-KORD — gerarchia pagine, griglie, player dock.
+ * Breakpoint width: 640 · 900 · 1100 · 1280 · 1600 (+ container queries su rekord-page).
  * Complementa views.css (componenti) e aspect-layout.css (aspect ratio).
  */
 
@@ -8,7 +8,7 @@
   width: 100%;
   min-width: 0;
   container-type: inline-size;
-  container-name: kord-page;
+  container-name: rekord-page;
 }
 
 .view-page {
@@ -68,7 +68,7 @@
   min-width: 0;
 }
 
-@container kord-page (min-width: 640px) {
+@container rekord-page (min-width: 640px) {
   .layout-adaptive-grid--2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -78,7 +78,7 @@
   }
 }
 
-@container kord-page (min-width: 900px) {
+@container rekord-page (min-width: 900px) {
   .layout-adaptive-grid--2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -88,7 +88,7 @@
   }
 }
 
-@container kord-page (min-width: 1280px) {
+@container rekord-page (min-width: 1280px) {
   .layout-adaptive-grid--4 {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -167,7 +167,7 @@
   min-width: 0;
 }
 
-@container kord-page (min-width: 560px) {
+@container rekord-page (min-width: 560px) {
   .page-toolbar {
     grid-template-columns: minmax(0, 1fr) minmax(0, auto);
     align-items: center;
@@ -247,7 +247,7 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-@container kord-page (max-width: 519px) {
+@container rekord-page (max-width: 519px) {
   .dashboard-page__intro .stats-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -279,7 +279,7 @@
   min-width: 0;
 }
 
-@container kord-page (min-width: 720px) {
+@container rekord-page (min-width: 720px) {
   .dashboard-page__main {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -477,7 +477,7 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-@container kord-page (min-width: 640px) {
+@container rekord-page (min-width: 640px) {
   .achievements-badge-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -641,7 +641,7 @@
   box-sizing: border-box;
 }
 
-@container kord-page (min-width: 520px) {
+@container rekord-page (min-width: 520px) {
   .statistics-page__footer {
     align-items: stretch;
   }
@@ -651,13 +651,13 @@
   }
 }
 
-@container kord-page (min-width: 520px) {
+@container rekord-page (min-width: 520px) {
   .statistics-page__footer {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@container kord-page (min-width: 640px) {
+@container rekord-page (min-width: 640px) {
   .statistics-page__rankings {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: stretch;
@@ -668,13 +668,13 @@
   }
 }
 
-@container kord-page (min-width: 900px) {
+@container rekord-page (min-width: 900px) {
   .statistics-page__rankings {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-@container kord-page (min-width: 1100px) {
+@container rekord-page (min-width: 1100px) {
   .statistics-page__sections {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -737,7 +737,7 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-@container kord-page (min-width: 900px) {
+@container rekord-page (min-width: 900px) {
   .settings-page.view-page {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: stretch;
@@ -790,7 +790,7 @@
   align-items: start;
 }
 
-@container kord-page (min-width: 900px) {
+@container rekord-page (min-width: 900px) {
   .playlists-page__main {
     grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
   }
@@ -839,7 +839,7 @@
   min-width: 0;
 }
 
-@container kord-page (min-width: 900px) {
+@container rekord-page (min-width: 900px) {
   .listen-page__stage.listen-stage,
   .listen-page__panels.listen-dashboard-row {
     grid-template-columns: var(

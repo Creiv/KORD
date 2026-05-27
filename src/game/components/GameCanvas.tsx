@@ -38,7 +38,7 @@ interface GameCanvasProps {
   embedded?: boolean;
   /** Avvia countdown subito (modalità standalone). */
   autoBegin?: boolean;
-  /** Segue il player KORD: niente countdown, note in sync col tempo corrente. */
+  /** Segue il player RE-KORD: niente countdown, note in sync col tempo corrente. */
   syncLive?: boolean;
   labels?: {
     score: string;
@@ -667,14 +667,14 @@ export function GameCanvas({
     const trapBackNavigation = () => {
       const state = stateRef.current;
       if (state && !state.finished) {
-        window.history.pushState({ kordRhythmPlaying: true }, "", window.location.href);
+        window.history.pushState({ rekordRhythmPlaying: true }, "", window.location.href);
         setFeedback(state, "Stay on track");
         setHud((prev) => ({ ...prev, feedback: state.feedback, feedbackPulse: state.feedbackPulse }));
       }
     };
 
     if (!embedded) {
-      window.history.pushState({ kordRhythmPlaying: true }, "", window.location.href);
+      window.history.pushState({ rekordRhythmPlaying: true }, "", window.location.href);
       window.addEventListener("popstate", trapBackNavigation);
     }
     document.addEventListener("gesturestart", preventNativeGesture);
@@ -834,7 +834,7 @@ export function GameCanvas({
         <audio ref={audioRef} src={audioUrl} preload="auto" playsInline />
       ) : null}
       <canvas ref={canvasRef} className="note-canvas" aria-label="Note highway" />
-      <div className="hud top hud--kord">
+      <div className="hud top hud--rekord">
         <div className="hud-stat hud-stat--score">
           <span className="hud-stat__label">{labels.score}</span>
           <strong className="hud-stat__value">{hud.score.toLocaleString()}</strong>

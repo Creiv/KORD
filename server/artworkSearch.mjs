@@ -1,6 +1,6 @@
-import { kordApiUserAgentWithUrl } from "./kordVersion.mjs"
+import { rekordApiUserAgentWithUrl } from "./rekordVersion.mjs"
 
-const UA = kordApiUserAgentWithUrl()
+const UA = rekordApiUserAgentWithUrl()
 
 function pushUnique(out, seen, item) {
   if (!item.artwork || seen.has(item.artwork)) return

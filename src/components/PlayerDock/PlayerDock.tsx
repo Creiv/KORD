@@ -23,7 +23,7 @@ import {
   UiShuffle,
   UiSkipNext,
   UiSkipPrevious,
-} from "../KordUiIcons";
+} from "../RekordUiIcons";
 import { isTrackAlbumShuffleExcluded } from "../../lib/randomExclusions";
 import { formatDuration } from "../../lib/duration";
 import type { LibraryEntityDelta, LibraryTrackIndex } from "../../types";

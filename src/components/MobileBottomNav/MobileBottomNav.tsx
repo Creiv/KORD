@@ -3,7 +3,7 @@ import type { AppSection } from "../../types";
 import { useRhythmMode } from "../../context/RhythmModeContext";
 import { usePlayer } from "../../context/PlayerContext";
 import { useI18n } from "../../i18n/useI18n";
-import { KordNavIcon, UiClose } from "../KordUiIcons";
+import { RekordNavIcon, UiClose } from "../RekordUiIcons";
 import styles from "./MobileBottomNav.module.css";
 
 const MORE_KEYS: { id: AppSection; labelKey: string }[] = [
@@ -83,7 +83,7 @@ export function MobileBottomNav({ active, onSelect }: MobileBottomNavProps) {
                 onClick={() => go(item.id)}
                 aria-current={isActive ? "page" : undefined}
               >
-                <KordNavIcon
+                <RekordNavIcon
                   section={item.id}
                   className={styles.navIc}
                 />
@@ -101,7 +101,7 @@ export function MobileBottomNav({ active, onSelect }: MobileBottomNavProps) {
             onClick={() => setMoreOpen((o) => !o)}
             aria-label={t("nav.moreSheet")}
           >
-            <KordNavIcon section="more" className={styles.navIc} />
+            <RekordNavIcon section="more" className={styles.navIc} />
             <span className={styles.navLabel}>{t("nav.more")}</span>
           </button>
         </div>
@@ -149,7 +149,7 @@ export function MobileBottomNav({ active, onSelect }: MobileBottomNavProps) {
                         setMoreOpen(false);
                       }}
                     >
-                      <KordNavIcon
+                      <RekordNavIcon
                         section={item.id}
                         className={styles.sheetLinkIc}
                       />

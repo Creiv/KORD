@@ -131,7 +131,7 @@ async function fetchOgImageFromGoogleNewsPage(pageUrl, timeoutMs = 5200) {
       redirect: "follow",
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (compatible; KORDDiscoverThumb/1.0; +https://local)",
+          "Mozilla/5.0 (compatible; RE-KORDDiscoverThumb/1.0; +https://local)",
         Accept: "text/html,application/xhtml+xml",
       },
       signal: ctrl.signal,
@@ -215,7 +215,7 @@ export async function fetchDiscoverNewsPayload(index, locale = "en") {
   const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(queryUsed)}&hl=${hl}&gl=${gl}&ceid=${encodeURIComponent(ceid)}`;
 
   const r = await fetch(feedUrl, {
-    headers: { "User-Agent": "KORDDiscoverNews/1.0" },
+    headers: { "User-Agent": "RE-KORDDiscoverNews/1.0" },
     redirect: "follow",
   });
   if (!r.ok) throw new Error(`News feed HTTP ${r.status}`);

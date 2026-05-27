@@ -1,6 +1,6 @@
 import type { DifficultyId } from "../types";
 
-export const PLECTR_DIFFICULTY_KEY = "kord-plectr-difficulty";
+export const PLECTR_DIFFICULTY_KEY = "rekord-plectr-difficulty";
 
 export type PlectrPlayMode = DifficultyId;
 

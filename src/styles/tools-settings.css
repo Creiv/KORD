@@ -1981,7 +1981,7 @@
     min-width: 0;
   }
 
-  .kord-brand-logo--topbar {
+  .rekord-brand-logo--topbar {
     height: 36px;
     width: auto;
     max-width: min(220px, 42vw);
@@ -2526,13 +2526,13 @@
   min-width: 0.5rem;
 }
 
-.content-shell:has(> .kord-splash) {
+.content-shell:has(> .rekord-splash) {
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
 
-.kord-splash {
+.rekord-splash {
   align-self: center;
   width: 100%;
   max-width: 36rem;
@@ -2546,14 +2546,14 @@
   box-sizing: border-box;
 }
 
-.kord-splash__carousel {
+.rekord-splash__carousel {
   width: 100%;
   min-height: 4.5rem;
   display: grid;
   place-items: center;
 }
 
-.kord-splash__tip {
+.rekord-splash__tip {
   grid-area: 1 / 1;
   margin: 0 auto;
   max-width: 32rem;
@@ -2562,10 +2562,10 @@
   line-height: 1.42;
   color: color-mix(in srgb, var(--accent) 74%, var(--text) 26%);
   text-wrap: balance;
-  animation: kordSplashTipIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: rekordSplashTipIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-@keyframes kordSplashTipIn {
+@keyframes rekordSplashTipIn {
   from {
     opacity: 0;
     transform: translateY(14px);
@@ -2578,13 +2578,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .kord-splash__tip {
+  .rekord-splash__tip {
     animation-duration: 0.01ms;
     animation: none;
   }
 }
 
-.kord-splash__title {
+.rekord-splash__title {
   margin: 0;
   font-size: clamp(1.6rem, 4.5vw, 2rem);
   font-weight: 700;
@@ -2592,14 +2592,14 @@
   line-height: 1.18;
 }
 
-.kord-splash__lead {
+.rekord-splash__lead {
   margin: 0;
   font-size: 0.96rem;
   line-height: 1.52;
   color: color-mix(in srgb, var(--muted) 88%, var(--text) 12%);
 }
 
-.kord-splash__spinner {
+.rekord-splash__spinner {
   box-sizing: border-box;
   width: 3.25rem;
   height: 3.25rem;
@@ -2609,7 +2609,7 @@
   margin-top: 0.35rem;
 }
 
-.kord-splash__ring {
+.rekord-splash__ring {
   box-sizing: border-box;
   width: 100%;
   height: 100%;
@@ -2617,23 +2617,23 @@
   border: 3px solid color-mix(in srgb, var(--border) 78%, transparent);
   border-top-color: color-mix(in srgb, var(--accent) 92%, var(--border) 8%);
   border-right-color: color-mix(in srgb, var(--accent) 48%, var(--border) 52%);
-  animation: kordSplashSpin 0.88s linear infinite;
+  animation: rekordSplashSpin 0.88s linear infinite;
 }
 
-@keyframes kordSplashSpin {
+@keyframes rekordSplashSpin {
   to {
     transform: rotate(360deg);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .kord-splash__ring {
+  .rekord-splash__ring {
     animation-duration: 2.4s;
     animation-timing-function: linear;
   }
 }
 
-.kord-view-loading {
+.rekord-view-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2643,7 +2643,7 @@
   min-height: 12rem;
 }
 
-.kord-view-loading__spinner {
+.rekord-view-loading__spinner {
   width: 2.25rem;
   height: 2.25rem;
   display: inline-flex;
@@ -2651,7 +2651,7 @@
   justify-content: center;
 }
 
-.kord-view-loading__label {
+.rekord-view-loading__label {
   margin: 0;
   font-size: 0.9rem;
   color: color-mix(in srgb, var(--muted) 88%, var(--text) 12%);

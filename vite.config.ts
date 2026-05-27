@@ -6,8 +6,8 @@ import { defineConfig } from "vitest/config";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-/** Impostare `KORD_LISTEN_ON_LAN=1` per esporre il dev server sulla LAN (proxy /api verso localhost). */
-const exposeLan = process.env.KORD_LISTEN_ON_LAN === "1";
+/** Impostare `REKORD_LISTEN_ON_LAN=1` per esporre il dev server sulla LAN (proxy /api verso localhost). */
+const exposeLan = process.env.REKORD_LISTEN_ON_LAN === "1";
 
 const packageVersion = (() => {
   try {
@@ -21,7 +21,7 @@ const packageVersion = (() => {
 // https://vite.dev/config/
 export default defineConfig({
   define: {
-    "import.meta.env.VITE_KORD_VERSION": JSON.stringify(packageVersion),
+    "import.meta.env.VITE_REKORD_VERSION": JSON.stringify(packageVersion),
   },
   plugins: [react()],
   test: {

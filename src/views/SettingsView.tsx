@@ -13,7 +13,7 @@ import {
   clearYoutubeCookies,
   createAccount as createApiAccount,
   deleteAccount as deleteApiAccount,
-  downloadKordDataBackup,
+  downloadRekordDataBackup,
   fetchAccounts,
   fetchActivityLog,
   fetchConfig,
@@ -25,7 +25,7 @@ import {
   setSelectedAccountId,
   startRemoteAccess,
   stopRemoteAccess,
-  uploadKordDataRestore,
+  uploadRekordDataRestore,
   uploadYoutubeCookies,
 } from "../lib/api";
 import type {
@@ -103,14 +103,14 @@ function SettingsView() {
   const [restoreOk, setRestoreOk] = useState<string | null>(null);
   const [restoreErr, setRestoreErr] = useState<string | null>(null);
   const restoreFileInputRef = useRef<HTMLInputElement | null>(null);
-  const [isKordClientEmbed] = useState(() => {
+  const [isRekordClientEmbed] = useState(() => {
     try {
-      return sessionStorage.getItem("kord-embed") === "client";
+      return sessionStorage.getItem("rekord-embed") === "client";
     } catch {
       return false;
     }
   });
-  const kordAppVersion = String(import.meta.env.VITE_KORD_VERSION ?? "3.2.0");
+  const rekordAppVersion = String(import.meta.env.VITE_REKORD_VERSION ?? "3.3.0");
 
   useEffect(() => {
     Promise.all([fetchConfig(), fetchAccounts()])
@@ -158,11 +158,11 @@ function SettingsView() {
   }, []);
 
   useEffect(() => {
-    if (isKordClientEmbed) return;
+    if (isRekordClientEmbed) return;
     queueMicrotask(() => {
       loadActivityLog();
     });
-  }, [isKordClientEmbed, loadActivityLog]);
+  }, [isRekordClientEmbed, loadActivityLog]);
 
   const selectedAccount: Account | null =
     accounts?.accounts.find((account) => account.id === selectedAccountId) ||
@@ -199,11 +199,11 @@ function SettingsView() {
     window.location.replace(url.toString());
   };
 
-  const runKordBackup = () => {
+  const runRekordBackup = () => {
     setBackupErr(null);
     setBackupOk(null);
     setBackupBusy(true);
-    downloadKordDataBackup()
+    downloadRekordDataBackup()
       .then((name) => {
         setBackupOk(t("settings.backupSuccess", { name }));
         window.setTimeout(() => setBackupOk(null), 5000);
@@ -225,7 +225,7 @@ function SettingsView() {
     setRestoreErr(null);
     setRestoreOk(null);
     setRestoreBusy(true);
-    uploadKordDataRestore(f)
+    uploadRekordDataRestore(f)
       .then(() => {
         setRestoreOk(t("settings.restoreSuccess"));
         window.setTimeout(() => setRestoreOk(null), 8000);
@@ -420,7 +420,7 @@ function SettingsView() {
   }, [refreshRemoteState]);
 
   const isRemoteViewer = !serverLocalAccess;
-  const isNetworkControlAllowed = serverLocalAccess && !isKordClientEmbed;
+  const isNetworkControlAllowed = serverLocalAccess && !isRekordClientEmbed;
 
   return (
     <div
@@ -649,7 +649,7 @@ function SettingsView() {
           </div>
         </div>
       </section>
-      {isKordClientEmbed ? null : (
+      {isRekordClientEmbed ? null : (
         <section className="surface-card">
           <div className="section-head section-head--page-toolbar">
             <div>
@@ -740,7 +740,7 @@ function SettingsView() {
           )}
         </section>
       )}
-      {!isKordClientEmbed &&
+      {!isRekordClientEmbed &&
       serverLocalAccess &&
       (youtubeCookiesWritable || youtubeCookiesLockedByEnv) ? (
         <section className="surface-card settings-youtube-cookies-section">
@@ -945,7 +945,7 @@ function SettingsView() {
           ) : null}
         </div>
       </section>
-      {isKordClientEmbed ? null : (
+      {isRekordClientEmbed ? null : (
         <section
           className="surface-card settings-activity-section"
           aria-label={t("settings.backupHeading")}
@@ -963,7 +963,7 @@ function SettingsView() {
                 type="button"
                 className="ghost-btn ghost-btn--sm"
                 disabled={backupBusy || restoreBusy}
-                onClick={runKordBackup}
+                onClick={runRekordBackup}
               >
                 {backupBusy
                   ? t("settings.backupRunning")
@@ -997,7 +997,7 @@ function SettingsView() {
           {restoreOk ? <p className="subtle sm">{restoreOk}</p> : null}
         </section>
       )}
-      {isKordClientEmbed ? null : (
+      {isRekordClientEmbed ? null : (
         <section
           className="surface-card settings-activity-section"
           aria-label={t("settings.activityLogHeading")}
@@ -1080,10 +1080,10 @@ function SettingsView() {
       <footer
         className="settings-colophon"
         role="contentinfo"
-        aria-label={t("settings.colophonLine1", { version: kordAppVersion })}
+        aria-label={t("settings.colophonLine1", { version: rekordAppVersion })}
       >
         <p className="settings-colophon__line">
-          {t("settings.colophonLine1", { version: kordAppVersion })}
+          {t("settings.colophonLine1", { version: rekordAppVersion })}
         </p>
         <p className="settings-colophon__subtle subtle sm">
           {t("settings.colophonLine2")}

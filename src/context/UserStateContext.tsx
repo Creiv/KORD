@@ -51,10 +51,10 @@ import {
 } from "../types";
 
 const LEGACY_KEYS = {
-  playlists: "kord-playlists",
-  favorites: "kord-favorites",
-  recent: "kord-recent",
-  vizMode: "kord-viz",
+  playlists: "rekord-playlists",
+  favorites: "rekord-favorites",
+  recent: "rekord-recent",
+  vizMode: "rekord-viz",
 };
 const WPP_STORAGE = {
   playlists: "wpp-playlists",
@@ -511,7 +511,7 @@ function legacyImport(): Partial<UserStateV1> {
       vizMode === "discowall" ||
       vizMode === "embers" ||
       vizMode === "karaoke" ||
-      vizMode === "kord" ||
+      vizMode === "rekord" ||
       vizMode === "horizon" ||
       vizMode === "soft" ||
       vizMode === "prism"
@@ -524,7 +524,7 @@ function legacyImport(): Partial<UserStateV1> {
                 ? "signals"
                 : vizMode === "prism"
                   ? "bars"
-                  : vizMode === "kord"
+                  : vizMode === "rekord"
                     ? "hmb"
                     : vizMode,
           }

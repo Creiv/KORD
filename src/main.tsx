@@ -5,25 +5,25 @@ import App from './App.tsx'
 import { setSelectedAccountId } from "./lib/api"
 
 const u = new URLSearchParams(window.location.search)
-const electronEmbed = u.get("kordClient") === "1"
+const electronEmbed = u.get("rekordClient") === "1"
 const fromUrlAccount = String(u.get("accountId") ?? "").trim()
 const electronAccount =
-  electronEmbed ? String(u.get("kordAccount") ?? "").trim() : ""
+  electronEmbed ? String(u.get("rekordAccount") ?? "").trim() : ""
 const bootstrapAccount = fromUrlAccount || electronAccount
 if (bootstrapAccount) {
   try {
     setSelectedAccountId(bootstrapAccount)
     if (electronEmbed) {
-      sessionStorage.setItem("kord-embed", "client")
+      sessionStorage.setItem("rekord-embed", "client")
     }
   } catch {
     /* ignore */
   }
 }
 if (electronEmbed) {
-  document.documentElement.dataset.kordClient = "1"
-  u.delete("kordClient")
-  u.delete("kordAccount")
+  document.documentElement.dataset.rekordClient = "1"
+  u.delete("rekordClient")
+  u.delete("rekordAccount")
   const qAid = String(u.get("accountId") ?? "").trim()
   if (!qAid && bootstrapAccount) u.set("accountId", bootstrapAccount)
   const q = u.toString()

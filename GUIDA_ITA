@@ -1,15 +1,15 @@
-# KORD 2.9 - Guida completa per iniziare da zero
+# RE-KORD 3.3 — Guida completa per iniziare da zero
 
-Questa guida e pensata per chi non ha mai usato KORD.
+Questa guida e pensata per chi non ha mai usato RE-KORD.
 Ti accompagna dal primo avvio all'uso quotidiano, in modo pratico e senza dare nulla per scontato.
 
 ---
 
-## 1) Cos'e KORD
+## 1) Cos'e RE-KORD
 
-KORD e un software per gestire e ascoltare musica locale.
+RE-KORD e un software per gestire e ascoltare musica locale.
 
-Con KORD puoi:
+Con RE-KORD puoi:
 - usare i tuoi file audio presenti sul disco;
 - organizzare libreria, metadati, copertine, playlist e coda;
 - usare strumenti di download/import (se lavori in Studio);
@@ -23,7 +23,7 @@ In breve: player + libreria + strumenti di manutenzione.
 
 Ti serve:
 - una cartella musica con file audio;
-- KORD avviato (web o app desktop);
+- RE-KORD avviato (web o app desktop);
 - internet (facoltativa, ma utile per metadati/cover/download).
 
 Se e la prima apertura, la priorita assoluta e configurare la cartella libreria.
@@ -40,7 +40,7 @@ Nella sezione Libreria:
 - imposta il percorso root della musica (quando consentito);
 - salva e ricarica.
 
-Da questo momento KORD indicizza i file e costruisce la libreria.
+Da questo momento RE-KORD indicizza i file e costruisce la libreria.
 
 ### Passo 3 - Personalizza interfaccia
 Sempre in Impostazioni:
@@ -60,21 +60,27 @@ Se non trovi dati, usa refresh/sync.
 - panoramica collezione;
 - accessi rapidi a ascolto, preferiti, alert qualita.
 
-## Ascolta
-- brano corrente;
-- coda prossimi brani;
-- lyrics e recenti.
+## Studio
+Area di lavoro con schede:
+
+### Ascolta (tab Studio)
+- brano corrente, coda, lyrics, recenti;
+- **visualizer** sul player (stesso elenco delle Impostazioni: barre, specchio, onde, segnali, **DiscoWall**, karaoke);
+- **DiscoWall** non è una sezione del menu: è un modo visualizer come gli altri; si attiva in **Impostazioni → Tema e visualizer** e si vede in **Studio → Ascolta** durante la riproduzione.
+
+### Catalogo / Download / Metadati / Copertine
+- scoperta catalogo, import download, arricchimento metadati, copertine (vedi §11).
+
+## Plectr (voce di menu)
+- gioco a ritmo su chart generate dall’audio;
+- record per brano e account;
+- sincronizzato con il player (nessun countdown separato);
+- scorciatoia **P** con coda attiva; oppure voce **Plectr** nel menu.
 
 ## Libreria
 - navigazione per artisti, generi, mood;
 - ricerca e filtri;
 - azioni rapide su album e brani.
-
-## Studio
-- download/import;
-- metadati album/brani;
-- copertine;
-- strumenti avanzati su raccolta.
 
 ## Coda
 - ordine di riproduzione corrente;
@@ -209,7 +215,7 @@ Puoi:
 - aggiornare album;
 - aggiornare brani;
 - scansionare solo mancanti o tutta la libreria;
-- pulire voci obsolete in `kord-trackinfo`;
+- pulire voci obsolete in `kord-trackinfo.json`;
 - inferire generi su larga scala.
 
 Flusso consigliato per librerie grandi:
@@ -234,7 +240,8 @@ Usa i filtri quando esplori per artista/genere/mood.
 Scorciatoie:
 - `/` o `Ctrl+K`: focus ricerca;
 - `Space`: play/pausa;
-- `I`: vai alla sezione Ascolta.
+- `I`: apri **Studio → Ascolta**;
+- `P`: apri **Plectr** (se c’è una coda).
 
 ---
 
@@ -249,14 +256,15 @@ Scorciatoie:
 - da remoto puo essere sola lettura.
 
 ## UI
-- lingua, tema, visualizer.
+- lingua, tema, **visualizer** (barre, specchio, onda, onda morbida, onde H·M·B, segnali, **DiscoWall**, karaoke).
+- i dati account e libreria restano nella cartella **`.kord/`** dentro la root musica (nome storico invariato).
 
 ## Rete
 - porta API e URL LAN stimato.
 
 ## Condivisione esterna (Cloudflare)
 - in Impostazioni > Rete puoi fare login Cloudflare e avviare la condivisione esterna;
-- quando il server e condiviso, KORD mostra un URL pubblico HTTPS da usare fuori LAN;
+- quando il server e condiviso, RE-KORD mostra un URL pubblico HTTPS da usare fuori LAN;
 - con modalita `trycloudflare` l'URL e temporaneo e puo cambiare a ogni riavvio;
 - quindi, se riavvii server/app, e normale vedere un nuovo link `https://...trycloudflare.com`;
 - per avere sempre lo stesso URL serve un tunnel nominato Cloudflare con dominio tuo (configurazione avanzata).
@@ -266,7 +274,7 @@ Scorciatoie:
 
 ## Backup/Restore
 - backup metadati/impostazioni (non audio);
-- ripristino da zip KORD.
+- ripristino da zip RE-KORD.
 
 ## Activity log
 - storico attivita server.
@@ -332,13 +340,27 @@ Con questo flusso la libreria resta ordinata e facile da mantenere.
 
 ## 17) Note legali essenziali
 
-- KORD e i suoi creatori non si assumono responsabilita per contenuti scaricati/gestiti dagli utenti.
+- RE-KORD e i suoi creatori non si assumono responsabilita per contenuti scaricati/gestiti dagli utenti.
 - Lo strumento e pensato per contenuti leciti/no copyright o con diritti d'uso disponibili.
 - Ogni utente e responsabile delle proprie azioni e del rispetto delle leggi applicabili.
 
 ---
 
-## 18) In una riga
+## 18) Build desktop (AppImage / Windows)
 
-Configura bene la libreria, usa coda/playlist per l'ascolto, cura metadati e cover in Studio, fai backup regolari.
+Per pacchetti ufficiali versionati:
+
+```bash
+npm run build
+npm run pack:linux:server -- 3.3.0   # AppImage → release/RE-KORD-Server-…
+npm run pack:win:server -- 3.3.0     # preferibile su Windows
+```
+
+Il flavor **server** include API, UI compilata, **yt-dlp** e **cloudflared** per l’OS scelto. I dati utente sul disco restano in **`.kord/`**.
+
+---
+
+## 19) In una riga
+
+Configura la libreria, ascolta da **Studio → Ascolta**, scegli un visualizer (anche **DiscoWall**), usa coda/playlist e **Plectr**, cura metadati in Studio, fai backup regolari.
 

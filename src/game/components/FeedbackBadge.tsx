@@ -17,7 +17,7 @@ interface FeedbackBadgeProps {
   combo: number;
   pulse: number;
   paused?: boolean;
-  /** Solo testo centrato, senza box (dock KORD). */
+  /** Solo testo centrato, senza box (dock RE-KORD). */
   compact?: boolean;
 }
 

@@ -15,8 +15,10 @@ import type {
 } from "../types"
 
 type Wrapped<T> = { ok: boolean; data: T; error: string | null }
-const SESSION_ACCOUNT_STORAGE_KEY = "kord-session-account-id"
-const LEGACY_ACTIVE_ACCOUNT_STORAGE_KEY = "kord-active-account-id"
+const SESSION_ACCOUNT_STORAGE_KEY = "rekord-session-account-id"
+const LEGACY_ACTIVE_ACCOUNT_STORAGE_KEY = "rekord-active-account-id"
+const LEGACY_KORD_SESSION_KEY = "kord-session-account-id"
+const LEGACY_KORD_ACTIVE_KEY = "kord-active-account-id"
 let accountBootstrapPromise: Promise<string | null> | null = null
 let accountBootstrapBackoffUntil = 0
 let accountSessionValidated = false
@@ -25,7 +27,7 @@ const API_UNREACHABLE_BACKOFF_MS = 12000
 let apiUnreachableUntil = 0
 let inflightUserStateFetch: Promise<UserStateV1> | null = null
 
-/** Thrown when the KORD API cannot be reached or returns a non-JSON proxy error. */
+/** Thrown when the RE-KORD API cannot be reached or returns a non-JSON proxy error. */
 export class BackendUnreachableError extends Error {
   constructor() {
     super("BACKEND_UNREACHABLE")
@@ -43,7 +45,7 @@ function assertApiReachable() {
   }
 }
 
-/** True when the KORD API is unreachable (server stopped, proxy down, offline). */
+/** True when the RE-KORD API is unreachable (server stopped, proxy down, offline). */
 export function isBackendUnreachableError(err: unknown): boolean {
   if (err instanceof BackendUnreachableError) return true
   const msg = (err instanceof Error ? err.message : String(err)).toLowerCase()
@@ -159,6 +161,8 @@ export function getSelectedAccountId(): string | null {
     return (
       localStorage.getItem(SESSION_ACCOUNT_STORAGE_KEY) ||
       localStorage.getItem(LEGACY_ACTIVE_ACCOUNT_STORAGE_KEY) ||
+      localStorage.getItem(LEGACY_KORD_SESSION_KEY) ||
+      localStorage.getItem(LEGACY_KORD_ACTIVE_KEY) ||
       null
     )
   } catch {
@@ -171,7 +175,7 @@ export function setSelectedAccountId(id: string) {
     localStorage.setItem(SESSION_ACCOUNT_STORAGE_KEY, id)
     localStorage.removeItem(LEGACY_ACTIVE_ACCOUNT_STORAGE_KEY)
     accountBootstrapPromise = Promise.resolve(id)
-    window.dispatchEvent(new CustomEvent("kord-account-session-changed"))
+    window.dispatchEvent(new CustomEvent("rekord-account-session-changed"))
   } catch {
     /* ignore */
   }
@@ -202,7 +206,7 @@ function pathnameOnly(full: string) {
 
 function accountHeaders(base: HeadersInit = {}) {
   const id = getSelectedAccountId()
-  return id ? { ...base, "X-KORD-Account-Id": id } : base
+  return id ? { ...base, "X-RE-KORD-Account-Id": id } : base
 }
 
 function accountHeadersForPath(endpointPath: string, base: HeadersInit = {}) {
@@ -732,8 +736,8 @@ export async function fetchActivityLog(
 }
 
 /** Scarica un ZIP: config, stato utente e metadati (json) per tutti gli account, senza audio. */
-export async function downloadKordDataBackup(): Promise<string> {
-  const response = await apiFetch("/api/backup/kord-data", {
+export async function downloadRekordDataBackup(): Promise<string> {
+  const response = await apiFetch("/api/backup/rekord-data", {
     method: "GET",
     cache: "no-store",
   })
@@ -753,7 +757,7 @@ export async function downloadKordDataBackup(): Promise<string> {
   const name =
     (m?.[1] || "")
       .replace(/^["']|["']$/g, "")
-      .trim() || "kord-backup.zip"
+      .trim() || "rekord-backup.zip"
   const blob = await response.blob()
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
@@ -765,12 +769,12 @@ export async function downloadKordDataBackup(): Promise<string> {
   return name
 }
 
-export async function uploadKordDataRestore(
+export async function uploadRekordDataRestore(
   file: File,
 ): Promise<{ restored: boolean; accountCount: number }> {
   const fd = new FormData()
   fd.append("file", file)
-  const response = await apiFetch("/api/backup/kord-restore", {
+  const response = await apiFetch("/api/backup/rekord-restore", {
     method: "POST",
     body: fd,
   })

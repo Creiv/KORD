@@ -1,6 +1,6 @@
 /**
- * Esempio: node scripts/pack-release.mjs server linux 3.2.0
- * Da npm:   npm run pack:linux:server -- 3.2.0
+ * Esempio: node scripts/pack-release.mjs server linux 3.3.0
+ * Da npm:   npm run pack:linux:server -- 3.3.0
  */
 import { execSync } from "node:child_process"
 import fs from "node:fs"
@@ -8,7 +8,7 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..")
-const configPath = path.join(root, "electron-builder.kord.cjs")
+const configPath = path.join(root, "electron-builder.rekord.cjs")
 const pkgPath = path.join(root, "package.json")
 const [,, flavor, platform, vArg] = process.argv
 const platforms = new Set(["linux", "win", "mac"])
@@ -17,7 +17,7 @@ const flavors = new Set(["server", "client"])
 if (!flavors.has(flavor) || !platforms.has(platform)) {
   console.error(
     "Uso: node scripts/pack-release.mjs <server|client> <linux|win|mac> [versione]\n" +
-      "Esempio: npm run pack:linux:server -- 3.2.0",
+      "Esempio: npm run pack:linux:server -- 3.3.0",
   )
   process.exit(1)
 }
@@ -34,8 +34,8 @@ const segs = version.split(".")
 if (segs.length === 2) version = `${version}.0`
 
 const platFlag = platform === "win" ? "--win" : platform === "mac" ? "--mac" : "--linux"
-process.env.KORD_PACK_FLAVOR = flavor
-process.env.KORD_APP_VERSION = version
+process.env.REKORD_PACK_FLAVOR = flavor
+process.env.REKORD_APP_VERSION = version
 
 if (flavor === "server") {
   execSync("npm run build", { stdio: "inherit", cwd: root })
@@ -52,5 +52,5 @@ if (flavor === "server") {
 execSync(`npx electron-builder ${platFlag} --config ${configPath}`, {
   stdio: "inherit",
   cwd: root,
-  env: { ...process.env, KORD_PACK_FLAVOR: flavor, KORD_APP_VERSION: version },
+  env: { ...process.env, REKORD_PACK_FLAVOR: flavor, REKORD_APP_VERSION: version },
 })

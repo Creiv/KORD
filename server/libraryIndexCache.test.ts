@@ -30,7 +30,7 @@ function minimalIndex(musicRoot) {
 
 describe("libraryIndexCache", () => {
   it("scrive e rilegge la cache sotto .kord/", async () => {
-    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kord-idx-cache-"));
+    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "rekord-idx-cache-"));
     const idx = minimalIndex(musicRoot);
     await writeLibraryIndexCache(musicRoot, idx);
     const read = await readLibraryIndexCache(musicRoot);

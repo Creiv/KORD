@@ -16,7 +16,7 @@ import {
 import type { AppSection, LibraryIndex, LibraryTrackIndex } from "../types";
 import { SectionHeadLead } from "./SectionHeadLead";
 import { TrackMoodGlyph } from "./TrackMoodGlyph";
-import { UiShuffle, UiStyle } from "./KordUiIcons";
+import { UiShuffle, UiStyle } from "./RekordUiIcons";
 
 const DASHBOARD_MIX_TOP_GENRES = 14;
 

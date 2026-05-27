@@ -18,7 +18,7 @@ describe("librarySelection", () => {
   })
 
   it("filters index by artist and album selection", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "kord-sel-"))
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "rekord-sel-"))
     await fs.mkdir(path.join(root, "A", "B"), { recursive: true })
     await fs.writeFile(path.join(root, "A", "B", "01 x.mp3"), "")
     const full = await buildLibraryIndex(root)
@@ -40,7 +40,7 @@ describe("librarySelection", () => {
   })
 
   it("removeAlbums drops one album when artist was selected for whole library", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "kord-selRm-"))
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "rekord-selRm-"))
     await fs.mkdir(path.join(root, "A", "B1"), { recursive: true })
     await fs.mkdir(path.join(root, "A", "B2"), { recursive: true })
     await fs.writeFile(path.join(root, "A", "B1", "01 a.mp3"), Buffer.from([]))

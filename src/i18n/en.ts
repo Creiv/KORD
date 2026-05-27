@@ -26,9 +26,9 @@ export const EN: Record<string, string> = {
   "topbar.searchAria": "Search entire library",
   "topbar.installApp": "Install app",
   "topbar.installIosHint":
-    "To install KORD: open the browser Share menu and choose “Add to Home Screen”.",
+    "To install RE-KORD: open the browser Share menu and choose “Add to Home Screen”.",
   "topbar.installSecureContextHint":
-    "Browsers install PWAs only from HTTPS or localhost. From an HTTP IP they can create only a browser shortcut: use HTTPS on the KORD server or open it from localhost on the host device.",
+    "Browsers install PWAs only from HTTPS or localhost. From an HTTP IP they can create only a browser shortcut: use HTTPS on the RE-KORD server or open it from localhost on the host device.",
   "topbar.refresh": "Refresh",
   "topbar.refreshTitle": "Reload library and dashboard",
   "sync.activity.reloadLibrary": "Reloading library and dashboard…",
@@ -66,8 +66,8 @@ export const EN: Record<string, string> = {
   "app.dialogCancel": "Cancel",
   "app.dialogOk": "OK",
   "app.dialogConfirm": "Confirm",
-  "loading.app": "Loading KORD…",
-  "loading.splashTitle": "Welcome to KORD",
+  "loading.app": "Loading RE-KORD…",
+  "loading.splashTitle": "Welcome to RE-KORD",
   "loading.splashLead":
     "We're loading your music — your trusted library, right here on this machine.",
   "loading.splashAria": "Loading your library",
@@ -94,17 +94,17 @@ export const EN: Record<string, string> = {
   "gate.libraryRequiredLead":
     "Choose the root folder for your music on this server (Settings). All library data and accounts are stored inside that folder, under .kord/.",
   "gate.libraryRequiredLeadRemote":
-    "This KORD server does not have a music library folder configured yet. Set it on the machine that runs the server: open KORD via localhost (or edit MUSIC_ROOT / server music-root.config.json on that host). Remote browsers cannot choose the folder path.",
+    "This RE-KORD server does not have a music library folder configured yet. Set it on the machine that runs the server: open RE-KORD via localhost (or edit MUSIC_ROOT / server music-root.config.json on that host). Remote browsers cannot choose the folder path.",
   "gate.openSettings": "Open Settings",
   "loading.dashboard": "Preparing your collection dashboard…",
   "empty.noData": "No data available.",
   "errors.backendUnreachable":
-    "Cannot reach the KORD server. Start it with npm run dev (or npm run dev:server in a second terminal) and reload the page.",
+    "Cannot reach the RE-KORD server. Start it with npm run dev (or npm run dev:server in a second terminal) and reload the page.",
   "persist.banner": "User persistence:",
-  "trackMeta.gapOnTitle": "Track missing date or genre in kord-trackinfo",
-  "trackMeta.gapOffTitle": "Date or genre present in kord-trackinfo",
+  "trackMeta.gapOnTitle": "Track missing date or genre in metadata",
+  "trackMeta.gapOffTitle": "Date or genre present in track metadata",
   "trackMeta.gapAria": "File metadata status",
-  "trackMeta.editEyebrow": "kord-trackinfo",
+  "trackMeta.editEyebrow": "Track metadata",
   "trackMeta.editHeading": "Edit track data",
   "trackMeta.editClose": "Close",
   "trackMeta.editCancel": "Cancel",
@@ -159,7 +159,7 @@ export const EN: Record<string, string> = {
   "trackMeta.mood.soulful_groovy": "Soulful / groovy",
   "trackMeta.mood.motivational_drive": "Motivational",
   "albumMeta.editButton": "Edit album",
-  "albumMeta.editEyebrow": "kord-albuminfo",
+  "albumMeta.editEyebrow": "Album metadata",
   "albumMeta.editHeading": "Edit album data",
   "albumMeta.fieldTitle": "Album name",
   "albumMeta.fieldReleaseDate": "Release date",
@@ -217,20 +217,20 @@ export const EN: Record<string, string> = {
   "badges.album": "Album",
   "library.metaFileStatusAria": "File metadata status",
   "library.albumsNoMetaChip":
-    "{{n}} albums without file metadata (kord-albuminfo)",
-  "library.albumsAllMetaChip": "All albums have kord-albuminfo",
+    "{{n}} albums without file metadata",
+  "library.albumsAllMetaChip": "All albums have album metadata",
   "library.tracksNoMetaChip":
-    "{{n}} tracks missing date or genre in kord-trackinfo",
-  "library.tracksAllMetaChip": "No tracks missing date/genre in kord-trackinfo",
+    "{{n}} tracks missing date or genre in metadata",
+  "library.tracksAllMetaChip": "No tracks missing date/genre in metadata",
   "library.looseTracksChip":
-    "{{n}} track(s) missing date or genre in kord-trackinfo",
-  "library.looseTracksOkChip": "No tracks missing date/genre in kord-trackinfo",
-  "library.albumInfoPresent": "kord-albuminfo present in folder",
-  "library.albumInfoMissing": "Missing kord-albuminfo.json in folder",
+    "{{n}} track(s) missing date or genre in metadata",
+  "library.looseTracksOkChip": "No tracks missing date/genre in metadata",
+  "library.albumInfoPresent": "Album metadata present in folder",
+  "library.albumInfoMissing": "Missing album metadata file (kord-albuminfo.json)",
   "library.tracksPartialMeta":
-    "{{n}} track(s) missing date or genre in kord-trackinfo",
+    "{{n}} track(s) missing date or genre in metadata",
   "library.tracksAllHaveMeta":
-    "All tracks have date or genre in kord-trackinfo",
+    "All tracks have date or genre in metadata",
   "library.randomExcludeAria": "Shuffle blocks",
   "library.randomExcludeBtn": "Block from shuffle",
   "library.nAlbumsExcluded": "{{n}} albums blocked from shuffle",
@@ -377,7 +377,7 @@ export const EN: Record<string, string> = {
   "library.filterBarSearch": "Results",
   "library.sortOverviewAria": "Sort by name or by play count",
   "library.noGenresEmpty":
-    "No genres: tracks with a genre in kord-trackinfo or tags appear here.",
+    "No genres: tracks with a genre in metadata or tags appear here.",
   "library.genreCardNoGenre": "No genre",
   "library.genreCardTracks": "{{n}} tracks",
   "library.genreCardTracksOne": "1 track",
@@ -434,7 +434,7 @@ export const EN: Record<string, string> = {
   "settings.youtubeCookiesActive": "Active: {{name}}",
   "settings.youtubeCookiesMissing": "No cookie file configured.",
   "settings.youtubeCookiesEnvLocked":
-    "Active from KORD_YTDLP_COOKIES: remove the environment variable and restart the server to manage it in the app.",
+    "Active from REKORD_YTDLP_COOKIES: remove the environment variable and restart the server to manage it in the app.",
   "settings.youtubeCookiesChoose": "Choose cookies.txt",
   "settings.youtubeCookiesClear": "Remove cookies",
   "settings.youtubeCookiesSaved": "YouTube cookies saved on the server.",
@@ -475,7 +475,7 @@ export const EN: Record<string, string> = {
   "settings.activityLogHeading": "Server activity log",
   "settings.backupEyebrow": "Backup",
   "settings.backupHeading":
-    "Kord config and library metadata (no audio, all users)",
+    "RE-KORD config and library metadata (no audio, all users)",
   "settings.backupCta": "BACKUP",
   "settings.backupRunning": "Preparing…",
   "settings.backupSuccess": "Download started: {{name}}",
@@ -483,7 +483,7 @@ export const EN: Record<string, string> = {
   "settings.restoreRunning": "Restoring…",
   "settings.restoreSuccess":
     "Restore complete. Reload the page to load your saved session and settings.",
-  "settings.restoreErrNotZip": "Select a .zip file produced by Kord backup.",
+  "settings.restoreErrNotZip": "Select a .zip file produced by RE-KORD backup.",
   "settings.activityLogEmpty": "No activity recorded yet.",
   "settings.activityLogReload": "Refresh",
   "settings.activityLogColTime": "When",
@@ -492,11 +492,11 @@ export const EN: Record<string, string> = {
   "settings.activityLogColAction": "Action",
   "settings.activityLogColFolder": "Folder",
   "settings.activityLogColDetail": "Detail",
-  "settings.colophonLine1": "Kord {{version}} by Creiv",
+  "settings.colophonLine1": "RE-KORD {{version}} by Creiv",
   "settings.colophonLine2":
     "Private, non‑commercial use only. Not for resale or redistribution. Your library and account data stay on this device.",
   "settings.colophonLine3":
-    "KORD and its creators assume no responsibility for content users download or manage.",
+    "RE-KORD and its creators assume no responsibility for content users download or manage.",
   "settings.colophonLine4":
     "This tool is designed for legal/no-copyright music libraries (or any content used with proper rights). Each user is solely responsible for their own actions.",
   "settings.uiEyebrow": "Interface preferences",
@@ -585,7 +585,7 @@ export const EN: Record<string, string> = {
   "achievements.xpAria": "Experience progress",
   "achievements.xpProgressAria": "Level progress {{pct}}%",
   "achievements.xpToNext": "{{n}} to next rank",
-  "achievements.xpMaxLevel": "KING OF KORD — maximum rank",
+  "achievements.xpMaxLevel": "KING OF RE-KORD — maximum rank",
   "achievements.ctaListen": "Keep listening",
   "achievements.ctaStats": "View statistics",
   "achievements.metricsAria": "Listening milestones",
@@ -820,7 +820,7 @@ export const EN: Record<string, string> = {
   "tools.catalogWebTracksLoading": "Loading tracks…",
   "tools.catalogWebTracksEmpty": "No tracks found for preview.",
   "tools.catalogWebBackendUnreachable":
-    "KORD server unreachable. Start the backend (port 3001) and reload the page.",
+    "RE-KORD server unreachable. Start the backend (port 3001) and reload the page.",
   "tools.catalogWebPreviewLoading": "Starting preview…",
   "tools.catalogWebPreviewErr": "Preview unavailable: {{e}}",
   "tools.catalogWebPreviewPlaying": "Playing",
@@ -848,7 +848,7 @@ export const EN: Record<string, string> = {
   "tools.sharedEyebrow": "Multi-account",
   "tools.sharedTitle": "Share music with other users",
   "tools.sharedBrowseDesc":
-    "Pick a user, load the index, then artist and album: under Album, the first option is All albums (entire artist folder) or pick a single album. Symlinks and sanitized kord metadata are created; favorites, shuffle blocks, play counts, and queue stay in your account state.",
+    "Pick a user, load the index, then artist and album: under Album, the first option is All albums (entire artist folder) or pick a single album. Symlinks and sanitized rekord metadata are created; favorites, shuffle blocks, play counts, and queue stay in your account state.",
   "tools.sharedAllAlbums": "All albums",
   "tools.sharedAlbumNeedArtist": "Choose an artist first…",
   "tools.sharedLinkOkArtist":
@@ -963,7 +963,7 @@ export const EN: Record<string, string> = {
   "tools.dlReplaceHint":
     "Same track = same normalized file name (no extension, no leading track number, normalized spaces/dashes, some trailing suffixes like “official video” removed). Different titles are never merged. Duplicates are removed only if at least one path is new compared to before the download and several files share the same stem: one new file is kept (first in sort order) and the rest are deleted. If yt-dlp overwrites the same path, nothing extra is removed.",
   "tools.dlReplaceConfirm":
-    "The download will run first. Then KORD will look at files in “{{path}}” and remove older duplicates for the same track (by title), and move favorites, shuffle blocks and play counts to the files kept. Continue?\n\nEXPERIMENTAL FEATURE",
+    "The download will run first. Then RE-KORD will look at files in “{{path}}” and remove older duplicates for the same track (by title), and move favorites, shuffle blocks and play counts to the files kept. Continue?\n\nEXPERIMENTAL FEATURE",
   "tools.dlReplaceRemovedDupes":
     "Removed {{n}} previous file(s) (same track title) after the new download.\n",
   "tools.dlReplaceRootTitle":
@@ -1012,7 +1012,7 @@ export const EN: Record<string, string> = {
   "tools.urlPh": "Playlist or video URL",
   "tools.downloadRun": "Download and import",
   "tools.dlResponsibilityDisclaimer":
-    "Each user is responsible for what they download. Kord is intended for podcasts, copyright-free music, works you own the rights to, or material you are legally authorized to use.",
+    "Each user is responsible for what they download. RE-KORD is intended for podcasts, copyright-free music, works you own the rights to, or material you are legally authorized to use.",
   "tools.downloadBusy": "Running…",
   "tools.progress": "Progress",
   "tools.inProgress": "in progress…",
@@ -1024,9 +1024,9 @@ export const EN: Record<string, string> = {
   "tools.metaFillFromPlayback": "Fill from playback",
   "tools.metaAlbumSectionLabel": "Album",
   "tools.metaEssentialsAlbumSub":
-    "Album art, dates, label and other release fields in kord-albuminfo: chosen folder (“Selected album”) or optional batch scan.",
+    "Album art, dates, label and other release fields in album metadata: chosen folder (“Selected album”) or optional batch scan.",
   "tools.metaEssentialsTracksSub":
-    "Genre, release date and per-file tags in kord-trackinfo: only the playing file, or scan every track in your library.",
+    "Genre, release date and per-file tags in track metadata: only the playing file, or scan every track in your library.",
   "tools.metaBtnSelectedAlbum": "Selected album",
   "tools.metaBtnScanAuto": "Automatic scan",
   "tools.metaOptionalGenres": "Genres",
@@ -1060,7 +1060,7 @@ export const EN: Record<string, string> = {
   "tools.scanChoiceRescanAll": "Rescan all",
   "tools.scanChoiceCancel": "Cancel",
   "tools.metaScanRescanAllBanner":
-    "Mode: full album rescan (includes folders that already have kord-albuminfo).\n",
+    "Mode: full album rescan (includes folders that already have album metadata).\n",
   "tools.trackScanRescanAllBanner":
     "Mode: full track rescan (every audio file).\n",
   "tools.displayedTitles": "Displayed titles (from file names)",
@@ -1072,12 +1072,12 @@ export const EN: Record<string, string> = {
   "tools.applyLibrary": "Apply to entire library",
   "tools.progressAlbumMeta": "Album metadata (MB / TheAudioDB / iTunes)",
   "tools.progressTrackMeta": "Track metadata",
-  "tools.progressTrackMetaPrune": "Stale entries in kord-trackinfo",
+  "tools.progressTrackMetaPrune": "Stale entries in track metadata",
   "tools.trackMetaPruneOrphans": "Remove stale track metadata",
   "tools.trackMetaPruneTitle":
-    "For each album folder, drop kord-trackinfo keys that do not match an audio file still on disk",
+    "For each album folder, drop stale track-metadata keys that do not match an audio file still on disk",
   "tools.trackMetaPruneConfirm":
-    "Scan every album and remove kord-trackinfo entries for files that are no longer in the folder? Audio files are not deleted.",
+    "Scan every album and remove stale track-metadata entries for files that are no longer in the folder? Audio files are not deleted.",
   "tools.trackMetaPruneStart":
     "Stale track metadata cleanup: {{n}} album folders.\n",
   "tools.trackMetaPruneAlbum": "  {{path}}: removed {{files}}\n",
@@ -1129,18 +1129,18 @@ export const EN: Record<string, string> = {
   "tools.trackScanDone": "Track metadata scan finished.\n",
   "tools.genreAutoGroup": "Genres (whole library)",
   "tools.genreAutoHint":
-    "Suggests one genre per track that has none in kord-trackinfo: first from the same album (majority among tracks that already have a genre), then from the same artist. Online “scan all tracks” still fetches from Apple, Deezer, etc.",
+    "Suggests one genre per track that has none in track metadata: first from the same album (majority among tracks that already have a genre), then from the same artist. Online “scan all tracks” still fetches from Apple, Deezer, etc.",
   "tools.genreAutoPreview": "Preview genre suggestions",
   "tools.genreAutoApply": "Write suggested genres",
   "tools.genreApplyScopeTitle": "Write suggested genres",
   "tools.genreApplyScopeHint":
-    "Update kord-trackinfo only for tracks that still lack a genre, or re-infer and write for every track that receives a suggestion (overwrites existing genres where applicable).",
+    "Update track metadata only for tracks that still lack a genre, or re-infer and write for every track that receives a suggestion (overwrites existing genres where applicable).",
   "tools.genreApplyScopeMissing": "Missing only",
   "tools.genreApplyScopeAll": "All (overwrite)",
   "tools.genreApplyConfirmEyebrow": "Confirm write",
   "tools.genreApplyConfirmFilesLabel": "files",
   "tools.genreApplyConfirmDetail":
-    "Suggested genres will be written to kord-trackinfo for as many tracks as shown above. Existing track title and release date fields are left unchanged.",
+    "Suggested genres will be written to track metadata for as many tracks as shown above. Existing track title and release date fields are left unchanged.",
   "tools.genreApplyConfirmWrite": "Write genres",
   "tools.genreAutoNoIndex":
     "Library index not loaded; refresh and try again.\n",
@@ -1152,7 +1152,7 @@ export const EN: Record<string, string> = {
   "tools.genreAutoSourceArtist": "artist",
   "tools.genreAutoMore": "  … +{{n}} more lines\n",
   "tools.genreAutoApplyConfirm":
-    "Write suggested genres to kord-trackinfo for {{n}} file(s)? Existing title and date are kept.",
+    "Write suggested genres to track metadata for {{n}} file(s)? Existing title and date are kept.",
   "tools.genreAutoApplyDone": "Genre infer finished. Files updated: {{n}}.\n",
   "tools.genreAutoApplyErr": "  Error — {{path}}: {{err}}\n",
   "tools.genreAutoProgress": "Writing genres",
@@ -1166,7 +1166,7 @@ export const EN: Record<string, string> = {
     "No tracks where the derived title from the file name would differ (nothing to normalize).\n",
   "tools.sanitizeMore": "… and {{n}} more.",
   "tools.sanitizeHeadPreviewAlb": "Title preview — {{path}}\n",
-  "tools.sanitizeHeadApplyAlb": "kord-trackinfo write — {{path}}\n",
+  "tools.sanitizeHeadApplyAlb": "Track metadata write — {{path}}\n",
   "tools.sanitizeNoFixAlb":
     "No tracks in this album where the normalized title differs from the file stem.\n",
   "tools.sanitizeRefreshHint":

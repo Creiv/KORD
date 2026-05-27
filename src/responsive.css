@@ -1,5 +1,5 @@
 /**
- * KORD — layer responsive (dopo App.css).
+ * RE-KORD — layer responsive (dopo App.css).
  * Breakpoint width: src/lib/breakpoints.ts
  * Aspect ratio: src/styles/aspect-layout.css
  */
@@ -232,7 +232,7 @@ body,
     padding-bottom: 0;
   }
 
-  /* Player mobile v3.2: meta + ⋮ + play, seek sotto */
+  /* Player mobile v3.3: meta + ⋮ + play, seek sotto */
   .player-bar2.player-bar2--mobile {
     margin: 0;
     padding: 0.38rem 0.55rem 0.22rem;

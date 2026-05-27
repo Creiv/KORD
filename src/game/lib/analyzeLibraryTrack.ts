@@ -2,7 +2,7 @@ import { mediaUrl } from "../../lib/api";
 import type { EnrichedTrack } from "../../types";
 import { analyzeLibraryBuffer } from "./audioAnalysis";
 import { getCachedChart, setCachedChart } from "./chartCache";
-import { sanitizeChartSetForKord } from "./chartSanitize";
+import { sanitizeChartSetForRekord } from "./chartSanitize";
 import { yieldUi } from "./yieldUi";
 import type { ChartSet } from "../types";
 
@@ -94,7 +94,7 @@ export async function analyzeLibraryTrack(
         track.relPath,
         track.title || track.relPath
       );
-      const playable = sanitizeChartSetForKord(chartSet);
+      const playable = sanitizeChartSetForRekord(chartSet);
       if (!chartIsPlayable(playable)) {
         throw new RhythmAnalyzeError("sparse");
       }

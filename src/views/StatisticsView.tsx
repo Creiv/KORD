@@ -8,7 +8,7 @@ import { CoverImg } from "../components/CoverImg";
 import {
   UiBarChart,
   UiMusicNote,
-} from "../components/KordUiIcons";
+} from "../components/RekordUiIcons";
 
 function initials(text: string) {
   return text

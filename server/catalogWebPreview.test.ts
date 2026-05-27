@@ -33,7 +33,7 @@ describe("catalogWebPreview", () => {
     ).toBe(false)
   })
 
-  it("normalizeCatalogWebUrl strips KORD accountId from query", () => {
+  it("normalizeCatalogWebUrl strips RE-KORD accountId from query", () => {
     expect(
       normalizeCatalogWebUrl(
         "https://music.youtube.com/watch?v=abc12345678&accountId=dead-beef",

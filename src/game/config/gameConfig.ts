@@ -1,9 +1,9 @@
 import type { Difficulty, SwipeDirection } from "../types";
-import { KORD_LANES } from "./kordLanes";
+import { REKORD_LANES } from "./rekordLanes";
 
-export const LANES = KORD_LANES;
+export const LANES = REKORD_LANES;
 
-/** Tre livelli KORD: Easy / Normal / Hard, con Hard sulla densità più alta. */
+/** Tre livelli RE-KORD: Easy / Normal / Hard, con Hard sulla densità più alta. */
 export const DIFFICULTIES: Difficulty[] = [
   {
     id: "easy",

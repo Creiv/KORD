@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_KORD_VERSION: string
+  readonly VITE_REKORD_VERSION: string
 }
 
 interface ImportMeta {

@@ -18,7 +18,7 @@ describe("coverServe", () => {
   });
 
   it("trova cover.jpg in cartella album da path brano", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "kord-cover-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "rekord-cover-"));
     const albumDir = path.join(root, "Artist", "Album");
     await fs.mkdir(albumDir, { recursive: true });
     const coverPath = path.join(albumDir, "cover.jpg");

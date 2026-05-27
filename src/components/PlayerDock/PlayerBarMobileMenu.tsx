@@ -15,7 +15,7 @@ import {
   UiShuffle,
   UiSkipNext,
   UiSkipPrevious,
-} from "../KordUiIcons";
+} from "../RekordUiIcons";
 import type { EnrichedTrack } from "../../types";
 
 type PlayerCtx = ReturnType<typeof usePlayer>;

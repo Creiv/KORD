@@ -2,8 +2,8 @@ import { memo, useCallback } from "react";
 import { useRhythmMode } from "../../../context/RhythmModeContext";
 import { usePlayer } from "../../../context/PlayerContext";
 import { useI18n } from "../../../i18n/useI18n";
-import { KordNavIcon, UiSearch } from "../../KordUiIcons";
-import { KordBrandLogo } from "../../KordBrandLogo";
+import { RekordNavIcon, UiSearch } from "../../RekordUiIcons";
+import { RekordBrandLogo } from "../../RekordBrandLogo";
 import { AccountBadge } from "../../AccountBadge/AccountBadge";
 import { NAV_DEF } from "../../../lib/routing";
 import type { AppSection } from "../../../types";
@@ -70,14 +70,14 @@ export const SideBar = memo(function SideBar({
             collapsed ? styles.brandSlotCollapsed : styles.brandSlotExpanded
           }
         >
-          <KordBrandLogo
+          <RekordBrandLogo
             className={
               collapsed ? `${styles.brandImg} ${styles.brandImgCollapsed}` : `${styles.brandImg} ${styles.brandImgHeader}`
             }
             decorative
           />
           {!collapsed ? (
-            <span className={styles.brandText}>KORD</span>
+            <span className={styles.brandText}>RE-KORD</span>
           ) : null}
         </div>
         <button
@@ -122,7 +122,7 @@ export const SideBar = memo(function SideBar({
               title={collapsed ? t(item.labelKey) : undefined}
               onClick={() => handleNavClick(item.id)}
             >
-              <KordNavIcon section={item.id} className={styles.navIc} />
+              <RekordNavIcon section={item.id} className={styles.navIc} />
               {!collapsed && (
                 <span className={styles.navLabel}>{t(item.labelKey)}</span>
               )}
@@ -145,7 +145,7 @@ export const SideBar = memo(function SideBar({
               title={collapsed ? t(item.labelKey) : undefined}
               onClick={() => handleNavClick(item.id)}
             >
-              <KordNavIcon section={item.id} className={styles.navIc} />
+              <RekordNavIcon section={item.id} className={styles.navIc} />
               {!collapsed && (
                 <span className={styles.navLabel}>{t(item.labelKey)}</span>
               )}

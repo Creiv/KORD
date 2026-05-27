@@ -26,7 +26,7 @@ if (!new Set(["win", "linux", "mac"]).has(platform)) {
   process.exit(1)
 }
 
-const envLinux = process.env.KORD_YTDLP_LINUX_ASSET
+const envLinux = process.env.REKORD_YTDLP_LINUX_ASSET
 let assetName
 if (platform === "win") assetName = "yt-dlp.exe"
 else if (platform === "mac") assetName = "yt-dlp_macos"
@@ -42,7 +42,7 @@ async function githubApi(url) {
   const r = await fetch(url, {
     headers: {
       Accept: "application/vnd.github+json",
-      "User-Agent": "kord-ytdlp-fetch",
+      "User-Agent": "rekord-ytdlp-fetch",
     },
   })
   if (!r.ok) throw new Error(`GitHub API: ${r.status} ${r.statusText}`)

@@ -26,8 +26,13 @@ server/music-root.config.json.bak
 server/youtube-cookies.txt
 server/accounts/
 
-# KORD activity log (local paths, URLs — never commit)
+# RE-KORD activity log (local paths, URLs — never commit)
 kord-activity.log.jsonl
+
+# One-shot rebrand migration scripts (local only, not shipped)
+scripts/rename-to-rekord.mjs
+scripts/fix-rekord-overreplace.mjs
+scripts/fix-rekord-final.mjs
 
 # Editor directories and files
 .vscode/*

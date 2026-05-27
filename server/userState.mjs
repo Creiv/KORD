@@ -1,7 +1,7 @@
 import fs from "fs/promises"
 import { existsSync } from "fs"
 import path from "path"
-import { atomicWriteFileUtf8, kordAccountUserStatePath } from "./kordDataStore.mjs"
+import { atomicWriteFileUtf8, rekordAccountUserStatePath } from "./rekordDataStore.mjs"
 import { CONFIG_FILE } from "./musicRootConfig.mjs"
 
 /** Serie di readUserState sulla stessa coppia (library, account): evita race sulla migrazione lazy. */
@@ -412,7 +412,7 @@ export function getUserStateFilePathInConfigDir(accountId) {
 }
 
 export function getUserStateFilePathForAccount(libraryRoot, accountId) {
-  return kordAccountUserStatePath(libraryRoot, accountId)
+  return rekordAccountUserStatePath(libraryRoot, accountId)
 }
 
 function filePathKord(musicRoot) {
@@ -436,21 +436,21 @@ async function readJsonUserStateFile(fp, maxAttempts = 5) {
       }
     }
   }
-  if (lastErr && process.env.KORD_VERBOSE) {
-    console.warn("[kord] user-state read failed:", fp, lastErr?.message ?? lastErr)
+  if (lastErr && process.env.REKORD_VERBOSE) {
+    console.warn("[rekord] user-state read failed:", fp, lastErr?.message ?? lastErr)
   }
   return null
 }
 
 async function readUserStateImpl(musicRoot, accountId = null) {
   if (!musicRoot) return defaultUserState()
-  const kordAcc = kordAccountUserStatePath(musicRoot, accountId)
+  const rekordAcc = rekordAccountUserStatePath(musicRoot, accountId)
   const accountPath = filePathAccountLegacy(accountId)
   const legacyKord = filePathKord(musicRoot)
   const legacyWpp = filePathWpp(musicRoot)
 
   let state =
-    kordAcc && existsSync(kordAcc) ? await readJsonUserStateFile(kordAcc) : null
+    rekordAcc && existsSync(rekordAcc) ? await readJsonUserStateFile(rekordAcc) : null
   if (!state && accountPath && existsSync(accountPath)) {
     state = await readJsonUserStateFile(accountPath)
   }
@@ -464,8 +464,8 @@ async function readUserStateImpl(musicRoot, accountId = null) {
     if (state && accountId && safeAccountId(accountId) !== "default") {
       state.migratedLegacy = true
     }
-    if (state && kordAcc) {
-      await atomicWriteFileUtf8(kordAcc, JSON.stringify(state, null, 2))
+    if (state && rekordAcc) {
+      await atomicWriteFileUtf8(rekordAcc, JSON.stringify(state, null, 2))
     } else if (state && accountPath) {
       await atomicWriteFileUtf8(accountPath, JSON.stringify(state, null, 2))
     }
@@ -496,8 +496,8 @@ async function writeUserStatePersist(musicRoot, sanitizedState, accountId = null
     e.code = "LIBRARY_NOT_CONFIGURED"
     throw e
   }
-  const kordAcc = kordAccountUserStatePath(musicRoot, accountId)
-  const fp = kordAcc || filePathAccountLegacy(accountId) || filePathKord(musicRoot)
+  const rekordAcc = rekordAccountUserStatePath(musicRoot, accountId)
+  const fp = rekordAcc || filePathAccountLegacy(accountId) || filePathKord(musicRoot)
   await atomicWriteFileUtf8(fp, JSON.stringify(sanitizedState, null, 2))
   return sanitizedState
 }

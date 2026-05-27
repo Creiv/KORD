@@ -11,7 +11,7 @@ const SEARCH_FILTER_PARAMS = {
 
 function innertubeClientVersion() {
   return String(
-    process.env.KORD_YTM_INNERTUBE_CLIENT_VERSION || "1.20241127.01.00",
+    process.env.REKORD_YTM_INNERTUBE_CLIENT_VERSION || "1.20241127.01.00",
   ).trim()
 }
 

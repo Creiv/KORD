@@ -16,7 +16,7 @@ import {
   UiAutorenew,
   UiBuild,
   UiFavorite,
-} from "../../components/KordUiIcons";
+} from "../../components/RekordUiIcons";
 import { emitStudioPane } from "../../context/StudioNavigationContext";
 import type { AppSection, DashboardPayload, LibraryIndex } from "../../types";
 interface DashboardViewProps {
@@ -65,7 +65,7 @@ export default function DashboardView({
       <header className="dashboard-page__intro view-page__intro">
       <section className="hero-card hero-card--compact">
         <div className="hero-card__lead">
-          <p className="eyebrow">KORD</p>
+          <p className="eyebrow">RE-KORD</p>
           <h1 className="hero-card__title">{t("dashboard.heroTitle")}</h1>
         </div>
         <div className="hero-card__actions">

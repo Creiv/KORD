@@ -50,7 +50,7 @@ import {
   UiPlayArrow,
   UiQueueMusic,
   UiRemove,
-} from "./KordUiIcons";
+} from "./RekordUiIcons";
 import type {
   EnrichedTrack,
   LibraryAlbumIndex,

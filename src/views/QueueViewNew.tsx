@@ -8,7 +8,7 @@ import {
   UiKeyboardArrowDown,
   UiKeyboardArrowUp,
   UiNavList,
-} from "../components/KordUiIcons";
+} from "../components/RekordUiIcons";
 
 function QueueViewNew({
   onOpenSavedPlaylist,

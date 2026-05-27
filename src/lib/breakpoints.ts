@@ -1,8 +1,8 @@
 /**
- * Breakpoint KORD (valori max-width in px).
+ * Breakpoint RE-KORD (valori max-width in px).
  * In CSS usare gli stessi numeri; in JS importare da qui.
  *
- * Griglie layout (CSS in page-layout.css, container `kord-page`):
+ * Griglie layout (CSS in page-layout.css, container `rekord-page`):
  * - 640 · 900 · 1100 · 1280 · 1600 px
  *
  * Aspect ratio (CSS in src/styles/aspect-layout.css):

@@ -21,7 +21,7 @@ import {
   partitionCatalogWebDiscover,
 } from "../lib/catalogWebDiscover";
 import { CoverImg } from "./CoverImg";
-import { UiAlbumIcon, UiClose, UiMusicNote } from "./KordUiIcons";
+import { UiAlbumIcon, UiClose, UiMusicNote } from "./RekordUiIcons";
 import type { useI18n } from "../i18n/useI18n";
 
 type TFn = ReturnType<typeof useI18n>["t"];

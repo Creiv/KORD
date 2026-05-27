@@ -72,7 +72,7 @@ describe("api account bootstrap", () => {
   })
 
   it("replaces a stale selected account before loading user-state", async () => {
-    window.localStorage.setItem("kord-session-account-id", "removed-account")
+    window.localStorage.setItem("rekord-session-account-id", "removed-account")
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === "/api/accounts") return Promise.resolve(wrapped(accountsPayload))

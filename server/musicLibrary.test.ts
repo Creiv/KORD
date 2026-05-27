@@ -30,7 +30,7 @@ function wavSilence({ seconds, sampleRate = 8000 }: { seconds: number; sampleRat
 
 describe("musicLibrary", () => {
   it("indexes albums, loose tracks, and quality alerts", async () => {
-    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kord-library-"))
+    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "rekord-library-"))
     await fs.mkdir(path.join(musicRoot, "Artist One", "Album One"), { recursive: true })
     await fs.writeFile(path.join(musicRoot, "Artist One", "Album One", "01 Song.mp3"), "")
     await fs.writeFile(path.join(musicRoot, "Artist One", "Loose Song.mp3"), "")
@@ -51,7 +51,7 @@ describe("musicLibrary", () => {
   })
 
   it("uses audio file duration instead of track metadata duration", async () => {
-    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kord-library-duration-"))
+    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "rekord-library-duration-"))
     const albumDir = path.join(musicRoot, "Artist One", "Album One")
     await fs.mkdir(albumDir, { recursive: true })
     await fs.writeFile(path.join(albumDir, "01 Song.wav"), wavSilence({ seconds: 2 }))
@@ -66,7 +66,7 @@ describe("musicLibrary", () => {
   })
 
   it("includes lyrics from kord-trackinfo in index track meta", async () => {
-    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kord-library-lyrics-"))
+    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "rekord-library-lyrics-"))
     const albumDir = path.join(musicRoot, "Artist One", "Album One")
     await fs.mkdir(albumDir, { recursive: true })
     await fs.writeFile(path.join(albumDir, "01 Song.mp3"), "")

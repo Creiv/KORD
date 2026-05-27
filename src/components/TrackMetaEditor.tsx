@@ -35,7 +35,7 @@ import {
 } from "../lib/trackMoods";
 import { TrackMoodGlyph } from "./TrackMoodGlyph";
 import type { EnrichedTrack, LibraryEntityDelta } from "../types";
-import { UiClose } from "./KordUiIcons";
+import { UiClose } from "./RekordUiIcons";
 
 const TrackMetaEditContext = createContext<(track: EnrichedTrack) => void>(
   () => {}

@@ -3,7 +3,7 @@ const YT_BROWSE_URL = `https://www.youtube.com/youtubei/v1/browse?key=${YT_WEB_I
 
 function webInnertubeClientVersion() {
   return String(
-    process.env.KORD_YT_WEB_INNERTUBE_CLIENT_VERSION || "2.20241124.01.00",
+    process.env.REKORD_YT_WEB_INNERTUBE_CLIENT_VERSION || "2.20241124.01.00",
   ).trim()
 }
 

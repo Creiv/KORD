@@ -32,7 +32,7 @@ import {
   UiMusicNote,
   UiNavList,
   UiNote,
-} from "../../components/KordUiIcons";
+} from "../../components/RekordUiIcons";
 import { isTrackAlbumShuffleExcluded } from "../../lib/randomExclusions";
 import { eligibleTracksForIntelligentRandom } from "../../lib/randomExclusions";
 import { PlayCollectionButton } from "../../components/PlayCollectionButton";

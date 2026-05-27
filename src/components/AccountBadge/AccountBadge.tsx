@@ -25,9 +25,9 @@ export const AccountBadge = memo(function AccountBadge({
       })
       .catch(() => setAccounts(null));
     const onChange = () => setSelectedId(getSelectedAccountId());
-    window.addEventListener("kord-account-session-changed", onChange);
+    window.addEventListener("rekord-account-session-changed", onChange);
     return () =>
-      window.removeEventListener("kord-account-session-changed", onChange);
+      window.removeEventListener("rekord-account-session-changed", onChange);
   }, []);
 
   if (!accounts || accounts.accounts.length === 0) return null;

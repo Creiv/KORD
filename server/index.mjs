@@ -81,7 +81,11 @@ import {
   writeUserTrackMoodsWithCAS,
   writeUserPlectrBestWithCAS,
 } from "./userState.mjs";
-import { kordApiUserAgent } from "./kordVersion.mjs";
+import { rekordApiUserAgent } from "./rekordVersion.mjs";
+import {
+  existingAlbumTrackInfoPath,
+  preferredAlbumTrackInfoPath,
+} from "./trackInfoPaths.mjs";
 import { resolveYtdlpPath } from "./ytdlpPath.mjs";
 import {
   appendActivityLog,
@@ -90,9 +94,9 @@ import {
 } from "./activityLog.mjs";
 import multer from "multer";
 import {
-  streamKordBackupZip,
-  restoreKordFromZipBuffer,
-} from "./backupKord.mjs";
+  streamRekordBackupZip,
+  restoreRekordFromZipBuffer,
+} from "./backupRekord.mjs";
 import { fetchYoutubeMusicBrowseReleasesList } from "./youtubeMusicBrowse.mjs";
 import { searchYoutubeMusicCatalog } from "./youtubeMusicSearch.mjs";
 import { fetchCatalogWebDiscover } from "./youtubeMusicDiscover.mjs";
@@ -162,7 +166,7 @@ function resolveBundledCloudflaredPath() {
 }
 
 function resolveCloudflaredPath() {
-  const configured = String(process.env.KORD_CLOUDFLARED_BIN || "").trim();
+  const configured = String(process.env.REKORD_CLOUDFLARED_BIN || "").trim();
   if (configured) return configured;
   const bundled = resolveBundledCloudflaredPath();
   if (existsSync(bundled)) return bundled;
@@ -187,7 +191,7 @@ function markRemoteError(err) {
   const msg = String(err?.message || err || "cloudflared error");
   if (msg.includes("ENOENT")) {
     remoteAccessState.error =
-      "Cloudflared non trovato. Reinstalla KORD oppure configura KORD_CLOUDFLARED_BIN.";
+      "Cloudflared non trovato. Reinstalla RE-KORD oppure configura REKORD_CLOUDFLARED_BIN.";
     return;
   }
   remoteAccessState.error = msg;
@@ -259,21 +263,21 @@ function startRemoteAccess() {
 const YTDLP_ARGS = ["-f", "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio"];
 
 function ytdlpArgsBase() {
-  if (process.env.KORD_YTDLP_LOSSLESS === "1") {
+  if (process.env.REKORD_YTDLP_LOSSLESS === "1") {
     console.warn(
-      "[kord] KORD_YTDLP_LOSSLESS is ignored: lossless extraction requires ffmpeg, which Kord does not rely on."
+      "[rekord] REKORD_YTDLP_LOSSLESS is ignored: lossless extraction requires ffmpeg, which RE-KORD does not rely on."
     );
   }
   return YTDLP_ARGS;
 }
 
 function ytdlpJavascriptArgs() {
-  const configured = String(process.env.KORD_YTDLP_JS_RUNTIME || "").trim();
+  const configured = String(process.env.REKORD_YTDLP_JS_RUNTIME || "").trim();
   const runtime = configured || process.execPath;
   const args = runtime
     ? ["--js-runtimes", `node:${runtime}`]
     : ["--js-runtimes", "node"];
-  const remote = String(process.env.KORD_YTDLP_REMOTE_COMPONENTS || "").trim();
+  const remote = String(process.env.REKORD_YTDLP_REMOTE_COMPONENTS || "").trim();
   if (remote) args.push("--remote-components", remote);
   return args;
 }
@@ -389,12 +393,12 @@ function parseYtdlpJsonStdout(buf) {
 
 function releaseEnrichConfig() {
   const raw = String(
-    process.env.KORD_YTDLP_RELEASE_MAX_COUNT_ENRICH ?? "0"
+    process.env.REKORD_YTDLP_RELEASE_MAX_COUNT_ENRICH ?? "0"
   ).trim();
   const max =
     raw === "" || raw === "0" ? 0 : Math.max(0, Number.parseInt(raw, 10) || 0);
   const defTimeout = process.platform === "win32" ? 32_000 : 18_000;
-  const tStr = process.env.KORD_YTDLP_RELEASE_COUNT_TIMEOUT_MS;
+  const tStr = process.env.REKORD_YTDLP_RELEASE_COUNT_TIMEOUT_MS;
   const t =
     tStr != null && String(tStr).trim() !== ""
       ? String(tStr).trim()
@@ -404,7 +408,7 @@ function releaseEnrichConfig() {
     Math.max(2000, Number.parseInt(t, 10) || defTimeout)
   );
   const defConc = process.platform === "win32" ? 3 : 5;
-  const cStr = process.env.KORD_YTDLP_RELEASE_COUNT_CONCURRENCY;
+  const cStr = process.env.REKORD_YTDLP_RELEASE_COUNT_CONCURRENCY;
   const c =
     cStr != null && String(cStr).trim() !== ""
       ? String(cStr).trim()
@@ -726,7 +730,7 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
-const uploadKordBackup = multer({
+const uploadRekordBackup = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 512 * 1024 * 1024 },
 });
@@ -750,7 +754,11 @@ function apiSkipsLibraryGate(req) {
   const sub = (req.path || "").replace(/\/+$/, "") || "/";
   if (sub === "/config") return true;
   if (sub === "/health") return true;
-  if (sub === "/backup/kord-restore" && req.method === "POST") return true;
+  if (
+    (sub === "/backup/rekord-restore" || sub === "/backup/kord-restore") &&
+    req.method === "POST"
+  )
+    return true;
   if (sub === "/accounts" && req.method === "GET") return true;
   return false;
 }
@@ -771,7 +779,11 @@ app.use("/api", (req, res, next) => {
 function accountIdFromReq(req) {
   return (
     String(req.query?.accountId || "").trim() ||
-    String(req.headers["x-kord-account-id"] || "").trim() ||
+    String(
+      req.headers["x-rekord-account-id"] ||
+        req.headers["x-kord-account-id"] ||
+        "",
+    ).trim() ||
     getDefaultAccountId()
   );
 }
@@ -864,7 +876,7 @@ function underRoot(full, musicRoot = getMusicRoot()) {
   return resolved === root || resolved.startsWith(root + path.sep);
 }
 
-const RESERVED_MUSIC_DIR_NAMES = new Set(["kord"]);
+const RESERVED_MUSIC_DIR_NAMES = new Set(["kord", "wpp"]);
 
 function hasReservedPathSegment(p) {
   for (const seg of String(p || "")
@@ -1161,15 +1173,15 @@ app.get("/api/activity-log", async (req, res) => {
   }
 });
 
-app.get("/api/backup/kord-data", async (req, res) => {
+const handleRekordBackupDownload = async (req, res) => {
   try {
-    const name = `kord-backup-${new Date()
+    const name = `rekord-backup-${new Date()
       .toISOString()
       .replaceAll(":", "-")}.zip`;
     res.setHeader("Content-Type", "application/zip");
     res.setHeader("Content-Disposition", `attachment; filename="${name}"`);
     res.setHeader("Cache-Control", "no-store, must-revalidate");
-    await streamKordBackupZip(res, getAccountsSnapshot);
+    await streamRekordBackupZip(res, getAccountsSnapshot);
   } catch (error) {
     if (!res.headersSent) {
       return sendError(res, 500, String(error?.message || error));
@@ -1180,37 +1192,39 @@ app.get("/api/backup/kord-data", async (req, res) => {
       /* ignore */
     }
   }
-});
+};
 
-app.post(
-  "/api/backup/kord-restore",
-  uploadKordBackup.single("file"),
-  async (req, res) => {
-    try {
-      if (isMusicRootFromEnv()) {
-        return sendError(
-          res,
-          403,
-          "Restore is not available when MUSIC_ROOT is set in the environment"
-        );
-      }
-      if (!req.file?.buffer?.length) {
-        return sendError(res, 400, "Missing or empty file");
-      }
-      const data = await restoreKordFromZipBuffer(req.file.buffer);
-      await invalidateLibraryIndex(getMusicRoot());
-      return sendOk(res, data);
-    } catch (error) {
-      if (error?.code === "ENV_LOCKED") {
-        return sendError(res, 403, String(error.message || error));
-      }
-      if (error?.code === "BAD_BACKUP") {
-        return sendError(res, 400, String(error.message || error));
-      }
-      return sendError(res, 500, String(error?.message || error));
+app.get("/api/backup/rekord-data", handleRekordBackupDownload);
+app.get("/api/backup/kord-data", handleRekordBackupDownload);
+
+const handleRekordBackupRestore = async (req, res) => {
+  try {
+    if (isMusicRootFromEnv()) {
+      return sendError(
+        res,
+        403,
+        "Restore is not available when MUSIC_ROOT is set in the environment",
+      );
     }
+    if (!req.file?.buffer?.length) {
+      return sendError(res, 400, "Missing or empty file");
+    }
+    const data = await restoreRekordFromZipBuffer(req.file.buffer);
+    await invalidateLibraryIndex(getMusicRoot());
+    return sendOk(res, data);
+  } catch (error) {
+    if (error?.code === "ENV_LOCKED") {
+      return sendError(res, 403, String(error.message || error));
+    }
+    if (error?.code === "BAD_BACKUP") {
+      return sendError(res, 400, String(error.message || error));
+    }
+    return sendError(res, 500, String(error?.message || error));
   }
-);
+};
+
+app.post("/api/backup/rekord-restore", uploadRekordBackup.single("file"), handleRekordBackupRestore);
+app.post("/api/backup/kord-restore", uploadRekordBackup.single("file"), handleRekordBackupRestore);
 
 app.get("/api/config", (req, res) => {
   return sendOk(res, buildConfigPayload(req));
@@ -1759,7 +1773,7 @@ app.get("/api/catalog-web-preview/stream", async (req, res) => {
       headers.Range = String(range);
     } else {
       const maxChunk = Number.parseInt(
-        String(process.env.KORD_PREVIEW_INITIAL_RANGE_BYTES ?? "524288"),
+        String(process.env.REKORD_PREVIEW_INITIAL_RANGE_BYTES ?? "524288"),
         10,
       );
       if (Number.isFinite(maxChunk) && maxChunk > 0) {
@@ -2163,7 +2177,7 @@ app.post("/api/youtube-releases-list", async (req, res) => {
       };
     } else {
       const preferInnertube =
-        String(process.env.KORD_YT_WEB_RELEASES_INNERTUBE ?? "1").trim() !==
+        String(process.env.REKORD_YT_WEB_RELEASES_INNERTUBE ?? "1").trim() !==
         "0";
       if (preferInnertube && isYoutubeWebReleasesPageUrl(url)) {
         try {
@@ -2530,7 +2544,7 @@ app.post("/api/download", async (req, res) => {
           await attachStudioDownloadToLibrarySelection(req, root, outputDirForLog);
         } catch (error) {
           postDownloadError = error;
-          console.error("[kord] post-download library refresh:", error?.message || error);
+          console.error("[rekord] post-download library refresh:", error?.message || error);
         }
       }
       const combined = `${stderrAcc.buffer}\n${stdoutAcc.buffer}`;
@@ -2905,7 +2919,7 @@ app.post("/api/artwork/apply", async (req, res) => {
     if (!statSync(full).isDirectory())
       return sendError(res, 400, "Not a directory");
     const response = await fetch(imageUrl, {
-      headers: { "User-Agent": kordApiUserAgent() },
+      headers: { "User-Agent": rekordApiUserAgent() },
     });
     if (!response.ok) return sendError(res, 400, "Image download failed");
     const type = (response.headers.get("content-type") || "").toLowerCase();
@@ -3113,13 +3127,7 @@ app.post("/api/track-info/fetch", async (req, res) => {
       String(fileName)
         .replace(/\.(mp3|flac|m4a|ogg|opus|wav|aac|webm)$/i, "")
         .trim() || fileName;
-    const fpKord = path.join(albumDir, "kord-trackinfo.json");
-    const fpWpp = path.join(albumDir, "wpp-trackinfo.json");
-    const fpRead = existsSync(fpKord)
-      ? fpKord
-      : existsSync(fpWpp)
-      ? fpWpp
-      : null;
+    const fpRead = existingAlbumTrackInfoPath(albumDir);
     let json = {};
     if (fpRead) {
       try {
@@ -3207,9 +3215,7 @@ app.post("/api/track-lyrics/fetch", async (req, res) => {
       String(fileName)
         .replace(/\.(mp3|flac|m4a|ogg|opus|wav|aac|webm)$/i, "")
         .trim() || fileName;
-    const fpKord = path.join(albumDir, "kord-trackinfo.json");
-    const fpWpp = path.join(albumDir, "wpp-trackinfo.json");
-    const fpRead = existsSync(fpKord) ? fpKord : existsSync(fpWpp) ? fpWpp : null;
+    const fpRead = existingAlbumTrackInfoPath(albumDir);
     let json = {};
     if (fpRead) {
       try {

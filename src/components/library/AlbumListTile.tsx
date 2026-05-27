@@ -8,7 +8,7 @@ import {
   LibraryAlbumFavoriteChips,
   LibraryAlbumMetaChips,
 } from "../AppSharedUi";
-import { UiAlbumIcon } from "../KordUiIcons";
+import { UiAlbumIcon } from "../RekordUiIcons";
 
 export type AlbumListTileProps = {
   album: LibraryAlbumIndex;

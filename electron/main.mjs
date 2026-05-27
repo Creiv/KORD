@@ -8,8 +8,10 @@ import http from "http"
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const DEFAULT_SERVER_PORT = 3001
-const PORT_FILE = "kord-electron-port.json"
-let appPort = Number(process.env.KORD_PORT || process.env.PORT) || DEFAULT_SERVER_PORT
+const PORT_FILE = "rekord-electron-port.json"
+let appPort =
+  Number(process.env.REKORD_PORT || process.env.KORD_PORT || process.env.PORT) ||
+  DEFAULT_SERVER_PORT
 
 function isDev() {
   return !app.isPackaged
@@ -28,7 +30,7 @@ function getServerPath() {
 
 function appendLaunchLog(message) {
   try {
-    const p = path.join(app.getPath("userData"), "kord-launch.log")
+    const p = path.join(app.getPath("userData"), "rekord-launch.log")
     const line = `${new Date().toISOString()} ${message}\n`
     fs.appendFileSync(p, line, "utf8")
   } catch {
@@ -69,7 +71,7 @@ function getPortFilePath() {
 }
 
 function hasExplicitServerPortFromEnv() {
-  const k = process.env.KORD_PORT
+  const k = process.env.REKORD_PORT || process.env.KORD_PORT
   if (k != null && String(k).trim() !== "") return true
   const p = process.env.PORT
   if (p != null && String(p).trim() !== "") return true
@@ -134,14 +136,14 @@ function waitForHealth(p, maxMs) {
 let serverChild = null
 let mainWindow = null
 
-const APP_NAME = "KORD"
+const APP_NAME = "RE-KORD"
 
 function getAppIconPath() {
   const root = path.join(__dirname, "..")
   const icoDist = path.join(root, "dist", "icon.ico")
   const icoPublic = path.join(root, "public", "icon.ico")
-  const pngDist = path.join(root, "dist", "KORDlogo.png")
-  const pngPublic = path.join(root, "public", "KORDlogo.png")
+  const pngDist = path.join(root, "dist", "REKORDlogo.png")
+  const pngPublic = path.join(root, "public", "REKORDlogo.png")
   if (process.platform === "win32") {
     if (fs.existsSync(icoDist)) return icoDist
     if (fs.existsSync(icoPublic)) return icoPublic
@@ -241,13 +243,16 @@ function installAppMenu() {
 }
 
 function pickPortDevOrExplicit() {
-  return Number(process.env.KORD_PORT || process.env.PORT) || DEFAULT_SERVER_PORT
+  return (
+    Number(process.env.REKORD_PORT || process.env.KORD_PORT || process.env.PORT) ||
+    DEFAULT_SERVER_PORT
+  )
 }
 
 async function tryStartOnPort(userData, port, useStdio, cwd, script) {
   const env = {
     ...process.env,
-    KORD_USER_CONFIG_DIR: userData,
+    REKORD_USER_CONFIG_DIR: userData,
     WPP_USER_CONFIG_DIR: userData,
     PORT: String(port),
     ELECTRON_RUN_AS_NODE: "1",
@@ -259,7 +264,7 @@ async function tryStartOnPort(userData, port, useStdio, cwd, script) {
     stdio: useStdio ? "inherit" : "ignore",
   })
   child.on("error", (err) => {
-    console.error("[kord] server", err)
+    console.error("[rekord] server", err)
   })
   const exitP = new Promise((resolve) => {
     child.once("exit", (c) => resolve(c))
@@ -289,7 +294,7 @@ async function startServer() {
   const userData = app.getPath("userData")
   const useStdio =
     isDev() ||
-    process.env.KORD_ELECTRON_LOG === "1" ||
+    process.env.REKORD_ELECTRON_LOG === "1" ||
     process.env.WPP_ELECTRON_LOG === "1"
   const cwd = getProjectRoot()
   const script = getServerPath()
@@ -323,7 +328,7 @@ async function startServer() {
     }
   }
   throw new Error(
-    "Could not start the server on a free port. Close other apps using this range or set KORD_PORT in the environment.",
+    "Could not start the server on a free port. Close other apps using this range or set REKORD_PORT in the environment.",
   )
 }
 
@@ -350,7 +355,7 @@ function createWindow() {
       sandbox: true,
     },
   })
-  const clientQ = "kordClient=1"
+  const clientQ = "rekordClient=1"
   const url = isDev()
     ? `http://127.0.0.1:5173?${clientQ}`
     : `http://127.0.0.1:${p}/?${clientQ}`
@@ -397,7 +402,7 @@ if (!app.requestSingleInstanceLock()) {
         type: "info",
         title: APP_NAME,
         message:
-          "KORD is already running (another instance is open). Check other windows, the taskbar or system tray, or end the KORD process from Task Manager / System Monitor.",
+          "RE-KORD is already running (another instance is open). Check other windows, the taskbar or system tray, or end the RE-KORD process from Task Manager / System Monitor.",
       })
     } finally {
       app.quit()
@@ -424,7 +429,7 @@ if (!app.requestSingleInstanceLock()) {
       appendLaunchLog(`error: ${msg}`)
       console.error(e)
       try {
-        dialog.showErrorBox("KORD — startup failed", `${msg}\n\nDetails: ${app.getPath("userData")}/kord-launch.log`)
+        dialog.showErrorBox("RE-KORD — startup failed", `${msg}\n\nDetails: ${app.getPath("userData")}/rekord-launch.log`)
       } catch {
         /* ok */
       }

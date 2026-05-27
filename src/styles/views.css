@@ -3074,11 +3074,11 @@ button.settings-network-qr:focus-visible {
   color: color-mix(in srgb, var(--accent) 74%, var(--text) 26%);
 }
 
-.kord-brand-logo {
+.rekord-brand-logo {
   display: block;
 }
 
-.kord-brand-logo--topbar {
+.rekord-brand-logo--topbar {
   height: 42px;
   width: auto;
   max-width: min(240px, 42vw);

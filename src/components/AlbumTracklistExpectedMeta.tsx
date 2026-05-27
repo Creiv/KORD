@@ -1,5 +1,5 @@
 import type { LibraryAlbumIndex } from "../types";
-import { UiQueueMusic } from "./KordUiIcons";
+import { UiQueueMusic } from "./RekordUiIcons";
 
 type P = {
   album: LibraryAlbumIndex;

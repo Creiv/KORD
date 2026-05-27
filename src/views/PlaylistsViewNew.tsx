@@ -5,7 +5,7 @@ import { useAppConfirm } from "../context/AppConfirmContext";
 import { useI18n } from "../i18n/useI18n";
 import { SectionHeadLead } from "../components/SectionHeadLead";
 import { TrackListRow } from "../components/AppSharedUi";
-import { UiClose, UiQueueMusic } from "../components/KordUiIcons";
+import { UiClose, UiQueueMusic } from "../components/RekordUiIcons";
 import type { EnrichedTrack, LibraryIndex, UserPlaylist } from "../types";
 
 function enrichedFromPlaylistItem(

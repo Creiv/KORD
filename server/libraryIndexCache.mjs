@@ -2,7 +2,7 @@ import fs from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 import { buildLibraryIndex } from "./musicLibrary.mjs";
-import { atomicWriteFileUtf8 } from "./kordDataStore.mjs";
+import { atomicWriteFileUtf8 } from "./rekordDataStore.mjs";
 
 const CACHE_FILENAME = "library-index.v1.cache.json";
 const SCHEMA_VERSION = 1;
@@ -37,7 +37,7 @@ function isValidIndexPayload(obj) {
 
 /** @param {string} musicRoot */
 export async function readLibraryIndexCache(musicRoot) {
-  if (process.env.KORD_INDEX_CACHE === "0") return null;
+  if (process.env.REKORD_INDEX_CACHE === "0") return null;
   const p = cacheFilePath(musicRoot);
   if (!existsSync(p)) return null;
   try {
@@ -71,7 +71,7 @@ export async function writeLibraryIndexCache(musicRoot, index) {
     );
     await atomicWriteFileUtf8(p, payload);
   } catch (e) {
-    console.warn("[kord] library index cache write failed:", e?.message || e);
+    console.warn("[rekord] library index cache write failed:", e?.message || e);
   }
 }
 
@@ -100,7 +100,7 @@ export async function invalidateLibraryIndexCache(musicRoot) {
  * @returns {Promise<boolean>} true se la cache esisteva ed è stata aggiornata
  */
 export async function patchTrackInLibraryIndexCache(musicRoot, relPath, patch = {}) {
-  if (process.env.KORD_INDEX_CACHE === "0") return false;
+  if (process.env.REKORD_INDEX_CACHE === "0") return false;
   const cached = await readLibraryIndexCache(musicRoot);
   if (!cached || !relPath) return false;
   let found = false;
@@ -128,7 +128,7 @@ export async function patchTrackInLibraryIndexCache(musicRoot, relPath, patch = 
  * @param {Array<{ relPath: string, title?: string, meta?: Record<string, unknown> }>} patches
  */
 export async function patchTracksInLibraryIndexCache(musicRoot, patches) {
-  if (process.env.KORD_INDEX_CACHE === "0" || !patches?.length) return false;
+  if (process.env.REKORD_INDEX_CACHE === "0" || !patches?.length) return false;
   const cached = await readLibraryIndexCache(musicRoot);
   if (!cached) return false;
   const byPath = new Map(
@@ -166,7 +166,7 @@ export async function patchAlbumInLibraryIndexCache(
   albumRelPath,
   patch = {},
 ) {
-  if (process.env.KORD_INDEX_CACHE === "0") return false;
+  if (process.env.REKORD_INDEX_CACHE === "0") return false;
   const cached = await readLibraryIndexCache(musicRoot);
   if (!cached || !albumRelPath) return false;
   let found = false;
@@ -220,7 +220,7 @@ export function getLibraryIndexCacheEpochSnapshot(musicRoot) {
  * Dopo aver servito una copia dalla cache: indicizza di nuovo in background e aggiorna il file.
  */
 export function scheduleBackgroundLibraryRefresh(musicRoot) {
-  if (process.env.KORD_INDEX_CACHE === "0") return;
+  if (process.env.REKORD_INDEX_CACHE === "0") return;
   const key = path.resolve(musicRoot);
   if (bgRefreshRunning.has(key)) return;
   bgRefreshRunning.add(key);
@@ -231,7 +231,7 @@ export function scheduleBackgroundLibraryRefresh(musicRoot) {
       if (getEpoch(key) !== epochAtStart) return;
       await writeLibraryIndexCache(musicRoot, fresh);
     } catch (e) {
-      console.error("[kord] background library index refresh:", e?.message || e);
+      console.error("[rekord] background library index refresh:", e?.message || e);
     } finally {
       bgRefreshRunning.delete(key);
     }

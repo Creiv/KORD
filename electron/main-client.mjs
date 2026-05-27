@@ -4,21 +4,21 @@ import fs from "fs";
 import { fileURLToPath, pathToFileURL } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const APP_NAME = "Kord Client";
+const APP_NAME = "RE-KORD Client";
 
 let mainWindow = null;
 let useConnectScreen = true;
 
 function getAppIconPath() {
   const candidates = [
-    path.join(__dirname, "..", "public", "KORDlogo.png"),
-    path.join(__dirname, "..", "dist", "KORDlogo.png"),
+    path.join(__dirname, "..", "public", "REKORDlogo.png"),
+    path.join(__dirname, "..", "dist", "REKORDlogo.png"),
   ];
   return candidates.find((p) => fs.existsSync(p)) || undefined;
 }
 
 function getRemoteStatePath() {
-  return path.join(app.getPath("userData"), "kord-remote.json");
+  return path.join(app.getPath("userData"), "rekord-remote.json");
 }
 
 function readRemoteState() {
@@ -48,7 +48,7 @@ function normalizeBase(input) {
 
 function appendLaunchLog(msg) {
   try {
-    const p = path.join(app.getPath("userData"), "kord-launch.log");
+    const p = path.join(app.getPath("userData"), "rekord-launch.log");
     fs.appendFileSync(p, `${new Date().toISOString()} ${msg}\n`, "utf8");
   } catch {
     /* ok */
@@ -99,8 +99,8 @@ function appUrlFor(base, accountId) {
   const u = new URL(n.endsWith("/") ? n : `${n}/`);
   u.pathname = (u.pathname || "/").replace(/\/+$/, "") + "/";
   u.search = "";
-  u.searchParams.set("kordAccount", String(accountId));
-  u.searchParams.set("kordClient", "1");
+  u.searchParams.set("rekordAccount", String(accountId));
+  u.searchParams.set("rekordClient", "1");
   return u.toString();
 }
 
@@ -152,7 +152,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      partition: "persist:kordclient",
+      partition: "persist:rekordclient",
       preload: path.join(__dirname, "connect-preload.cjs"),
     },
   });
@@ -232,7 +232,7 @@ function installAppMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-ipcMain.handle("kord-client-probe", async (_e, rawBase) => {
+ipcMain.handle("rekord-client-probe", async (_e, rawBase) => {
   const b = normalizeBase(rawBase);
   if (!b) return { ok: false, error: "Indirizzo non valido" };
   try {
@@ -244,7 +244,7 @@ ipcMain.handle("kord-client-probe", async (_e, rawBase) => {
   }
 });
 
-ipcMain.handle("kord-client-join", async (_e, rawBase, accountId) => {
+ipcMain.handle("rekord-client-join", async (_e, rawBase, accountId) => {
   const b = normalizeBase(rawBase);
   if (!b || !accountId) {
     return { ok: false, error: "Dati mancanti" };
@@ -263,7 +263,7 @@ ipcMain.handle("kord-client-join", async (_e, rawBase, accountId) => {
   return { ok: true };
 });
 
-ipcMain.handle("kord-client-saved", () => readRemoteState());
+ipcMain.handle("rekord-client-saved", () => readRemoteState());
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {

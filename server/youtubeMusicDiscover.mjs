@@ -7,7 +7,7 @@ const NEW_RELEASES_SINGLES_BROWSE_ID = "FEmusic_new_releases_singles"
 
 function innertubeClientVersion() {
   return String(
-    process.env.KORD_YTM_INNERTUBE_CLIENT_VERSION || "1.20241127.01.00",
+    process.env.REKORD_YTM_INNERTUBE_CLIENT_VERSION || "1.20241127.01.00",
   ).trim()
 }
 

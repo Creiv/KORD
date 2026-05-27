@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Kord Client</title>
+    <title>RE-KORD Client</title>
     <style>
       * {
         box-sizing: border-box;
@@ -147,7 +147,7 @@
   <body>
     <div class="card" role="main">
       <div class="brand">
-        <span>Kord</span>
+        <span>RE-KORD</span>
         <h1>Connetti</h1>
       </div>
       <div class="row">
@@ -203,9 +203,9 @@
       </div>
     </div>
     <script>
-      if (!window.kordClientConnect) {
+      if (!window.rekordClientConnect) {
         document.body.innerHTML =
-          "<div class=card style=max-width:20rem><p style=color:#e89090;margin:0>Usa l’eseguibile <strong>Kord Client</strong>.</p></div>";
+          "<div class=card style=max-width:20rem><p style=color:#e89090;margin:0>Usa l’eseguibile <strong>RE-KORD Client</strong>.</p></div>";
         throw new Error("no bridge");
       }
       const E = (id) => document.getElementById(id);
@@ -334,7 +334,7 @@
       setActionState("probe");
       updateProbeButton();
 
-      window.kordClientConnect
+      window.rekordClientConnect
         .getSaved()
         .then((s) => {
           if (s && s.baseUrl && !fromUrl) {
@@ -371,7 +371,7 @@
           updateProbeButton();
           return;
         }
-        const r = await window.kordClientConnect.probe(raw);
+        const r = await window.rekordClientConnect.probe(raw);
         btnProbe.disabled = false;
         if (!r || !r.ok) {
           showErr((r && r.error) || "Connessione non riuscita.");
@@ -404,7 +404,7 @@
         if (!id) return;
         showErr("");
         btnOpen.disabled = true;
-        const r = await window.kordClientConnect.join(lastBase, id);
+        const r = await window.rekordClientConnect.join(lastBase, id);
         btnOpen.disabled = false;
         if (!r || !r.ok) {
           showErr((r && r.error) || "Impossibile aprire.");

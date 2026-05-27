@@ -6,7 +6,7 @@ import {
   LibraryArtistFavoriteChips,
   LibraryArtistMetaChips,
 } from "../AppSharedUi";
-import { UiPerson } from "../KordUiIcons";
+import { UiPerson } from "../RekordUiIcons";
 import { initials } from "../../lib/initials";
 import { useI18n } from "../../i18n/useI18n";
 import type { LibraryArtistIndex, LibraryIndex } from "../../types";

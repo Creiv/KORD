@@ -3,7 +3,7 @@ import fs from "fs/promises"
 import os from "os"
 import path from "path"
 import { describe, expect, it } from "vitest"
-import { kordAccountUserStatePath } from "./kordDataStore.mjs"
+import { rekordAccountUserStatePath } from "./rekordDataStore.mjs"
 import {
   mergeUserStateForPut,
   mergeAndWriteUserStatePatch,
@@ -16,7 +16,7 @@ import {
 
 describe("userState", () => {
   it("writes and rereads sanitized user state", async () => {
-    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kord-user-state-"))
+    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "rekord-user-state-"))
     const state = await writeUserState(
       musicRoot,
       {
@@ -60,9 +60,9 @@ describe("userState", () => {
       "testacct",
     )
 
-    const kordPath = kordAccountUserStatePath(musicRoot, "testacct")
-    expect(kordPath).toBeTruthy()
-    await expect(fs.access(kordPath!)).resolves.toBeUndefined()
+    const rekordPath = rekordAccountUserStatePath(musicRoot, "testacct")
+    expect(rekordPath).toBeTruthy()
+    await expect(fs.access(rekordPath!)).resolves.toBeUndefined()
 
     const reloaded = await readUserState(musicRoot, "testacct")
 
@@ -90,7 +90,7 @@ describe("userState", () => {
   })
 
   it("conserva vizMode discowall in sanitizeSettings", async () => {
-    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kord-user-state-dw-"))
+    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "rekord-user-state-dw-"))
     const state = await writeUserState(
       musicRoot,
       {
@@ -105,7 +105,7 @@ describe("userState", () => {
   })
 
   it("PATCH server-side mergea su stato fresco senza expectedRevision", async () => {
-    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kord-user-state-patch-"))
+    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "rekord-user-state-patch-"))
     await writeUserState(
       musicRoot,
       {
@@ -128,7 +128,7 @@ describe("userState", () => {
   })
 
   it("serializza PATCH concorrenti senza perdere campi indipendenti", async () => {
-    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kord-user-state-race-"))
+    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "rekord-user-state-race-"))
     await writeUserState(musicRoot, defaultUserState(), "raceacct")
 
     await Promise.all([
@@ -151,7 +151,7 @@ describe("userState", () => {
   })
 
   it("writeUserPlectrBestWithCAS saves and keeps only if better", async () => {
-    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kord-plectr-cas-"))
+    const musicRoot = await fs.mkdtemp(path.join(os.tmpdir(), "rekord-plectr-cas-"))
     await writeUserState(musicRoot, defaultUserState(), "plectracct")
 
     const first = {

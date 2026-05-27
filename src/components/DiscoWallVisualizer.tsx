@@ -173,7 +173,7 @@ export function DiscoWallVisualizer() {
   const notes = useMemo(() => chooseNotes(chartSet), [chartSet]);
   const bpm = chartSet?.charts.hard?.stats.bpm ?? chartSet?.charts.normal?.stats.bpm ?? null;
   const seed = useMemo(
-    () => hashText(current?.relPath ?? current?.title ?? "kord-discowall"),
+    () => hashText(current?.relPath ?? current?.title ?? "rekord-discowall"),
     [current?.relPath, current?.title],
   );
   const triads = useMemo(() => buildTriads(seed, bpm), [seed, bpm]);
@@ -469,7 +469,7 @@ export function DiscoWallVisualizer() {
           const xn = xnRow[x]!;
           const i = y * cols + x;
 
-          let field = 0;
+          let field: number;
           let accent = 0;
           let colorW0 = 0.2;
           let colorW1 = 0.2;

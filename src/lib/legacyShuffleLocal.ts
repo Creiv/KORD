@@ -1,9 +1,9 @@
-const K_TRACKS = "kord-random-exclude-tracks"
-const K_ALBUMS = "kord-random-exclude-albums"
+const K_TRACKS = "rekord-random-exclude-tracks"
+const K_ALBUMS = "rekord-random-exclude-albums"
 const WPP_TRACKS = "wpp-random-exclude-tracks"
 const WPP_ALBUMS = "wpp-random-exclude-albums"
-const SESSION_ACCOUNT_STORAGE_KEY = "kord-session-account-id"
-const LEGACY_ACTIVE_ACCOUNT_STORAGE_KEY = "kord-active-account-id"
+const SESSION_ACCOUNT_STORAGE_KEY = "rekord-session-account-id"
+const LEGACY_ACTIVE_ACCOUNT_STORAGE_KEY = "rekord-active-account-id"
 
 function loadSet(key: string): string[] {
   try {

@@ -41,8 +41,8 @@ import {
 import type { LibraryReconcileOptions } from "../../lib/libraryReconcile";
 import { parseTrackGenres } from "../../lib/genres";
 import { isStandaloneDisplayMode, useAppRoute } from "../../lib/routing";
-import { KordSplashLoader } from "../KordSplashLoader";
-import { KordViewLoadingFallback } from "../KordViewLoadingFallback";
+import { RekordSplashLoader } from "../RekordSplashLoader";
+import { RekordViewLoadingFallback } from "../RekordViewLoadingFallback";
 import { PlayerDock } from "../PlayerDock/PlayerDock";
 import { MobileBottomNav } from "../MobileBottomNav/MobileBottomNav";
 import { SideBar } from "./SideBar/SideBar";
@@ -57,7 +57,7 @@ import {
 import {
   UiFavorite,
   UiHistory,
-} from "../KordUiIcons";
+} from "../RekordUiIcons";
 import type {
   AppSection,
   DashboardPayload,
@@ -144,7 +144,9 @@ export function AppShell() {
   const [standalone, setStandalone] = useState(() => isStandaloneDisplayMode());
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     try {
-      const v = localStorage.getItem("kord.sidebar.collapsed");
+      const v =
+        localStorage.getItem("rekord.sidebar.collapsed") ??
+        localStorage.getItem("kord.sidebar.collapsed");
       return v === null ? true : v === "1";
     } catch {
       return true;
@@ -155,7 +157,7 @@ export function AppShell() {
     setSidebarCollapsed((prev) => {
       const next = !prev;
       try {
-        localStorage.setItem("kord.sidebar.collapsed", next ? "1" : "0");
+        localStorage.setItem("rekord.sidebar.collapsed", next ? "1" : "0");
       } catch {
         /* ignore storage failures */
       }
@@ -722,12 +724,12 @@ export function AppShell() {
   const currentView = (() => {
     if (route.section === "settings") {
       return (
-        <Suspense fallback={<KordViewLoadingFallback />}>
+        <Suspense fallback={<RekordViewLoadingFallback />}>
           <LazySettingsView />
         </Suspense>
       );
     }
-    if (bootstrapLoading) return <KordSplashLoader />;
+    if (bootstrapLoading) return <RekordSplashLoader />;
     if (error && !index)
       return (
         <div className="panel-empty danger">{formatLoadError(error)}</div>
@@ -736,7 +738,7 @@ export function AppShell() {
     switch (route.section) {
       case "dashboard":
         return (
-          <Suspense fallback={<KordViewLoadingFallback />}>
+          <Suspense fallback={<RekordViewLoadingFallback />}>
             <LazyDashboardView
               dashboard={dashboard}
               index={index}
@@ -747,7 +749,7 @@ export function AppShell() {
         );
       case "libreria":
         return (
-          <Suspense fallback={<KordViewLoadingFallback />}>
+          <Suspense fallback={<RekordViewLoadingFallback />}>
             <LazyLibraryView
               index={index}
               route={route}
@@ -771,7 +773,7 @@ export function AppShell() {
       case "studio":
         return (
           <div className="view-page view-page--studio">
-            <Suspense fallback={<KordViewLoadingFallback />}>
+            <Suspense fallback={<RekordViewLoadingFallback />}>
               <LazyToolsView
                 library={legacyLibrary}
                 libraryIndex={index}
@@ -785,7 +787,7 @@ export function AppShell() {
         );
       case "queue":
         return (
-          <Suspense fallback={<KordViewLoadingFallback />}>
+          <Suspense fallback={<RekordViewLoadingFallback />}>
             <LazyQueueViewNew
               onOpenSavedPlaylist={navToPlaylist}
             />
@@ -793,7 +795,7 @@ export function AppShell() {
         );
       case "playlists":
         return (
-          <Suspense fallback={<KordViewLoadingFallback />}>
+          <Suspense fallback={<RekordViewLoadingFallback />}>
             <LazyPlaylistsViewNew
               route={route}
               index={index}
@@ -803,7 +805,7 @@ export function AppShell() {
         );
       case "favorites":
         return (
-          <Suspense fallback={<KordViewLoadingFallback />}>
+          <Suspense fallback={<RekordViewLoadingFallback />}>
             <LazyTrackCollectionView
               title={t("collection.favoritesTitle")}
               eyebrow={t("collection.favoritesEyebrow")}
@@ -816,7 +818,7 @@ export function AppShell() {
         );
       case "recent":
         return (
-          <Suspense fallback={<KordViewLoadingFallback />}>
+          <Suspense fallback={<RekordViewLoadingFallback />}>
             <LazyTrackCollectionView
               title={t("collection.recentTitle")}
               eyebrow={t("collection.recentEyebrow")}
@@ -829,7 +831,7 @@ export function AppShell() {
         );
       case "statistics":
         return (
-          <Suspense fallback={<KordViewLoadingFallback />}>
+          <Suspense fallback={<RekordViewLoadingFallback />}>
             <LazyStatisticsView
               index={index}
               onOpenArtist={navToLibraryArtist}
@@ -839,7 +841,7 @@ export function AppShell() {
         );
       case "achievements":
         return (
-          <Suspense fallback={<KordViewLoadingFallback />}>
+          <Suspense fallback={<RekordViewLoadingFallback />}>
             <LazyAchievementsView
               index={index}
               onOpenSection={navToSection}

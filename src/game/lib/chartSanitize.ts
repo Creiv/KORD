@@ -1,6 +1,6 @@
 import type { Chart, ChartMap, ChartSet, DifficultyId } from "../types";
 
-/** Chart KORD: tap + hold mantenute su tutte le difficoltà. Niente swipe. */
+/** Chart RE-KORD: tap + hold mantenute su tutte le difficoltà. Niente swipe. */
 export function sanitizeChartForKord(chart: Chart): Chart {
   const notes = chart.notes
     .filter((raw) => raw.type !== "swipe")
@@ -23,7 +23,7 @@ export function sanitizeChartForKord(chart: Chart): Chart {
   return { ...chart, notes };
 }
 
-export function sanitizeChartSetForKord(chartSet: ChartSet): ChartSet {
+export function sanitizeChartSetForRekord(chartSet: ChartSet): ChartSet {
   const charts = {} as ChartMap;
   for (const id of Object.keys(chartSet.charts) as DifficultyId[]) {
     charts[id] = sanitizeChartForKord(chartSet.charts[id]);

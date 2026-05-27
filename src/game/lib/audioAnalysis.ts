@@ -101,7 +101,7 @@ function fileFingerprint(file: File, duration: number): string {
 }
 
 function trackFingerprint(relPath: string, duration: number): string {
-  return `kord:${relPath}:${Math.round(duration * 1000)}`;
+  return `rekord:${relPath}:${Math.round(duration * 1000)}`;
 }
 
 function makeMono(buffer: AudioBuffer): Float32Array {

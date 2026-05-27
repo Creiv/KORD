@@ -5,7 +5,7 @@ import {
   RhythmAnalyzeError,
 } from "../lib/analyzeLibraryTrack";
 import { getCachedChart } from "../lib/chartCache";
-import { sanitizeChartSetForKord } from "../lib/chartSanitize";
+import { sanitizeChartSetForRekord } from "../lib/chartSanitize";
 import type { ChartSet } from "../types";
 import type { EnrichedTrack } from "../../types";
 
@@ -40,7 +40,7 @@ export function useRhythmChart(track: EnrichedTrack | null) {
     if (cached) {
       const timer = window.setTimeout(() => {
         if (loadGenRef.current !== gen) return;
-        setChartSet(sanitizeChartSetForKord(cached));
+        setChartSet(sanitizeChartSetForRekord(cached));
         setPhase("ready");
         setErrorCode(null);
         prefetchRhythmChart(track);
@@ -67,7 +67,7 @@ export function useRhythmChart(track: EnrichedTrack | null) {
             abort.signal,
           );
           if (abort.signal.aborted || loadGenRef.current !== gen) return;
-          setChartSet(sanitizeChartSetForKord(raw));
+          setChartSet(sanitizeChartSetForRekord(raw));
           setPhase("ready");
           setErrorCode(null);
           prefetchRhythmChart(track);

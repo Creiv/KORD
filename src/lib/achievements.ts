@@ -2,7 +2,7 @@ import { countPlectrTracksPlayed } from "../game/lib/plectrStorage";
 import { parseTrackGenres } from "./genres";
 import type { LibraryIndex, UserStateV1 } from "../types";
 
-const STREAK_STORAGE_KEY = "kord-achievements-streak";
+const STREAK_STORAGE_KEY = "rekord-achievements-streak";
 
 /** Soglie XP originali (invariate): ogni fascia vale 2 livelli numerici. */
 export type AchievementXpTier = {
@@ -15,13 +15,13 @@ export const ACHIEVEMENT_XP_TIERS: AchievementXpTier[] = [
   { title: "KICKER", xpMin: 0, xpMax: 99 },
   { title: "KRAFTER", xpMin: 100, xpMax: 299 },
   { title: "KURATORE", xpMin: 300, xpMax: 599 },
-  { title: "KEEPER OF KORD", xpMin: 600, xpMax: 999 },
+  { title: "KEEPER OF RE-KORD", xpMin: 600, xpMax: 999 },
   { title: "KONDUCTOR", xpMin: 1000, xpMax: 1499 },
   { title: "KOMPONER", xpMin: 1500, xpMax: 2199 },
   { title: "KREATOR", xpMin: 2200, xpMax: 2999 },
   { title: "KONTROLLER", xpMin: 3000, xpMax: 3999 },
-  { title: "KORDMASTER", xpMin: 4000, xpMax: 5499 },
-  { title: "KING OF KORD", xpMin: 5500, xpMax: null },
+  { title: "RE-KORDMASTER", xpMin: 4000, xpMax: 5499 },
+  { title: "KING OF RE-KORD", xpMin: 5500, xpMax: null },
 ];
 
 /** @deprecated Usa {@link ACHIEVEMENT_XP_TIERS}. */
@@ -817,13 +817,17 @@ function yesterdayKey(d = new Date()): string {
   return localDateKey(prev);
 }
 
-const LEGACY_STREAK_STORAGE_KEY = "kord-resonance-streak";
+const LEGACY_STREAK_STORAGE_KEY = "rekord-resonance-streak";
+const LEGACY_KORD_STREAK_KEY = "kord-achievements-streak";
+const LEGACY_KORD_RESONANCE_KEY = "kord-resonance-streak";
 
 export function readStreakState(): StreakState {
   try {
     const raw =
       localStorage.getItem(STREAK_STORAGE_KEY) ??
-      localStorage.getItem(LEGACY_STREAK_STORAGE_KEY);
+      localStorage.getItem(LEGACY_STREAK_STORAGE_KEY) ??
+      localStorage.getItem(LEGACY_KORD_STREAK_KEY) ??
+      localStorage.getItem(LEGACY_KORD_RESONANCE_KEY);
     if (!raw) return { count: 0, lastDate: "" };
     const parsed = JSON.parse(raw) as Partial<StreakState>;
     const count =

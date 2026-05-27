@@ -1,9 +1,9 @@
 import { existsSync } from "fs"
 import {
   atomicWriteFileUtf8,
-  kordAccountLibrarySelectionPath,
+  rekordAccountLibrarySelectionPath,
   readJsonFile,
-} from "./kordDataStore.mjs"
+} from "./rekordDataStore.mjs"
 
 const DEFAULT_ACCOUNT_ID = "default"
 
@@ -63,7 +63,7 @@ export function removeAlbumsFromSelectionSets(index, artists, albums, removeRawL
 }
 
 export async function readLibrarySelection(libraryRoot, accountId) {
-  const p = kordAccountLibrarySelectionPath(libraryRoot, accountId)
+  const p = rekordAccountLibrarySelectionPath(libraryRoot, accountId)
   if (!p || !existsSync(p)) return null
   const j = await readJsonFile(p)
   if (!j) return null
@@ -71,7 +71,7 @@ export async function readLibrarySelection(libraryRoot, accountId) {
 }
 
 export async function writeLibrarySelection(libraryRoot, accountId, data) {
-  const p = kordAccountLibrarySelectionPath(libraryRoot, accountId)
+  const p = rekordAccountLibrarySelectionPath(libraryRoot, accountId)
   if (!p) throw new Error("Invalid account")
   const sanitized = sanitizeLibrarySelection(data)
   await atomicWriteFileUtf8(p, JSON.stringify(sanitized, null, 2))

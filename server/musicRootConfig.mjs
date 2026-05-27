@@ -5,12 +5,12 @@ import path from "path";
 import { fileURLToPath } from "url";
 import {
   atomicWriteFileUtf8,
-  kordAccountDir,
-  kordAccountLibrarySelectionPath,
-  kordGlobalAccountsPath,
-  kordGlobalInfoDir,
-} from "./kordDataStore.mjs";
-import { runKordLayoutMigration } from "./migrateKordV2.mjs";
+  rekordAccountDir,
+  rekordAccountLibrarySelectionPath,
+  rekordGlobalAccountsPath,
+  rekordGlobalInfoDir,
+} from "./rekordDataStore.mjs";
+import { runRekordLayoutMigration } from "./migrateRekordV2.mjs";
 
 let layoutMigrationChain = Promise.resolve()
 
@@ -20,14 +20,17 @@ export async function waitForInitialLayoutMigration() {
 
 function enqueueLayoutMigration(opts) {
   layoutMigrationChain = layoutMigrationChain
-    .then(() => runKordLayoutMigration(opts))
+    .then(() => runRekordLayoutMigration(opts))
     .catch((err) => {
-      console.error("[kord] layout migration failed:", err?.message ?? err)
+      console.error("[rekord] layout migration failed:", err?.message ?? err)
     })
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const userDir = process.env.KORD_USER_CONFIG_DIR || process.env.WPP_USER_CONFIG_DIR;
+const userDir =
+  process.env.REKORD_USER_CONFIG_DIR ||
+  process.env.KORD_USER_CONFIG_DIR ||
+  process.env.WPP_USER_CONFIG_DIR;
 export const CONFIG_FILE = userDir
   ? path.join(path.resolve(String(userDir).trim()), "music-root.config.json")
   : path.join(__dirname, "music-root.config.json");
@@ -53,7 +56,10 @@ function readEnv() {
 }
 
 function readYoutubeCookiesEnv() {
-  const e = process.env.KORD_YTDLP_COOKIES;
+  const e =
+    process.env.REKORD_YTDLP_COOKIES ||
+    process.env.KORD_YTDLP_COOKIES ||
+    process.env.WPP_YTDLP_COOKIES;
   if (e && String(e).trim()) return path.resolve(String(e).trim());
   return null;
 }
@@ -144,18 +150,18 @@ function configNeedsPersistRewrite(file) {
 }
 
 function writeAccountsFileSync(libraryRoot, accounts) {
-  const accPath = kordGlobalAccountsPath(libraryRoot);
+  const accPath = rekordGlobalAccountsPath(libraryRoot);
   fs.mkdirSync(path.dirname(accPath), { recursive: true });
   fs.writeFileSync(accPath, JSON.stringify({ schemaVersion: 1, accounts }, null, 2), "utf8");
 }
 
 function loadOrCreateAccountsInLibrarySync(libraryRoot, rawBootstrapAccounts) {
   try {
-    fs.mkdirSync(kordGlobalInfoDir(libraryRoot), { recursive: true });
+    fs.mkdirSync(rekordGlobalInfoDir(libraryRoot), { recursive: true });
   } catch {
     /* ignore */
   }
-  const accPath = kordGlobalAccountsPath(libraryRoot);
+  const accPath = rekordGlobalAccountsPath(libraryRoot);
   if (fs.existsSync(accPath)) {
     try {
       const j = JSON.parse(fs.readFileSync(accPath, "utf8"));
@@ -178,7 +184,7 @@ function loadOrCreateAccountsInLibrarySync(libraryRoot, rawBootstrapAccounts) {
 async function persistAccountsToLibraryAsync() {
   const lib = state.path;
   if (!lib) return;
-  const accPath = kordGlobalAccountsPath(lib);
+  const accPath = rekordGlobalAccountsPath(lib);
   await fsp.mkdir(path.dirname(accPath), { recursive: true });
   await atomicWriteFileUtf8(
     accPath,
@@ -383,7 +389,7 @@ export function isMusicRootFromEnv() {
 }
 
 export function getListenHost() {
-  const raw = process.env.KORD_LISTEN_HOST ?? process.env.KORD_LISTEN ?? ""
+  const raw = process.env.REKORD_LISTEN_HOST ?? process.env.REKORD_LISTEN ?? ""
   const h = String(raw).trim().toLowerCase()
   if (h === "localhost" || h === "loopback" || h === "127.0.0.1") return "127.0.0.1"
   if (!h || h === "lan" || h === "any" || h === "all" || h === "0.0.0.0") return "0.0.0.0"
@@ -456,7 +462,7 @@ export function getYoutubeCookiesPathForYtdlp() {
 export async function setPersistedYoutubeCookiesFile(buffer) {
   if (state.youtubeCookiesFromEnv) {
     const err = new Error(
-      "KORD_YTDLP_COOKIES is set in the environment: unset it to use the in-app option.",
+      "REKORD_YTDLP_COOKIES is set in the environment: unset it to use the in-app option.",
     );
     err.code = "ENV_LOCKED";
     throw err;
@@ -479,7 +485,7 @@ export async function setPersistedYoutubeCookiesFile(buffer) {
 export async function clearPersistedYoutubeCookiesFile() {
   if (state.youtubeCookiesFromEnv) {
     const err = new Error(
-      "KORD_YTDLP_COOKIES is set in the environment: unset it to use the in-app option.",
+      "REKORD_YTDLP_COOKIES is set in the environment: unset it to use the in-app option.",
     );
     err.code = "ENV_LOCKED";
     throw err;
@@ -595,10 +601,10 @@ async function ensureMusicRootDir(resolved) {
 }
 
 async function ensureNewAccountKordLayout(libraryRoot, accountId) {
-  const dir = kordAccountDir(libraryRoot, accountId);
+  const dir = rekordAccountDir(libraryRoot, accountId);
   if (!dir) return;
   await fsp.mkdir(dir, { recursive: true });
-  const sel = kordAccountLibrarySelectionPath(libraryRoot, accountId);
+  const sel = rekordAccountLibrarySelectionPath(libraryRoot, accountId);
   if (sel && !fs.existsSync(sel)) {
     await atomicWriteFileUtf8(
       sel,

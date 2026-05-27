@@ -3,8 +3,8 @@ import { normalizeTrackMoodsList } from "./trackMoods.mjs"
 import { existsSync } from "fs"
 import path from "path"
 import { normalizeStoredGenreString } from "./genres.mjs"
-import { atomicWriteFileUtf8 } from "./kordDataStore.mjs"
-import { kordApiUserAgentWithUrl } from "./kordVersion.mjs"
+import { atomicWriteFileUtf8 } from "./rekordDataStore.mjs"
+import { rekordApiUserAgentWithUrl } from "./rekordVersion.mjs"
 
 const LIB_EXCLUDE = new Set([
   "kord",
@@ -25,7 +25,7 @@ const ITUNES_HEADERS = {
   "Accept-Language": "en-US,en;q=0.9,it;q=0.85",
 }
 
-const MB_UA = kordApiUserAgentWithUrl()
+const MB_UA = rekordApiUserAgentWithUrl()
 const LRCLIB_HEADERS = {
   "User-Agent": MB_UA,
   Accept: "application/json",

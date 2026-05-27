@@ -155,7 +155,7 @@ export async function sendCoverResponse(res, { root, relPath, width, underRoot }
     // our stat check and the actual send (or during dev/HMR restarts). In that case
     // we just fall back to the original without spamming the console.
     if (msg !== "Not Found" && err?.code !== "ENOENT" && err?.status !== 404) {
-      console.error("[kord] cover thumb failed, serving original:", msg);
+      console.error("[rekord] cover thumb failed, serving original:", msg);
     }
     if (!res.headersSent) {
       res.setHeader("Cache-Control", COVER_CACHE);

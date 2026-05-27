@@ -1,9 +1,9 @@
 {
-  "name": "kord",
-  "description": "KORD — local hub for listening to, organizing, and maintaining a personal music library",
-  "author": "KORD",
+  "name": "rekord",
+  "description": "RE-KORD — local hub for listening to, organizing, and maintaining a personal music library",
+  "author": "RE-KORD",
   "private": true,
-  "version": "3.2.0",
+  "version": "3.3.0",
   "type": "module",
   "main": "electron/main.mjs",
   "scripts": {
@@ -68,17 +68,17 @@
     "wait-on": "^8.0.0"
   },
   "build": {
-    "appId": "com.kord.app",
-    "productName": "KORD",
-    "icon": "public/KORDlogo.png",
-    "copyright": "Copyright KORD",
+    "appId": "com.rekord.app",
+    "productName": "RE-KORD",
+    "icon": "public/REKORDlogo.png",
+    "copyright": "Copyright RE-KORD",
     "directories": {
       "output": "release"
     },
     "files": [
       "package.json",
       "dist",
-      "public/KORDlogo.png",
+      "public/REKORDlogo.png",
       "electron",
       "server",
       "node_modules"
@@ -101,14 +101,14 @@
       ]
     },
     "linux": {
-      "icon": "public/KORDlogo.png",
+      "icon": "public/REKORDlogo.png",
       "target": [
         "AppImage"
       ],
       "category": "Audio"
     },
     "mac": {
-      "icon": "public/KORDlogo.png",
+      "icon": "public/REKORDlogo.png",
       "target": [
         "dmg"
       ],

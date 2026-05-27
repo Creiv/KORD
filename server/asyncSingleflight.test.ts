@@ -11,7 +11,7 @@ describe("reuseKeyedPromise", () => {
       await new Promise((r) => setTimeout(r, 15))
       return workRuns === 1 ? "first" : "bad"
     }
-    const key = "/tmp/kord-test-lib"
+    const key = "/tmp/rekord-test-lib"
     const a = reuseKeyedPromise(map, key, () => worker())
     const b = reuseKeyedPromise(map, key, () => worker())
     const [ra, rb] = await Promise.all([a, b])

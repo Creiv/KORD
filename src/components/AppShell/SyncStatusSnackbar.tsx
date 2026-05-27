@@ -17,7 +17,7 @@ export function SyncStatusSnackbar({ message, busy = false }: Props) {
     >
       {busy ? (
         <span className="sync-status-snackbar__spinner" aria-hidden>
-          <span className="kord-splash__ring" />
+          <span className="rekord-splash__ring" />
         </span>
       ) : null}
       <span className="sync-status-snackbar__text">{message}</span>

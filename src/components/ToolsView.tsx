@@ -9,7 +9,7 @@ import {
 } from "react";
 import type { AppSection } from "../types";
 import {
-  K_STUDIO_PANE,
+  REKORD_STUDIO_PANE,
   STUDIO_PANE_EVENT,
   type StudioPaneId,
 } from "../context/StudioNavigationContext";
@@ -89,7 +89,7 @@ import {
   UiImage,
   UiNavHeadphones,
   UiNote,
-} from "./KordUiIcons";
+} from "./RekordUiIcons";
 import { CoverImg } from "./CoverImg";
 import {
   StudioCatalogAlbumTile,
@@ -147,14 +147,14 @@ function findLibTrack(
   return null;
 }
 
-const K_DL_OK = "kord-dl-committed";
+const REKORD_DL_OK = "rekord-dl-committed";
 const W_DL_OK = "wpp-dl-committed";
-const K_DL_OUT = "kord-dl-out";
+const REKORD_DL_OUT = "rekord-dl-out";
 const W_DL_OUT = "wpp-dl-out";
-const K_COVER_ALB = "kord-cover-album";
+const K_COVER_ALB = "rekord-cover-album";
 const W_COVER_ALB = "wpp-cover-album";
-const K_DL_STUDIO_MODE = "kord-dl-studio-mode";
-const K_CATALOG_STUDIO_MODE = "kord-catalog-studio-mode";
+const REKORD_DL_STUDIO_MODE = "rekord-dl-studio-mode";
+const REKORD_CATALOG_STUDIO_MODE = "rekord-catalog-studio-mode";
 
 type StudioPane = StudioPaneId;
 type DlStudioMode = "classic" | "explore";
@@ -162,7 +162,7 @@ type CatalogStudioMode = "local" | "web";
 
 function readStoredDlStudioMode(): DlStudioMode {
   try {
-    const v = localStorage.getItem(K_DL_STUDIO_MODE);
+    const v = localStorage.getItem(REKORD_DL_STUDIO_MODE);
     if (v === "explore") return "explore";
   } catch {
     /* ignore */
@@ -172,7 +172,7 @@ function readStoredDlStudioMode(): DlStudioMode {
 
 function readStoredCatalogStudioMode(): CatalogStudioMode {
   try {
-    const v = localStorage.getItem(K_CATALOG_STUDIO_MODE);
+    const v = localStorage.getItem(REKORD_CATALOG_STUDIO_MODE);
     if (v === "web") return "web";
   } catch {
     /* ignore */
@@ -182,7 +182,7 @@ function readStoredCatalogStudioMode(): CatalogStudioMode {
 
 function readStoredStudioPane(): StudioPane | null {
   try {
-    const v = localStorage.getItem(K_STUDIO_PANE);
+    const v = localStorage.getItem(REKORD_STUDIO_PANE);
     if (v === "shared") return "catalog";
     if (
       v === "listen" ||
@@ -199,9 +199,9 @@ function readStoredStudioPane(): StudioPane | null {
   return null;
 }
 
-function isKordClientEmbed(): boolean {
+function isRekordClientEmbed(): boolean {
   try {
-    return sessionStorage.getItem("kord-embed") === "client";
+    return sessionStorage.getItem("rekord-embed") === "client";
   } catch {
     return false;
   }
@@ -549,11 +549,11 @@ export function ToolsView({
   const [dlPath, setDlPath] = useState(() => {
     try {
       if (
-        sessionStorage.getItem(K_DL_OK) === "1" ||
+        sessionStorage.getItem(REKORD_DL_OK) === "1" ||
         sessionStorage.getItem(W_DL_OK) === "1"
       ) {
         const saved = normalizeDownloadDestPath(
-          sessionStorage.getItem(K_DL_OUT) ??
+          sessionStorage.getItem(REKORD_DL_OUT) ??
           sessionStorage.getItem(W_DL_OUT) ??
           ""
         );
@@ -567,12 +567,12 @@ export function ToolsView({
   const [dlDestPicked, setDlDestPicked] = useState(() => {
     try {
       const saved = normalizeDownloadDestPath(
-        sessionStorage.getItem(K_DL_OUT) ??
+        sessionStorage.getItem(REKORD_DL_OUT) ??
           sessionStorage.getItem(W_DL_OUT) ??
           ""
       );
       return Boolean(saved) && (
-        sessionStorage.getItem(K_DL_OK) === "1" ||
+        sessionStorage.getItem(REKORD_DL_OK) === "1" ||
         sessionStorage.getItem(W_DL_OK) === "1"
       );
     } catch {
@@ -646,7 +646,7 @@ export function ToolsView({
 
   useEffect(() => {
     try {
-      localStorage.setItem(K_STUDIO_PANE, studioPane);
+      localStorage.setItem(REKORD_STUDIO_PANE, studioPane);
     } catch {
       /* ignore */
     }
@@ -663,7 +663,7 @@ export function ToolsView({
 
   useEffect(() => {
     try {
-      localStorage.setItem(K_DL_STUDIO_MODE, dlStudioMode);
+      localStorage.setItem(REKORD_DL_STUDIO_MODE, dlStudioMode);
     } catch {
       /* ignore */
     }
@@ -671,7 +671,7 @@ export function ToolsView({
 
   useEffect(() => {
     try {
-      localStorage.setItem(K_CATALOG_STUDIO_MODE, catalogStudioMode);
+      localStorage.setItem(REKORD_CATALOG_STUDIO_MODE, catalogStudioMode);
     } catch {
       /* ignore */
     }
@@ -704,11 +704,11 @@ export function ToolsView({
     setDlDestPicked(Boolean(normalized));
     try {
       if (normalized) {
-        sessionStorage.setItem(K_DL_OK, "1");
-        sessionStorage.setItem(K_DL_OUT, normalized);
+        sessionStorage.setItem(REKORD_DL_OK, "1");
+        sessionStorage.setItem(REKORD_DL_OUT, normalized);
       } else {
-        sessionStorage.removeItem(K_DL_OK);
-        sessionStorage.removeItem(K_DL_OUT);
+        sessionStorage.removeItem(REKORD_DL_OK);
+        sessionStorage.removeItem(REKORD_DL_OUT);
         sessionStorage.removeItem(W_DL_OK);
         sessionStorage.removeItem(W_DL_OUT);
       }
@@ -721,8 +721,8 @@ export function ToolsView({
     setDlPath("");
     setDlDestPicked(false);
     try {
-      sessionStorage.removeItem(K_DL_OK);
-      sessionStorage.removeItem(K_DL_OUT);
+      sessionStorage.removeItem(REKORD_DL_OK);
+      sessionStorage.removeItem(REKORD_DL_OUT);
       sessionStorage.removeItem(W_DL_OK);
       sessionStorage.removeItem(W_DL_OUT);
     } catch {
@@ -849,15 +849,15 @@ export function ToolsView({
     fetchConfig()
       .then((c) => {
         setCatalogLockedByEnv(c.lockedByEnv);
-        setServerLocalAccess(Boolean(c.localAccess) && !isKordClientEmbed());
+        setServerLocalAccess(Boolean(c.localAccess) && !isRekordClientEmbed());
       })
       .catch(() => {});
   }, []);
 
   useEffect(() => {
     const h = () => setLocalSessionAccount(getSelectedAccountId());
-    window.addEventListener("kord-account-session-changed", h);
-    return () => window.removeEventListener("kord-account-session-changed", h);
+    window.addEventListener("rekord-account-session-changed", h);
+    return () => window.removeEventListener("rekord-account-session-changed", h);
   }, []);
 
   const libraryArtistsSorted = useMemo((): LibArtist[] => {

@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require("electron")
 
-contextBridge.exposeInMainWorld("kordClientConnect", {
-  probe: (base) => ipcRenderer.invoke("kord-client-probe", base),
-  join: (base, accountId) => ipcRenderer.invoke("kord-client-join", base, accountId),
-  getSaved: () => ipcRenderer.invoke("kord-client-saved"),
+contextBridge.exposeInMainWorld("rekordClientConnect", {
+  probe: (base) => ipcRenderer.invoke("rekord-client-probe", base),
+  join: (base, accountId) => ipcRenderer.invoke("rekord-client-join", base, accountId),
+  getSaved: () => ipcRenderer.invoke("rekord-client-saved"),
 })

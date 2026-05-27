@@ -41,7 +41,7 @@ async function githubApi(url) {
   const r = await fetch(url, {
     headers: {
       Accept: "application/vnd.github+json",
-      "User-Agent": "kord-cloudflared-fetch",
+      "User-Agent": "rekord-cloudflared-fetch",
     },
   })
   if (!r.ok) throw new Error(`GitHub API: ${r.status} ${r.statusText}`)

@@ -15,7 +15,7 @@ import {
   UiPlayArrow,
   UiQueueMusic,
   UiShuffle,
-} from "../../components/KordUiIcons";
+} from "../../components/RekordUiIcons";
 import type { AppSection, LibraryIndex } from "../../types";
 
 function BadgeIcon({

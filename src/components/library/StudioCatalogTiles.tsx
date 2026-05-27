@@ -1,6 +1,6 @@
 import { memo, useCallback, type KeyboardEvent } from "react";
 import { CoverImg } from "../CoverImg";
-import { UiAlbumIcon, UiPerson } from "../KordUiIcons";
+import { UiAlbumIcon, UiPerson } from "../RekordUiIcons";
 import { initials } from "../../lib/initials";
 import { useI18n } from "../../i18n/useI18n";
 import type { CatalogAlbumEntry, CatalogArtistEntry } from "../../types";

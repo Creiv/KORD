@@ -1,8 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext } from "react";
 
-export const K_STUDIO_PANE = "kord-studio-pane";
-export const STUDIO_PANE_EVENT = "kord-studio-pane";
+export const REKORD_STUDIO_PANE = "rekord-studio-pane";
+export const STUDIO_PANE_EVENT = "rekord-studio-pane";
 
 export type StudioPaneId =
   | "listen"
@@ -38,7 +38,7 @@ export function useStudioNavigation() {
 
 export function stashStudioPane(pane: StudioPaneId) {
   try {
-    localStorage.setItem(K_STUDIO_PANE, pane);
+    localStorage.setItem(REKORD_STUDIO_PANE, pane);
   } catch {
     /* ignore */
   }

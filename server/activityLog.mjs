@@ -2,7 +2,7 @@ import fs from "fs/promises"
 import { existsSync } from "fs"
 import path from "path"
 import { getMusicRoot, isLibraryRootConfigured } from "./musicRootConfig.mjs"
-import { kordGlobalInfoDir } from "./kordDataStore.mjs"
+import { rekordGlobalInfoDir } from "./rekordDataStore.mjs"
 
 const LOG_BASENAME = "kord-activity.log.jsonl"
 
@@ -10,7 +10,7 @@ export function getActivityLogFilePath() {
   if (!isLibraryRootConfigured()) return null
   const root = getMusicRoot()
   if (!root) return null
-  return path.join(kordGlobalInfoDir(root), LOG_BASENAME)
+  return path.join(rekordGlobalInfoDir(root), LOG_BASENAME)
 }
 
 /** Coda in-process: righe JSONL non si intercalano. */
@@ -31,7 +31,7 @@ export async function appendActivityLog(entry) {
     await fs.mkdir(path.dirname(p), { recursive: true })
     await fs.appendFile(p, line, "utf8")
   })
-  activityLogChain = job.catch((e) => console.error("[kord] activity log:", e?.message ?? e))
+  activityLogChain = job.catch((e) => console.error("[rekord] activity log:", e?.message ?? e))
   await job
 }
 

@@ -50,7 +50,7 @@ import {
   UiSortByAlpha,
   UiStyle,
   UiViewModule,
-} from "../../components/KordUiIcons";
+} from "../../components/RekordUiIcons";
 import {
   saveTrackInfoManual,
 } from "../../lib/api";

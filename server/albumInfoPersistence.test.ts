@@ -12,7 +12,7 @@ import {
 
 describe("albumInfo persistence", () => {
   it("mergea salvataggi concorrenti su metadati traccia senza perdere campi", async () => {
-    const albumDir = await fs.mkdtemp(path.join(os.tmpdir(), "kord-track-meta-"))
+    const albumDir = await fs.mkdtemp(path.join(os.tmpdir(), "rekord-track-meta-"))
     const fileName = "01 Song.flac"
 
     await Promise.all([
@@ -29,7 +29,7 @@ describe("albumInfo persistence", () => {
   })
 
   it("mergea salvataggi concorrenti su metadati album senza perdere campi", async () => {
-    const albumDir = await fs.mkdtemp(path.join(os.tmpdir(), "kord-album-meta-"))
+    const albumDir = await fs.mkdtemp(path.join(os.tmpdir(), "rekord-album-meta-"))
 
     await Promise.all([
       saveAlbumManualMeta(albumDir, { title: "Manual album" }),
@@ -49,7 +49,7 @@ describe("albumInfo persistence", () => {
   })
 
   it("normalizza i generi salvati sui metadati album", async () => {
-    const albumDir = await fs.mkdtemp(path.join(os.tmpdir(), "kord-album-genre-"))
+    const albumDir = await fs.mkdtemp(path.join(os.tmpdir(), "rekord-album-genre-"))
 
     await saveAlbumManualMeta(albumDir, { genre: "Rock / Pop, Rock; Synth" })
 

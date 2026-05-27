@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { useI18n } from "../../../i18n/useI18n";
-import { KordBrandLogo } from "../../KordBrandLogo";
-import { UiAutorenew, UiInstallMobile, UiSearch } from "../../KordUiIcons";
+import { RekordBrandLogo } from "../../RekordBrandLogo";
+import { UiAutorenew, UiInstallMobile, UiSearch } from "../../RekordUiIcons";
 import { NAV_DEF } from "../../../lib/routing";
 import type { AppSection } from "../../../types";
 import styles from "./TopBar.module.css";
@@ -33,7 +33,7 @@ export const TopBar = memo(function TopBar({
   const { t } = useI18n();
 
   const currentNavItem = NAV_DEF.find((item) => item.id === activeSection);
-  const sectionTitle = currentNavItem ? t(currentNavItem.labelKey) : "KORD";
+  const sectionTitle = currentNavItem ? t(currentNavItem.labelKey) : "RE-KORD";
 
   return (
     <header className={styles.topbar} role="banner">
@@ -45,7 +45,7 @@ export const TopBar = memo(function TopBar({
         <div className={styles.start}>
           {/* Wordmark visible only when no section title shown (fallback / very small) */}
           <div className={styles.brand} aria-hidden>
-            <KordBrandLogo className="kord-brand-logo kord-brand-logo--topbar" decorative />
+            <RekordBrandLogo className="rekord-brand-logo rekord-brand-logo--topbar" decorative />
           </div>
           <span className={styles.pageTitle} aria-hidden>
             {sectionTitle}

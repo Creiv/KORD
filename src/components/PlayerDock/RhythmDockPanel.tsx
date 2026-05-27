@@ -33,7 +33,7 @@ import {
 import type { Chart, GameResult } from "../../game/types";
 import { audioElementMatchesTrack } from "../../lib/mediaTrackMatch";
 import type { EnrichedTrack, LibraryEntityDelta, PlectrBestScore } from "../../types";
-import { UiClose, UiEmojiEvents, UiPlectrum } from "../KordUiIcons";
+import { UiClose, UiEmojiEvents, UiPlectrum } from "../RekordUiIcons";
 
 function resolveDisplayBest(
   relPath: string,

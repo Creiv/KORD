@@ -39,7 +39,7 @@ function emptyState(): Pick<
 describe("achievements", () => {
   it("has 10 titles, unchanged XP tiers, and 65 achievements", () => {
     expect(ACHIEVEMENT_XP_TIERS).toHaveLength(10);
-    expect(ACHIEVEMENT_TITLES[9]).toBe("KING OF KORD");
+    expect(ACHIEVEMENT_TITLES[9]).toBe("KING OF RE-KORD");
     expect(ACHIEVEMENT_DEFINITIONS).toHaveLength(65);
   });
 
@@ -63,7 +63,7 @@ describe("achievements", () => {
 
   it("LEVEL_XP_SCALE makes progression slightly harder", () => {
     expect(LEVEL_XP_SCALE).toBeGreaterThan(1);
-    expect(levelForXp(1781)).toMatchObject({ level: 10, title: "KEEPER OF KORD" });
+    expect(levelForXp(1781)).toMatchObject({ level: 10, title: "KEEPER OF RE-KORD" });
   });
 
   it("max completion XP unlocks all badges", () => {
@@ -92,13 +92,13 @@ describe("achievements", () => {
     expect(computeTotalXp(signals)).toBe(15155);
   });
 
-  it("titleForNumericLevel changes every 3 levels and caps at KING OF KORD", () => {
+  it("titleForNumericLevel changes every 3 levels and caps at KING OF RE-KORD", () => {
     expect(titleForNumericLevel(1)).toBe("KICKER");
     expect(titleForNumericLevel(3)).toBe("KICKER");
     expect(titleForNumericLevel(4)).toBe("KRAFTER");
-    expect(titleForNumericLevel(28)).toBe("KING OF KORD");
-    expect(titleForNumericLevel(30)).toBe("KING OF KORD");
-    expect(titleForNumericLevel(50)).toBe("KING OF KORD");
+    expect(titleForNumericLevel(28)).toBe("KING OF RE-KORD");
+    expect(titleForNumericLevel(30)).toBe("KING OF RE-KORD");
+    expect(titleForNumericLevel(50)).toBe("KING OF RE-KORD");
   });
 
   it("numericLevelForXp grows without cap", () => {

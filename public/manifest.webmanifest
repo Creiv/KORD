@@ -1,7 +1,7 @@
 {
-  "name": "KORD",
-  "short_name": "KORD",
-  "description": "KORD - local hub for listening to, organizing, and maintaining a personal music library.",
+  "name": "RE-KORD",
+  "short_name": "RE-KORD",
+  "description": "RE-KORD - local hub for listening to, organizing, and maintaining a personal music library.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
@@ -11,13 +11,13 @@
   "theme_color": "#0f1117",
   "icons": [
     {
-      "src": "/KORDlogo.png",
+      "src": "/REKORDlogo.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/KORDlogo.png",
+      "src": "/REKORDlogo.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
