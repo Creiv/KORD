@@ -3,9 +3,12 @@
  * Uso: node scripts/fetch-ytdlp.mjs <win|linux|mac> [versione]
  * Senza argomenti: deduce la piattaforma dall'OS corrente.
  */
-import { mkdir, writeFile, chmod } from "node:fs/promises"
+import { createWriteStream } from "node:fs"
+import { mkdir, chmod, stat } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { pipeline } from "node:stream/promises"
+import { Readable } from "node:stream"
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..")
 const outDir = path.join(root, "server", "bin")
@@ -55,27 +58,59 @@ function pickAsset(assets, name) {
   throw new Error(`Nessun asset "${name}" nella release (disponibili: ${assets.map((x) => x.name).join(", ")})`)
 }
 
-async function downloadToFile(url, dest) {
-  const r = await fetch(url, { redirect: "follow" })
-  if (!r.ok) throw new Error(`Download fallito: ${r.status} ${r.statusText}`)
-  const ab = await r.arrayBuffer()
-  const buf = Buffer.from(ab)
-  if (buf.length < 1_000_000) {
-    throw new Error(`File scaricato sospettosamente piccolo (${buf.length} byte); controlla l'URL.`)
+const FETCH_TIMEOUT_MS = 10 * 60 * 1000
+const MIN_BYTES = 1_000_000
+
+async function existingBinaryOk(dest) {
+  try {
+    const st = await stat(dest)
+    return st.isFile() && st.size >= MIN_BYTES
+  } catch {
+    return false
   }
-  await writeFile(dest, buf)
+}
+
+async function downloadToFile(url, dest) {
+  const r = await fetch(url, {
+    redirect: "follow",
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  })
+  if (!r.ok) throw new Error(`Download fallito: ${r.status} ${r.statusText}`)
+  if (!r.body) throw new Error("Download senza body")
+  const tmp = `${dest}.download`
+  await pipeline(Readable.fromWeb(r.body), createWriteStream(tmp))
+  const st = await stat(tmp)
+  if (st.size < MIN_BYTES) {
+    throw new Error(`File scaricato sospettosamente piccolo (${st.size} byte); controlla l'URL.`)
+  }
+  const { rename } = await import("node:fs/promises")
+  await rename(tmp, dest)
 }
 
 async function main() {
+  if (process.env.REKORD_SKIP_YTDLP_FETCH === "1") {
+    const dest = path.join(outDir, destName)
+    if (await existingBinaryOk(dest)) {
+      console.log(`Skip fetch (REKORD_SKIP_YTDLP_FETCH): ${path.relative(root, dest)} già presente`)
+      return
+    }
+    console.warn("REKORD_SKIP_YTDLP_FETCH=1 ma il binario manca o è troppo piccolo; continuo il download.")
+  }
+
+  await mkdir(outDir, { recursive: true })
+  const dest = path.join(outDir, destName)
+  if (await existingBinaryOk(dest)) {
+    console.log(`Già presente, skip: ${path.relative(root, dest)}`)
+    return
+  }
+
   const relUrl = releaseTag
     ? `https://api.github.com/repos/yt-dlp/yt-dlp/releases/tags/${releaseTag}`
     : "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
   const data = await githubApi(relUrl)
   const assets = data.assets || []
   const asset = pickAsset(assets, assetName)
-  await mkdir(outDir, { recursive: true })
-  const dest = path.join(outDir, destName)
-  console.log(`Scarico ${asset.name} → ${path.relative(root, dest)}`)
+  console.log(`Scarico ${asset.name} → ${path.relative(root, dest)} (può richiedere alcuni minuti)`)
   await downloadToFile(asset.browser_download_url, dest)
   if (platform !== "win") {
     await chmod(dest, 0o755)

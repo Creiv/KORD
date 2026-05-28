@@ -65,9 +65,17 @@ async function isValidThumbFile(filePath) {
 let sharpModule = null;
 
 async function getSharp() {
+  if (sharpModule === false) {
+    throw new Error("sharp non disponibile (binding nativo assente o piattaforma errata)");
+  }
   if (sharpModule) return sharpModule;
-  sharpModule = (await import("sharp")).default;
-  return sharpModule;
+  try {
+    sharpModule = (await import("sharp")).default;
+    return sharpModule;
+  } catch (err) {
+    sharpModule = false;
+    throw err;
+  }
 }
 
 async function writeCoverThumb(sourcePath, outPath, width) {

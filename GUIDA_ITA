@@ -358,6 +358,17 @@ npm run pack:win:server -- 3.3.0     # preferibile su Windows
 
 Il flavor **server** include API, UI compilata, **yt-dlp** e **cloudflared** per l’OS scelto. I dati utente sul disco restano in **`.kord/`**.
 
+### Cross-build Windows da Linux
+
+`npm run pack:win:server` su Linux è supportato: lo script installa automaticamente i binding **sharp** per win32 prima del pack e li ripristina dopo. Serve rete per scaricare yt-dlp (~20–40 MB) la prima volta; se il file c’è già, il download viene saltato. Per forzare lo skip: `REKORD_SKIP_YTDLP_FETCH=1 npm run pack:win:server -- 3.3.0` (solo se `server/bin/yt-dlp.exe` è già valido).
+
+Distribuisci **`RE-KORD-Server-…`** (non il Client): solo il Server avvia il backend integrato.
+
+Se su Windows compare “server non raggiungibile”, chiedi al destinatario i log in `%APPDATA%\RE-KORD\` (o cartella `userData` dell’app):
+
+- `rekord-launch.log` — avvio Electron e porta
+- `rekord-server.log` — stderr del processo Node (errori di import/crash)
+
 ---
 
 ## 19) In una riga

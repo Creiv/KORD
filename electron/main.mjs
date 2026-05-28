@@ -249,10 +249,24 @@ function pickPortDevOrExplicit() {
   )
 }
 
+function serverStdioForPackaged(userData, useStdio) {
+  if (useStdio || isDev()) return useStdio ? "inherit" : "ignore"
+  try {
+    const logPath = path.join(userData, "rekord-server.log")
+    const fd = fs.openSync(logPath, "a")
+    appendLaunchLog(`server log → ${logPath}`)
+    return ["ignore", fd, fd]
+  } catch (e) {
+    appendLaunchLog(`warn: server log file ${e}`)
+    return "ignore"
+  }
+}
+
 async function tryStartOnPort(userData, port, useStdio, cwd, script) {
   const env = {
     ...process.env,
     REKORD_USER_CONFIG_DIR: userData,
+    KORD_USER_CONFIG_DIR: userData,
     WPP_USER_CONFIG_DIR: userData,
     PORT: String(port),
     ELECTRON_RUN_AS_NODE: "1",
@@ -261,7 +275,7 @@ async function tryStartOnPort(userData, port, useStdio, cwd, script) {
   const child = spawn(process.execPath, [script], {
     env,
     cwd,
-    stdio: useStdio ? "inherit" : "ignore",
+    stdio: serverStdioForPackaged(userData, useStdio),
   })
   child.on("error", (err) => {
     console.error("[rekord] server", err)
@@ -274,6 +288,11 @@ async function tryStartOnPort(userData, port, useStdio, cwd, script) {
     .catch(() => "health-fail")
   const r = await Promise.race([healthP, exitP.then((code) => ({ exit: code }))])
   if (r !== "ok") {
+    const detail =
+      r && typeof r === "object" && "exit" in r
+        ? `exit=${r.exit}`
+        : String(r)
+    appendLaunchLog(`server not healthy on ${port} (${detail}) — vedi rekord-server.log`)
     try {
       child.kill("SIGTERM")
     } catch {
