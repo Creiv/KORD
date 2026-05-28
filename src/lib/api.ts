@@ -572,6 +572,8 @@ export type AppConfig = {
   serverPort: number
   devClientPort: number
   lanAccessUrl: string | null
+  lanAccessUrls?: string[]
+  serverPlatform?: string
   defaultAccountId?: string
   remoteAccess?: RemoteAccessState
 }

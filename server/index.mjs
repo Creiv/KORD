@@ -87,6 +87,7 @@ import {
   preferredAlbumTrackInfoPath,
 } from "./trackInfoPaths.mjs";
 import { resolveYtdlpPath } from "./ytdlpPath.mjs";
+import { buildLanAccessUrls } from "./lanNetwork.mjs";
 import {
   appendActivityLog,
   diffUserStatePlaylistsAndSettings,
@@ -1135,6 +1136,14 @@ app.use("/media", (req, res, next) => {
 
 app.get("/api/health", async (req, res) => {
   try {
+    const envToken = String(process.env.REKORD_STARTUP_TOKEN || "").trim();
+    const queryToken = String(req.query?.startupToken ?? "").trim();
+    if (envToken) {
+      if (queryToken !== envToken) {
+        return sendError(res, 503, "startup_token_mismatch");
+      }
+    }
+
     const accountId = accountIdFromReq(req);
     if (!isLibraryRootConfigured()) {
       const payload = {
@@ -1143,6 +1152,7 @@ app.get("/api/health", async (req, res) => {
         userStateVersion: null,
         accountId,
       };
+      if (envToken && queryToken === envToken) payload.startupToken = envToken;
       if (isLocalRequest(req)) payload.musicRoot = null;
       return sendOk(res, payload);
     }
@@ -1154,6 +1164,7 @@ app.get("/api/health", async (req, res) => {
       userStateVersion: state.version,
       accountId,
     };
+    if (envToken && queryToken === envToken) payload.startupToken = envToken;
     if (isLocalRequest(req)) payload.musicRoot = root;
     return sendOk(res, payload);
   } catch (error) {
@@ -2527,7 +2538,8 @@ app.post("/api/download", async (req, res) => {
       activeYtdlpDownloads.delete(downloadId);
       resultCode = code ?? -1;
       let postDownloadError = null;
-      if (resultCode === 0) {
+      const shouldPostProcess = resultCode === 0;
+      if (shouldPostProcess) {
         const folder =
           outputDirForLog && outputDirForLog.length > 0
             ? outputDirForLog.replace(/\\/g, "/")
@@ -2539,13 +2551,6 @@ app.post("/api/download", async (req, res) => {
           folder,
           detail: u,
         });
-        try {
-          await invalidateLibraryIndex(root);
-          await attachStudioDownloadToLibrarySelection(req, root, outputDirForLog);
-        } catch (error) {
-          postDownloadError = error;
-          console.error("[rekord] post-download library refresh:", error?.message || error);
-        }
       }
       const combined = `${stderrAcc.buffer}\n${stdoutAcc.buffer}`;
       const ot = trimLogForNdjson(stdoutAcc);
@@ -2585,6 +2590,19 @@ app.post("/api/download", async (req, res) => {
           /* client già disconnesso */
         }
       });
+      if (shouldPostProcess) {
+        void (async () => {
+          try {
+            await invalidateLibraryIndex(root);
+            await attachStudioDownloadToLibrarySelection(req, root, outputDirForLog);
+          } catch (error) {
+            console.error(
+              "[rekord] post-download library refresh:",
+              error?.message || error,
+            );
+          }
+        })();
+      }
     });
     child.on("error", (error) => {
       removeDisconnectListeners();
@@ -3514,6 +3532,15 @@ async function startListening() {
     console.log(
       `[music-server] http://${LISTEN_HOST}:${PORT} -> ${getMusicRoot()}`
     );
+    const lanUrls = buildLanAccessUrls(PORT);
+    if (lanUrls.length) {
+      console.log(`[music-server] LAN: ${lanUrls.join(", ")}`);
+    }
+    if (process.platform === "win32" && LISTEN_HOST === "0.0.0.0") {
+      console.log(
+        "[music-server] Windows: se l'URL Cloudflare funziona ma l'IP LAN no, consenti RE-KORD sul firewall per reti private.",
+      );
+    }
     if (remoteAccessState.enabled) {
       try {
         startRemoteAccess();

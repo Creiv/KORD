@@ -1,8 +1,12 @@
 import fs from "fs";
 import fsp from "fs/promises";
-import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
+import {
+  buildLanAccessUrl,
+  buildLanAccessUrls,
+  guessLanIPv4,
+} from "./lanNetwork.mjs";
 import {
   atomicWriteFileUtf8,
   rekordAccountDir,
@@ -302,39 +306,6 @@ export function isLibraryRootConfigured() {
   }
 }
 
-function isIPv4Family(family) {
-  return family === "IPv4" || family === 4;
-}
-
-function scoreLanIPv4(addr) {
-  const p = String(addr).split(".");
-  if (p.length !== 4) return 0;
-  const a0 = Number(p[0]);
-  const a1 = Number(p[1]);
-  if (a0 === 10) return 80;
-  if (a0 === 192 && a1 === 168) return 100;
-  if (a0 === 172 && a1 >= 16 && a1 <= 31) return 40;
-  if (a0 === 169 && a1 === 254) return 5;
-  if (a0 === 100 && a1 >= 64 && a1 <= 127) return 20;
-  if (a0 === 127) return 0;
-  return 15;
-}
-
-function guessLanIPv4() {
-  const nets = os.networkInterfaces();
-  const cands = [];
-  for (const name of Object.keys(nets)) {
-    for (const net of nets[name] || []) {
-      if (!isIPv4Family(net.family) || net.internal) continue;
-      const addr = net.address;
-      if (addr && addr !== "0.0.0.0") cands.push({ addr, score: scoreLanIPv4(addr) });
-    }
-  }
-  if (!cands.length) return null;
-  cands.sort((a, b) => b.score - a.score);
-  return cands[0].addr;
-}
-
 export function getMusicRoot() {
   return state.path;
 }
@@ -389,7 +360,12 @@ export function isMusicRootFromEnv() {
 }
 
 export function getListenHost() {
-  const raw = process.env.REKORD_LISTEN_HOST ?? process.env.REKORD_LISTEN ?? ""
+  const raw =
+    process.env.REKORD_LISTEN_HOST ??
+    process.env.REKORD_LISTEN ??
+    process.env.KORD_LISTEN_HOST ??
+    process.env.KORD_LISTEN ??
+    ""
   const h = String(raw).trim().toLowerCase()
   if (h === "localhost" || h === "loopback" || h === "127.0.0.1") return "127.0.0.1"
   if (!h || h === "lan" || h === "any" || h === "all" || h === "0.0.0.0") return "0.0.0.0"
@@ -398,14 +374,16 @@ export function getListenHost() {
 
 export function getConfigSnapshot(includeMusicRoot) {
   const serverPort = Number(process.env.PORT) || 3001;
-  const ip = guessLanIPv4();
-  const lanAccessUrl = ip ? `http://${ip}:${serverPort}` : null;
+  const lanAccessUrls = buildLanAccessUrls(serverPort);
+  const lanAccessUrl = lanAccessUrls[0] ?? buildLanAccessUrl(guessLanIPv4(), serverPort);
   const snap = {
     lockedByEnv: state.fromEnv,
     libraryRootConfigured: isLibraryRootConfigured(),
     serverPort,
     devClientPort: 5173,
     lanAccessUrl,
+    lanAccessUrls,
+    serverPlatform: process.platform,
     defaultAccountId: getDefaultAccountId(),
     youtubeCookiesConfigured: Boolean(
       state.youtubeCookiesPath && fs.existsSync(state.youtubeCookiesPath)

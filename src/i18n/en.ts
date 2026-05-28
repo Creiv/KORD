@@ -444,6 +444,9 @@ export const EN: Record<string, string> = {
   "settings.networkLead":
     "While the server is running it listens on all network interfaces. The API uses port {{port}}. In development the UI is served by Vite on port {{devPort}}.",
   "settings.networkUrlHint": "Estimated address on your network: {{url}}",
+  "settings.networkUrlAlternates": "Other detected addresses: {{urls}}",
+  "settings.networkWinFirewallHint":
+    "On Windows: if the Cloudflare public URL works but the LAN IP does not, allow RE-KORD (or Node) through Windows Firewall on private networks. You may need to do this again after an update.",
   "settings.networkNoUrl":
     "No LAN IPv4 detected — find this machine’s address manually.",
   "settings.remoteLogin": "Cloudflare login",

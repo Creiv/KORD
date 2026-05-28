@@ -73,6 +73,8 @@ function SettingsView() {
   const [youtubeCookiesOk, setYoutubeCookiesOk] = useState<string | null>(null);
   const youtubeCookiesInputRef = useRef<HTMLInputElement | null>(null);
   const [lanAccessUrl, setLanAccessUrl] = useState<string | null>(null);
+  const [lanAccessUrls, setLanAccessUrls] = useState<string[]>([]);
+  const [serverPlatform, setServerPlatform] = useState<string | null>(null);
   const [remoteAccess, setRemoteAccess] = useState<RemoteAccessState | null>(
     null
   );
@@ -137,6 +139,16 @@ function SettingsView() {
         setSelectedAccountIdState(selected);
         setLibraryPath(String(c.musicRoot ?? ""));
         setLanAccessUrl(c.lanAccessUrl);
+        setLanAccessUrls(
+          Array.isArray(c.lanAccessUrls) && c.lanAccessUrls.length
+            ? c.lanAccessUrls
+            : c.lanAccessUrl
+              ? [c.lanAccessUrl]
+              : [],
+        );
+        setServerPlatform(
+          typeof c.serverPlatform === "string" ? c.serverPlatform : null,
+        );
         setRemoteAccess(c.remoteAccess || null);
         setLibraryErr(null);
         setAccountErr(null);
@@ -813,6 +825,18 @@ function SettingsView() {
             ) : (
               <p className="subtle sm">{t("settings.networkNoUrl")}</p>
             )}
+            {lanAccessUrls.length > 1 ? (
+              <p className="subtle sm">
+                {t("settings.networkUrlAlternates", {
+                  urls: lanAccessUrls.slice(1).join(", "),
+                })}
+              </p>
+            ) : null}
+            {serverPlatform === "win32" && isNetworkControlAllowed ? (
+              <p className="subtle sm warnline">
+                {t("settings.networkWinFirewallHint")}
+              </p>
+            ) : null}
             {isNetworkControlAllowed ? (
               <>
                 <div

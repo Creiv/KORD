@@ -452,6 +452,9 @@ export const IT: Record<string, string> = {
   "settings.networkLead":
     "Con il server avviato l'ascolto è su tutte le interfacce di rete (LAN). L'API usa la porta {{port}}. In sviluppo l'interfaccia è servita da Vite sulla porta {{devPort}}.",
   "settings.networkUrlHint": "Indirizzo stimato sulla tua rete: {{url}}",
+  "settings.networkUrlAlternates": "Altri indirizzi rilevati: {{urls}}",
+  "settings.networkWinFirewallHint":
+    "Su Windows: se l'URL pubblico Cloudflare funziona ma l'IP LAN no, apri «Consenti app…» nel firewall e abilita RE-KORD (o Node) sulle reti private. Dopo un aggiornamento potrebbe servire di nuovo.",
   "settings.networkNoUrl":
     "Nessun IPv4 LAN rilevato: controlla l'indirizzo del computer manualmente.",
   "settings.remoteLogin": "Login Cloudflare",

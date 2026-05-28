@@ -102,8 +102,13 @@ function writePersistedServerPort(p) {
   }
 }
 
-function waitForHealth(p, maxMs) {
+function makeStartupToken() {
+  return `rk-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function waitForHealth(port, startupToken, maxMs) {
   const start = Date.now()
+  const healthPath = `/api/health?startupToken=${encodeURIComponent(startupToken)}`
   return new Promise((resolve, reject) => {
     const tryOnce = () => {
       if (Date.now() - start > maxMs) {
@@ -111,11 +116,29 @@ function waitForHealth(p, maxMs) {
         return
       }
       const req = http.request(
-        { host: "127.0.0.1", port: p, path: "/api/health", method: "GET", timeout: 1500 },
+        {
+          host: "127.0.0.1",
+          port,
+          path: healthPath,
+          method: "GET",
+          timeout: 1500,
+        },
         (res) => {
-          res.resume()
-          if (res.statusCode && res.statusCode < 500) resolve()
-          else setTimeout(tryOnce, 200)
+          const chunks = []
+          res.on("data", (chunk) => chunks.push(chunk))
+          res.on("end", () => {
+            if (!res.statusCode || res.statusCode >= 500) {
+              setTimeout(tryOnce, 200)
+              return
+            }
+            try {
+              const body = JSON.parse(Buffer.concat(chunks).toString("utf8"))
+              if (body?.data?.startupToken === startupToken) resolve()
+              else setTimeout(tryOnce, 200)
+            } catch {
+              setTimeout(tryOnce, 200)
+            }
+          })
         },
       )
       req.on("error", () => setTimeout(tryOnce, 200))
@@ -263,12 +286,14 @@ function serverStdioForPackaged(userData, useStdio) {
 }
 
 async function tryStartOnPort(userData, port, useStdio, cwd, script) {
+  const startupToken = makeStartupToken()
   const env = {
     ...process.env,
     REKORD_USER_CONFIG_DIR: userData,
     KORD_USER_CONFIG_DIR: userData,
     WPP_USER_CONFIG_DIR: userData,
     PORT: String(port),
+    REKORD_STARTUP_TOKEN: startupToken,
     ELECTRON_RUN_AS_NODE: "1",
   }
   appendLaunchLog(`spawn server on ${port} cwd=${cwd}`)
@@ -283,7 +308,7 @@ async function tryStartOnPort(userData, port, useStdio, cwd, script) {
   const exitP = new Promise((resolve) => {
     child.once("exit", (c) => resolve(c))
   })
-  const healthP = waitForHealth(String(port), 45000)
+  const healthP = waitForHealth(String(port), startupToken, 45000)
     .then(() => "ok")
     .catch(() => "health-fail")
   const r = await Promise.race([healthP, exitP.then((code) => ({ exit: code }))])
@@ -298,6 +323,12 @@ async function tryStartOnPort(userData, port, useStdio, cwd, script) {
     } catch {
       /* ok */
     }
+    return false
+  }
+  if (child.exitCode != null) {
+    appendLaunchLog(
+      `server on ${port} rispondeva ma il processo è uscito (exit=${child.exitCode}) — porta occupata?`,
+    )
     return false
   }
   serverChild = child
